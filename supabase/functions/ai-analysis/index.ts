@@ -87,6 +87,7 @@ Deno.serve(async (req: Request) => {
 function buildSystemPrompt(profile: Record<string, unknown> | null): string {
   return `Tu es un entraîneur expert en course à pied et trail running, spécialisé en analyse de performance.
 Tu utilises des principes scientifiques (physiologie de l'effort, zones FC, GAP, nutrition sportive).
+Pour les zones de fréquence cardiaque, utilise impérativement cette base: Z1 <60% FCmax, Z2 60-72% FCmax, Z3 73-82% FCmax, Z4 83-90% FCmax, Z5 >90% FCmax.
 Réponds toujours en JSON valide avec la structure: { summary, insights[], recommendations[], physiological_notes, gap_adjusted_pace }.
 Profil athlète: FC max ${profile?.fc_max ?? 'inconnu'} bpm, seuil lactique ${profile?.lactate_threshold ?? 'inconnu'} bpm, poids ${profile?.weight ?? 'inconnu'} kg.
 Langue: français uniquement.`
