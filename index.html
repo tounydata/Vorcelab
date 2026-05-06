@@ -1195,6 +1195,54 @@ async function renderDashboard() {
     z2Distance7d += dist*(z2Pct/100);
   });
 
+  // Fallback: si pas encore de zone_data en base, calculer sur les derniers streams Strava
+  if(totalTime7d===0) {
+    const token = await getToken();
+    const runs7d = allActivities
+      .filter(a=>isRun(a.type) && new Date(a.start_date) >= sevenDaysAgo)
+      .sort((a,b)=>new Date(b.start_date)-new Date(a.start_date))
+      .slice(0,5);
+
+    if(token && runs7d.length) {
+      for (const act of runs7d) {
+        try {
+          const streams = await fetchStreams(token, act.id);
+          const hr = streams.heartrate?.data||[];
+          const sp = streams.velocity_smooth?.data||[];
+          if(!hr.length) continue;
+          const n = hr.length;
+          let z2Count = 0;
+          let z2SpeedSum = 0;
+          for(let i=0;i<n;i++) {
+            const h = hr[i];
+            const p = h/fcMax;
+            if(p>=0.60 && p<0.70) {
+              z2Count++;
+              if(sp[i]) z2SpeedSum += sp[i];
+            }
+          }
+          const move = act.moving_time||0;
+          const dist = act.distance||0;
+          const z2Ratio = z2Count/n;
+          totalTime7d += move;
+          z2Time7d += move*z2Ratio;
+          z2Distance7d += dist*z2Ratio;
+
+          if(!zoneRows?.some(r=>String(r.id)===String(act.id)) && currentUser && z2Count>0) {
+            const z2Pct = Math.round(z2Ratio*100);
+            const zd = { Z1: 0, Z2: z2Pct, Z3: 0, Z4: 0, Z5: 0 };
+            sb.from('activities_history').upsert({
+              id: String(act.id),
+              user_id: currentUser.id,
+              activity_date: act.start_date?.split('T')[0],
+              zone_data: zd,
+            }, { onConflict: 'id' });
+          }
+        } catch(_) {}
+      }
+    }
+  }
+
   const z2PctTime7d = totalTime7d>0 ? Math.round((z2Time7d/totalTime7d)*100) : null;
   const z2Pace7d = (z2Time7d>0 && z2Distance7d>0) ? fmtP(z2Distance7d/z2Time7d) : null;
 
@@ -3363,8 +3411,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     Renfo
   </button>
 </nav>
-</body>
-</html>
 <div id="toastContainer"></div>
 
 <!-- ══ ONBOARDING ══ -->
