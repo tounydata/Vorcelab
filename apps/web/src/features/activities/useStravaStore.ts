@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { StravaActivity, StravaRefreshResponse } from '@runner-os/shared'
+import type { StravaActivity, StravaRefreshResponse, ZoneData } from '@runner-os/shared'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
@@ -11,6 +11,7 @@ interface StravaState {
   connected: boolean
   athleteName: string | null
   activities: StravaActivity[]
+  zoneData: ZoneData | null
   loading: boolean
   error: string | null
   _lastLoadedAt: number
@@ -24,6 +25,7 @@ export const useStravaStore = create<StravaState>((set, get) => ({
   connected: false,
   athleteName: null,
   activities: [],
+  zoneData: null,
   loading: false,
   error: null,
   _lastLoadedAt: 0,
@@ -60,6 +62,7 @@ export const useStravaStore = create<StravaState>((set, get) => ({
         const activities = (data?.data as StravaActivity[] | null) ?? []
         set({
           activities,
+          zoneData: (data?.zone_data as ZoneData | null) ?? null,
           connected: activities.length > 0,
           loading: false,
           _lastLoadedAt: Date.now(),

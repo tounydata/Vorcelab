@@ -2,10 +2,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 const TABS = [
   { path: '/', label: 'Dashboard', icon: '⊞' },
-  { path: '/activities', label: 'Activités', icon: '↗' },
-  { path: '/calendar', label: 'Courses', icon: '◎' },
-  { path: '/analysis', label: 'Analyse', icon: '◈' },
-  { path: '/profile', label: 'Profil', icon: '◉' },
+  { path: '/calendar', label: 'Calendrier', icon: '◎' },
+  { path: '/activities', label: 'Renfo', icon: '↗' },
 ] as const
 
 export function TabBar() {
