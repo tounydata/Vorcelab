@@ -1170,23 +1170,23 @@ async function renderDashboard() {
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
   const withHR = thisMonth.filter(a=>a.average_heartrate);
   const avgFC = withHR.length ? Math.round(withHR.reduce((s,a)=>s+a.average_heartrate,0)/withHR.length) : null;
-  // % Z2 réel sur 7 jours glissants depuis les streams stockés
+  // % temps Z2 et allure Z2 sur 7 jours glissants (basé activités Strava)
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
-  const {data: zoneRows} = await sb.from('activities_history')
-    .select('zone_data, activity_date')
-    .eq('user_id', currentUser.id)
-    .not('zone_data', 'is', null)
-    .gte('activity_date', sevenDaysAgo.toISOString().split('T')[0]);
-  let z2 = null;
-  if(zoneRows?.length) {
-    const avg = zoneRows.reduce((sum,r)=>sum+(r.zone_data?.Z2||0),0)/zoneRows.length;
-    z2 = Math.round(avg);
-  }
+  const runs7d = allActivities.filter(a=>isRun(a.type) && new Date(a.start_date) >= sevenDaysAgo);
+  const totalTime7d = runs7d.reduce((sum,a)=>sum+(a.moving_time||0),0);
+  const z2Runs7d = runs7d.filter(a=>a.average_heartrate && a.average_heartrate >= fcMax*0.60 && a.average_heartrate < fcMax*0.70);
+  const z2Time7d = z2Runs7d.reduce((sum,a)=>sum+(a.moving_time||0),0);
+  const z2PctTime7d = totalTime7d>0 ? Math.round((z2Time7d/totalTime7d)*100) : null;
+
+  let z2Pace7d = null;
+  const z2WeightedSpeed = z2Runs7d.reduce((sum,a)=>sum+((a.average_speed||0)*(a.moving_time||0)),0);
+  if(z2Time7d>0 && z2WeightedSpeed>0) z2Pace7d = fmtP(z2WeightedSpeed/z2Time7d);
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    ${z2!==null?`<div class="s-stat"><div class="s-sv tc">${z2}%</div><div class="s-sl">% Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">streams réels</div></div>`:''}
+    ${z2PctTime7d!==null?`<div class="s-stat"><div class="s-sv tc">${z2PctTime7d}%</div><div class="s-sl">Temps en Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">60-70% FCmax</div></div>`:''}
+    ${z2Pace7d?`<div class="s-stat"><div class="s-sv">${z2Pace7d}</div><div class="s-sl">Allure Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">moyenne pondérée</div></div>`:''}
   `;
 
   // Annual chart
@@ -3320,19 +3320,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 <!-- ══ TOAST CONTAINER ══ -->
-  <button class="tab-btn nbtn active" onclick="showPanel('dashboard',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Dashboard
-  </button>
-  <button class="tab-btn nbtn" onclick="showPanel('calendrier',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Courses
-  </button>
-  <button class="tab-btn nbtn" onclick="showPanel('renfo',this)">
-    <svg viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M6 12h12M3 7h3M18 7h3M3 17h3M18 17h3"/></svg>
-    Renfo
-  </button>
-</nav>
 
 
 <!-- ══ BOTTOM TAB BAR ══ -->
