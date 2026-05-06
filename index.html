@@ -1183,11 +1183,14 @@ async function renderDashboard() {
   const z2WeightedSpeed = z2Runs7d.reduce((sum,a)=>sum+((a.average_speed||0)*(a.moving_time||0)),0);
   if(z2Time7d>0 && z2WeightedSpeed>0) z2Pace7d = fmtP(z2WeightedSpeed/z2Time7d);
 
+  const z2PctLabel = z2PctTime7d===null ? '0%' : `${z2PctTime7d}%`;
+  const z2PaceLabel = z2Pace7d || '—';
+
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    <div class="s-stat"><div class="s-sv tc">${z2PctTime7d!==null?`${z2PctTime7d}%`:'0%'}</div><div class="s-sl">Temps en Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">60-70% FCmax</div></div>
-    <div class="s-stat"><div class="s-sv">${z2Pace7d||'—'}</div><div class="s-sl">Allure Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">moyenne pondérée</div></div>
+    <div class="s-stat"><div class="s-sv tc">${z2PctLabel}</div><div class="s-sl">Temps en Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">60-70% FCmax</div></div>
+    <div class="s-stat"><div class="s-sv">${z2PaceLabel}</div><div class="s-sl">Allure Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">moyenne pondérée</div></div>
   `;
 
   // Annual chart
