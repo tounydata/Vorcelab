@@ -791,7 +791,7 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co';
 const SUPA_KEY = 'sb_publishable_6DuMJb6hw_CTxMpd3-MXpw_xQKhS0Oy';
 const CLIENT_ID = '161609';
-// CLIENT_SECRET removed — handled by Edge Function strava-auth
+// CLIENT_SECRET removed — handled by Edge Functions strava-oauth/strava-refresh
 const REDIRECT_URI = 'https://tounydata.github.io/runner-data/';
 const FC_MAX_DEFAULT = 205;
 const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
@@ -1035,7 +1035,7 @@ function connectStrava() {
 }
 
 async function exchangeCode(code) {
-  const r = await fetch(`${SUPA_URL}/functions/v1/strava-auth`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'authorization_code',code})});
+  const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'authorization_code',code})});
   const d = await r.json();
   if (d.access_token) { localStorage.setItem('s_token',d.access_token); localStorage.setItem('s_refresh',d.refresh_token); localStorage.setItem('s_expires',d.expires_at); localStorage.setItem('s_athlete',JSON.stringify(d.athlete||{})); return d.access_token; }
   return null;
@@ -1046,7 +1046,7 @@ async function getToken() {
   if (t && Date.now()/1000 < exp-300) return t;
   const ref=localStorage.getItem('s_refresh'); if(!ref) return null;
   try {
-    const r=await fetch(`${SUPA_URL}/functions/v1/strava-auth`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:ref})});
+    const r=await fetch(`${SUPA_URL}/functions/v1/strava-refresh`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:ref})});
     const d=await r.json();
     if(d.access_token){localStorage.setItem('s_token',d.access_token);localStorage.setItem('s_refresh',d.refresh_token||ref);localStorage.setItem('s_expires',d.expires_at);return d.access_token;}
   } catch(e){}
@@ -1170,23 +1170,48 @@ async function renderDashboard() {
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
   const withHR = thisMonth.filter(a=>a.average_heartrate);
   const avgFC = withHR.length ? Math.round(withHR.reduce((s,a)=>s+a.average_heartrate,0)/withHR.length) : null;
-  // % Z2 réel sur 7 jours glissants depuis les streams stockés
+  // % temps Z2 et allure Z2 sur 7 jours glissants (basé streams stockés)
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
   const {data: zoneRows} = await sb.from('activities_history')
-    .select('zone_data, activity_date')
+    .select('id, zone_data, activity_date')
     .eq('user_id', currentUser.id)
     .not('zone_data', 'is', null)
     .gte('activity_date', sevenDaysAgo.toISOString().split('T')[0]);
-  let z2 = null;
-  if(zoneRows?.length) {
-    const avg = zoneRows.reduce((sum,r)=>sum+(r.zone_data?.Z2||0),0)/zoneRows.length;
-    z2 = Math.round(avg);
-  }
+
+  const actById = new Map(allActivities.map(a=>[String(a.id), a]));
+  let totalTime7d = 0;
+  let z2Time7d = 0;
+  let z2Distance7d = 0;
+
+  (zoneRows||[]).forEach(r=>{
+    const act = actById.get(String(r.id));
+    if(!act) return;
+    const move = act.moving_time||0;
+    const dist = act.distance||0;
+    const z2Pct = Math.max(0, Math.min(100, r.zone_data?.Z2||0));
+    totalTime7d += move;
+    z2Time7d += move*(z2Pct/100);
+    z2Distance7d += dist*(z2Pct/100);
+  });
+
+  const z2PctTime7d = totalTime7d>0 ? Math.round((z2Time7d/totalTime7d)*100) : null;
+  const z2Pace7d = (z2Time7d>0 && z2Distance7d>0) ? fmtP(z2Distance7d/z2Time7d) : null;
+
+  const z2PctLabel = z2PctTime7d===null ? '—' : `${z2PctTime7d}%`;
+  const z2PaceLabel = z2Pace7d || '—';
+
+  const withSpeed = thisMonth.filter(a=>a.average_speed);
+  const avgPaceMonth = withSpeed.length ? fmtP(withSpeed.reduce((sum,a)=>sum+(a.average_speed||0),0)/withSpeed.length) : '—';
+  const longestRun = thisMonth.reduce((max,a)=>Math.max(max,a.distance||0),0);
+  const longestRunLabel = longestRun>0 ? `${(longestRun/1000).toFixed(1)} km` : '—';
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    ${z2!==null?`<div class="s-stat"><div class="s-sv tc">${z2}%</div><div class="s-sl">% Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">streams réels</div></div>`:''}
+    <div class="s-stat"><div class="s-sv tc">${z2PctLabel}</div><div class="s-sl">Temps en Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">streams analysés</div></div>
+    <div class="s-stat"><div class="s-sv">${z2PaceLabel}</div><div class="s-sl">Allure Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">pondérée par temps Z2</div></div>
+    <div class="s-stat"><div class="s-sv">${avgPaceMonth}</div><div class="s-sl">Allure moy mois</div></div>
+    <div class="s-stat"><div class="s-sv">${longestRunLabel}</div><div class="s-sl">Sortie la + longue</div></div>
   `;
 
   // Annual chart
@@ -1495,7 +1520,9 @@ async function openAnalyse(actOrId) {
   const aiText = await generateAIAnalysis(act, streams, gap);
   const aiBox = document.getElementById('aiBox');
   if (aiBox) {
-    aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div><div class="ai-text">${aiText}</div>`;
+    aiBox.innerHTML = '<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div><div class="ai-text" id="aiTextContent"></div>';
+    const aiTextNode = document.getElementById('aiTextContent');
+    if (aiTextNode) aiTextNode.textContent = aiText;
   }
 }
 
@@ -1824,9 +1851,9 @@ function renderRaces() {
     const color=diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
     const hasGpx=!!next.gpx_data;
     nextWidget.innerHTML=`<div class="next-race-big">
-      <div class="next-race-num" style="color:${color}">${diff}</div>
-      <div class="next-race-unit">jours</div>
-      <div style="font-weight:600;font-size:.9rem;margin-bottom:3px">${next.name}</div>
+      <div style="font-family:var(--display);font-size:2.1rem;letter-spacing:.02em;line-height:1;margin-bottom:.5rem">${next.name}</div>
+      <div class="next-race-num" style="color:${color};font-size:2.6rem">J-${diff}</div>
+      <div class="next-race-unit">compte à rebours</div>
       <div class="mono t2">${next.distance||'?'}km · D+${next.elevation||'?'}m · ${next.type}</div>
       ${next.goal_time?`<div class="mono" style="color:${color};margin-top:4px">🎯 ${next.goal_time}</div>`:''}
       ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green);margin-top:6px;display:inline-block">✓ GPX</span>`:''}
@@ -3318,19 +3345,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 <!-- ══ TOAST CONTAINER ══ -->
-  <button class="tab-btn nbtn active" onclick="showPanel('dashboard',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Dashboard
-  </button>
-  <button class="tab-btn nbtn" onclick="showPanel('calendrier',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Courses
-  </button>
-  <button class="tab-btn nbtn" onclick="showPanel('renfo',this)">
-    <svg viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M6 12h12M3 7h3M18 7h3M3 17h3M18 17h3"/></svg>
-    Renfo
-  </button>
-</nav>
 
 
 <!-- ══ BOTTOM TAB BAR ══ -->
