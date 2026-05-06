@@ -19,10 +19,12 @@ export function TabBar() {
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 200,
+        minHeight: 60,
+        zIndex: 999,
         background: 'rgba(6,8,16,.85)',
         backdropFilter: 'blur(20px)',
         borderTop: '1px solid var(--border2)',
+        boxShadow: '0 -8px 24px rgba(0,0,0,.35)',
         display: 'flex',
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
       }}
