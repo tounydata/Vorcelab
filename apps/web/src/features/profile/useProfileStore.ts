@@ -45,12 +45,12 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() })
+        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() } as { id: string; updated_at: string })
         .select()
         .single()
 
       if (error) throw error
-      set({ profile: data, loading: false })
+      set({ profile: data as unknown as Profile, loading: false })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur de sauvegarde'
       logger.error('Failed to update profile', { message })

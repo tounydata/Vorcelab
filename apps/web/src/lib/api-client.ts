@@ -19,9 +19,8 @@ export async function invokeFunction<TBody, TResponse>(
 
   return withRetry(
     async () => {
-      const response = await supabase.functions.invoke<TResponse>(name, {
-        body: body ?? undefined,
-      })
+      const invokeOpts = body !== undefined ? { body: body as Record<string, unknown> } : {}
+      const response = await supabase.functions.invoke<TResponse>(name, invokeOpts)
       if (response.error) {
         const msg: string =
           (response.error as { message?: string }).message ?? 'Unknown function error'
