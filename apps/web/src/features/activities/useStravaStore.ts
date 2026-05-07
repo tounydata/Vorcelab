@@ -1,9 +1,12 @@
 import { create } from 'zustand'
-import type { StravaActivity, StravaRefreshResponse, ZoneData } from '@runner-os/shared'
+import type { StravaActivity, StravaSyncResponse } from '@runner-os/shared'
+import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
 import { env } from '@/config/env'
+
+type StravaActivityRow = Database['public']['Tables']['strava_activities']['Row']
 
 interface StravaState {
   connected: boolean
@@ -71,7 +74,8 @@ export const useStravaStore = create<StravaState>((set, get) => ({
 
       if (error) throw error
 
-      const activities: StravaActivity[] = (data ?? []).map((row) => {
+      const rows = (activitiesData ?? []) as StravaActivityRow[]
+      const activities: StravaActivity[] = rows.map((row) => {
         const base = {
           id: Number(row.strava_activity_id),
           name: row.name ?? '',
