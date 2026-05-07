@@ -1,13 +1,17 @@
 const STATIC_ORIGINS = new Set([
   'https://runner-os.com',
   'https://www.runner-os.com',
+  'https://tounydata.github.io',
   'http://localhost:5173',
   'http://localhost:4173',
 ])
 
 function normalizeOrigin(value: string): string | null {
   const trimmed = value.trim()
-  if (!trimmed) return null
+
+  if (!trimmed) {
+    return null
+  }
 
   try {
     return new URL(trimmed).origin
@@ -22,12 +26,20 @@ const dynamicOrigins: string[] = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
   .filter((o): o is string => Boolean(o))
 
 function resolveOrigin(requestOrigin: string | null): string {
-  if (!requestOrigin) return 'http://localhost:5173'
+  if (!requestOrigin) {
+    return 'http://localhost:5173'
+  }
 
   const normalizedRequestOrigin = normalizeOrigin(requestOrigin)
-  if (!normalizedRequestOrigin) return 'http://localhost:5173'
 
-  if (STATIC_ORIGINS.has(normalizedRequestOrigin) || dynamicOrigins.includes(normalizedRequestOrigin)) {
+  if (!normalizedRequestOrigin) {
+    return 'http://localhost:5173'
+  }
+
+  if (
+    STATIC_ORIGINS.has(normalizedRequestOrigin) ||
+    dynamicOrigins.includes(normalizedRequestOrigin)
+  ) {
     return normalizedRequestOrigin
   }
 
@@ -53,6 +65,7 @@ export const corsHeaders: Record<string, string> = getCorsHeaders(null)
 
 export function handleCors(req?: Request): Response {
   const origin = req?.headers.get('origin') ?? null
+
   return new Response(null, {
     status: 204,
     headers: getCorsHeaders(origin),
