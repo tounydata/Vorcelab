@@ -336,9 +336,9 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
 <div id="appShell">
 <header>
-  <div class="logo" style="cursor:pointer" onclick="openProfil()">
-    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0">AO</div>
-    <div><div class="logo-name" id="headerName" style="font-size:.75rem;font-weight:600;color:var(--text)">Runner OS</div></div>
+  <div class="logo" style="cursor:pointer" onclick="showPanel('dashboard',document.querySelector('.nbtn'))">
+    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()">AO</div>
+    <div onclick="event.stopPropagation();openProfil()"><div class="logo-name" id="headerName" style="font-size:.75rem;font-weight:600;color:var(--text)">Runner OS</div></div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="strava-pill"><div class="dot dot-off" id="statusDot"></div><span id="statusText">Strava</span></div>
@@ -398,7 +398,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
   <div id="dashContent" style="display:none">
 
-```
 <!-- STRIP -->
 <div class="strip">
   <div class="scell"><div class="sval tg" id="s-km-month">—</div><div class="slbl">km / mois</div><div class="sdelta" id="s-km-month-delta"></div></div>
@@ -417,28 +416,11 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
     <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
   </div>
 
-  <!-- PROCHAINE COURSE + CALENDRIER -->
-  <div style="display:flex;flex-direction:column;gap:14px">
-    <div class="card">
-      <div class="clabel">Prochaine course</div>
-      <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
-    </div>
-    <div class="card">
-      <div class="clabel">Calendrier courses</div>
-      <div class="race-list" id="raceList"><div class="mono t3">Aucune course planifiée</div></div>
-      <div class="add-race-btn mt2" onclick="toggleRaceForm()">+ Ajouter une course</div>
-      <div class="race-form" id="raceForm">
-        <div class="race-form-grid">
-          <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
-          <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
-          <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
-          <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
-          <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
-          <div class="fg"><label class="fl">Objectif</label><input class="fi" id="rGoal" placeholder=""></div>
-        </div>
-        <button class="save-btn" onclick="saveRace()">Enregistrer</button>
-      </div>
-    </div>
+  <!-- PROCHAINE COURSE -->
+  <div class="card">
+    <div class="clabel">Prochaine course</div>
+    <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
+    <div class="mono t3" style="font-size:.58rem;margin-top:8px">Gère tes courses dans <span style="color:var(--cyan);cursor:pointer" onclick="showPanel('strategie',document.querySelector('.nbtn[onclick*=strategie]'))">Stratégie Course →</span></div>
   </div>
 </div>
 
@@ -450,7 +432,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   </div>
   <div class="acts-grid" id="actsGrid"></div>
 </div>
-```
 
   </div><!-- end dashContent -->
 </div>
@@ -462,10 +443,27 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
     <div class="stitle">Stratégie Course</div>
     <div class="mono t2 mt1" style="margin-bottom:1.25rem">Upload un GPX ou associe une course de ton calendrier</div>
 
-```
+<!-- Calendrier courses -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Mes courses</div>
+  <div class="race-list" id="raceList"><div class="mono t3">Aucune course planifiée</div></div>
+  <div class="add-race-btn mt2" onclick="toggleRaceForm()">+ Ajouter une course</div>
+  <div class="race-form" id="raceForm">
+    <div class="race-form-grid">
+      <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
+      <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
+      <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
+      <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
+      <div class="fg"><label class="fl">Objectif temps</label><input class="fi" id="rGoal" placeholder="ex: 4h30"></div>
+    </div>
+    <button class="save-btn" onclick="saveRace()">Enregistrer</button>
+  </div>
+</div>
+
 <!-- Race selector from calendar -->
 <div id="raceSelector" style="display:none;margin-bottom:1rem">
-  <div class="clabel">Course du calendrier</div>
+  <div class="clabel">Associer à une course</div>
   <div id="raceSelectorList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
 </div>
 
@@ -479,7 +477,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
 </div>
 <input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="handleGpxFile(event)">
-```
 
   </div>
   <div id="stratResult" style="display:none"></div>
@@ -515,7 +512,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
             </style>
           </defs>
 
-```
       <!-- SILHOUETTE DE BASE (fond) -->
       <!-- Tête -->
       <ellipse cx="100" cy="28" rx="19" ry="22" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
@@ -604,7 +600,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
     </div>
   </div>
 </div>
-```
 
   </div>
 
@@ -647,7 +642,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
       <button onclick="closeProfil()" class="hbtn">✕ Fermer</button>
     </div>
 
-```
 <!-- AVATAR + COMPTE -->
 <div class="card" style="margin-bottom:1rem">
   <div class="clabel">Compte</div>
@@ -774,7 +768,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   <button class="save-btn" onclick="saveNutritionProducts()">💾 Sauvegarder mes produits</button>
   <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
 </div>
-```
 
   </div>
 </div>
@@ -794,7 +787,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
     </div>
     <button onclick="closeSectionPopup()" class="hbtn" style="position:absolute;top:1.5rem;right:1.5rem">✕</button>
 
-```
 <!-- Mini carte -->
 <div id="sectionMap" style="height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2);margin-bottom:1rem"></div>
 
@@ -809,7 +801,6 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
 <!-- Conseils -->
 <div id="sectionPopupAdvice" class="card"></div>
-```
 
   </div>
 </div>
@@ -1329,10 +1320,11 @@ Donne une analyse courte incluant: qualité de l'effort, gestion FC, point fort 
       },
       body:JSON.stringify({prompt})
     });
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     return data.text || 'Analyse non disponible.';
   } catch(e) {
-    return 'Limite Groq atteinte — réessaie dans 1 minute.';
+    return 'Analyse IA non disponible — la fonction n\'est pas encore déployée sur ce projet.';
   }
 }
 
@@ -2540,16 +2532,16 @@ function buildSplitsTable(kmSecs, basePaceS){
   const fcMax=userProfile.fc_max||205;
   const pct88=Math.round(fcMax*.88),pct84=Math.round(fcMax*.84),pct79=Math.round(fcMax*.79);
   let cumTime=0,rows='';
-  kmSecs.forEach(s=>{
+  kmSecs.filter(s=>s!=null&&s.km!=null&&s.grade!=null).forEach(s=>{
     const grade=s.grade/100;
     let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
-    const distKm=s.dist/1000;
+    const distKm=(s.dist||0)/1000;
     const secTime=basePaceS*(1+pen)*distKm;
     cumTime+=secTime;
     const type=s.grade>4?'up':s.grade<-4?'down':'flat';
     const fc={up:`< ${Math.abs(s.grade)>10?pct84:pct88} bpm`,down:'Libre',flat:`< ${pct79} bpm`}[type];
     const conseil={up:Math.abs(s.grade)>10?'Marche active':'Courir régulier',down:'Foulées courtes',flat:'Récup'}[type];
-    rows+=`<tr class="section-${type}"><td class="mono">${s.startKm}→${s.km.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
+    rows+=`<tr class="section-${type}"><td class="mono">${(s.startKm??0).toFixed(1)}→${s.km.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
   });
   return rows;
 }
@@ -3205,7 +3197,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:2.5rem;max-width:480px;width:100%;text-align:center">
     <div class="onb-dots" id="onbDots"></div>
 
-```
 <div class="onb-step active" id="onb-0">
   <div class="onb-icon">👋</div>
   <div class="onb-title">Bienvenue sur Runner OS</div>
@@ -3246,7 +3237,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 <div style="margin-top:.75rem">
   <button onclick="closeOnboarding()" style="background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:.6rem;cursor:pointer">Passer →</button>
 </div>
-```
 
   </div>
 </div>
@@ -3260,7 +3250,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       <button onclick="closeCGU()" class="hbtn">✕</button>
     </div>
 
-```
 <div style="font-size:.82rem;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:70vh">
   <div class="clabel" style="margin-bottom:.5rem">1. Objet</div>
   <p style="margin-bottom:1rem">Runner OS est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
@@ -3290,7 +3279,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   <div class="clabel" style="margin-bottom:.5rem">7. Contact</div>
   <p>Pour toute question : <a href="mailto:tony.bollecker@hotmail.fr" style="color:var(--cyan)">tony.bollecker@hotmail.fr</a></p>
 </div>
-```
 
   </div>
 </div>
