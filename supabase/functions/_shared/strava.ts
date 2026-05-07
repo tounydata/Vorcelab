@@ -9,7 +9,7 @@ const STRAVA_DEAUTH_URL = 'https://www.strava.com/oauth/deauthorize'
 
 export async function getValidStravaAccessToken(
   supabase: ReturnType<typeof createClient>,
-  userId: string,
+  userId: string
 ): Promise<string> {
   const { data: row, error } = await supabase
     .from('strava_tokens')
@@ -29,7 +29,7 @@ export async function getValidStravaAccessToken(
 export async function refreshStravaToken(
   supabase: ReturnType<typeof createClient>,
   userId: string,
-  currentRefreshToken: string,
+  currentRefreshToken: string
 ): Promise<string> {
   const clientId = Deno.env.get('STRAVA_CLIENT_ID')!
   const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')!
@@ -50,7 +50,7 @@ export async function refreshStravaToken(
     throw new Error(`Strava token refresh failed: ${res.status} ${body}`)
   }
 
-  const data = await res.json() as {
+  const data = (await res.json()) as {
     access_token: string
     refresh_token: string
     expires_at: number
@@ -105,7 +105,7 @@ export async function fetchStravaActivitiesPage(
   accessToken: string,
   page: number,
   perPage = 200,
-  after?: number,
+  after?: number
 ): Promise<StravaRawActivity[]> {
   const url = new URL(STRAVA_ACTIVITIES_URL)
   url.searchParams.set('page', String(page))
@@ -126,7 +126,7 @@ export async function fetchStravaActivitiesPage(
 
 export async function fetchStravaActivityById(
   accessToken: string,
-  activityId: number | bigint,
+  activityId: number | bigint
 ): Promise<StravaRawActivity> {
   const res = await fetch(`${STRAVA_ACTIVITY_URL}/${activityId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -151,7 +151,7 @@ export async function syncStravaActivitiesForUser(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   accessToken: string,
-  options: SyncOptions = {},
+  options: SyncOptions = {}
 ): Promise<number> {
   const { data: tokenRow } = await supabase
     .from('strava_tokens')
@@ -201,38 +201,36 @@ export async function upsertStravaActivity(
   supabase: ReturnType<typeof createClient>,
   userId: string,
   act: StravaRawActivity,
-  athleteId?: number,
+  athleteId?: number
 ): Promise<void> {
-  const { error } = await supabase
-    .from('strava_activities')
-    .upsert(
-      {
-        user_id: userId,
-        strava_activity_id: act.id,
-        strava_athlete_id: athleteId ?? act.athlete?.id,
-        name: act.name,
-        type: act.type,
-        sport_type: act.sport_type,
-        start_date: act.start_date,
-        start_date_local: act.start_date_local,
-        timezone: act.timezone,
-        distance: act.distance,
-        moving_time: act.moving_time,
-        elapsed_time: act.elapsed_time,
-        total_elevation_gain: act.total_elevation_gain,
-        average_speed: act.average_speed,
-        max_speed: act.max_speed,
-        average_heartrate: act.average_heartrate ?? null,
-        max_heartrate: act.max_heartrate ?? null,
-        average_cadence: act.average_cadence ?? null,
-        calories: act.calories ?? null,
-        suffer_score: act.suffer_score ?? null,
-        raw_data: act as unknown as Record<string, unknown>,
-        synced_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,strava_activity_id' },
-    )
+  const { error } = await supabase.from('strava_activities').upsert(
+    {
+      user_id: userId,
+      strava_activity_id: act.id,
+      strava_athlete_id: athleteId ?? act.athlete?.id,
+      name: act.name,
+      type: act.type,
+      sport_type: act.sport_type,
+      start_date: act.start_date,
+      start_date_local: act.start_date_local,
+      timezone: act.timezone,
+      distance: act.distance,
+      moving_time: act.moving_time,
+      elapsed_time: act.elapsed_time,
+      total_elevation_gain: act.total_elevation_gain,
+      average_speed: act.average_speed,
+      max_speed: act.max_speed,
+      average_heartrate: act.average_heartrate ?? null,
+      max_heartrate: act.max_heartrate ?? null,
+      average_cadence: act.average_cadence ?? null,
+      calories: act.calories ?? null,
+      suffer_score: act.suffer_score ?? null,
+      raw_data: act as unknown as Record<string, unknown>,
+      synced_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,strava_activity_id' }
+  )
 
   if (error) throw new Error(`upsertStravaActivity failed: ${error.message}`)
 }

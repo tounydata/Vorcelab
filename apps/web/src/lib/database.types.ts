@@ -50,7 +50,7 @@ export interface Database {
           pain_zones?: string[] | null
           goals?: string | null
           prs?: Record<string, string | undefined> | null
-          nutrition_products?: Json[] | null
+          nutrition_products?: unknown
           avatar_url?: string | null
           updated_at?: string
         }
@@ -71,7 +71,7 @@ export interface Database {
           pain_zones?: string[] | null
           goals?: string | null
           prs?: Record<string, string | undefined> | null
-          nutrition_products?: Json[] | null
+          nutrition_products?: unknown
           avatar_url?: string | null
           updated_at?: string
         }
@@ -122,7 +122,7 @@ export interface Database {
           goal_time?: string | null
           gpx_data?: string | null
           strava_activity_id?: number | null
-          athlete_profile?: Json | null
+          athlete_profile?: unknown
         }
         Update: {
           user_id?: string
@@ -134,7 +134,7 @@ export interface Database {
           goal_time?: string | null
           gpx_data?: string | null
           strava_activity_id?: number | null
-          athlete_profile?: Json | null
+          athlete_profile?: unknown
         }
         Relationships: []
       }

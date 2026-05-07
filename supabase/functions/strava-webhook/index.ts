@@ -11,7 +11,7 @@ import {
 Deno.serve(async (req: Request) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
   // ── GET: Webhook subscription validation ─────────────────────────────────
@@ -25,10 +25,10 @@ Deno.serve(async (req: Request) => {
 
     if (mode === 'subscribe' && verifyToken === expectedToken && challenge) {
       // Strava requires this exact response format
-      return new Response(
-        JSON.stringify({ 'hub.challenge': challenge }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      )
+      return new Response(JSON.stringify({ 'hub.challenge': challenge }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response('Forbidden', { status: 403 })
@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
       .then(() => {
         // Process in background after responding
         processWebhookEvent(supabase, event).catch((e) =>
-          console.error('Webhook processing error:', (e as Error).message),
+          console.error('Webhook processing error:', (e as Error).message)
         )
       })
       .catch((e) => console.error('Webhook insert error:', (e as Error).message))
@@ -91,7 +91,7 @@ async function processWebhookEvent(
     owner_id: number
     subscription_id: number
     event_time: number
-  },
+  }
 ): Promise<void> {
   if (event.object_type !== 'activity') return
 

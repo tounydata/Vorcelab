@@ -12,7 +12,7 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await requireAuth(req)
 
-    const body = await req.json() as { code?: string; scope?: string; state?: string }
+    const body = (await req.json()) as { code?: string; scope?: string; state?: string }
     const { code, scope = '' } = body
 
     if (!code || typeof code !== 'string' || code.length === 0) {
@@ -59,27 +59,25 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
     // Upsert strava_tokens — keyed on user_id
-    const { error: upsertError } = await supabase
-      .from('strava_tokens')
-      .upsert(
-        {
-          user_id: user.id,
-          strava_athlete_id: athlete.id,
-          access_token,
-          refresh_token,
-          expires_at,
-          scope,
-          athlete_firstname: athlete.firstname,
-          athlete_lastname: athlete.lastname,
-          athlete_avatar: athlete.profile_medium,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      )
+    const { error: upsertError } = await supabase.from('strava_tokens').upsert(
+      {
+        user_id: user.id,
+        strava_athlete_id: athlete.id,
+        access_token,
+        refresh_token,
+        expires_at,
+        scope,
+        athlete_firstname: athlete.firstname,
+        athlete_lastname: athlete.lastname,
+        athlete_avatar: athlete.profile_medium,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
 
     if (upsertError) {
       console.error('strava_tokens upsert error:', upsertError.message)
@@ -87,8 +85,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Initial sync — run in background, don't block OAuth response
-    syncStravaActivitiesForUser(supabase, user.id, access_token, { full: true })
-      .catch((e) => console.error('Initial sync error:', (e as Error).message))
+    syncStravaActivitiesForUser(supabase, user.id, access_token, { full: true }).catch((e) =>
+      console.error('Initial sync error:', (e as Error).message)
+    )
 
     return new Response(
       JSON.stringify({
@@ -101,7 +100,7 @@ Deno.serve(async (req: Request) => {
         },
         scope,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

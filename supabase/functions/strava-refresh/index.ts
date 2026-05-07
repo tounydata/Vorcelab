@@ -12,7 +12,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
     // Check if user has a Strava connection
@@ -23,15 +23,15 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (!tokenRow) {
-      return new Response(
-        JSON.stringify({ connected: false }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
+      return new Response(JSON.stringify({ connected: false }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const accessToken = await getValidStravaAccessToken(supabase, user.id)
 
-    const body = await req.json().catch(() => ({})) as { full?: boolean }
+    const body = (await req.json().catch(() => ({}))) as { full?: boolean }
     const synced = await syncStravaActivitiesForUser(supabase, user.id, accessToken, {
       full: body.full === true,
     })
@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
         synced,
         last_sync_at: (updated?.last_sync_at as string) ?? new Date().toISOString(),
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

@@ -35,10 +35,9 @@ export function StravaCallbackPage() {
       }
 
       try {
-        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>(
-          'strava-oauth',
-          { body: { code, scope } },
-        )
+        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>('strava-oauth', {
+          body: { code, scope },
+        })
         setStatus('success')
         // Clean URL, redirect after short delay so user sees success
         window.history.replaceState({}, '', '/activities')

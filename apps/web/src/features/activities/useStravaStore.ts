@@ -5,14 +5,6 @@ import { invokeFunction } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
 import { env } from '@/config/env'
 
-interface StravaConnectionInfo {
-  athlete_firstname: string | null
-  athlete_lastname: string | null
-  athlete_avatar: string | null
-  last_sync_at: string | null
-  scope: string | null
-}
-
 interface StravaState {
   connected: boolean
   athleteName: string | null
@@ -64,6 +56,31 @@ export const useStravaStore = create<StravaState>((set, get) => ({
     }
   },
 
+  loadConnectionStatus: async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('strava_tokens')
+        .select('athlete_firstname, athlete_lastname, athlete_avatar, last_sync_at, scope')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (data) {
+        const name = [data.athlete_firstname, data.athlete_lastname].filter(Boolean).join(' ')
+        set({ connected: true, athleteName: name || null })
+      } else {
+        set({ connected: false, athleteName: null })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur de statut Strava'
+      logger.error('Failed to load Strava connection status', { message })
+    }
+  },
+
   loadActivities: async () => {
     set({ loading: true, error: null })
     try {
@@ -103,7 +120,9 @@ export const useStravaStore = create<StravaState>((set, get) => ({
         // exactOptionalPropertyTypes: only spread optional props when the value exists
         return {
           ...base,
-          ...(row.average_heartrate != null && { average_heartrate: Number(row.average_heartrate) }),
+          ...(row.average_heartrate != null && {
+            average_heartrate: Number(row.average_heartrate),
+          }),
           ...(row.max_heartrate != null && { max_heartrate: Number(row.max_heartrate) }),
           ...(row.average_cadence != null && { average_cadence: Number(row.average_cadence) }),
           ...(row.suffer_score != null && { suffer_score: Number(row.suffer_score) }),

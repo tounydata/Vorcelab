@@ -41,10 +41,7 @@ export type {
 } from './types/analysis.js'
 
 // Schemas
-export {
-  stravaOAuthBodySchema,
-  stravaSyncOptionsSchema,
-} from './schemas/strava.schema.js'
+export { stravaOAuthBodySchema, stravaSyncOptionsSchema } from './schemas/strava.schema.js'
 export type { StravaOAuthBody, StravaSyncOptions } from './schemas/strava.schema.js'
 export { raceInsertSchema, raceUpdateSchema } from './schemas/race.schema.js'
 export {
