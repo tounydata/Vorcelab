@@ -59,7 +59,7 @@ export const useStravaStore = create<StravaState>((set, get) => ({
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      const { data, error } = await supabase
+      const { data: activitiesData, error } = await supabase
         .from('strava_activities')
         .select('*')
         .eq('user_id', user.id)
@@ -69,7 +69,7 @@ export const useStravaStore = create<StravaState>((set, get) => ({
 
       if (error) throw error
 
-      const activities: StravaActivity[] = (data ?? []).map((row) => {
+      const activities: StravaActivity[] = (activitiesData ?? []).map((row) => {
         const base = {
           id: Number(row.strava_activity_id),
           name: row.name ?? '',
@@ -86,11 +86,10 @@ export const useStravaStore = create<StravaState>((set, get) => ({
           achievement_count: 0,
           kudos_count: 0,
         }
+
         return {
           ...base,
-          ...(row.average_heartrate != null && {
-            average_heartrate: Number(row.average_heartrate),
-          }),
+          ...(row.average_heartrate != null && { average_heartrate: Number(row.average_heartrate) }),
           ...(row.max_heartrate != null && { max_heartrate: Number(row.max_heartrate) }),
           ...(row.average_cadence != null && { average_cadence: Number(row.average_cadence) }),
           ...(row.suffer_score != null && { suffer_score: Number(row.suffer_score) }),
@@ -98,43 +97,27 @@ export const useStravaStore = create<StravaState>((set, get) => ({
         }
       })
 
-    const request = (async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+      const { data: historyData, error: historyError } = await supabase
+        .from('activities_history')
+        .select('zone_data')
+        .eq('user_id', user.id)
+        .order('imported_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-        if (!user) throw new Error('Not authenticated')
+      if (historyError) throw historyError
 
-        const { data, error } = await supabase
-          .from('activities_history')
-          .select('data, zone_data')
-          .eq('user_id', user.id)
-          .order('imported_at', { ascending: false })
-          .limit(1)
-          .single()
-
-        if (error && error.code !== 'PGRST116') throw error
-
-        const activities = (data?.data as StravaActivity[] | null) ?? []
-        set({
-          activities,
-          zoneData: (data?.zone_data as ZoneData | null) ?? null,
-          connected: activities.length > 0,
-          loading: false,
-          _lastLoadedAt: Date.now(),
-        })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erreur de chargement'
-        logger.error('Failed to load activities', { message })
-        set({ error: message, loading: false })
-      } finally {
-        set({ _inFlightLoad: null })
-      }
-    })()
-
-    set({ _inFlightLoad: request })
-    return request
+      set({
+        activities,
+        zoneData: (historyData?.zone_data as ZoneData | null) ?? null,
+        connected: activities.length > 0,
+        loading: false,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur de chargement'
+      logger.error('Failed to load activities', { message })
+      set({ error: message, loading: false })
+    }
   },
 
   connectStrava: () => {
@@ -158,7 +141,7 @@ export const useStravaStore = create<StravaState>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      await invokeFunction<Record<string, never>, StravaSyncResponse>('strava-refresh', {})
+      await invokeFunction<Record<string, never>, StravaRefreshResponse>('strava-refresh', {})
       await get().loadActivities()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur de rafraîchissement'
