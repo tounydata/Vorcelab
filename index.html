@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AO — Runner Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -677,6 +678,7 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
       <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
     </div>
     <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
+    <div class="fg mt2"><label class="fl">Zones douloureuses</label><div class="pain-grid" id="painGrid"></div></div>
     <button class="save-btn" onclick="saveProfile()">💾 Sauvegarder</button>
     <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
   </div>
@@ -810,10 +812,9 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 // CONFIG
 // ════════════════════════════════════════════════════
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co';
-const SUPA_KEY = 'sb_publishable_6DuMJb6hw_CTxMpd3-MXpw_xQKhS0Oy';
-const CLIENT_ID = '161609';
-const CLIENT_SECRET = '25c5baca7486db776c4d1d8b7e0bcc6ba2fe5b71';
-const REDIRECT_URI = 'https://tounydata.github.io/runner-data/';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indhbnpya2RncW1jY3R3dm5ibXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjYyNjksImV4cCI6MjA5MzAwMjI2OX0.sSjZ956YRpSpCFxDrYDntTvIGHnmVEbe3JDsjTJsze4';
+const CLIENT_ID = '161609'; // Strava Client ID — public, safe in frontend
+const REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/`;
 const FC_MAX_DEFAULT = 205;
 const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
 
@@ -1042,62 +1043,152 @@ async function savePRs() {
 // STRAVA AUTH
 // ════════════════════════════════════════════════════
 function connectStrava() {
-  window.location.href = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=read,activity:read_all`;
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('strava_oauth_state', state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: 'code',
+    approval_prompt: 'auto',
+    scope: 'read,activity:read,activity:read_all',
+    state,
+  });
+  window.location.href = `https://www.strava.com/oauth/authorize?${params}`;
 }
 
-async function exchangeCode(code) {
-  const r = await fetch('https://www.strava.com/oauth/token', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CLIENT_ID,client_secret:CLIENT_SECRET,code,grant_type:'authorization_code'})});
-  const d = await r.json();
-  if (d.access_token) { localStorage.setItem('s_token',d.access_token); localStorage.setItem('s_refresh',d.refresh_token); localStorage.setItem('s_expires',d.expires_at); localStorage.setItem('s_athlete',JSON.stringify(d.athlete||{})); return d.access_token; }
-  return null;
+async function exchangeCode(code, scope) {
+  // Exchange via edge function — CLIENT_SECRET never touches the browser
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ code, scope }),
+  });
+  if (!r.ok) { const e = await r.json().catch(()=>({error:'Exchange failed'})); throw new Error(e.error||'OAuth exchange failed'); }
+  return r.json();
 }
 
-async function getToken() {
-  const t=localStorage.getItem('s_token'), exp=parseInt(localStorage.getItem('s_expires')||'0');
-  if (t && Date.now()/1000 < exp-300) return t;
-  const ref=localStorage.getItem('s_refresh'); if(!ref) return null;
-  try {
-    const r=await fetch('https://www.strava.com/oauth/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CLIENT_ID,client_secret:CLIENT_SECRET,refresh_token:ref,grant_type:'refresh_token'})});
-    const d=await r.json();
-    if(d.access_token){localStorage.setItem('s_token',d.access_token);localStorage.setItem('s_refresh',d.refresh_token||ref);localStorage.setItem('s_expires',d.expires_at);return d.access_token;}
-  } catch(e){}
-  return null;
+async function refreshActivitiesFromServer() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) return;
+  await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: '{}',
+  });
 }
 
-function setStravaConnected() {
+function setStravaConnected(name) {
   document.getElementById('statusDot').className = 'dot dot-on';
-  const a = JSON.parse(localStorage.getItem('s_athlete')||'{}');
-  document.getElementById('statusText').textContent = a.firstname ? `${a.firstname} ${a.lastname}` : 'Connecté';
+  document.getElementById('statusText').textContent = name || 'Connecté';
   document.getElementById('btnStrava').style.display = 'none';
 }
 
-async function checkStravaToken() {
-  const code = window.pendingStravaCode;
-  if (code) {
-    window.pendingStravaCode = null;
-    const token = await exchangeCode(code);
-    if (token) { setStravaConnected(); await loadActivities(token); return; }
+async function checkStravaConnection() {
+  // Check strava_tokens table for this user
+  const { data } = await sb.from('strava_tokens')
+    .select('athlete_firstname,athlete_lastname')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if (data) {
+    const name = [data.athlete_firstname, data.athlete_lastname].filter(Boolean).join(' ');
+    setStravaConnected(name);
+    return true;
   }
-  const token = await getToken();
-  if (token) { setStravaConnected(); await loadActivities(token); }
-  else { showOnboarding(); }
+  return false;
+}
+
+async function checkStravaToken() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const scope = urlParams.get('scope') || '';
+  const returnedState = urlParams.get('state');
+
+  if (code) {
+    // Clean URL immediately
+    window.history.replaceState({}, '', window.location.pathname);
+    // Validate CSRF state
+    const expectedState = sessionStorage.getItem('strava_oauth_state');
+    sessionStorage.removeItem('strava_oauth_state');
+    if (!expectedState || returnedState !== expectedState) {
+      showToast('État OAuth invalide — réessaie la connexion', 'error');
+      showOnboarding();
+      return;
+    }
+    showToast('Connexion Strava en cours…', 'info', 3000);
+    try {
+      await exchangeCode(code, scope);
+      showToast('Strava connecté ! Synchronisation en cours…', 'success', 4000);
+      await refreshActivitiesFromServer();
+      await loadActivities();
+    } catch(e) {
+      showToast('Erreur connexion Strava : ' + e.message, 'error');
+      showOnboarding();
+    }
+    return;
+  }
+
+  const connected = await checkStravaConnection();
+  if (connected) {
+    await loadActivities();
+  } else {
+    showOnboarding();
+  }
 }
 
 // ════════════════════════════════════════════════════
-// STRAVA API
+// STRAVA API — data loaded from Supabase, not directly from Strava
 // ════════════════════════════════════════════════════
-async function loadActivities(token) {
-  const r = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=100', {headers:{Authorization:`Bearer ${token}`}});
-  const acts = await r.json();
-  if (!Array.isArray(acts)) return;
-  // Only running activities
-  allActivities = acts.filter(a => isRun(a.type));
+function mapDbActivity(row) {
+  // Convert Supabase strava_activities row to the format used throughout the app
+  const raw = row.raw_data || {};
+  return {
+    id: Number(row.strava_activity_id),
+    name: row.name || '',
+    type: row.type || 'Run',
+    sport_type: row.sport_type || '',
+    start_date: row.start_date || '',
+    start_date_local: row.start_date_local || '',
+    distance: Number(row.distance || 0),
+    moving_time: Number(row.moving_time || 0),
+    elapsed_time: Number(row.elapsed_time || 0),
+    total_elevation_gain: Number(row.total_elevation_gain || 0),
+    average_speed: Number(row.average_speed || 0),
+    max_speed: Number(row.max_speed || 0),
+    average_heartrate: row.average_heartrate != null ? Number(row.average_heartrate) : undefined,
+    max_heartrate: row.max_heartrate != null ? Number(row.max_heartrate) : undefined,
+    kilojoules: raw.kilojoules || undefined,
+    start_latlng: raw.start_latlng || undefined,
+  };
+}
+
+async function loadActivities() {
+  const { data: rows, error } = await sb
+    .from('strava_activities')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .is('deleted_at', null)
+    .order('start_date', { ascending: false })
+    .limit(200);
+  if (error) { console.error('loadActivities error:', error.message); return; }
+  allActivities = (rows || []).filter(r => isRun(r.type)).map(mapDbActivity);
   renderDashboard();
 }
 
-async function fetchStreams(token, id) {
-  const r = await fetch(`https://www.strava.com/api/v3/activities/${id}/streams?keys=time,distance,altitude,heartrate,velocity_smooth,cadence&key_by_type=true`,{headers:{Authorization:`Bearer ${token}`}});
-  return r.json();
+async function fetchStreams(activityId) {
+  // Proxy via edge function — never exposes Strava token to browser
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) return {};
+  try {
+    const r = await fetch(`${SUPA_URL}/functions/v1/strava-activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ activityId }),
+    });
+    if (!r.ok) return {};
+    return r.json();
+  } catch { return {}; }
 }
 
 async function fetchWeather(lat, lon, date) {
@@ -1337,11 +1428,8 @@ async function openAnalyse(act) {
   document.body.style.overflow = 'hidden';
   document.getElementById('analyseInner').innerHTML = `<div class="loading" style="min-height:300px"><div class="spinner"></div><div class="mono">Chargement des données...</div></div>`;
 
-  const token = await getToken();
-  if (!token) { document.getElementById('analyseInner').innerHTML=`<div class="loading"><button onclick="closeAnalyse()" class="hbtn">← Fermer</button><div class="mono tr">Token Strava expiré</div></div>`; return; }
-
   const [streams, weather] = await Promise.all([
-    fetchStreams(token, act.id),
+    fetchStreams(act.id),
     act.start_latlng?.length>=2 ? fetchWeather(act.start_latlng[0],act.start_latlng[1],act.start_date_local) : Promise.resolve(null)
   ]);
 
@@ -1465,11 +1553,8 @@ async function linkActivityToRace(raceId, raceName, actId) {
     // Now check if linked race has GPX and show comparison
     const linkedRace = races.find(r=>r.id===raceId);
     if(linkedRace?.gpx_data){
-      const token=await getToken();
-      if(token){
-        const streams=await fetchStreams(token, actId);
-        renderRaceComparison({id:actId,moving_time:0}, streams, linkedRace);
-      }
+      const streams=await fetchStreams(actId);
+      renderRaceComparison({id:actId,moving_time:0}, streams, linkedRace);
     }
   } else if(btn){
     btn.textContent='❌ Erreur';btn.disabled=false;
@@ -3173,11 +3258,6 @@ function closeCGU() {
 // INIT
 // ════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  // Capture Strava code before Supabase
-  const params = new URLSearchParams(window.location.search);
-  const stravaCode = params.get('code');
-  if (stravaCode) { window.pendingStravaCode=stravaCode; window.history.replaceState({},'',window.location.pathname); }
-
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) {
     await initApp(session.user);
