@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
+import { env } from '@/config/env'
 import type { StravaOAuthResponse } from '@runner-os/shared'
 
 type Status = 'loading' | 'success' | 'error' | 'no-auth'
@@ -45,9 +46,12 @@ export function StravaCallbackPage() {
       }
 
       try {
-        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>('strava-oauth', {
-          body: { code, scope },
-        })
+        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>(
+          env.strava.oauthFunctionName,
+          {
+            body: { code, scope },
+          }
+        )
         setStatus('success')
         // Clean URL, redirect after short delay so user sees success
         window.history.replaceState({}, '', '/activities')

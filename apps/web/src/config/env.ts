@@ -19,6 +19,7 @@ export const env = {
   },
   strava: {
     clientId: required('VITE_STRAVA_CLIENT_ID'),
+    oauthFunctionName: optional('VITE_STRAVA_OAUTH_FUNCTION_NAME', 'strava-auth'),
   },
   app: {
     version: optional('VITE_APP_VERSION', '0.0.0'),
