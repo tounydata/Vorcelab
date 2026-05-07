@@ -352,7 +352,10 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 <header>
   <div class="logo" style="cursor:pointer" onclick="showPanel('dashboard',document.querySelector('.nbtn'))">
     <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()">AO</div>
-    <div onclick="event.stopPropagation();openProfil()"><div class="logo-name" id="headerName" style="font-size:.75rem;font-weight:600;color:var(--text)">Runner OS</div></div>
+    <div onclick="event.stopPropagation();openProfil()">
+      <div style="font-family:var(--display);font-size:.9rem;letter-spacing:.06em;color:var(--cyan);line-height:1">VORCELAB</div>
+      <div class="logo-name" id="headerName" style="font-size:.55rem;color:var(--text3)">Runner OS</div>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="strava-pill"><div class="dot dot-off" id="statusDot"></div><span id="statusText">Strava</span></div>
@@ -1985,7 +1988,7 @@ function closeAnalyse() {
 // ════════════════════════════════════════════════════
 // RACE CALENDAR
 // ════════════════════════════════════════════════════
-function toggleRaceForm() { document.getElementById('raceForm').classList.toggle('open'); }
+function toggleRaceForm() { const f=document.getElementById('raceForm'); if(f) f.classList.toggle('open'); else showAddRaceForm(); }
 
 async function loadRaces() {
   const {data} = await sb.from('race_calendar').select('*').eq('user_id',currentUser.id).order('date');
@@ -2004,19 +2007,23 @@ async function saveRace() {
   };
   if(!race.name||!race.date)return;
   const {error}=await sb.from('race_calendar').insert(race);
-  if(!error){document.getElementById('raceForm').classList.remove('open');await loadRaces();}
+  if(!error){const rf=document.getElementById('raceForm');if(rf)rf.classList.remove('open');const arc=document.getElementById('addRaceCard');if(arc)arc.style.display='none';await loadRaces();}
 }
 
-async function deleteRace(id) { await sb.from('race_calendar').delete().eq('id',id); await loadRaces(); }
+// deleteRace defined in MONTHLY CALENDAR section above
 
 function renderRaces() {
   const list=document.getElementById('raceList');
   const nextWidget=document.getElementById('nextRaceWidget');
-  if(!races.length){list.innerHTML='<div class="mono t3">Aucune course planifiée</div>';nextWidget.innerHTML='<div class="mono t3">Aucune course planifiée</div>';return;}
+  if(!races.length){
+    if(list) list.innerHTML='<div class="mono t3">Aucune course planifiée</div>';
+    if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Aucune course planifiée</div>';
+    renderCalendar(); return;
+  }
   const now=new Date();
   const upcoming=races.filter(r=>new Date(r.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const next=upcoming[0];
-  if(next){
+  if(next && nextWidget){
     const diff=Math.ceil((new Date(next.date)-now)/86400000);
     const color=diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
     const hasGpx=!!next.gpx_data;
@@ -2029,7 +2036,8 @@ function renderRaces() {
       ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green);margin-top:6px;display:inline-block">✓ GPX</span>`:''}
       <button class="btn-prepare" style="margin-top:10px" onclick='prepareRace(${JSON.stringify(next)})'>${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer la course'}</button>
     </div>`;
-  } else {nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>';}
+  } else { if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>'; }
+  if(!list) { renderCalendar(); return; }
   list.innerHTML=races.map(r=>{
     const d=new Date(r.date),diff=Math.ceil((d-now)/86400000),past=diff<0;
     const color=past?'var(--text3)':diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
