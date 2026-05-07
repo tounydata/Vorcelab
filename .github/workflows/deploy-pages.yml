@@ -174,6 +174,54 @@ function selectRaceForStrategy(race){
             flags=re.S
           )
 
+          patch = r'''
+<script>
+(function(){
+  function safeNumber(v, fallback=0){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  function safeFixed(v, digits=1, fallback='—'){
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(digits) : fallback;
+  }
+  const originalBuildSplitsTable = window.buildSplitsTable;
+  window.buildSplitsTable = function(sections){
+    try{
+      if(!Array.isArray(sections) || !sections.length){
+        return '<div class="mono t3">Aucun segment exploitable.</div>';
+      }
+      const rows = sections.map((s,i)=>{
+        const dist = safeNumber(s.dist ?? s.distance ?? s.km ?? 0,0);
+        const gain = safeNumber(s.gain ?? s.elevGain ?? s.dPlus ?? 0,0);
+        const loss = safeNumber(s.loss ?? s.elevLoss ?? s.dMinus ?? 0,0);
+        const grade = safeNumber(s.grade ?? s.slope ?? 0,0);
+        const type = s.type || (grade > 3 ? 'Montée' : grade < -3 ? 'Descente' : 'Plat');
+        const cls = grade > 3 ? 'section-up' : grade < -3 ? 'section-down' : 'section-flat';
+        return `<tr class="${cls}">
+          <td>${i+1}</td>
+          <td>${type}</td>
+          <td>${safeFixed(dist,2)} km</td>
+          <td>+${safeFixed(gain,0)} / -${safeFixed(loss,0)} m</td>
+          <td>${safeFixed(grade,1)}%</td>
+        </tr>`;
+      }).join('');
+      return `<table class="splits-table">
+        <thead><tr><th>#</th><th>Type</th><th>Distance</th><th>D+ / D-</th><th>Pente</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }catch(e){
+      console.warn('safe buildSplitsTable fallback', e);
+      if(typeof originalBuildSplitsTable === 'function'){
+        try{return originalBuildSplitsTable(sections || []);}catch(_){/* ignore */}
+      }
+      return '<div class="mono tr">Erreur de tableau segments. GPX lu, mais segments incomplets.</div>';
+    }
+  };
+})();
+</script>
+'''
+          html = html.replace('</body>', patch + '\n</body>')
           path.write_text(html)
           Path('.pages/404.html').write_text(html)
           PY
