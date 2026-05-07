@@ -1,19 +1,304 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Runner Data — Stable Secure Multi-user</title>
-  <style>
-    :root{--bg:#0b1020;--card:#131b33;--txt:#ecf0ff;--muted:#8ea0c7;--ok:#38d39f;--warn:#ff8b5e;--line:#2a3558}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
-    .wrap{max-width:980px;margin:0 auto;padding:24px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
-    h1,h2{margin:0 0 12px}label{display:block;margin:8px 0 4px;color:var(--muted);font-size:14px}
-    input,button,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#0f1730;color:var(--txt)}
-    button{cursor:pointer;background:#1d2a52;font-weight:700}button:hover{opacity:.95}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hidden{display:none}.muted{color:var(--muted);font-size:13px}
-    .ok{color:var(--ok)}.warn{color:var(--warn)} table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AO — Runner Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#060810;--bg2:#0d1219;--bg3:#131b25;--bg4:#1c2738;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#eef2f8;--text2:#6b7d94;--text3:#334455;
+  --cyan:#00d4ff;--orange:#ff6b35;--green:#2ecc71;
+  --purple:#a78bfa;--yellow:#fbbf24;--red:#f43f5e;
+  --mono:'IBM Plex Mono',monospace;--display:'Bebas Neue',sans-serif;--body:'Outfit',sans-serif;--r:12px;
+}
+[data-light]{--bg:#f0f4f8;--bg2:#e4eaf2;--bg3:#fff;--bg4:#d8e2ee;--border:rgba(0,0,0,0.06);--border2:rgba(0,0,0,0.12);--text:#0d1623;--text2:#4a5a72;--text3:#9aaabf;--cyan:#007aaa;--orange:#d44e1a;--green:#18a058;--purple:#6d28d9;--yellow:#d97706;--red:#dc2626;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;overflow-x:hidden;}
+
+/* ── AUTH ── */
+#authScreen{display:none;align-items:center;justify-content:center;min-height:100vh;padding:2rem;}
+#authScreen.show{display:flex;}
+.auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:2.5rem;width:100%;max-width:400px;}
+.auth-logo{display:flex;align-items:center;gap:12px;margin-bottom:2rem;}
+.auth-mark{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:24px;color:#000;}
+.auth-tabs{display:flex;gap:2px;background:var(--bg4);border-radius:8px;padding:3px;margin-bottom:1.5rem;}
+.auth-tab{flex:1;padding:7px;border-radius:6px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;transition:all .2s;}
+.auth-tab.active{background:var(--bg2);color:var(--text);}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-family:var(--body);font-size:.88rem;outline:none;transition:border-color .2s;margin-bottom:10px;}
+.fi:focus{border-color:var(--cyan);}
+.fi::placeholder{color:var(--text3);}
+select.fi{cursor:pointer;}
+.btn-primary{width:100%;background:var(--cyan);color:#000;border:none;border-radius:8px;padding:11px;font-family:var(--body);font-weight:700;font-size:.88rem;cursor:pointer;transition:opacity .2s;}
+.btn-primary:hover{opacity:.88;}
+.auth-msg{font-family:var(--mono);font-size:.65rem;text-align:center;margin-top:.75rem;min-height:1rem;}
+
+/* ── APP ── */
+#appShell{display:none;}
+#appShell.show{display:block;}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;background:rgba(6,8,16,.92);backdrop-filter:blur(20px);}
+[data-light] header{background:rgba(240,244,248,.92);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;color:#000;}
+.logo-name{font-family:var(--mono);font-size:.6rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+.hbtn{padding:6px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:.6rem;transition:all .2s;white-space:nowrap;}
+.hbtn:hover{border-color:var(--cyan);color:var(--cyan);}
+.hbtn.strava{background:#fc4c02;color:#fff;border-color:#fc4c02;}
+.hbtn.strava:hover{opacity:.88;color:#fff;}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dot-on{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+.dot-off{background:var(--text3);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.strava-pill{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 11px;font-family:var(--mono);font-size:.6rem;color:var(--text2);}
+
+/* ── NAV ── */
+nav{display:flex;gap:2px;padding:.45rem 2rem;border-bottom:1px solid var(--border);background:var(--bg);overflow-x:auto;position:sticky;top:55px;z-index:100;}
+.nbtn{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s;white-space:nowrap;}
+.nbtn.active{background:var(--bg4);color:var(--text);border:1px solid var(--border2);}
+.nbtn:hover:not(.active){color:var(--text);}
+
+/* ── MAIN ── */
+main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
+.panel{display:none;animation:fadeUp .3s ease;}
+.panel.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.clabel{font-family:var(--mono);font-size:.56rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;}
+
+/* ── STRIP ── */
+.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.25rem;}
+@media(max-width:800px){.strip{grid-template-columns:repeat(3,1fr)}}
+.scell{background:var(--bg2);padding:12px 16px;text-align:center;}
+.sval{font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;line-height:1;}
+.slbl{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+.sdelta{font-family:var(--mono);font-size:.56rem;margin-top:2px;}
+
+/* ── ONBOARDING ── */
+.onboard{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1.5rem;text-align:center;padding:2rem;}
+.onboard-icon{font-size:4rem;opacity:.3;}
+.onboard-title{font-family:var(--display);font-size:2rem;letter-spacing:.03em;}
+.onboard-sub{font-size:.88rem;color:var(--text2);max-width:400px;line-height:1.6;}
+.onboard-steps{display:flex;flex-direction:column;gap:8px;width:100%;max-width:400px;}
+.onboard-step{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:12px 16px;font-size:.82rem;}
+.onboard-step.done{border-color:var(--green);background:rgba(46,204,113,.05);}
+.step-num{font-family:var(--display);font-size:1.2rem;color:var(--text3);min-width:20px;}
+.step-num.done{color:var(--green);}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:1.25rem;}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:14px 16px;}
+.stat-val{font-family:var(--display);font-size:1.8rem;line-height:1;}
+.stat-lbl{font-family:var(--mono);font-size:.56rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+.stat-delta{font-family:var(--mono);font-size:.6rem;margin-top:4px;}
+.delta-up{color:var(--green);}
+.delta-down{color:var(--red);}
+.delta-eq{color:var(--text3);}
+
+/* ── ACTIVITIES ── */
+.acts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:10px;}
+.act-card{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s;}
+.act-card:hover{border-color:var(--border2);}
+.act-name{font-weight:600;font-size:.82rem;line-height:1.3;flex:1;}
+.act-badge{font-family:var(--mono);font-size:.56rem;padding:2px 6px;border-radius:7px;background:var(--bg4);color:var(--text2);white-space:nowrap;}
+.act-stats{display:flex;gap:10px;flex-wrap:wrap;}
+.asv{font-family:var(--mono);font-size:.78rem;font-weight:500;}
+.asl{font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.act-date{font-family:var(--mono);font-size:.58rem;color:var(--text3);}
+.btn-analyse{width:100%;margin-top:4px;background:var(--bg4);border:1px solid var(--border2);color:var(--text2);border-radius:7px;padding:7px;cursor:pointer;font-family:var(--mono);font-size:.58rem;text-align:center;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.btn-analyse:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.06);}
+.act-bar{height:3px;border-radius:2px;margin-top:3px;opacity:.4;}
+
+/* ── ANALYSE OVERLAY ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:400;overflow-y:auto;padding:2rem;backdrop-filter:blur(6px);}
+.overlay.open{display:block;}
+.overlay-inner{max-width:920px;margin:0 auto;}
+
+/* ── AI ANALYSIS ── */
+.ai-analysis{background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(167,139,250,.06));border:1px solid rgba(0,212,255,.2);border-radius:var(--r);padding:1.25rem;margin-bottom:1.25rem;}
+.ai-header{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;}
+.ai-icon{font-size:1.2rem;}
+.ai-title{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);}
+.ai-text{font-size:.82rem;line-height:1.7;color:var(--text2);}
+.ai-loading{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.65rem;color:var(--text2);}
+
+/* ── AUTOPSY STATS ── */
+.a-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:9px;margin-bottom:1.25rem;}
+.a-stat{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 12px;}
+.a-sv{font-family:var(--display);font-size:1.3rem;line-height:1;}
+.a-sl{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+.a-ss{font-size:.65rem;color:var(--text2);margin-top:2px;}
+
+/* ── PAF ── */
+.paf-widget{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.paf-factors{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.paf-factor{display:flex;align-items:center;gap:6px;background:var(--bg4);border-radius:7px;padding:6px 10px;border:1px solid var(--border);}
+.paf-result{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--bg4);border-radius:8px;}
+
+/* ── CHARTS ── */
+.chart-wrap{position:relative;width:100%;}
+.insight{border-left:3px solid;border-radius:0 8px 8px 0;background:var(--bg3);padding:9px 12px;margin-bottom:7px;}
+.insight-title{font-weight:700;font-size:.8rem;margin-bottom:3px;}
+.insight-body{font-size:.74rem;color:var(--text2);line-height:1.5;}
+.insight-ref{font-family:var(--mono);font-size:.56rem;color:var(--text3);margin-top:3px;font-style:italic;}
+
+/* ── STRATEGY ── */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--cyan);background:rgba(0,212,255,.03);}
+.s-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:1.25rem;}
+.s-stat{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 13px;}
+.s-sv{font-family:var(--display);font-size:1.4rem;line-height:1;}
+.s-sl{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+.section-block{border-left:4px solid;border-radius:0 var(--r) var(--r) 0;background:var(--bg2);padding:1rem 1.25rem;margin-bottom:9px;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.strat-km{font-family:var(--mono);font-size:.6rem;color:var(--text3);}
+.strat-name{font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin:.2rem 0 .4rem;}
+.strat-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.4rem;}
+.strat-tag{font-family:var(--mono);font-size:.56rem;padding:2px 7px;border-radius:16px;border:1px solid;}
+.strat-body{font-size:.76rem;color:var(--text2);line-height:1.6;}
+.nutr-table{width:100%;border-collapse:collapse;font-size:.75rem;}
+.nutr-table th{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);}
+.nutr-table td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top;}
+.nutr-table tr:last-child td{border-bottom:none;}
+.time-proj{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;}
+
+/* ── PROFILE ── */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:800px){.profile-grid{grid-template-columns:1fr}}
+.fg{margin-bottom:1rem;}
+.fl{font-family:var(--mono);font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;display:block;}
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px;}
+.pain-zone{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;transition:all .2s;}
+.pain-zone.active{background:rgba(244,63,94,.08);border-color:var(--red);}
+.pain-zone input{cursor:pointer;accent-color:var(--red);}
+.save-btn{background:var(--cyan);color:#000;border:none;border-radius:8px;padding:10px 24px;font-family:var(--body);font-weight:700;font-size:.85rem;cursor:pointer;transition:opacity .2s;margin-top:.5rem;}
+.save-btn:hover{opacity:.88;}
+.upload-hist{border:2px dashed var(--border2);border-radius:var(--r);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2);margin-top:.5rem;}
+.upload-hist:hover{border-color:var(--purple);background:rgba(167,139,250,.03);}
+.hist-stats{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem;margin-top:.75rem;}
+.hsr{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:.8rem;}
+.hsr:last-child{border-bottom:none;}
+
+/* ── RACE CALENDAR ── */
+.race-list{display:flex;flex-direction:column;gap:8px;}
+.race-item{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;}
+.race-cd{font-family:var(--display);font-size:1.8rem;letter-spacing:.02em;min-width:60px;text-align:center;line-height:1;}
+.race-cd-lbl{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;text-align:center;}
+.race-info{flex:1;}
+.race-name{font-weight:600;font-size:.88rem;margin-bottom:3px;}
+.race-meta{font-family:var(--mono);font-size:.6rem;color:var(--text2);}
+.race-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.race-tag{font-family:var(--mono);font-size:.56rem;padding:2px 7px;border-radius:10px;border:1px solid;}
+.add-race-btn{background:var(--bg4);border:1px dashed var(--border2);border-radius:9px;padding:12px;text-align:center;cursor:pointer;font-family:var(--mono);font-size:.6rem;color:var(--text2);transition:all .2s;}
+.add-race-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.race-form{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1.25rem;margin-top:.75rem;display:none;}
+.race-form.open{display:block;animation:fadeUp .2s ease;}
+.race-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:600px){.race-form-grid{grid-template-columns:1fr}}
+
+/* ── NEXT RACE ── */
+.next-race-big{text-align:center;padding:.5rem;}
+.next-race-num{font-family:var(--display);font-size:4rem;line-height:1;}
+.next-race-unit{font-family:var(--mono);font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;}
+
+/* ── MISC ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:800px){.grid-2{grid-template-columns:1fr}}
+.mt1{margin-top:6px}.mt2{margin-top:12px}.mt3{margin-top:1.5rem}
+.divider{height:1px;background:var(--border);margin:12px 0;}
+.tc{color:var(--cyan)}.to{color:var(--orange)}.tg{color:var(--green)}.tp{color:var(--purple)}.ty{color:var(--yellow)}.tr{color:var(--red)}.t2{color:var(--text2)}.t3{color:var(--text3)}
+.mono{font-family:var(--mono);font-size:.62rem;color:var(--text2);}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;gap:10px;}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stitle{font-family:var(--display);font-size:1.5rem;letter-spacing:.03em;margin-bottom:.75rem;}
+
+/* ── TOASTS ── */
+#toastContainer{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;font-size:.8rem;display:flex;align-items:center;gap:10px;max-width:320px;pointer-events:all;animation:slideIn .25s ease;box-shadow:0 4px 24px rgba(0,0,0,.4);}
+.toast.success{border-color:rgba(46,204,113,.4);}
+.toast.error{border-color:rgba(244,63,94,.4);}
+.toast.info{border-color:rgba(0,212,255,.3);}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+/* ── ONBOARDING ── */
+#onboardingOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center;padding:2rem;}
+#onboardingOverlay.open{display:flex;}
+.onb-step{display:none;text-align:center;max-width:480px;width:100%;}
+.onb-step.active{display:block;}
+.onb-icon{font-size:4rem;margin-bottom:1rem;}
+.onb-title{font-family:var(--display);font-size:2rem;letter-spacing:.03em;margin-bottom:.5rem;}
+.onb-desc{color:var(--text2);font-size:.9rem;line-height:1.7;margin-bottom:1.5rem;}
+.onb-dots{display:flex;gap:6px;justify-content:center;margin-bottom:1.5rem;}
+.onb-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);transition:background .2s;}
+.onb-dot.active{background:var(--cyan);}
+
+/* ── CGU ── */
+#cguOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:700;align-items:flex-start;justify-content:center;padding:2rem;overflow-y:auto;}
+#cguOverlay.open{display:flex;}
+.cgu-inner{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:2rem;max-width:700px;width:100%;margin:auto;}
+
+/* ── FOOTER ── */
+.app-footer{text-align:center;padding:1rem 2rem;font-family:var(--mono);font-size:.56rem;color:var(--text3);border-top:1px solid var(--border);margin-top:2rem;}
+.app-footer a{color:var(--text2);cursor:pointer;text-decoration:underline;}
+.renfo-tab{padding:8px 18px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;transition:all .2s;}
+.renfo-tab.active{background:var(--cyan);color:#000;border-color:var(--cyan);}
+.body-zone{transition:all .2s;cursor:pointer;}
+.body-zone:hover{fill:rgba(0,212,255,.3);stroke:var(--cyan);}
+.body-zone.selected{fill:rgba(255,107,53,.3);stroke:var(--orange);}
+.prog-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:16px 12px;cursor:pointer;color:var(--text);text-align:center;transition:all .2s;font-family:var(--body);font-size:.88rem;font-weight:600;line-height:1.5;}
+.prog-btn span{display:block;font-size:.72rem;color:var(--text2);font-weight:400;margin-top:3px;}
+.prog-btn:hover{border-color:var(--cyan);background:rgba(0,212,255,.06);}
+.prog-btn.active{border-color:var(--cyan);background:rgba(0,212,255,.1);color:var(--cyan);}
+.exercise-card{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:14px;margin-bottom:10px;}
+.exercise-title{font-weight:700;font-size:.88rem;margin-bottom:4px;}
+.exercise-meta{font-family:var(--mono);font-size:.6rem;color:var(--cyan);margin-bottom:6px;}
+.exercise-desc{font-size:.78rem;color:var(--text2);line-height:1.6;margin-bottom:8px;}
+.exercise-ref{font-family:var(--mono);font-size:.56rem;color:var(--text3);font-style:italic;}
+.yt-embed{width:100%;aspect-ratio:16/9;border-radius:8px;border:none;margin-top:8px;}
+
+/* ── PROFIL OVERLAY ── */
+#profilOverlay{display:none;position:fixed;inset:0;z-index:450;overflow-y:auto;background:rgba(0,0,0,.5);}
+#profilOverlay.open{display:flex;}
+
+/* ── AVATAR ── */
+.logo-mark img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+#raceMap{height:320px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2);margin-bottom:1.25rem;}
+.section-block{cursor:pointer;transition:all .2s;}
+.section-block:hover{transform:translateX(3px);}
+.section-block.active{box-shadow:0 0 0 2px var(--cyan);transform:translateX(4px);}
+.crosshair-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.5);pointer-events:none;display:none;}
+
+/* ── SPLITS TABLE ── */
+.splits-table{width:100%;border-collapse:collapse;font-size:.74rem;}
+.splits-table th{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg4);}
+.splits-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.splits-table tr:hover td{background:var(--bg3);}
+.splits-table tr.section-up td{border-left:3px solid var(--orange);}
+.splits-table tr.section-down td{border-left:3px solid var(--purple);}
+.splits-table tr.section-flat td{border-left:3px solid var(--cyan);}
+
+/* ── RACE SELECTOR ── */
+.race-sel-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:.6rem;transition:all .2s;white-space:nowrap;}
+.race-sel-btn:hover,.race-sel-btn.active{border-color:var(--cyan);color:var(--cyan);}
+.btn-prepare{background:var(--cyan);color:#000;border:none;border-radius:6px;padding:5px 10px;font-family:var(--mono);font-size:.58rem;cursor:pointer;font-weight:700;white-space:nowrap;}
+.btn-prepare:hover{opacity:.88;}
+
+@media print{header,nav,.no-print{display:none!important;}body{background:#fff;color:#000;}.print-only{display:block!important;}}
+.print-only{display:none;}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -35,9 +320,11 @@
       <button id="loginBtn" type="submit">Se connecter</button>
       <button id="signupBtn" type="button">Créer le compte</button>
     </div>
-    <p id="authMsg" class="muted"></p>
-    </form>
-  </section>
+    <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
+    <div class="fg mt2"><label class="fl">Zones douloureuses</label><div class="pain-grid" id="painGrid"></div></div>
+    <button class="save-btn" onclick="saveProfile()">💾 Sauvegarder</button>
+    <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
+  </div>
 
   <section id="app" class="hidden">
     <div class="card">
@@ -61,38 +348,754 @@
 </div>
 
 <script>
-'use strict';
-const $ = (id) => document.getElementById(id);
-const appState = { user:null, authMode:'login' };
+// ════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════
+const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indhbnpya2RncW1jY3R3dm5ibXV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjYyNjksImV4cCI6MjA5MzAwMjI2OX0.sSjZ956YRpSpCFxDrYDntTvIGHnmVEbe3JDsjTJsze4';
+const CLIENT_ID = '161609'; // Strava Client ID — public, safe in frontend
+const REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/`;
+const FC_MAX_DEFAULT = 205;
+const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
 function storageKey(email){return `runner_user_${email.toLowerCase()}`;}
 
-async function sha256(input){
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+let currentUser = null;
+let userProfile = { pain_zones: [] };
+let allActivities = []; // from Strava API — runs only
+let historyActivities = []; // from ZIP
+let races = [];
+let annualChartInst = null;
+let isLight = false;
+
+// ════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════
+const isRun = t => ['Run','TrailRun','Trail Run','Running'].includes(t);
+const fmtP = s => s > 0 ? `${Math.floor(1000/s/60)}:${String(Math.round(1000/s%60)).padStart(2,'0')}` : '--';
+const fmtD = s => { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`; };
+const tE = t => ({Run:'🏃',TrailRun:'⛰️'}[t]||'🏃');
+const tL = t => ({Run:'Route',TrailRun:'Trail'}[t]||'Run');
+const bC = t => t==='TrailRun'?'linear-gradient(90deg,#ff6b35,#fbbf24)':'linear-gradient(90deg,#00d4ff,#a78bfa)';
+
+function deltaHTML(pct) {
+  if (!pct && pct !== 0) return '';
+  const abs = Math.abs(pct);
+  if (pct > 5) return `<span class="delta-up">↑ +${Math.round(pct)}% vs mois dernier</span>`;
+  if (pct < -5) return `<span class="delta-down">↓ ${Math.round(pct)}% vs mois dernier</span>`;
+  return `<span class="delta-eq">= stable vs mois dernier</span>`;
 }
 
-function loadUser(email){
-  const raw = localStorage.getItem(storageKey(email));
-  return raw ? JSON.parse(raw) : null;
+// ════════════════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════════════════
+function toggleTheme() {
+  isLight = !isLight;
+  document.body.toggleAttribute('data-light', isLight);
+}
+
+// ════════════════════════════════════════════════════
+// PANELS
+// ════════════════════════════════════════════════════
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nbtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Reset drop zone when navigating to strategie directly (not via prepareRace)
+  if(name==='strategie' && !currentRaceContext) {
+    const drop=document.getElementById('gpxDrop');
+    if(drop){
+      drop.style.display='block';
+      drop.onclick=()=>document.getElementById('gpxFile').click();
+      drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+function switchTab(tab, btn) {
+  document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signupForm').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('authMsg').textContent = '';
+}
+
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('authMsg');
+  msg.textContent = 'Connexion...'; msg.style.color = 'var(--text2)';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { msg.textContent = error.message; msg.style.color = 'var(--red)'; return; }
+  if (data?.user) { await initApp(data.user); }
+}
+
+async function signup() {
+  const name = document.getElementById('signupName').value;
+  const email = document.getElementById('signupEmail').value;
+  const pass = document.getElementById('signupPassword').value;
+  const msg = document.getElementById('authMsg');
+  msg.textContent = 'Création...'; msg.style.color = 'var(--text2)';
+  const { data, error } = await sb.auth.signUp({ email, password: pass });
+  if (error) { msg.textContent = error.message; msg.style.color = 'var(--red)'; return; }
+  if (data.user) {
+    await sb.from('profiles').upsert({ id: data.user.id, name });
+    msg.textContent = '✓ Compte créé ! Vérifie ton email si demandé.'; msg.style.color = 'var(--green)';
+    setTimeout(() => initApp(data.user), 1500);
+  }
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentUser = null; userProfile = { pain_zones: [] }; allActivities = [];
+  document.getElementById('appShell').classList.remove('show');
+  document.getElementById('authScreen').classList.add('show');
+}
+
+async function initApp(user) {
+  currentUser = user;
+  document.getElementById('authScreen').classList.remove('show');
+  document.getElementById('appShell').classList.add('show');
+  await loadProfile();
+  await loadRaces();
+  initBodySvg();
+  await checkStravaToken();
+  await loadHistoryFromDB();
+  // Onboarding pour nouveaux utilisateurs
+  if(!localStorage.getItem('onb_done')) initOnboarding();
+}
+
+// ════════════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════════════
+const PAIN_ZONES = [
+  {key:'knee',label:'Genou',icon:'🦵'},{key:'achilles',label:"Tendon d'Achille",icon:'🦶'},
+  {key:'hip',label:'Hanche / ITB',icon:'🏃'},{key:'plantar',label:'Fascia plantaire',icon:'👣'},
+  {key:'shin',label:'Périostite tibiale',icon:'🦴'},{key:'lower_back',label:'Bas du dos',icon:'💪'},
+  {key:'hamstring',label:'Ischio-jambiers',icon:'🦵'},{key:'calf',label:'Mollet',icon:'⚡'},
+];
+
+function renderPainGrid() {
+  const grid = document.getElementById('painGrid'); 
+  if(!grid) return;
+  grid.innerHTML = '';
+  PAIN_ZONES.forEach(z => {
+    const active = (userProfile.pain_zones||[]).includes(z.key);
+    const div = document.createElement('div');
+    div.className = 'pain-zone' + (active ? ' active' : '');
+    div.onclick = () => { togglePainZone(z.key, div); };
+    div.innerHTML = `<input type="checkbox" ${active?'checked':''}><span style="font-size:.8rem;font-weight:500">${z.icon} ${z.label}</span>`;
+    grid.appendChild(div);
+  });
+}
+
+function togglePainZone(key, el) {
+  if (!userProfile.pain_zones) userProfile.pain_zones = [];
+  const idx = userProfile.pain_zones.indexOf(key);
+  if (idx >= 0) { userProfile.pain_zones.splice(idx,1); el.classList.remove('active'); el.querySelector('input').checked=false; }
+  else { userProfile.pain_zones.push(key); el.classList.add('active'); el.querySelector('input').checked=true; }
+}
+
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (data) {
+    userProfile = { pain_zones: [], ...data };
+    userProfile.pain_zones = userProfile.pain_zones || [];
+    const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
+    set('p-name', data.name); set('p-birthdate', data.birthdate); set('p-sex', data.sex);
+    set('p-weight', data.weight); set('p-height', data.height);
+    set('p-vo2max', data.vo2max); set('p-fcmax', data.fc_max);
+    set('p-lactate', data.lactate_threshold); set('p-lactate-pace', data.lactate_pace);
+    set('p-goals', data.goals);
+    if (data.name) document.getElementById('headerName').textContent = data.name;
+    if (data.avatar_url) updateAvatar(data.avatar_url);
+    if (data.nutrition_products) userProfile.nutrition_products = data.nutrition_products;
+    if (data.prs) {
+      const p = data.prs; userProfile.prs = p;
+      const sp = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
+      if(p['5k']){sp('pr-5k',p['5k'].time);sp('pr-5k-date',p['5k'].date);}
+      if(p['10k']){sp('pr-10k',p['10k'].time);sp('pr-10k-date',p['10k'].date);}
+      if(p['15k']){sp('pr-15k',p['15k'].time);sp('pr-15k-date',p['15k'].date);}
+      if(p['semi']){sp('pr-semi',p['semi'].time);sp('pr-semi-date',p['semi'].date);}
+      if(p['marathon']){sp('pr-marathon',p['marathon'].time);sp('pr-marathon-date',p['marathon'].date);}
+      if(p['ultra']){sp('pr-ultra',p['ultra'].time);sp('pr-ultra-date',p['ultra'].date);sp('pr-ultra-dist',p['ultra'].dist);sp('pr-ultra-dplus',p['ultra'].dplus);}
+    }
+  }
+}
+
+async function saveProfile() {
+  const profile = {
+    id: currentUser.id,
+    name: document.getElementById('p-name').value||null,
+    birthdate: document.getElementById('p-birthdate').value||null,
+    age: document.getElementById('p-birthdate').value ? Math.floor((new Date()-new Date(document.getElementById('p-birthdate').value))/31557600000) : null,
+    sex: document.getElementById('p-sex').value||null,
+    weight: parseFloat(document.getElementById('p-weight').value)||null,
+    height: parseFloat(document.getElementById('p-height').value)||null,
+    vo2max: parseFloat(document.getElementById('p-vo2max').value)||null,
+    fc_max: parseInt(document.getElementById('p-fcmax').value)||null,
+    lactate_threshold: parseInt(document.getElementById('p-lactate').value)||null,
+    lactate_pace: document.getElementById('p-lactate-pace').value||null,
+    pain_zones: userProfile.pain_zones||[],
+    goals: document.getElementById('p-goals').value||null,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('profiles').upsert(profile);
+  const msg = document.getElementById('profileSaveMsg');
+  if (error) { msg.textContent='❌ '+error.message; msg.style.color='var(--red)'; }
+  else { userProfile={...userProfile,...profile}; msg.textContent='✓ Sauvegardé'; msg.style.color='var(--green)'; if(profile.name)document.getElementById('headerName').textContent=profile.name; setTimeout(()=>msg.textContent='',3000); }
+}
+
+function parsePRTime(str) {
+  if (!str||!str.trim()) return null;
+  const parts = str.trim().split(':').map(Number);
+  if (parts.some(isNaN)) return null;
+  if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  if (parts.length===2) return parts[0]*60+parts[1];
+  return null;
+}
+
+async function savePRs() {
+  const prs = {};
+  const add = (key,tid,did,extra={}) => { const t=document.getElementById(tid)?.value?.trim(),d=document.getElementById(did)?.value,s=parsePRTime(t); if(s!==null){prs[key]={time:t,date:d||null,timeS:s,...extra};} };
+  add('5k','pr-5k','pr-5k-date',{dist:5000});
+  add('10k','pr-10k','pr-10k-date',{dist:10000});
+  add('15k','pr-15k','pr-15k-date',{dist:15000});
+  add('semi','pr-semi','pr-semi-date',{dist:21097});
+  add('marathon','pr-marathon','pr-marathon-date',{dist:42195});
+  const ud=parseFloat(document.getElementById('pr-ultra-dist')?.value)||null;
+  const udp=parseFloat(document.getElementById('pr-ultra-dplus')?.value)||null;
+  const ut=document.getElementById('pr-ultra')?.value?.trim();
+  const uts=parsePRTime(ut);
+  if(uts!==null&&ud)prs['ultra']={time:ut,timeS:uts,dist:ud*1000,dplus:udp,date:document.getElementById('pr-ultra-date')?.value||null};
+  const {error}=await sb.from('profiles').upsert({id:currentUser.id,prs,updated_at:new Date().toISOString()});
+  const msg=document.getElementById('prSaveMsg');
+  if(error){msg.textContent='❌ '+error.message;msg.style.color='var(--red)';}
+  else{userProfile.prs=prs;msg.textContent='✓ PR sauvegardés';msg.style.color='var(--green)';setTimeout(()=>msg.textContent='',3000);}
+}
+
+// ════════════════════════════════════════════════════
+// STRAVA AUTH
+// ════════════════════════════════════════════════════
+function connectStrava() {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('strava_oauth_state', state);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: 'code',
+    approval_prompt: 'auto',
+    scope: 'read,activity:read,activity:read_all',
+    state,
+  });
+  window.location.href = `https://www.strava.com/oauth/authorize?${params}`;
+}
+
+async function exchangeCode(code, scope) {
+  // Exchange via edge function — CLIENT_SECRET never touches the browser
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ code, scope }),
+  });
+  if (!r.ok) { const e = await r.json().catch(()=>({error:'Exchange failed'})); throw new Error(e.error||'OAuth exchange failed'); }
+  return r.json();
+}
+
+async function refreshActivitiesFromServer() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) return;
+  await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: '{}',
+  });
+}
+
+function setStravaConnected(name) {
+  document.getElementById('statusDot').className = 'dot dot-on';
+  document.getElementById('statusText').textContent = name || 'Connecté';
+  document.getElementById('btnStrava').style.display = 'none';
+}
+
+async function checkStravaConnection() {
+  // Check strava_tokens table for this user
+  const { data } = await sb.from('strava_tokens')
+    .select('athlete_firstname,athlete_lastname')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if (data) {
+    const name = [data.athlete_firstname, data.athlete_lastname].filter(Boolean).join(' ');
+    setStravaConnected(name);
+    return true;
+  }
+  return false;
+}
+
+async function checkStravaToken() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const scope = urlParams.get('scope') || '';
+  const returnedState = urlParams.get('state');
+
+  if (code) {
+    // Clean URL immediately
+    window.history.replaceState({}, '', window.location.pathname);
+    // Validate CSRF state
+    const expectedState = sessionStorage.getItem('strava_oauth_state');
+    sessionStorage.removeItem('strava_oauth_state');
+    if (!expectedState || returnedState !== expectedState) {
+      showToast('État OAuth invalide — réessaie la connexion', 'error');
+      showOnboarding();
+      return;
+    }
+    showToast('Connexion Strava en cours…', 'info', 3000);
+    try {
+      await exchangeCode(code, scope);
+      showToast('Strava connecté ! Synchronisation en cours…', 'success', 4000);
+      await refreshActivitiesFromServer();
+      await loadActivities();
+    } catch(e) {
+      showToast('Erreur connexion Strava : ' + e.message, 'error');
+      showOnboarding();
+    }
+    return;
+  }
+
+  const connected = await checkStravaConnection();
+  if (connected) {
+    await loadActivities();
+  } else {
+    showOnboarding();
+  }
+}
+
+// ════════════════════════════════════════════════════
+// STRAVA API — data loaded from Supabase, not directly from Strava
+// ════════════════════════════════════════════════════
+function mapDbActivity(row) {
+  // Convert Supabase strava_activities row to the format used throughout the app
+  const raw = row.raw_data || {};
+  return {
+    id: Number(row.strava_activity_id),
+    name: row.name || '',
+    type: row.type || 'Run',
+    sport_type: row.sport_type || '',
+    start_date: row.start_date || '',
+    start_date_local: row.start_date_local || '',
+    distance: Number(row.distance || 0),
+    moving_time: Number(row.moving_time || 0),
+    elapsed_time: Number(row.elapsed_time || 0),
+    total_elevation_gain: Number(row.total_elevation_gain || 0),
+    average_speed: Number(row.average_speed || 0),
+    max_speed: Number(row.max_speed || 0),
+    average_heartrate: row.average_heartrate != null ? Number(row.average_heartrate) : undefined,
+    max_heartrate: row.max_heartrate != null ? Number(row.max_heartrate) : undefined,
+    kilojoules: raw.kilojoules || undefined,
+    start_latlng: raw.start_latlng || undefined,
+  };
+}
+
+async function loadActivities() {
+  const { data: rows, error } = await sb
+    .from('strava_activities')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .is('deleted_at', null)
+    .order('start_date', { ascending: false })
+    .limit(200);
+  if (error) { console.error('loadActivities error:', error.message); return; }
+  allActivities = (rows || []).filter(r => isRun(r.type)).map(mapDbActivity);
+  renderDashboard();
+}
+
+async function fetchStreams(activityId) {
+  // Proxy via edge function — never exposes Strava token to browser
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) return {};
+  try {
+    const r = await fetch(`${SUPA_URL}/functions/v1/strava-activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ activityId }),
+    });
+    if (!r.ok) return {};
+    return r.json();
+  } catch { return {}; }
+}
+
+async function fetchWeather(lat, lon, date) {
+  const d=date.split('T')[0], h=parseInt(date.split('T')[1]?.split(':')[0]||10);
+  try {
+    const r=await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${d}&end_date=${d}&hourly=temperature_2m,precipitation,windspeed_10m&timezone=Europe%2FParis`);
+    const data=await r.json();
+    return {temp:data.hourly?.temperature_2m?.[h]??null,precip:data.hourly?.precipitation?.[h]??null,wind:data.hourly?.windspeed_10m?.[h]??null};
+  } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════
+// ONBOARDING
+// ════════════════════════════════════════════════════
+function showOnboarding() {
+  document.getElementById('onboarding').style.display = 'block';
+  document.getElementById('dashContent').style.display = 'none';
+}
+
+function showDashContent() {
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('dashContent').style.display = 'block';
+}
+
+// ════════════════════════════════════════════════════
+// DASHBOARD RENDER
+// ════════════════════════════════════════════════════
+function renderDashboard() {
+  if (!allActivities.length) { showOnboarding(); return; }
+  showDashContent();
+
+  const now = new Date();
+  const thisMonth = allActivities.filter(a => {
+    const d = new Date(a.start_date);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  const lastMonth = allActivities.filter(a => {
+    const d = new Date(a.start_date);
+    const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    return d.getMonth()===lm.getMonth() && d.getFullYear()===lm.getFullYear();
+  });
+  const weekAgo = Date.now()-7*24*3600*1000;
+  const thisWeek = allActivities.filter(a => new Date(a.start_date).getTime()>weekAgo);
+
+  const km = r => r.reduce((s,a)=>s+a.distance/1000,0);
+  const dp = r => r.reduce((s,a)=>s+(a.total_elevation_gain||0),0);
+  const dur = r => r.reduce((s,a)=>s+(a.moving_time||0),0);
+
+  const kmM=km(thisMonth), kmW=km(thisWeek), dpM=dp(thisMonth), dpW=dp(thisWeek);
+  const kmML=km(lastMonth), dpML=dp(lastMonth);
+  const runsM=thisMonth.length, runsML=lastMonth.length;
+  const durM=dur(thisMonth);
+
+  // Strip
+  document.getElementById('s-km-month').textContent = kmM.toFixed(0)+' km';
+  document.getElementById('s-km-week').textContent = kmW.toFixed(0)+' km';
+  document.getElementById('s-dplus-month').textContent = dpM.toFixed(0)+' m';
+  document.getElementById('s-dplus-week').textContent = dpW.toFixed(0)+' m';
+  document.getElementById('s-runs-month').textContent = runsM;
+
+  // Deltas
+  const pctKm = kmML>0?(kmM-kmML)/kmML*100:null;
+  const pctDp = dpML>0?(dpM-dpML)/dpML*100:null;
+  const pctRuns = runsML>0?(runsM-runsML)/runsML*100:null;
+  document.getElementById('s-km-month-delta').innerHTML = deltaHTML(pctKm);
+  document.getElementById('s-dplus-delta').innerHTML = deltaHTML(pctDp);
+  document.getElementById('s-runs-delta').innerHTML = deltaHTML(pctRuns);
+
+  // Simple stats cards
+  const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
+  const withHR = thisMonth.filter(a=>a.average_heartrate);
+  const avgFC = withHR.length ? Math.round(withHR.reduce((s,a)=>s+a.average_heartrate,0)/withHR.length) : null;
+  const z2 = withHR.length ? Math.round(withHR.filter(a=>a.average_heartrate/fcMax>=.6&&a.average_heartrate/fcMax<.7).length/withHR.length*100) : null;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
+    ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
+    ${z2!==null?`<div class="s-stat"><div class="s-sv tc">${z2}%</div><div class="s-sl">% Z2</div><div style="font-size:.58rem;color:var(--text3)">60-70% FCmax</div></div>`:''}
+  `;
+
+  // Annual chart
+  renderAnnualChart();
+
+  // Activities grid
+  renderActivities();
+}
+
+// ════════════════════════════════════════════════════
+// ANNUAL CHART
+// ════════════════════════════════════════════════════
+function renderAnnualChart() {
+  if (annualChartInst) { annualChartInst.destroy(); annualChartInst=null; }
+
+  const allRuns = [
+    ...allActivities,
+    ...historyActivities.map(h=>({
+      type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
+      distance: parseFloat(h['Distance'])||0,
+      start_date: h['Activity Date'],
+    }))
+  ].filter(a => isRun(a.type) && a.distance>0);
+
+  const years = {};
+  allRuns.forEach(a => {
+    const d = new Date(a.start_date);
+    if (isNaN(d.getTime())) return;
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    if (!years[y]) years[y] = Array(12).fill(0);
+    years[y][m] += a.distance/1000;
+  });
+
+  const sortedYears = Object.keys(years).sort().slice(-2);
+  if (!sortedYears.length) return;
+
+  const colors = ['#6b7d94','#00d4ff'];
+  const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-based
+
+  const datasets = sortedYears.map((y,i) => {
+    let cum = 0;
+    const data = years[y].map((v,m) => {
+      // For current year, stop at current month
+      if(parseInt(y)===currentYear && m>currentMonth) return null;
+      cum+=v;
+      return Math.round(cum);
+    });
+    return { label: y, data, borderColor: colors[i%colors.length], backgroundColor:'transparent', tension:.4, pointRadius:2, borderWidth:1.5, spanGaps:false };
+  });
+
+  annualChartInst = new Chart(document.getElementById('annualChart'), {
+    type:'line', data:{labels:months,datasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,font:{size:9},color:'#6b7d94',padding:8}}},scales:{x:{ticks:{font:{size:9},color:'#6b7d94'},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{font:{size:9},color:'#6b7d94',callback:v=>v+'km'},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// ════════════════════════════════════════════════════
+// ACTIVITIES GRID
+// ════════════════════════════════════════════════════
+function renderActivities() {
+  const grid = document.getElementById('actsGrid');
+  document.getElementById('actsInfo').textContent = `${allActivities.length} activités`;
+  grid.innerHTML = '';
+  allActivities.slice(0,20).forEach(act => {
+    const d = new Date(act.start_date_local);
+    const ds = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+    const card = document.createElement('div');
+    card.className = 'act-card';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div class="act-name">${tE(act.type)} ${act.name}</div>
+        <div class="act-badge">${tL(act.type)}</div>
+      </div>
+      <div class="act-stats">
+        <div><div class="asv">${(act.distance/1000).toFixed(1)} km</div><div class="asl">dist</div></div>
+        <div><div class="asv">${fmtD(act.moving_time)}</div><div class="asl">temps</div></div>
+        <div><div class="asv">${fmtP(act.average_speed)}/km</div><div class="asl">allure</div></div>
+        ${act.total_elevation_gain>0?`<div><div class="asv to">+${act.total_elevation_gain}m</div><div class="asl">D+</div></div>`:''}
+        ${act.average_heartrate?`<div><div class="asv">${Math.round(act.average_heartrate)}</div><div class="asl">FC</div></div>`:''}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="act-date">${ds}</div>
+      </div>
+      <button class="btn-analyse" onclick="openAnalyse(${JSON.stringify(act).replace(/"/g,'&quot;')})">🔬 Analyser</button>
+      <div class="act-bar" style="background:${bC(act.type)}"></div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// PAF
+// ════════════════════════════════════════════════════
+function computePAF(act, weather) {
+  const fcMax=userProfile.fc_max||FC_MAX_DEFAULT;
+  let factors=[],totalAdj=0;
+  if(weather?.temp!=null){const a=Math.max(0,(weather.temp-10)*0.008);totalAdj+=a;factors.push({icon:weather.temp>25?'🌡️':weather.temp<5?'❄️':'🌤️',label:'Température',value:`${weather.temp.toFixed(1)}°C`,adj:a>0.005?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.02?'var(--red)':a>0.01?'var(--orange)':'var(--green)'});}
+  if(weather?.precip!=null){const a=weather.precip>5?0.03:weather.precip>1?0.02:weather.precip>0.1?0.01:0;totalAdj+=a;factors.push({icon:weather.precip>1?'🌧️':'☀️',label:'Pluie',value:`${weather.precip.toFixed(1)}mm`,adj:a>0?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.01?'var(--orange)':'var(--green)'});}
+  if(weather?.wind!=null){const a=weather.wind>30?0.04:weather.wind>20?0.03:weather.wind>10?0.015:0.003;totalAdj+=a;factors.push({icon:weather.wind>20?'💨':'🌬️',label:'Vent',value:`${weather.wind.toFixed(0)}km/h`,adj:`+${(a*100).toFixed(1)}%`,color:a>0.02?'var(--orange)':'var(--green)'});}
+  const dp=act.total_elevation_gain||0,dk=(act.distance||1)/1000,ga=Math.min(0.45,dp/(dk*1000)*5.5);totalAdj+=ga;factors.push({icon:'⛰️',label:'Dénivelé',value:`+${dp}m`,adj:`+${(ga*100).toFixed(1)}%`,color:ga>0.15?'var(--orange)':'var(--yellow)'});
+  const h=parseInt(act.start_date_local?.split('T')[1]?.split(':')[0]||12);if(h<6||h>20){totalAdj+=0.02;factors.push({icon:'🌙',label:'Nuit',value:`${h}h`,adj:'+2%',color:'var(--purple)'});}
+  if(act.type==='TrailRun'){totalAdj+=0.08;factors.push({icon:'🥾',label:'Trail',value:'Terrain',adj:'+8%',color:'var(--orange)'});}
+  const raw=act.average_speed>0?1000/act.average_speed:0,norm=raw/(1+totalAdj),nm=Math.floor(norm/60),ns=Math.round(norm%60);
+  return {factors,totalAdj,paceNorm:`${nm}:${String(ns).padStart(2,'0')}`};
+}
+
+// ════════════════════════════════════════════════════
+// AI ANALYSIS
+// ════════════════════════════════════════════════════
+async function generateAIAnalysis(act, streams, paf) {
+  const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
+  const seuil = userProfile.lactate_threshold || 181;
+  const zones = [0,0,0,0,0];
+  const hrS = streams.heartrate?.data||[];
+  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zones[0]++;else if(p<.7)zones[1]++;else if(p<.8)zones[2]++;else if(p<.9)zones[3]++;else zones[4]++;});const tot=hrS.length;zones.forEach((_,i)=>zones[i]=Math.round(zones[i]/tot*100));}
+
+  const prompt = `Tu es un coach running expert. Analyse cette sortie course à pied de manière concise et personnalisée en 4-5 phrases maximum. Sois direct, factuel, et actionnable. Ne commence pas par "Cette sortie" ou "Voici".
+
+DONNÉES ATHLÈTE:
+- Age: ${userProfile.age||34} ans | Poids: ${userProfile.weight||79}kg | VO2max: ${userProfile.vo2max||50.4}
+- FC max: ${fcMax} bpm | Seuil lactique: ${seuil} bpm (${userProfile.lactate_pace||'4:50'}/km)
+- Zones douloureuses: ${(userProfile.pain_zones||[]).join(', ')||'aucune'}
+
+DONNÉES SORTIE:
+- Type: ${act.type} | Distance: ${(act.distance/1000).toFixed(2)}km | Durée: ${fmtD(act.moving_time)}
+- Allure moyenne: ${fmtP(act.average_speed)}/km | Allure normalisée PAF: ${paf.paceNorm}/km
+- D+: ${act.total_elevation_gain||0}m | FC moy: ${act.average_heartrate||'N/A'} bpm | FC max: ${act.max_heartrate||'N/A'} bpm
+- Répartition zones FC: Z1=${zones[0]}% Z2=${zones[1]}% Z3=${zones[2]}% Z4=${zones[3]}% Z5=${zones[4]}%
+- Pénalité conditions: +${(paf.totalAdj*100).toFixed(0)}% (${paf.factors.map(f=>f.label+' '+f.value).join(', ')})
+
+Donne une analyse courte incluant: qualité de l'effort, gestion FC, point fort et 1 conseil concret.`;
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch('https://wanzrkdgqmcctwvnbmuv.supabase.co/functions/v1/smooth-processor', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${session?.access_token || SUPA_KEY}`
+      },
+      body:JSON.stringify({prompt})
+    });
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    return data.text || 'Analyse non disponible.';
+  } catch(e) {
+    return 'Analyse IA non disponible — la fonction n\'est pas encore déployée sur ce projet.';
+  }
+}
+
+// ════════════════════════════════════════════════════
+// ANALYSE OVERLAY
+// ════════════════════════════════════════════════════
+async function openAnalyse(act) {
+  const overlay = document.getElementById('analyseOverlay');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('analyseInner').innerHTML = `<div class="loading" style="min-height:300px"><div class="spinner"></div><div class="mono">Chargement des données...</div></div>`;
+
+  const [streams, weather] = await Promise.all([
+    fetchStreams(act.id),
+    act.start_latlng?.length>=2 ? fetchWeather(act.start_latlng[0],act.start_latlng[1],act.start_date_local) : Promise.resolve(null)
+  ]);
+
+  const paf = computePAF(act, weather);
+  const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
+  const d = new Date(act.start_date_local);
+  const dateStr = d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  // Zones FC
+  let zd={Z1:0,Z2:0,Z3:0,Z4:0,Z5:0};
+  const hrS=streams.heartrate?.data||[];
+  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zd.Z1++;else if(p<.7)zd.Z2++;else if(p<.8)zd.Z3++;else if(p<.9)zd.Z4++;else zd.Z5++;});const tot=hrS.length;Object.keys(zd).forEach(k=>zd[k]=Math.round(zd[k]/tot*100));}
+
+  // Chart data
+  const altD=streams.altitude?.data||[],hrD=streams.heartrate?.data||[],distD=streams.distance?.data||[];
+  const step=Math.max(1,Math.floor(altD.length/80));
+  const cA=altD.filter((_,i)=>i%step===0),cH=hrD.filter((_,i)=>i%step===0),cDist=distD.filter((_,i)=>i%step===0).map(d=>(d/1000).toFixed(2));
+
+  document.getElementById('analyseInner').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
+      <button class="hbtn" onclick="closeAnalyse()">← Fermer</button>
+      <div style="flex:1">
+        <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${act.name}</div>
+        <div class="mono t2">${dateStr} · ${act.type==='TrailRun'?'⛰️ Trail':'🏃 Route'}</div>
+      </div>
+      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Lier à un événement</button>
+    </div>
+    <div id="linkActivityPanel" style="display:none;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px;margin-bottom:1rem">
+      <div class="clabel" style="margin-bottom:8px">Associer à une course du calendrier</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="linkActivityRaceList"></div>
+    </div>
+
+    <div class="a-stats">
+      <div class="a-stat"><div class="a-sv tc">${(act.distance/1000).toFixed(2)} km</div><div class="a-sl">Distance</div></div>
+      <div class="a-stat"><div class="a-sv">${fmtD(act.moving_time)}</div><div class="a-sl">Temps mvt</div></div>
+      <div class="a-stat"><div class="a-sv">${fmtP(act.average_speed)}/km</div><div class="a-sl">Allure</div><div class="a-ss t3" style="font-size:.58rem">normalisée PAF : ${paf.paceNorm}/km</div></div>
+      ${act.total_elevation_gain?`<div class="a-stat"><div class="a-sv to">+${act.total_elevation_gain}m</div><div class="a-sl">D+</div></div>`:''}
+      ${act.average_heartrate?`<div class="a-stat"><div class="a-sv">${Math.round(act.average_heartrate)}</div><div class="a-sl">FC moy</div><div class="a-ss">max ${act.max_heartrate||'—'} bpm</div></div>`:''}
+      ${act.kilojoules?`<div class="a-stat"><div class="a-sv">${Math.round(act.kilojoules*.239)}</div><div class="a-sl">kcal</div></div>`:''}
+    </div>
+
+    <!-- AI ANALYSIS -->
+    <div class="ai-analysis" id="aiBox">
+      <div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div>
+      <div class="ai-loading"><div class="spinner"></div><div>Analyse en cours...</div></div>
+    </div>
+
+    <!-- PAF -->
+    <div class="paf-widget">
+      <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin-bottom:10px">Performance Adjustment Factor</div>
+      <div class="paf-factors">${paf.factors.map(f=>`<div class="paf-factor"><span style="font-size:.95rem">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
+      <div class="paf-result">
+        <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
+        <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Pénalité conditions : <strong>+${(paf.totalAdj*100).toFixed(0)}%</strong></div>
+      </div>
+      <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Minetti et al., 2002 · Ely et al., 2007 · Lejeune et al., 1998</div>
+    </div>
+
+    <div class="grid-2 mt2">
+      <div class="card"><div class="clabel">Profil altimétrique & FC</div><div class="chart-wrap" style="height:190px"><canvas id="apChart"></canvas></div></div>
+      <div class="card"><div class="clabel">Répartition zones FC</div><div class="chart-wrap" style="height:190px"><canvas id="azChart"></canvas></div></div>
+    </div>
+
+    <!-- PROFIL ATHLÈTE PAR SECTION (si streams dispo) -->
+    <div id="athleteProfileSection" class="mt2"></div>
+
+    <!-- COMPARAISON PRÉVU/RÉEL (si course liée avec GPX) -->
+    <div id="raceComparisonSection" class="mt2"></div>`;
+
+  // Charts
+  if(cA.length){new Chart(document.getElementById('apChart'),{type:'line',data:{labels:cDist,datasets:[{label:'Alt',data:cA,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:.4,pointRadius:0,borderWidth:1.5,yAxisID:'yA'},...(cH.length?[{label:'FC',data:cH,borderColor:'#f43f5e',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:0,borderWidth:1.5,borderDash:[3,2],yAxisID:'yH'}]:[])]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9},callback:v=>v+'km'},grid:{color:'rgba(255,255,255,.05)'}},yA:{position:'left',ticks:{font:{size:9},callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.05)'}},yH:{position:'right',min:50,max:220,ticks:{font:{size:9}},grid:{display:false}}}}})}
+  const zv=Object.values(zd);if(zv.some(v=>v>0)){new Chart(document.getElementById('azChart'),{type:'doughnut',data:{labels:['Z1 <60%','Z2 60-70%','Z3 70-80%','Z4 80-90%','Z5 >90%'],datasets:[{data:zv,backgroundColor:['#3b82f6','#2ecc71','#fbbf24','#ff6b35','#f43f5e'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},color:'#6b7d94',padding:8}}}}})}
+
+  // Athlete profile by section (VAM, recovery, etc.)
+  renderAthleteProfile(streams, act);
+
+  // Check if this activity is linked to a race — reload fresh from DB first
+  await loadRaces();
+  const linkedRace = races.find(r => String(r.strava_activity_id) === String(act.id));
+  if(linkedRace?.gpx_data) {
+    renderRaceComparison(act, streams, linkedRace);
+  } else {
+    // Populate link panel race list
+    const linkList = document.getElementById('linkActivityRaceList');
+    if(linkList) {
+      const past = races.filter(r => new Date(r.date) < new Date());
+      linkList.innerHTML = past.length
+        ? past.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${r.name.replace(/"/g,'&quot;')}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">📅 ${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
+        : '<span class="mono t3">Aucune course passée dans le calendrier</span>';
+    }
+  }
+
+  // AI analysis async
+  const aiText = await generateAIAnalysis(act, streams, paf);
+  const aiBox = document.getElementById('aiBox');
+  if (aiBox) {
+    aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div><div class="ai-text">${aiText}</div>`;
+  }
 }
 function saveUser(user){ localStorage.setItem(storageKey(user.email), JSON.stringify(user)); }
 
 function setMsg(id,text,cls='muted'){ const el=$(id); el.className=cls; el.textContent=text; }
 
-function render(){
-  const logged = !!appState.user;
-  $('auth').classList.toggle('hidden', logged);
-  $('app').classList.toggle('hidden', !logged);
-  if(!logged) return;
-  $('who').textContent = appState.user.email;
-  const tbody=$('activities'); tbody.innerHTML='';
-  for(const a of appState.user.activities){
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${esc(a.date)}</td><td>${esc(a.name)}</td><td>${esc(a.km)}</td><td>${esc(a.notes)}</td>`;
-    tbody.appendChild(tr);
+async function linkActivityToRace(raceId, raceName, actId) {
+  const btn = document.getElementById('btnLinkActivity');
+  if(btn){btn.textContent='Liaison...';btn.disabled=true;}
+  const {error} = await sb.from('race_calendar')
+    .update({strava_activity_id: actId})
+    .eq('id', raceId);
+  const panel = document.getElementById('linkActivityPanel');
+  if(panel) panel.style.display='none';
+  if(!error){
+    // Reload races from DB to ensure persistence
+    await loadRaces();
+    if(btn){
+      btn.textContent=`✓ Lié à ${raceName}`;
+      btn.style.background='var(--green)';btn.style.color='#000';btn.style.borderColor='var(--green)';
+    }
+    // Now check if linked race has GPX and show comparison
+    const linkedRace = races.find(r=>r.id===raceId);
+    if(linkedRace?.gpx_data){
+      const streams=await fetchStreams(actId);
+      renderRaceComparison({id:actId,moving_time:0}, streams, linkedRace);
+    }
+  } else if(btn){
+    btn.textContent='❌ Erreur';btn.disabled=false;
   }
 }
 
@@ -149,11 +1152,1608 @@ $('addActBtn').addEventListener('click', ()=>{
   render();
 });
 
-(function boot(){
-  const email=sessionStorage.getItem('runner_session_email');
-  if(email){ const user=loadUser(email); if(user) appState.user=user; }
-  render();
-})();
+  // Build logical sections
+  const sections=buildDetailedSections(kmSecs);
+
+  // Get base pace for predictions
+  let basePaceS=320;
+  if(race.goal_time){
+    const parts=race.goal_time.split(/[h:]/);
+    let gs=0;
+    if(parts.length===2)gs=parseInt(parts[0])*60+parseInt(parts[1]);
+    else if(parts.length===3)gs=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
+    if(gs>0)basePaceS=gs/(totalDist/1000)*0.85;
+  } else if(userProfile.prs?.semi?.timeS){
+    basePaceS=userProfile.prs.semi.timeS/21097*1000;
+  }
+
+  // Compute predicted time per section
+  const predicted=sections.map(s=>{
+    const g=s.grade/100;
+    let pen=g>0?g*8:g<-0.2?Math.abs(g)*4:g<-0.1?Math.abs(g)*2:0;
+    return Math.round(basePaceS*(1+pen)*s.dist/1000);
+  });
+
+  // Compute actual time per section from streams
+  const distD=streams.distance?.data||[];
+  const actual=sections.map(s=>{
+    if(!distD.length) return null;
+    const startIdx=distD.findIndex(d=>d>=s.startKm*1000);
+    const endIdx=distD.findIndex(d=>d>=s.endKm*1000);
+    if(startIdx<0||endIdx<0||endIdx<=startIdx) return null;
+    return endIdx-startIdx; // seconds (1 data point = 1 second on Strava)
+  });
+
+  // HR per section
+  const hrD=streams.heartrate?.data||[];
+  const sectionHR=sections.map(s=>{
+    if(!hrD.length||!distD.length) return null;
+    const si=distD.findIndex(d=>d>=s.startKm*1000);
+    const ei=distD.findIndex(d=>d>=s.endKm*1000);
+    if(si<0||ei<0||ei<=si) return null;
+    const slice=hrD.slice(si,ei);
+    return slice.length ? Math.round(slice.reduce((a,b)=>a+b,0)/slice.length) : null;
+  });
+
+  const cols={up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'};
+  const icons={up:'⛰️',down:'🎿',flat:'➡️'};
+
+  const rows = sections.map((s,i) => {
+    const pred=predicted[i];
+    const real=actual[i];
+    const diff=real&&pred ? Math.round((real-pred)/pred*100) : null;
+    const diffColor = diff===null?'var(--text3)':Math.abs(diff)<=10?'var(--green)':Math.abs(diff)<=25?'var(--yellow)':'var(--red)';
+    const diffIcon = diff===null?'—':diff>25?'⚠️':diff>10?'~':diff<-10?'✓':'✓';
+    return `<tr>
+      <td style="color:${cols[s.type]}">${icons[s.type]} ${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} km</td>
+      <td class="mono">${s.type==='up'?`+${s.dplus}m`:s.type==='down'?`-${s.dminus}m`:'—'}</td>
+      <td class="mono">${fmtT(pred)}</td>
+      <td class="mono">${real?fmtT(real):'—'}</td>
+      <td class="mono" style="color:${diffColor};font-weight:600">${diff!==null?(diff>0?'+':'')+diff+'% '+diffIcon:'—'}</td>
+      <td class="mono t2">${sectionHR[i]?sectionHR[i]+' bpm':'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Verdict global
+  const validDiffs = sections.map((_,i)=>{
+    const p=predicted[i],r=actual[i];
+    return r&&p?(r-p)/p*100:null;
+  }).filter(d=>d!==null);
+  const uphillDiffs = sections.map((s,i)=>s.type==='up'&&actual[i]&&predicted[i]?(actual[i]-predicted[i])/predicted[i]*100:null).filter(d=>d!==null);
+  const avgUpDiff = uphillDiffs.length ? Math.round(uphillDiffs.reduce((a,b)=>a+b,0)/uphillDiffs.length) : null;
+
+  section.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+        <div class="clabel" style="margin:0">Comparaison prévu / réel — ${race.name}</div>
+        ${avgUpDiff!==null?`<div class="mono" style="font-size:.6rem;color:${Math.abs(avgUpDiff)<=10?'var(--green)':Math.abs(avgUpDiff)<=25?'var(--yellow)':'var(--red)'}">Montées : ${avgUpDiff>0?'+':''}${avgUpDiff}% vs prédictions</div>`:''}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="splits-table">
+          <thead><tr><th>Section</th><th>D+/D-</th><th>Prévu</th><th>Réel</th><th>Écart</th><th>FC moy</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="mono t3" style="font-size:.56rem;margin-top:8px">
+        ✓ = ±10% · ~ = ±25% · ⚠️ = >25% d'écart
+        ${avgUpDiff!==null && Math.abs(avgUpDiff)>10 ? `<br>💡 Coefficient personnel montée : ×${(1+avgUpDiff/100).toFixed(2)} — appliqué aux prochaines projections sur ce type de course.` : ''}
+      </div>
+    </div>`;
+
+  // Store personal coefficient for future predictions
+  if(avgUpDiff !== null) {
+    userProfile.coeff_uphill = 1 + avgUpDiff/100;
+    sb.from('profiles').upsert({id:currentUser.id, coeff_uphill: userProfile.coeff_uphill});
+  }
+}
+
+function closeAnalyse() {
+  document.getElementById('analyseOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ════════════════════════════════════════════════════
+// RACE CALENDAR
+// ════════════════════════════════════════════════════
+function toggleRaceForm() { document.getElementById('raceForm').classList.toggle('open'); }
+
+async function loadRaces() {
+  const {data} = await sb.from('race_calendar').select('*').eq('user_id',currentUser.id).order('date');
+  if (data) { races=data; renderRaces(); populateRaceSelector(); }
+}
+
+async function saveRace() {
+  const race = {
+    user_id:currentUser.id,
+    name:document.getElementById('rName').value,
+    date:document.getElementById('rDate').value,
+    distance:parseFloat(document.getElementById('rDist').value)||null,
+    elevation:parseInt(document.getElementById('rElev').value)||null,
+    type:document.getElementById('rType').value,
+    goal_time:document.getElementById('rGoal').value
+  };
+  if(!race.name||!race.date)return;
+  const {error}=await sb.from('race_calendar').insert(race);
+  if(!error){document.getElementById('raceForm').classList.remove('open');await loadRaces();}
+}
+
+async function deleteRace(id) { await sb.from('race_calendar').delete().eq('id',id); await loadRaces(); }
+
+function renderRaces() {
+  const list=document.getElementById('raceList');
+  const nextWidget=document.getElementById('nextRaceWidget');
+  if(!races.length){list.innerHTML='<div class="mono t3">Aucune course planifiée</div>';nextWidget.innerHTML='<div class="mono t3">Aucune course planifiée</div>';return;}
+  const now=new Date();
+  const upcoming=races.filter(r=>new Date(r.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const next=upcoming[0];
+  if(next){
+    const diff=Math.ceil((new Date(next.date)-now)/86400000);
+    const color=diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
+    const hasGpx=!!next.gpx_data;
+    nextWidget.innerHTML=`<div class="next-race-big">
+      <div class="next-race-num" style="color:${color}">${diff}</div>
+      <div class="next-race-unit">jours</div>
+      <div style="font-weight:600;font-size:.9rem;margin-bottom:3px">${next.name}</div>
+      <div class="mono t2">${next.distance||'?'}km · D+${next.elevation||'?'}m · ${next.type}</div>
+      ${next.goal_time?`<div class="mono" style="color:${color};margin-top:4px">🎯 ${next.goal_time}</div>`:''}
+      ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green);margin-top:6px;display:inline-block">✓ GPX</span>`:''}
+      <button class="btn-prepare" style="margin-top:10px" onclick='prepareRace(${JSON.stringify(next)})'>${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer la course'}</button>
+    </div>`;
+  } else {nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>';}
+  list.innerHTML=races.map(r=>{
+    const d=new Date(r.date),diff=Math.ceil((d-now)/86400000),past=diff<0;
+    const color=past?'var(--text3)':diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
+    const hasGpx=!!r.gpx_data;
+    const hasActivity=!!r.strava_activity_id;
+    const rJson=JSON.stringify(r).replace(/'/g,"\\'");
+
+    // Smart buttons based on state
+    let buttons='';
+    if(!past){
+      buttons+=`<button onclick='prepareRace(${JSON.stringify(r)})' class="btn-prepare">${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer'}</button>`;
+    } else {
+      if(hasGpx){
+        buttons+=`<button onclick='prepareRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📊 Voir stratégie</button>`;
+      } else {
+        buttons+=`<button onclick='importOrgGpx(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
+      }
+      if(hasActivity){
+        buttons+=`<button onclick='linkActivityFromRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
+      } else {
+        buttons+=`<button onclick='linkActivityFromRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
+      }
+    }
+
+    const linkedAct=hasActivity?allActivities.find(a=>String(a.id)===String(r.strava_activity_id)):null;
+    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace(${JSON.stringify(r)})`:'';
+
+    return `<div class="race-item" style="cursor:${onCardClick?'pointer':'default'};transition:background .15s"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''"
+      onclick="if(event.target.tagName!=='BUTTON'){${onCardClick}}">
+      <div><div class="race-cd" style="color:${color}">${past?'✓':diff}</div><div class="race-cd-lbl">${past?'passée':'jours'}</div></div>
+      <div class="race-info">
+        <div class="race-name">${r.name}</div>
+        <div class="race-meta">${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})} · ${r.distance||'?'}km · D+${r.elevation||'?'}m</div>
+        <div class="race-tags">
+          <span class="race-tag" style="border-color:${color}40;color:${color}">${r.type}</span>
+          ${r.goal_time?`<span class="race-tag" style="border-color:var(--text3)40;color:var(--text2)">🎯 ${r.goal_time}</span>`:''}
+          ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green)">✓ GPX</span>`:''}
+          ${hasActivity?`<span class="race-tag" style="border-color:var(--purple)40;color:var(--purple)">✓ Activité</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+        ${buttons}
+        <button onclick="deleteRace('${r.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.75rem">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// PREPARE RACE — lien calendrier → stratégie
+// ════════════════════════════════════════════════════
+function showLinkRacePanel() {
+  const panel = document.getElementById('linkRacePanel');
+  if(panel) panel.style.display = panel.style.display==='none'?'block':'none';
+}
+
+async function linkGpxToRace(raceId, raceName) {
+  if(!window._pendingGpxSave) {
+    alert('Charge d\'abord un GPX avant de lier à un événement.');
+    return;
+  }
+  const btn = document.getElementById('btnLinkRace');
+  if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  const {error} = await sb.from('race_calendar')
+    .update({gpx_data: JSON.stringify(window._pendingGpxSave)})
+    .eq('id', raceId);
+  const panel = document.getElementById('linkRacePanel');
+  if(panel) panel.style.display='none';
+  if(btn){
+    if(error){btn.textContent='❌ Erreur';btn.disabled=false;}
+    else{
+      btn.textContent=`✓ Lié à ${raceName}`;
+      btn.style.background='var(--green)';btn.style.color='#000';btn.style.border='none';
+      const idx=races.findIndex(r=>r.id===raceId);
+      if(idx>=0)races[idx].gpx_data=JSON.stringify(window._pendingGpxSave);
+      currentRaceContext={id:raceId,name:raceName,gpx_data:JSON.stringify(window._pendingGpxSave)};
+      renderRaces();
+    }
+  }
+}
+
+async function saveGpxToRace() {
+  if(!currentRaceContext?.id||!window._pendingGpxSave) return;
+  const btn=document.getElementById('btnSaveGpx');
+  if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  const {error}=await sb.from('race_calendar')
+    .update({gpx_data: JSON.stringify(window._pendingGpxSave)})
+    .eq('id', currentRaceContext.id);
+  if(btn){
+    if(error){btn.textContent='❌ Erreur';btn.style.background='var(--red)';}
+    else{
+      btn.textContent='✓ GPX associé !';
+      btn.style.background='var(--cyan)';
+      // Update local cache
+      const idx=races.findIndex(r=>r.id===currentRaceContext.id);
+      if(idx>=0)races[idx].gpx_data=JSON.stringify(window._pendingGpxSave);
+      currentRaceContext.gpx_data=JSON.stringify(window._pendingGpxSave);
+      renderRaces();
+      setTimeout(()=>{if(btn){btn.textContent=`💾 Associé à ${currentRaceContext.name}`;btn.disabled=true;}},2000);
+    }
+  }
+}
+
+function importOrgGpx(race) {
+  // Create hidden file input and trigger click
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.gpx';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    showToast('Analyse du GPX...', 'info');
+    const text = await file.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, 'text/xml');
+    const trkpts = [...xml.querySelectorAll('trkpt')];
+    if(!trkpts.length){ showToast('GPX invalide — aucun point trouvé', 'error'); return; }
+    const points = trkpts.map(p=>({
+      lat: parseFloat(p.getAttribute('lat')),
+      lon: parseFloat(p.getAttribute('lon')),
+      ele: parseFloat(p.querySelector('ele')?.textContent||0)
+    }));
+    // Sample every 5 points to reduce size
+    const sampled = points.filter((_,i)=>i%5===0);
+    const {error} = await sb.from('race_calendar')
+      .update({gpx_data: JSON.stringify(sampled)})
+      .eq('id', race.id);
+    if(error){ showToast('Erreur sauvegarde GPX', 'error'); return; }
+    await loadRaces();
+    showToast(`GPX associé à ${race.name} ✓`, 'success');
+  };
+  input.click();
+}
+
+async function linkActivityFromRace(race) {
+  // Find activities close to race date (±3 days)
+  const raceDate = new Date(race.date);
+  const nearby = allActivities.filter(a => {
+    const d = new Date(a.start_date);
+    const diff = Math.abs(d - raceDate) / 86400000;
+    return diff <= 3;
+  });
+
+  // Show modal with nearby activities
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:2rem';
+  modal.onclick = e => { if(e.target===modal) document.body.removeChild(modal); };
+
+  const inner = document.createElement('div');
+  inner.style.cssText='background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:1.5rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto';
+  inner.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-family:var(--display);font-size:1.2rem">Lier à ${race.name}</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" class="hbtn">✕</button>
+    </div>
+    <div class="mono t2" style="margin-bottom:1rem;font-size:.62rem">Activités Strava dans les 3 jours autour du ${new Date(race.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long'})}</div>
+    ${nearby.length ? nearby.map(a=>`
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .2s"
+        onmouseover="this.style.borderColor='var(--purple)'"
+        onmouseout="this.style.borderColor='var(--border)'"
+        onclick="confirmLinkActivity('${race.id}','${race.name}',${a.id},this.closest('[style*=fixed]'))">
+        <div style="font-weight:600;font-size:.85rem">${a.name}</div>
+        <div class="mono t2" style="font-size:.62rem;margin-top:3px">${new Date(a.start_date_local).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'})} · ${(a.distance/1000).toFixed(1)}km · ${fmtD(a.moving_time)} · +${a.total_elevation_gain||0}m</div>
+      </div>`).join('')
+    : `<div class="mono t3">Aucune activité trouvée dans les 3 jours autour de la course.<br><br>Vérifie que Strava est connecté et que l'activité est bien synchronisée.</div>`}`;
+
+  modal.appendChild(inner);
+  document.body.appendChild(modal);
+}
+
+async function confirmLinkActivity(raceId, raceName, actId, modal) {
+  const {error} = await sb.from('race_calendar')
+    .update({strava_activity_id: actId})
+    .eq('id', raceId);
+  if(!error){
+    await loadRaces(); // reload from DB
+    if(modal) modal.remove();
+  }
+}
+
+function prepareRace(race) {
+  currentRaceContext = race;
+  // Switch to strategy panel
+  showPanel('strategie', document.querySelector('.nbtn[onclick*="strategie"]'));
+  resetStrategy();
+  // If GPX already saved, load it directly
+  if (race.gpx_data) {
+    try {
+      const points = JSON.parse(race.gpx_data);
+      analyzeGPX(points, race.name);
+    } catch(e) {
+      // GPX data malformed, ask for upload
+      showGpxUploadPrompt(race);
+    }
+  } else {
+    showGpxUploadPrompt(race);
+  }
+}
+
+function showGpxUploadPrompt(race) {
+  const drop = document.getElementById('gpxDrop');
+  drop.style.display = 'block';
+  drop.innerHTML = `
+    <div style="font-size:2rem;margin-bottom:.5rem">🗺️</div>
+    <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;margin-bottom:.25rem">${race.name}</div>
+    <div class="mono t2" style="margin-bottom:.75rem">Upload le GPX pour générer la stratégie</div>
+    <div class="mono t3">Compatible OpenRunner · Strava · Garmin Connect</div>`;
+  drop.onclick = ()=>document.getElementById('gpxFile').click();
+}
+
+// ════════════════════════════════════════════════════
+// ZIP HANDLER
+// ════════════════════════════════════════════════════
+function handleZipDrop(e){e.preventDefault();document.getElementById('zipDropZone').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.zip'))processZip(f);}
+function handleZipFile(e){const f=e.target.files[0];if(f)processZip(f);}
+
+async function processZip(file) {
+  const stats=document.getElementById('histStats');
+  stats.style.display='block';
+  stats.innerHTML='<div class="mono">Lecture du ZIP en cours...</div>';
+  try {
+    const zip=await JSZip.loadAsync(file);
+    let csvFile=zip.file('activities.csv');
+    if(!csvFile){const keys=Object.keys(zip.files);const k=keys.find(k=>k.endsWith('activities.csv'));if(k)csvFile=zip.file(k);}
+    if(!csvFile){stats.innerHTML='<div class="mono tr">activities.csv introuvable dans le ZIP</div>';return;}
+    const text=await csvFile.async('string');
+    await parseAndSaveCSV(text, stats);
+  } catch(e){stats.innerHTML=`<div class="mono tr">Erreur : ${e.message}</div>`;}
+}
+
+async function parseAndSaveCSV(text, statsEl) {
+  const lines=text.split('\n').filter(l=>l.trim());
+  if(!lines.length)return;
+  const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  const rows=lines.slice(1).map(line=>{
+    const vals=[];let cur='',inQ=false;
+    for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur.trim());cur='';}else cur+=ch;}
+    vals.push(cur.trim());
+    const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj;
+  }).filter(r=>{const t=r['Activity Type']||r['Type']||'';return['Run','Trail Run','Running'].includes(t);});
+
+  historyActivities=rows;
+  const totalKm=rows.reduce((s,r)=>s+(parseFloat(r['Distance'])||0),0)/1000;
+  const totalDplus=rows.reduce((s,r)=>s+(parseFloat(r['Elevation Gain'])||0),0);
+  const dates=rows.map(r=>r['Activity Date']||r['Date']).filter(Boolean).sort();
+
+  const {error}=await sb.from('activities_history').delete().eq('user_id',currentUser.id).then(()=>
+    sb.from('activities_history').insert({user_id:currentUser.id,data:rows,imported_at:new Date().toISOString()})
+  );
+
+  statsEl.innerHTML=`
+    <div class="hsr"><span class="t2">Activités running importées</span><span class="mono">${rows.length}</span></div>
+    <div class="hsr"><span class="t2">Distance totale</span><span class="mono">${totalKm.toFixed(0)} km</span></div>
+    <div class="hsr"><span class="t2">D+ total</span><span class="mono">${totalDplus.toFixed(0)} m</span></div>
+    <div class="hsr"><span class="t2">Période</span><span class="mono">${dates[0]?.split(' ')[0]||'?'} → ${dates[dates.length-1]?.split(' ')[0]||'?'}</span></div>
+    ${error?`<div style="color:var(--red);font-size:.7rem;margin-top:6px">Erreur sauvegarde : ${error.message}</div>`:`<div style="color:var(--green);font-family:var(--mono);font-size:.6rem;margin-top:6px">✓ Historique sauvegardé</div>`}`;
+
+  // Update annual chart with history
+  renderAnnualChart();
+  // Update onboarding steps
+  updateOnboardingSteps();
+}
+
+async function loadHistoryFromDB() {
+  const {data}=await sb.from('activities_history').select('data').eq('user_id',currentUser.id).single();
+  if(data?.data){historyActivities=data.data;renderAnnualChart();}
+}
+
+function updateOnboardingSteps() {
+  if(allActivities.length>0){document.getElementById('step1').classList.add('done');document.getElementById('step1-num').textContent='✓';}
+  if(historyActivities.length>0){document.getElementById('step2').classList.add('done');document.getElementById('step2-num').textContent='✓';}
+  if(userProfile.fc_max||userProfile.vo2max){document.getElementById('step3').classList.add('done');document.getElementById('step3-num').textContent='✓';}
+}
+
+// ════════════════════════════════════════════════════
+// GPX STRATEGY
+// ════════════════════════════════════════════════════
+let leafletMap = null;
+let currentRaceContext = null;
+
+function handleGpxDrop(e){e.preventDefault();document.getElementById('gpxDrop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.gpx'))parseGPX(f);}
+function handleGpxFile(e){const f=e.target.files[0];if(f)parseGPX(f);}
+
+function parseGPX(file, raceCtx=null){
+  currentRaceContext=raceCtx;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const xml=new DOMParser().parseFromString(e.target.result,'text/xml');
+    const pts=xml.querySelectorAll('trkpt');
+    if(!pts.length){alert('GPX invalide ou vide');return;}
+    const points=[];
+    pts.forEach(pt=>{const lat=parseFloat(pt.getAttribute('lat')),lon=parseFloat(pt.getAttribute('lon')),ele=pt.querySelector('ele');points.push({lat,lon,ele:ele?parseFloat(ele.textContent):null});});
+    await analyzeGPX(points, file.name||'');
+  };
+  reader.readAsText(file);
+}
+
+function hav(p1,p2){const R=6371000,r=Math.PI/180,dLat=(p2.lat-p1.lat)*r,dLon=(p2.lon-p1.lon)*r,a=Math.sin(dLat/2)**2+Math.cos(p1.lat*r)*Math.cos(p2.lat*r)*Math.sin(dLon/2)**2;return R*2*Math.asin(Math.sqrt(a));}
+function fmtT(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`;}
+
+async function analyzeGPX(points, fname) {
+  let cumDist=[0],dplus=0,dminus=0;
+  for(let i=1;i<points.length;i++){
+    cumDist.push(cumDist[i-1]+hav(points[i-1],points[i]));
+    if(points[i].ele&&points[i-1].ele){const diff=points[i].ele-points[i-1].ele;if(diff>0)dplus+=diff;else dminus+=Math.abs(diff);}
+  }
+  const totalDist=cumDist[cumDist.length-1];
+  const eles=points.map(p=>p.ele).filter(e=>e!=null);
+  const altMin=Math.min(...eles),altMax=Math.max(...eles);
+
+  // Samples every 100m
+  const samples=[];let target=0;
+  for(let i=0;i<points.length;i++){if(cumDist[i]>=target){samples.push({d:+(cumDist[i]/1000).toFixed(2),alt:points[i].ele?Math.round(points[i].ele):null});target+=100;}}
+  samples.push({d:+(totalDist/1000).toFixed(2),alt:eles[eles.length-1]?Math.round(eles[eles.length-1]):null});
+
+  // Weather
+  let weather=null;
+  try{const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`);const d=await r.json();const h=9;weather={temp:d.hourly?.temperature_2m?.[h],precip:d.hourly?.precipitation_probability?.[h],wind:d.hourly?.windspeed_10m?.[h]};}catch{}
+
+  // 500m sections with detailed grade
+  const kmSecs=[];let segTarget=500,prevIdx=0,segNum=0;
+  for(let i=0;i<cumDist.length;i++){
+    if(cumDist[i]>=segTarget||i===cumDist.length-1){
+      let sdp=0,sdm=0;
+      for(let j=prevIdx+1;j<=i;j++){if(points[j].ele&&points[j-1].ele){const diff=points[j].ele-points[j-1].ele;if(diff>0)sdp+=diff;else sdm+=Math.abs(diff);}}
+      const segDist=cumDist[i]-cumDist[prevIdx];
+      const elevChange=points[i].ele&&points[prevIdx].ele?points[i].ele-points[prevIdx].ele:0;
+      const grade=segDist>0?(elevChange/segDist)*100:0;
+      const startKm=+(cumDist[prevIdx]/1000).toFixed(2);
+      const endKm=+(cumDist[i]/1000).toFixed(2);
+      kmSecs.push({km:endKm,startKm,dist:segDist,dplus:Math.round(sdp),dminus:Math.round(sdm),grade:+grade.toFixed(1),altEnd:points[i].ele?Math.round(points[i].ele):null});
+      prevIdx=i;segTarget=cumDist[i]+500;segNum++;
+    }
+  }
+
+  // ── ALGO PROGRESSION ──
+  // Compute performance index from recent quality sessions (>20% time in Z3+)
+  function computeProgressionFactor() {
+    if(!allActivities.length) return 1;
+    const fcMax=userProfile.fc_max||205;
+    const z3min=Math.round(fcMax*.80);
+    // Get quality sessions with HR data
+    const qualitySessions=allActivities.filter(a=>{
+      if(!isRun(a.type)) return false;
+      if(!a.average_heartrate) return false;
+      // Proxy: avg HR > 80% FCmax = quality session
+      return a.average_heartrate > z3min && a.distance > 3000;
+    }).sort((a,b)=>new Date(a.start_date)-new Date(b.start_date));
+    if(qualitySessions.length<4) return 1;
+    // Split into first half / second half
+    const half=Math.floor(qualitySessions.length/2);
+    const early=qualitySessions.slice(0,half);
+    const recent=qualitySessions.slice(-half);
+    // Compute normalized pace (speed m/s) for each group — lower is better
+    const avgPaceEarly=early.reduce((s,a)=>s+a.average_speed,0)/early.length;
+    const avgPaceRecent=recent.reduce((s,a)=>s+a.average_speed,0)/recent.length;
+    if(avgPaceEarly<=0) return 1;
+    const factor=avgPaceRecent/avgPaceEarly; // >1 = improvement
+    // Cap between 0.90 and 1.10 (±10% max)
+    return Math.min(1.10, Math.max(0.90, factor));
+  }
+
+  const progressionFactor = computeProgressionFactor();
+  const qualityCount = allActivities.filter(a=>isRun(a.type)&&a.average_heartrate>(userProfile.fc_max||205)*.80&&a.distance>3000).length;
+
+  // Base pace from goal time, progression-adjusted PR, or default
+  let basePaceS=320;
+  let projSource='';
+  if(currentRaceContext?.goal_time) {
+    const gt=currentRaceContext.goal_time;
+    const parts=gt.split(/[h:]/);
+    let goalS=0;
+    if(parts.length===2)goalS=parseInt(parts[0])*60+parseInt(parts[1]);
+    else if(parts.length===3)goalS=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
+    if(goalS>0){
+      basePaceS=(goalS/(totalDist/1000))*0.85;
+      projSource=`🎯 Objectif ${currentRaceContext.goal_time}`;
+    }
+  } else if(userProfile.prs){
+    const prs=userProfile.prs;
+    const candidates=['semi','10k','15k','marathon','5k'].filter(k=>prs[k]?.timeS&&prs[k]?.dist);
+    if(candidates.length){
+      const pr=prs[candidates[0]];
+      const rawPace=pr.timeS/pr.dist*1000;
+      // Apply progression factor and coeff_uphill
+      basePaceS=rawPace/progressionFactor;
+      const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}% progression`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}% régression`:'stable';
+      projSource=`📊 PR ${candidates[0].toUpperCase()} ajusté progression (${prog}${qualityCount>=4?`, ${qualityCount} séances qualité`:', données insuffisantes'})`;
+    }
+  }
+  if(!projSource) projSource='⚙️ Estimation par défaut — renseigne tes PR ou ton objectif temps';
+
+  // Build sections
+  const sections=buildDetailedSections(kmSecs);
+  const sectionTimes=[];
+  let estTimeS=0;
+  sections.forEach(s=>{
+    const distKm=s.dist/1000;
+    const grade=s.grade/100;
+    let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
+    const t=basePaceS*(1+pen)*distKm;
+    sectionTimes.push(Math.round(t));estTimeS+=t;
+  });
+  const dh=estTimeS/3600;
+  const distKm=totalDist/1000;
+  const raceName=currentRaceContext?.name||fname.replace('.gpx','')||'Course';
+  const raceDate=currentRaceContext?.date?new Date(currentRaceContext.date).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const splits=buildSplitsTable(kmSecs,basePaceS);
+
+  const res=document.getElementById('stratResult');
+  res.style.display='block';
+  document.getElementById('gpxDrop').style.display='none';
+
+  const isTrail=isTrailRace();
+
+  res.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:1.25rem">
+      <div>
+        <div style="font-family:var(--display);font-size:2rem;letter-spacing:.03em">${raceName}</div>
+        ${raceDate?`<div class="mono t2">${raceDate}</div>`:''}
+        <div class="mono t2" style="font-size:.6rem;margin-top:4px">${projSource}</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <span class="strat-tag" style="border-color:${isTrail?'var(--orange)40':'var(--cyan)40'};color:${isTrail?'var(--orange)':'var(--cyan)'}">${isTrail?'⛰️ Trail — RPE':'🏃 Route — FC structurée'}</span>
+          ${qualityCount>=4?`<span class="strat-tag" style="border-color:var(--green)40;color:var(--green)">📈 ${qualityCount} séances qualité analysées</span>`:'<span class="strat-tag" style="border-color:var(--text3)40;color:var(--text3)">Fais plus de séances qualité pour affiner</span>'}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">
+        <button onclick="resetStrategy()" class="hbtn">← Changer de GPX</button>
+        ${currentRaceContext?.id
+          ? `<button onclick="saveGpxToRace()" class="hbtn" id="btnSaveGpx" style="background:var(--green);color:#000;border-color:var(--green)">💾 Associer à ${currentRaceContext.name}</button>`
+          : `<button onclick="showLinkRacePanel()" class="hbtn" id="btnLinkRace" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier à un événement</button>`
+        }
+        <button onclick="window.print()" class="hbtn" style="background:var(--cyan);color:#000;border-color:var(--cyan)">🖨️ Imprimer</button>
+      </div>
+      <div id="linkRacePanel" style="display:none;margin-top:.75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px">
+        <div class="clabel" style="margin-bottom:8px">Choisir un événement</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${r.name.replace(/"/g,'&quot;')}" onclick="linkGpxToRace(this.dataset.raceid,this.dataset.racename)">📅 ${r.name}</button>`).join('')||'<span class="mono t3">Aucune course à venir</span>'}</div>
+      </div>
+    </div>
+
+    <div class="s-stats">
+      <div class="s-stat"><div class="s-sv tc">${distKm.toFixed(2)} km</div><div class="s-sl">Distance</div></div>
+      <div class="s-stat"><div class="s-sv to">+${Math.round(dplus)} m</div><div class="s-sl">D+</div></div>
+      <div class="s-stat"><div class="s-sv">-${Math.round(dminus)} m</div><div class="s-sl">D-</div></div>
+      <div class="s-stat"><div class="s-sv">${altMin}m</div><div class="s-sl">Alt. min</div></div>
+      <div class="s-stat"><div class="s-sv">${altMax}m</div><div class="s-sl">Alt. max</div></div>
+      ${weather?.temp!=null?`<div class="s-stat"><div class="s-sv ${weather.temp>25?'tr':weather.temp<5?'tc':'tg'}">${Math.round(weather.temp)}°C</div><div class="s-sl">Météo prévue</div></div>`:''}
+      ${weather?.wind!=null?`<div class="s-stat"><div class="s-sv">${Math.round(weather.wind)} km/h</div><div class="s-sl">Vent</div></div>`:''}
+      ${weather?.precip!=null?`<div class="s-stat"><div class="s-sv ${weather.precip>50?'tr':'tg'}">${weather.precip}%</div><div class="s-sl">Prob. pluie</div></div>`:''}
+    </div>
+
+    <div class="card mt2 no-print"><div class="clabel">Tracé du parcours — OpenStreetMap</div><div id="raceMap" style="height:300px;border-radius:9px;overflow:hidden"></div></div>
+
+    <div class="card mt2"><div class="clabel">Profil altimétrique</div><div class="chart-wrap" style="height:240px"><canvas id="gpxChart"></canvas></div></div>
+
+    <div class="card mt2">
+      <div class="clabel">Projections de temps${userProfile.prs?' — calibré sur tes PR':' — allure estimée 5:20/km trail'}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="s-stat" style="text-align:center"><div class="s-sv t2">${fmtT(estTimeS*1.1)}</div><div class="s-sl">Conservateur</div></div>
+        <div class="s-stat" style="text-align:center;border:1px solid var(--cyan)"><div class="s-sv tc">${fmtT(estTimeS)}</div><div class="s-sl">→ Cible</div></div>
+        <div class="s-stat" style="text-align:center"><div class="s-sv t2">${fmtT(estTimeS*.92)}</div><div class="s-sl">Agressif</div></div>
+      </div>
+      <div class="mono t3" style="font-size:.56rem;margin-top:8px">Minetti et al., 2002 · ${currentRaceContext?.goal_time?`Calibré sur objectif ${currentRaceContext.goal_time}`:userProfile.prs?.semi?`PR semi ${userProfile.prs.semi.time}`:'Renseigne tes PR ou objectif temps dans le calendrier'}</div>
+    </div>
+
+    <div class="stitle mt3">Plan de course — sections</div>
+    ${sections.map((s,i)=>renderDetailedSection(s,sectionTimes[i],i)).join('')}
+
+    <div class="card mt3"><div class="clabel">Tableau de splits km par km</div><div style="overflow-x:auto"><table class="splits-table"><thead><tr><th>Km</th><th>Type</th><th>Pente</th><th>D+</th><th>D-</th><th>Alt</th><th>Durée sect.</th><th>Temps cumulé</th><th>Conseil FC</th></tr></thead><tbody>${splits}</tbody></table></div></div>
+
+    <div class="stitle mt3">Plan nutrition</div>
+    <div class="card">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-bottom:1rem">
+        <div class="s-stat"><div class="s-sv to">${Math.round(dh*720)}</div><div class="s-sl">kcal estimées</div></div>
+        <div class="s-stat"><div class="s-sv tc">${dh<1.25?'Eau only':dh<2.5?Math.round(30*(dh-0.5))+'g':Math.round(60*(dh-0.5))+'g'}</div><div class="s-sl">Glucides cibles</div></div>
+        <div class="s-stat"><div class="s-sv tg">${Math.round(dh*400)} ml</div><div class="s-sl">Eau estimée</div></div>
+        <div class="s-stat"><div class="s-sv ${dh<1.25?'tg':dh<2.5?'ty':'to'}">${dh<1.25?'< 75min':dh<2.5?'75-150min':'> 150min'}</div><div class="s-sl">Protocole</div></div>
+      </div>
+      ${dh<1.25?`<div style="background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25);border-radius:8px;padding:10px 14px;font-size:.8rem;margin-bottom:.75rem"><strong class="tg">Effort estimé &lt; 75 minutes — eau uniquement pendant la course.</strong><br><span class="mono t3" style="font-size:.62rem">Réserves glycogéniques endogènes (~400-500g) suffisantes. Burke et al., 2011 — J Sports Sci</span></div>`:''}
+      <table class="nutr-table"><thead><tr><th>Moment</th><th>Action</th><th>Glucides</th><th>Justification scientifique</th></tr></thead><tbody>${genNutrition(totalDist,estTimeS)}</tbody></table>
+      <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Burke et al., 2011 · Jeukendrup, 2004 · Currell & Jeukendrup, 2008 · Ivy, 1998 · Sawka et al., 2007</div>
+    </div>`;
+
+  // ── Globals interactivité ──
+  window._gpxPoints = points;
+  window._gpxSamples = samples;
+  window._gpxSections = sections;
+  window._gpxDistKm = distKm;
+  window._gpxCumDist = cumDist;
+  window._gpxChart = null;
+  window._activeSection = -1;
+  window._sectionPolylines = [];
+  window._hoverMarker = null;
+
+  // OSM Map
+  setTimeout(()=>{
+    if(leafletMap){leafletMap.remove();leafletMap=null;}
+    leafletMap=L.map('raceMap',{zoomControl:true,scrollWheelZoom:false});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(leafletMap);
+
+    // Tracé de fond grisé
+    const allLL=points.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
+    L.polyline(allLL,{color:'#1c2738',weight:5,opacity:1}).addTo(leafletMap);
+
+    // Polylines colorées par section + interactivité
+    window._sectionPolylines = sections.map((s,idx)=>{
+      const si=Math.round((s.startKm/distKm)*points.length);
+      const ei=Math.min(Math.round((s.endKm/distKm)*points.length),points.length-1);
+      const ll=points.slice(si,ei+1).filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
+      const col={up:'#ff6b35',down:'#a78bfa',flat:'#00d4ff'}[s.type];
+      const poly=L.polyline(ll,{color:col,weight:4,opacity:.85}).addTo(leafletMap);
+      poly.on('click',()=>highlightSection(idx));
+      poly.on('mouseover',()=>{if(window._activeSection!==idx)poly.setStyle({weight:6,opacity:1});});
+      poly.on('mouseout',()=>{if(window._activeSection!==idx)poly.setStyle({weight:4,opacity:.85});});
+      return {poly,col,s};
+    });
+
+    // Marqueur survol carte → profil alti
+    window._hoverMarker = L.circleMarker([points[0].lat,points[0].lon],{radius:6,fillColor:'#fff',color:'#00d4ff',weight:2,fillOpacity:1}).addTo(leafletMap);
+    window._hoverMarker.setStyle({opacity:0,fillOpacity:0});
+
+    leafletMap.on('mousemove',e=>{
+      // Trouver le point GPX le plus proche du curseur
+      let minDist=Infinity,closest=0;
+      points.forEach((p,i)=>{
+        const d=Math.pow(p.lat-e.latlng.lat,2)+Math.pow(p.lon-e.latlng.lng,2);
+        if(d<minDist){minDist=d;closest=i;}
+      });
+      const km=(cumDist[closest]/1000);
+      // Mettre à jour le marqueur
+      window._hoverMarker.setLatLng([points[closest].lat,points[closest].lon]);
+      window._hoverMarker.setStyle({opacity:1,fillOpacity:1});
+      // Mettre à jour le profil alti via plugin annotation
+      if(window._gpxChart){
+        const si=samples.findIndex(s=>s.d>=km-0.05&&s.d<=km+0.15);
+        if(si>=0){
+          window._gpxChart.data.datasets[1]={label:'Pos',data:samples.map((_,i)=>i===si?samples[i].alt:null),borderColor:'#fff',backgroundColor:'#fff',pointRadius:samples.map((_,i)=>i===si?6:0),pointBackgroundColor:'#fff',fill:false,tension:0,showLine:false};
+          window._gpxChart.update('none');
+        }
+      }
+    });
+    leafletMap.on('mouseout',()=>{
+      window._hoverMarker.setStyle({opacity:0,fillOpacity:0});
+      if(window._gpxChart){window._gpxChart.data.datasets[1]={label:'Pos',data:samples.map(()=>null),pointRadius:0};window._gpxChart.update('none');}
+    });
+
+    // Marqueurs départ / arrivée
+    L.circleMarker([points[0].lat,points[0].lon],{radius:9,fillColor:'#2ecc71',color:'#fff',weight:2.5,fillOpacity:1}).bindPopup('<b>🟢 Départ</b>').addTo(leafletMap);
+    L.circleMarker([points[points.length-1].lat,points[points.length-1].lon],{radius:9,fillColor:'#f43f5e',color:'#fff',weight:2.5,fillOpacity:1}).bindPopup('<b>🔴 Arrivée</b>').addTo(leafletMap);
+
+    // Fit bounds
+    const polyAll=L.polyline(allLL);
+    leafletMap.fitBounds(polyAll.getBounds(),{padding:[20,20]});
+  },300);
+
+  // Alti chart avec interactivité
+  if(window._gpxChart){window._gpxChart.destroy();window._gpxChart=null;}
+  const chartCtx=document.getElementById('gpxChart');
+
+  // Couleur par section sur le profil
+  const sectionColors=samples.map(s=>{
+    const km=s.d;
+    const sec=sections.find(sec=>km>=sec.startKm&&km<=sec.endKm);
+    if(!sec)return 'rgba(0,212,255,.15)';
+    return {up:'rgba(255,107,53,.2)',down:'rgba(167,139,250,.2)',flat:'rgba(0,212,255,.15)'}[sec.type];
+  });
+
+  window._gpxChart=new Chart(chartCtx,{
+    type:'line',
+    data:{
+      labels:samples.map(s=>s.d.toFixed(1)),
+      datasets:[
+        {label:'Alt',data:samples.map(s=>s.alt),borderColor:'#00d4ff',backgroundColor:ctx=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,240);g.addColorStop(0,'rgba(0,212,255,.3)');g.addColorStop(1,'rgba(0,212,255,0)');return g;},fill:true,tension:.4,pointRadius:0,borderWidth:2,pointHoverRadius:0},
+        {label:'Pos',data:samples.map(()=>null),borderColor:'#fff',backgroundColor:'#fff',pointRadius:0,pointBackgroundColor:'#fff',fill:false,tension:0,showLine:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            title:i=>`km ${i[0].label}`,
+            label:c=>{
+              const idx=c.dataIndex;
+              const alt=Math.round(c.parsed.y);
+              // Calculate slope between adjacent samples
+              let slope='';
+              if(idx>0&&samples[idx-1]?.alt&&samples[idx]?.alt){
+                const dAlt=samples[idx].alt-samples[idx-1].alt;
+                const dDist=(samples[idx].d-samples[idx-1].d)*1000;
+                if(dDist>0){const pct=(dAlt/dDist*100).toFixed(1);slope=` · Pente: ${pct>0?'+':''}${pct}%`;}
+              }
+              return `Alt: ${alt}m${slope}`;
+            }
+          },
+          mode:'index',intersect:false
+        }
+      },
+      onHover:(e,els,chart)=>{
+        if(els.length&&leafletMap){
+          const idx=els[0].index;
+          const s=samples[idx];
+          const targetDist=s.d*1000;
+          const cumDist=window._gpxCumDist||[];
+          let closest=0,minD=Infinity;
+          cumDist.forEach((d,i)=>{const diff=Math.abs(d-targetDist);if(diff<minD){minD=diff;closest=i;}});
+          const pts=window._gpxPoints||[];
+          if(window._hoverMarker&&pts[closest])window._hoverMarker.setLatLng([pts[closest].lat,pts[closest].lon]).setStyle({opacity:1,fillOpacity:1});
+        } else {
+          if(window._hoverMarker)window._hoverMarker.setStyle({opacity:0,fillOpacity:0});
+        }
+      },
+      scales:{
+        x:{ticks:{maxTicksLimit:15,font:{size:9},callback:(v,i)=>Number.isInteger(parseFloat(samples[i]?.d))?samples[i].d+'km':''},grid:{color:'rgba(255,255,255,.05)'}},
+        y:{min:Math.max(0,altMin-30),max:altMax+30,ticks:{callback:v=>v+'m',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}
+      }
+    }
+  });
+
+  // Toujours stocker le GPX pour permettre la liaison ultérieure
+  window._pendingGpxSave = points.filter((_,i)=>i%5===0).map(p=>({lat:p.lat,lon:p.lon,ele:p.ele}));
+}
+
+function buildDetailedSections(kmSecs){
+  // Smooth grades over 3-km window to avoid choppy sections
+  const smoothed = kmSecs.map((s,i)=>{
+    const window3 = kmSecs.slice(Math.max(0,i-1), Math.min(kmSecs.length,i+2));
+    const avgGrade = window3.reduce((a,k)=>a+k.grade,0)/window3.length;
+    return {...s, gradeSmooth: avgGrade};
+  });
+
+  const out=[];let i=0;
+  while(i<smoothed.length){
+    const s=smoothed[i];
+    // Uphill: grade > 6% smoothed, must be at least 200m D+
+    if(s.gradeSmooth>6){
+      let j=i;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth>3)j++;
+      const seg=smoothed.slice(i,j);
+      const dp=seg.reduce((a,k)=>a+k.dplus,0);
+      const dm=seg.reduce((a,k)=>a+k.dminus,0);
+      const distM=seg.reduce((a,k)=>a+k.dist,0);
+      const avgG=distM>0?dp/distM*100:0;
+      // Only create uphill section if significant D+
+      if(dp>80){
+        out.push({type:'up',startKm:smoothed[i].startKm,endKm:smoothed[Math.min(j,smoothed.length)-1].km,dplus:Math.round(dp),dminus:Math.round(dm),dist:distM,grade:+avgG.toFixed(1)});
+        i=j;
+      } else {
+        // Not significant enough — merge as flat
+        out.push({type:'flat',startKm:s.startKm,endKm:s.km,dplus:s.dplus,dminus:s.dminus,dist:s.dist,grade:s.grade});
+        i++;
+      }
+    } else if(s.gradeSmooth<-6){
+      let j=i;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth<-3)j++;
+      const seg=smoothed.slice(i,j);
+      const dm=seg.reduce((a,k)=>a+k.dminus,0);
+      const dp=seg.reduce((a,k)=>a+k.dplus,0);
+      const distM=seg.reduce((a,k)=>a+k.dist,0);
+      const avgG=distM>0?-dm/distM*100:0;
+      if(dm>80){
+        out.push({type:'down',startKm:smoothed[i].startKm,endKm:smoothed[Math.min(j,smoothed.length)-1].km,dminus:Math.round(dm),dplus:Math.round(dp),dist:distM,grade:+avgG.toFixed(1)});
+        i=j;
+      } else {
+        out.push({type:'flat',startKm:s.startKm,endKm:s.km,dplus:s.dplus,dminus:s.dminus,dist:s.dist,grade:s.grade});
+        i++;
+      }
+    } else {
+      // Flat — merge consecutive flat sections
+      let j=i;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth>=-6&&smoothed[j].gradeSmooth<=6)j++;
+      const seg=smoothed.slice(i,j);
+      const dp=seg.reduce((a,k)=>a+k.dplus,0);
+      const dm=seg.reduce((a,k)=>a+k.dminus,0);
+      const distM=seg.reduce((a,k)=>a+k.dist,0);
+      out.push({type:'flat',startKm:smoothed[i].startKm,endKm:smoothed[Math.min(j,smoothed.length)-1].km,dplus:Math.round(dp),dminus:Math.round(dm),dist:distM,grade:0});
+      i=j;
+    }
+  }
+  return out;
+}
+
+function isTrailRace() {
+  // Check currentRaceContext type or default to trail if GPX has significant D+
+  if(currentRaceContext?.type) return ['Trail','TrailRun','trail'].includes(currentRaceContext.type);
+  const pts = window._gpxPoints||[];
+  if(!pts.length) return true;
+  let dplus=0;
+  for(let i=1;i<pts.length;i++){const d=pts[i].ele-pts[i-1].ele;if(d>0)dplus+=d;}
+  const dist=(window._gpxDistKm||1);
+  return dplus/dist > 20; // >20m D+/km = trail
+}
+
+// RPE Scale
+const RPE_SCALE = [
+  {rpe:1,label:'Très facile',desc:'Marche, échauffement — tu pourrais chanter'},
+  {rpe:2,label:'Très facile',desc:'Footing très lent, conversation fluide sans effort'},
+  {rpe:3,label:'Facile',desc:'Footing Z2, tu parles en phrases complètes, pourrait durer des heures'},
+  {rpe:4,label:'Facile',desc:'Rythme confortable, phrases courtes aisées, respiration légèrement audible'},
+  {rpe:5,label:'Modéré',desc:'Allure marathon, phrases courtes, respiration audible mais contrôlée'},
+  {rpe:6,label:'Modéré-difficile',desc:'Allure semi, 2-3 mots entre respirations, rythme soutenu'},
+  {rpe:7,label:'Difficile',desc:'Allure 10k/montée trail soutenue, 1-2 mots max, souffle court'},
+  {rpe:8,label:'Très difficile',desc:'Limite à tenir, quasi impossible de parler, fort essoufflement'},
+  {rpe:9,label:'Extrême',desc:'Sprint long, impossible de parler, insoutenable >2min'},
+  {rpe:10,label:'Maximum',desc:'Effort total, insoutenable >30 secondes'},
+];
+
+function renderDetailedSection(s, secTimeS, idx=0){
+  const trail = isTrailRace();
+  const fcMax = userProfile.fc_max||205;
+  const lthr = userProfile.lactate_threshold||Math.round(fcMax*.88);
+  const z2top = userProfile.fc_z2_top || Math.round(fcMax*.70);
+  const z3top = userProfile.fc_z3_top || Math.round(fcMax*.80);
+  const z4top = lthr;
+
+  const cols={up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'};
+  const icons={up:'⛰️',down:'🎿',flat:'➡️'};
+  const names={up:'Montée',down:'Descente',flat:'Plat / Liaison'};
+  const distKm=(s.dist/1000).toFixed(2);
+  let tags=[],advice='',rpeBadge='';
+
+  if(s.type==='up'){
+    const steep=Math.abs(s.grade)>10;
+    const vam=s.dplus>0?Math.round(s.dplus/(secTimeS/3600)):0;
+
+    if(trail){
+      const rpe=steep?7:6;
+      rpeBadge=`<span class="strat-tag" style="border-color:var(--orange)40;color:var(--orange);font-weight:700">RPE ${rpe}/10</span>`;
+      tags=[
+        {l:`${distKm} km`,c:'var(--orange)'},
+        {l:`+${s.dplus}m D+`,c:'var(--orange)'},
+        {l:`${Math.abs(s.grade).toFixed(1)}% pente`,c:'var(--yellow)'},
+        {l:steep?'RPE 7 max — marche si > 8':'RPE 6-7 max',c:'var(--cyan)'},
+        {l:steep?'Marche active recommandée':'Courir régulier',c:'var(--green)'}
+      ];
+      advice=steep
+        ? `<strong>Montée raide (${Math.abs(s.grade).toFixed(1)}%)</strong> — passe en <strong>marche active</strong> dès que tu ne peux plus tenir une conversation (RPE 8+). La marche rapide est souvent plus efficace que courir en souffrant ici.<br><span class="mono t3" style="font-size:.6rem">FC indicative : si tu dépasses Z4 (≥${z4top} bpm) durablement, ralentis.</span>${vam>0?`<br>VAM requise ~${vam} m/h.`:''}`
+        : `<strong>Montée modérée (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulée courte et fréquente, appuis avant-pied, bras actifs. Vise RPE 6-7 : tu dois pouvoir dire 2-3 mots entre chaque respiration.<br><span class="mono t3" style="font-size:.6rem">FC indicative : Z4 (${z3top}-${z4top} bpm) acceptable, attention si ça dure.</span>${vam>0?`<br>VAM requise ~${vam} m/h.`:''}`;
+    } else {
+      // Route — basé sur FC structurée
+      const fcCible=steep?Math.round(z4top*.96):Math.round(z4top*.92);
+      tags=[
+        {l:`${distKm} km`,c:'var(--orange)'},
+        {l:`+${s.dplus}m D+`,c:'var(--orange)'},
+        {l:`${Math.abs(s.grade).toFixed(1)}% pente`,c:'var(--yellow)'},
+        {l:`FC < ${fcCible} bpm`,c:'var(--cyan)'},
+      ];
+      advice=`<strong>Côte (${Math.abs(s.grade).toFixed(1)}%)</strong> — maintenir FC sous <strong>${fcCible} bpm</strong> (${steep?'96':'92'}% LTHR). Raccourcir la foulée, ne pas chercher à maintenir l'allure — la FC est ton gouverneur ici.`;
+    }
+
+  } else if(s.type==='down'){
+    const technical=Math.abs(s.grade)>12;
+    if(trail){
+      tags=[
+        {l:`${distKm} km`,c:'var(--purple)'},
+        {l:`-${s.dminus}m D-`,c:'var(--purple)'},
+        {l:`${Math.abs(s.grade).toFixed(1)}% pente`,c:'var(--yellow)'},
+        {l:'RPE 3-4',c:'var(--cyan)'},
+        {l:'Récupération active',c:'var(--green)'}
+      ];
+      advice=technical
+        ? `<strong>Descente technique (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulées très courtes et rapides, regard 2-3m devant, léger penché avant. Ne jamais freiner avec les talons (impact 3-4× ton poids). RPE 4 max — c'est du temps récupéré "gratuit" si tu gères bien.<br><span class="mono t3" style="font-size:.6rem">FC : elle va naturellement redescendre ici, profite-en.</span>`
+        : `<strong>Descente douce (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulées courtes et rapides, laisse la FC descendre sous Z3 (${z2top}-${z3top} bpm). C'est ta fenêtre de récupération. RPE 3-4.`;
+    } else {
+      tags=[
+        {l:`${distKm} km`,c:'var(--purple)'},
+        {l:`-${s.dminus}m D-`,c:'var(--purple)'},
+        {l:'Récupération',c:'var(--green)'},
+      ];
+      advice=`<strong>Descente</strong> — allure légèrement accélérée, contrôlée. FC qui redescend sous ${z3top} bpm. Profite pour récupérer avant la prochaine côte.`;
+    }
+
+  } else {
+    if(trail){
+      tags=[
+        {l:`${distKm} km`,c:'var(--cyan)'},
+        {l:'RPE 4-5',c:'var(--green)'},
+        {l:'Récupération active',c:'var(--cyan)'}
+      ];
+      advice=`<strong>Section plate / liaison</strong> — laisse la FC redescendre, reprends la respiration. RPE 4-5 : tu dois pouvoir parler en phrases courtes. Si tu as un ravito, c'est ici qu'on mange et qu'on boit.`;
+    } else {
+      tags=[
+        {l:`${distKm} km`,c:'var(--cyan)'},
+        {l:`FC cible ${Math.round(z4top*.9)}-${Math.round(z4top*.95)} bpm`,c:'var(--green)'},
+      ];
+      advice=`<strong>Section plate</strong> — allure cible, FC maintenue entre ${Math.round(z4top*.9)} et ${Math.round(z4top*.95)} bpm (90-95% LTHR). C'est ton allure de croisière sur route.`;
+    }
+  }
+
+  return `<div class="section-block" style="border-left-color:${cols[s.type]}" onclick="highlightSection(${idx})" data-idx="${idx}">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:.3rem">
+      <div class="strat-km">km ${s.startKm.toFixed(1)} → ${s.endKm.toFixed(1)}</div>
+      <div class="mono t2" style="font-size:.6rem">⏱ ${fmtT(secTimeS)} estimé</div>
+    </div>
+    <div class="strat-name">${icons[s.type]} ${names[s.type]}</div>
+    <div class="strat-tags">${tags.map(t=>`<span class="strat-tag" style="border-color:${t.c}40;color:${t.c}">${t.l}</span>`).join('')}</div>
+    <div class="strat-body">${advice}</div>
+  </div>`;
+}
+
+function buildSplitsTable(kmSecs, basePaceS){
+  const fcMax=userProfile.fc_max||205;
+  const pct88=Math.round(fcMax*.88),pct84=Math.round(fcMax*.84),pct79=Math.round(fcMax*.79);
+  let cumTime=0,rows='';
+  kmSecs.filter(s=>s!=null&&s.km!=null&&s.grade!=null).forEach(s=>{
+    const grade=s.grade/100;
+    let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
+    const distKm=(s.dist||0)/1000;
+    const secTime=basePaceS*(1+pen)*distKm;
+    cumTime+=secTime;
+    const type=s.grade>4?'up':s.grade<-4?'down':'flat';
+    const fc={up:`< ${Math.abs(s.grade)>10?pct84:pct88} bpm`,down:'Libre',flat:`< ${pct79} bpm`}[type];
+    const conseil={up:Math.abs(s.grade)>10?'Marche active':'Courir régulier',down:'Foulées courtes',flat:'Récup'}[type];
+    rows+=`<tr class="section-${type}"><td class="mono">${(s.startKm??0).toFixed(1)}→${s.km.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
+  });
+  return rows;
+}
+
+// ── BDD PRODUITS NUTRITION ──
+const NUTRITION_DB = {
+  gels:[
+    {id:'naak-ultra',brand:'Näak',name:'Ultra Energy Gel',carbs:27,caffeine:35,water:false,note:'Semi-liquide, sans eau requis'},
+    {id:'naak-boost25',brand:'Näak',name:'Boost Gel 25',carbs:25,caffeine:0,water:false,note:'Sans eau requis'},
+    {id:'naak-boost30',brand:'Näak',name:'Boost Gel 30',carbs:30,caffeine:0,water:false,note:'Sans eau requis'},
+    {id:'naak-boost-caf',brand:'Näak',name:'Boost Gel Thé Pêche (caféine)',carbs:30,caffeine:100,water:false,note:'Sans eau, 100mg caféine'},
+    {id:'ta-gel',brand:'TA Energy',name:'Énergie Gel',carbs:33,caffeine:0,water:true,note:'Avec eau obligatoire'},
+    {id:'ta-gel-caf',brand:'TA Energy',name:'Énergie Gel Caféiné',carbs:33,caffeine:50,water:true,note:'Avec eau, 50mg caféine'},
+    {id:'ta-gommes',brand:'TA Energy',name:'Gommes Énergie',carbs:24,caffeine:0,water:true,note:'3 gommes/sachet, avec eau'},
+    {id:'ta-gommes-caf',brand:'TA Energy',name:'Gommes Énergie Caféinées',carbs:24,caffeine:50,water:true,note:'50mg caféine, avec eau'},
+    {id:'maurten-100',brand:'Maurten',name:'Gel 100',carbs:25,caffeine:0,water:false,note:'Hydrogel, sans eau'},
+    {id:'maurten-100-caf',brand:'Maurten',name:'Gel 100 Caf 100',carbs:25,caffeine:100,water:false,note:'Hydrogel, 100mg caféine'},
+    {id:'maurten-160',brand:'Maurten',name:'Gel 160',carbs:40,caffeine:0,water:false,note:'Hydrogel haute énergie, sans eau'},
+    {id:'deca-gel',brand:'Decathlon',name:'Energy Gel (<3h)',carbs:30,caffeine:0,water:true,note:'Avec eau obligatoire'},
+    {id:'deca-gel-caf',brand:'Decathlon',name:'Energy Gel+ Caféiné',carbs:22,caffeine:20,water:true,note:'Avec eau, 20mg caféine'},
+    {id:'nduranz-gel',brand:'Nduranz',name:'Nrgy Unit Gel',carbs:45,caffeine:0,water:false,note:'Isotonique, sans eau — très haute énergie'},
+    {id:'baouw-gel',brand:'Baouw',name:'Gel Extra',carbs:30,caffeine:0,water:true,note:'Bio, avec eau'},
+  ],
+  barres:[
+    {id:'naak-bar',brand:'Näak',name:'Ultra Energy Bar',carbs:29,caffeine:0,water:false,note:'50g, protéines végétales'},
+    {id:'naak-bar-caf',brand:'Näak',name:'Ultra Energy Bar Caféine',carbs:27,caffeine:35,water:false,note:'50g, 35mg caféine'},
+    {id:'ta-barre',brand:'TA Energy',name:'Barre Bio',carbs:20,caffeine:0,water:false,note:'38g, texture moelleuse'},
+    {id:'nutripure-gel',brand:'Nutripure',name:'Gel Long Distance',carbs:30,caffeine:0,water:true,note:'SolidCarbs™, glucose+fructose — avec eau'},
+    {id:'nutripure-barre-ld',brand:'Nutripure',name:'Barre Long Distance',carbs:30,caffeine:0,water:false,note:'42g, moelleuse, BCAA + vitamines'},
+    {id:'nutripure-raw',brand:'Nutripure',name:'Raw Barre Bio',carbs:15,caffeine:0,water:false,note:'15g glucides + 8g protéines — avant effort ou ultra long'},
+  ],
+  boissons:[
+    {id:'maurten-160d',brand:'Maurten',name:'Drink Mix 160',carbs:40,per:'500ml',water:true,note:'À diluer'},
+    {id:'maurten-320d',brand:'Maurten',name:'Drink Mix 320',carbs:80,per:'500ml',water:true,note:'Haute énergie, à diluer'},
+    {id:'deca-iso',brand:'Decathlon',name:'ISO (poudre)',carbs:33,per:'500ml',water:true,note:'À diluer'},
+    {id:'deca-iso-plus',brand:'Decathlon',name:'ISO+ (poudre)',carbs:33,per:'500ml',water:true,note:'À diluer'},
+    {id:'deca-iso-rtd',brand:'Decathlon',name:'ISO prête à boire',carbs:27,per:'500ml',water:false,note:'Prête à l\'emploi'},
+    {id:'nutripure-drink',brand:'Nutripure',name:'Boisson Long Distance 30g',carbs:30,per:'400ml',water:true,note:'PureDigest™, BCAA + vitamines'},
+    {id:'nutripure-drink60',brand:'Nutripure',name:'Boisson Expert Long Distance 60g',carbs:60,per:'500ml',water:true,note:'Version haute énergie — athlètes expérimentés'},
+    {id:'nduranz-drink90',brand:'Nduranz',name:'Nrgy Drink 90',carbs:90,per:'500ml',water:true,note:'Haute énergie ultra distance'},
+  ]
+};
+
+function getUserGels(){
+  const sel = userProfile.nutrition_products||[];
+  const gels = NUTRITION_DB.gels.filter(g=>sel.includes(g.id));
+  const barres = NUTRITION_DB.barres.filter(b=>sel.includes(b.id));
+  return [...gels,...barres];
+}
+function getUserBoissons(){
+  const sel = userProfile.nutrition_products||[];
+  return NUTRITION_DB.boissons.filter(b=>sel.includes(b.id));
+}
+
+function genNutrition(distM, estTimeS){
+  const dh = estTimeS/3600;
+  const dk = distM/1000;
+  const userGels = getUserGels();
+  const userBoissons = getUserBoissons();
+  const hasProducts = userGels.length>0 || userBoissons.length>0;
+  const rows = [];
+
+  // Avant course — commun
+  rows.push(`<tr><td class="mono">Départ −3h</td><td>Repas solide (pâtes, riz)</td><td>~80g</td><td>Charge glycogénique endogène · Burke et al., 2011</td></tr>`);
+  rows.push(`<tr><td class="mono">Départ −30min</td><td>Banane ou barre céréales</td><td>~30g</td><td>Dernier solide sans risque digestif</td></tr>`);
+  rows.push(`<tr><td class="mono">Départ −15min</td><td>Eau uniquement 150ml</td><td>0g</td><td>Éviter pic insulinique · Costill & Hargreaves, 1992</td></tr>`);
+
+  if(dh < 1.5){
+    // < 1h30 : hydratation simple selon température
+    rows.push(`<tr style="background:rgba(46,204,113,.05)"><td class="mono">Pendant</td><td><strong>Eau selon la soif</strong>${dh>0.75?' + électrolytes si >25°C':''}</td><td>0g glucides</td><td>< 1h30 : réserves glycogéniques suffisantes. Électrolytes si forte chaleur uniquement · Burke et al., 2011</td></tr>`);
+    if(userBoissons.length){
+      const b=userBoissons[0];
+      rows.push(`<tr><td class="mono">Option chaleur</td><td>${b.brand} ${b.name} dilué ×2</td><td>~${Math.round(b.carbs/2)}g</td><td>Si T° > 25°C uniquement. Diluer pour réduire l'apport sucré.</td></tr>`);
+    }
+  } else {
+    // ≥ 1h30 : protocole complet
+    const targetCarbsPerH = dh < 2.5 ? 40 : 60;
+
+    // Premier ravitaillement ~30-35min
+    const t1km = Math.round(dk*0.30);
+    if(hasProducts && userGels.length){
+      const gel1 = userGels.find(g=>g.caffeine===0) || userGels[0];
+      rows.push(`<tr><td class="mono">~${t1km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t1km/dk*estTimeS/60)}min</span></td><td><strong>${gel1.brand} ${gel1.name}</strong>${gel1.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''}</td><td>${gel1.carbs}g</td><td>Premier apport glucidique après 30min. Sans caféine — adrénaline déjà élevée au départ.</td></tr>`);
+    } else {
+      rows.push(`<tr><td class="mono">~${t1km} km</td><td>Gel sans caféine + eau</td><td>25-30g</td><td>Premier apport après 30min · Jeukendrup, 2004</td></tr>`);
+    }
+
+    // Boisson si disponible
+    if(userBoissons.length && dh >= 1.75){
+      const b=userBoissons[0];
+      const t2km=Math.round(dk*0.50);
+      rows.push(`<tr><td class="mono">~${t2km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t2km/dk*estTimeS/60)}min</span></td><td><strong>${b.brand} ${b.name}</strong> 200ml</td><td>${Math.round(b.carbs*0.4)}g</td><td>Hydratation + glucides. ${b.water?'Dilué dans eau froide.':'Prêt à boire.'}</td></tr>`);
+    }
+
+    // Deuxième gel — caféiné si dispo, après 60-70% de la course
+    const t3km = Math.round(dk*0.65);
+    if(hasProducts && userGels.length){
+      const gelCaf = userGels.find(g=>g.caffeine>0);
+      const gel2 = gelCaf || (userGels.find(g=>g.caffeine===0) || userGels[0]);
+      rows.push(`<tr><td class="mono">~${t3km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t3km/dk*estTimeS/60)}min</span></td><td><strong>${gel2.brand} ${gel2.name}</strong>${gel2.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''} ${gelCaf?'<span style="color:var(--yellow)">☕ Caféine</span>':''}</td><td>${gel2.carbs}g</td><td>${gelCaf?`${gel2.caffeine}mg caféine — pic d'effet 30-45min après. Timing idéal pour la dernière ligne droite ou montée finale.`:'Maintien glycémie sur derniers km.'}</td></tr>`);
+    } else {
+      rows.push(`<tr><td class="mono">~${t3km} km</td><td>Gel <strong>caféiné</strong> + eau</td><td>25-30g</td><td>Caféine : pic 30-45min après prise — timing pour fin de course.</td></tr>`);
+    }
+
+    // Ultra > 2h30
+    if(dh >= 2.5){
+      const t4km=Math.round(dk*0.80);
+      if(userGels.find(g=>g.id.includes('barre')||g.note?.includes('Bar'))){
+        const bar=userGels.find(g=>g.note?.includes('Bar')||g.id.includes('bar')||g.id.includes('barre'));
+        rows.push(`<tr><td class="mono">~${t4km} km</td><td><strong>${bar.brand} ${bar.name}</strong> (solide)</td><td>${bar.carbs}g</td><td>Après 2h+ : le solide est mieux toléré que les gels en continu. Mâcher = stimulation cognitive (Ebersole et al.).</td></tr>`);
+      } else {
+        rows.push(`<tr><td class="mono">~${t4km} km</td><td>Solide (barre, datte, banane) + eau</td><td>25-35g</td><td>Après 2h+ : diversifier les sources. Le solide est mieux toléré. Mâcher aide cognitivement.</td></tr>`);
+      }
+    }
+
+    // Conseil eau général
+    if(userGels.filter(g=>g.water).length > 0){
+      rows.push(`<tr style="background:rgba(0,212,255,.04)"><td class="mono t2" colspan="4">💧 <strong>Rappel eau :</strong> tes gels nécessitent de l'eau. Toujours 150-200ml d'eau avec chaque prise. Ne jamais prendre gel + boisson sucrée en même temps.</td></tr>`);
+    }
+  }
+
+  // Post-course
+  rows.push(`<tr style="background:rgba(46,204,113,.05)"><td class="mono tg">Post &lt;30min</td><td>Protéines + glucides rapides</td><td>60g + 20g prot</td><td>Fenêtre anabolique · resynthèse glycogène max · Ivy, 1998</td></tr>`);
+
+  return rows.join('');
+}
+
+let sectionMapInst = null;
+let sectionAltiChartInst = null;
+
+function highlightSection(idx) {
+  window._activeSection = idx;
+  // Highlight section blocks in text
+  document.querySelectorAll('.section-block').forEach((el,i)=>{
+    el.classList.toggle('active',i===idx);
+  });
+  // Open popup
+  openSectionPopup(idx);
+}
+
+function openSectionPopup(idx) {
+  const sections = window._gpxSections||[];
+  const points = window._gpxPoints||[];
+  const samples = window._gpxSamples||[];
+  const distKm = window._gpxDistKm||1;
+  if(!sections[idx]) return;
+
+  const s = sections[idx];
+  const total = sections.length;
+  const fcMax = userProfile.fc_max||205;
+  const pct88=Math.round(fcMax*.88),pct84=Math.round(fcMax*.84),pct79=Math.round(fcMax*.79);
+  const cols={up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'};
+  const icons={up:'⛰️',down:'🎿',flat:'➡️'};
+  const names={up:'Montée',down:'Descente',flat:'Plat'};
+  const distKmSec=(s.dist/1000).toFixed(2);
+
+  // Title + counter
+  document.getElementById('sectionPopupTitle').innerHTML=`<span style="color:${cols[s.type]}">${icons[s.type]} ${names[s.type]}</span> · km ${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)}`;
+  document.getElementById('sectionPopupCounter').textContent=`Section ${idx+1} / ${total}`;
+
+  // Nav buttons
+  document.getElementById('btnPrevSection').disabled = idx===0;
+  document.getElementById('btnNextSection').disabled = idx===total-1;
+
+  // Stats
+  const statData = [
+    {v:`${distKmSec} km`,l:'Distance'},
+    s.type==='up'?{v:`+${s.dplus}m`,l:'D+',c:'var(--orange)'}:null,
+    s.type==='down'?{v:`-${s.dminus}m`,l:'D-',c:'var(--purple)'}:null,
+    {v:`${s.grade>0?'+':''}${s.grade.toFixed(1)}%`,l:'Pente moy',c:s.type==='up'?'var(--orange)':s.type==='down'?'var(--purple)':'var(--cyan)'},
+    {v:`FC ${s.type==='up'?(Math.abs(s.grade)>10?`<${pct84}`:`<${pct88}`):s.type==='down'?'Libre':`<${pct79}`} bpm`,l:'FC cible'},
+  ].filter(Boolean);
+  document.getElementById('sectionPopupStats').innerHTML=statData.map(d=>`<div class="s-stat"><div class="s-sv" style="${d.c?`color:${d.c}`:''}">${d.v}</div><div class="s-sl">${d.l}</div></div>`).join('');
+
+  // Advice
+  const trail = isTrailRace();
+  const lthr = userProfile.lactate_threshold || Math.round(fcMax*.88);
+  const z3top = Math.round(fcMax*.80);
+  const z4top = lthr;
+  let advice='';
+  if(s.type==='up'){
+    const steep=Math.abs(s.grade)>10;
+    if(trail){
+      advice=steep
+        ? `<strong>Montée raide (${Math.abs(s.grade).toFixed(1)}%)</strong> — RPE 7 max. Marche active si tu ne peux plus parler (RPE 8+). Cadence courte, appuis avant-pied, bras actifs.<br><span class="mono t3" style="font-size:.6rem">FC indicative : si tu dépasses Z4 (≥${z4top} bpm) durablement → ralentis.</span>`
+        : `<strong>Montée modérée (${Math.abs(s.grade).toFixed(1)}%)</strong> — RPE 6-7. Tu dois pouvoir dire 2-3 mots entre chaque respiration.<br><span class="mono t3" style="font-size:.6rem">FC indicative : Z3-Z4 (${z3top}-${z4top} bpm) acceptable.</span>`;
+    } else {
+      const fcCible = steep ? Math.round(z4top*.96) : Math.round(z4top*.92);
+      advice=`<strong>Côte (${Math.abs(s.grade).toFixed(1)}%)</strong> — maintenir FC sous <strong>${fcCible} bpm</strong> (${steep?'96':'92'}% LTHR). Raccourcir la foulée, ne pas chercher à maintenir l'allure.`;
+    }
+  } else if(s.type==='down'){
+    const technical=Math.abs(s.grade)>12;
+    if(trail){
+      advice=technical
+        ? `<strong>Descente technique (${Math.abs(s.grade).toFixed(1)}%)</strong> — RPE 4. Foulées très courtes, regard 2-3m devant. Ne pas freiner avec les talons. FC redescend naturellement.`
+        : `<strong>Descente douce (${Math.abs(s.grade).toFixed(1)}%)</strong> — RPE 3-4. Foulées courtes rapides. Laisse la FC redescendre sous Z3 (${z3top} bpm).`;
+    } else {
+      advice=`<strong>Descente</strong> — allure légèrement accélérée. FC qui redescend sous ${z3top} bpm. Récupère avant la prochaine côte.`;
+    }
+  } else {
+    if(trail){
+      advice=`<strong>Liaison plate</strong> — RPE 4-5. Laisse la FC redescendre, reprends la respiration. Tu dois pouvoir parler en phrases courtes. Ravitaille ici si besoin.`;
+    } else {
+      advice=`<strong>Plat</strong> — allure cible, FC entre ${Math.round(z4top*.90)} et ${Math.round(z4top*.95)} bpm (90-95% LTHR).`;
+    }
+  }
+  document.getElementById('sectionPopupAdvice').innerHTML=`<div class="clabel">Conseils</div><div style="font-size:.82rem;line-height:1.6;color:var(--text2)">${advice}</div>`;
+
+  // Open overlay
+  document.getElementById('sectionPopup').classList.add('open');
+  document.body.style.overflow='hidden';
+
+  // Section points for map
+  const si=Math.round((s.startKm/distKm)*points.length);
+  const ei=Math.min(Math.round((s.endKm/distKm)*points.length),points.length-1);
+  const segPts=points.slice(si,ei+1);
+
+  // Mini map
+  setTimeout(()=>{
+    if(sectionMapInst){sectionMapInst.remove();sectionMapInst=null;}
+    sectionMapInst=L.map('sectionMap',{zoomControl:false,scrollWheelZoom:false,dragging:false});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(sectionMapInst);
+    const col={up:'#ff6b35',down:'#a78bfa',flat:'#00d4ff'}[s.type];
+    const ll=segPts.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
+    const poly=L.polyline(ll,{color:col,weight:5,opacity:1}).addTo(sectionMapInst);
+    L.circleMarker([segPts[0].lat,segPts[0].lon],{radius:8,fillColor:'#2ecc71',color:'#fff',weight:2,fillOpacity:1}).addTo(sectionMapInst);
+    L.circleMarker([segPts[segPts.length-1].lat,segPts[segPts.length-1].lon],{radius:8,fillColor:'#f43f5e',color:'#fff',weight:2,fillOpacity:1}).addTo(sectionMapInst);
+    sectionMapInst.fitBounds(poly.getBounds(),{padding:[20,20]});
+  },100);
+
+  // Mini alti chart — section only
+  if(sectionAltiChartInst){sectionAltiChartInst.destroy();sectionAltiChartInst=null;}
+  const secSamples=samples.filter(s2=>s2.d>=s.startKm&&s2.d<=s.endKm+0.1);
+  if(secSamples.length>1){
+    const col={up:'#ff6b35',down:'#a78bfa',flat:'#00d4ff'}[s.type];
+    sectionAltiChartInst=new Chart(document.getElementById('sectionAltiChart'),{
+      type:'line',
+      data:{labels:secSamples.map(s=>s.d.toFixed(1)),datasets:[{data:secSamples.map(s=>s.alt),borderColor:col,backgroundColor:col.replace(')',',0.2)').replace('rgb','rgba'),fill:true,tension:.4,pointRadius:0,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>`km ${i[0].label}`,label:c=>`${Math.round(c.parsed.y)}m`}}},scales:{x:{ticks:{font:{size:8},maxTicksLimit:6,callback:(v,i)=>secSamples[i]?.d+'km'},grid:{display:false}},y:{ticks:{font:{size:8},callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.05)'}}}}
+    });
+  }
+}
+
+function navigateSection(dir) {
+  const sections=window._gpxSections||[];
+  const next=window._activeSection+dir;
+  if(next>=0&&next<sections.length){
+    window._activeSection=next;
+    // Update text highlights
+    document.querySelectorAll('.section-block').forEach((el,i)=>el.classList.toggle('active',i===next));
+    openSectionPopup(next);
+  }
+}
+
+function closeSectionPopup() {
+  document.getElementById('sectionPopup').classList.remove('open');
+  document.body.style.overflow='';
+  if(sectionMapInst){sectionMapInst.remove();sectionMapInst=null;}
+  if(sectionAltiChartInst){sectionAltiChartInst.destroy();sectionAltiChartInst=null;}
+  window._activeSection=-1;
+  document.querySelectorAll('.section-block').forEach(el=>el.classList.remove('active'));
+}
+
+function resetStrategy(){
+  document.getElementById('stratResult').style.display='none';
+  document.getElementById('stratResult').innerHTML='';
+  const drop=document.getElementById('gpxDrop');
+  drop.style.display='block';
+  drop.onclick=()=>document.getElementById('gpxFile').click();
+  drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
+  document.getElementById('gpxFile').value='';
+  currentRaceContext=null;
+  window._activeSection=-1;
+  window._sectionPolylines=[];
+  window._pendingGpxSave=null;
+  if(leafletMap){leafletMap.remove();leafletMap=null;}
+  if(window._gpxChart){window._gpxChart.destroy();window._gpxChart=null;}
+}
+
+function populateRaceSelector(){
+  const container=document.getElementById('raceSelectorList');
+  if(!races.length){document.getElementById('raceSelector').style.display='none';return;}
+  document.getElementById('raceSelector').style.display='block';
+  container.innerHTML=races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
+}
+
+function selectRaceForStrategy(race){
+  document.querySelectorAll('.race-sel-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentRaceContext=race;
+  if(race.gpx_data){const pts=JSON.parse(race.gpx_data);analyzeGPX(pts,race.name);}
+  else document.getElementById('gpxFile').click();
+}
+
+
+// ════════════════════════════════════════════════════
+// PROFIL OVERLAY
+// ════════════════════════════════════════════════════
+let _nutrActiveBrandGel = null;
+let _nutrActiveBrandDrink = null;
+
+function renderNutritionProducts() {
+  const sel = userProfile.nutrition_products||[];
+  const allGels = [...NUTRITION_DB.gels, ...NUTRITION_DB.barres];
+  const allDrinks = NUTRITION_DB.boissons;
+
+  const gelBrands = [...new Set(allGels.map(p=>p.brand))];
+  const drinkBrands = [...new Set(allDrinks.map(p=>p.brand))];
+
+  // Init active brand if not set
+  if(!_nutrActiveBrandGel) _nutrActiveBrandGel = gelBrands[0];
+  if(!_nutrActiveBrandDrink) _nutrActiveBrandDrink = drinkBrands[0];
+
+  const mkBrandBtn = (brand, active, onclick) =>
+    `<button onclick="${onclick}" style="padding:5px 12px;border-radius:20px;border:1px solid ${active?'var(--cyan)':'var(--border2)'};background:${active?'rgba(0,212,255,.12)':'var(--bg4)'};color:${active?'var(--cyan)':'var(--text2)'};font-family:var(--mono);font-size:.6rem;cursor:pointer;transition:all .2s">${brand}</button>`;
+
+  const mkCard = (p) => {
+    const checked = sel.includes(p.id);
+    return `<label style="display:flex;align-items:flex-start;gap:10px;background:var(--bg4);border:1px solid ${checked?'var(--cyan)':'var(--border)'};border-radius:9px;padding:10px 12px;cursor:pointer;transition:border-color .2s">
+      <input type="checkbox" data-nutr="${p.id}" ${checked?'checked':''} style="margin-top:2px;accent-color:var(--cyan)" onchange="this.closest('label').style.borderColor=this.checked?'var(--cyan)':'var(--border)'">
+      <div>
+        <div style="font-size:.78rem;font-weight:600">${p.name}</div>
+        <div class="mono t2" style="font-size:.58rem">${p.carbs}g glucides${p.caffeine?` · ☕ ${p.caffeine}mg caféine`:''}</div>
+        <div class="mono t3" style="font-size:.55rem">${p.note||''}</div>
+      </div>
+    </label>`;
+  };
+
+  // Gel brands
+  const gelBrandEl = document.getElementById('nutrGelBrands');
+  if(gelBrandEl) gelBrandEl.innerHTML = gelBrands.map(b=>mkBrandBtn(b,b===_nutrActiveBrandGel,`filterNutrBrand('gel','${b}')`)).join('');
+
+  // Gel products filtered
+  const gelListEl = document.getElementById('nutrGelList');
+  if(gelListEl) gelListEl.innerHTML = allGels.filter(p=>p.brand===_nutrActiveBrandGel).map(mkCard).join('');
+
+  // Drink brands
+  const drinkBrandEl = document.getElementById('nutrDrinkBrands');
+  if(drinkBrandEl) drinkBrandEl.innerHTML = drinkBrands.map(b=>mkBrandBtn(b,b===_nutrActiveBrandDrink,`filterNutrBrand('drink','${b}')`)).join('');
+
+  // Drink products filtered
+  const drinkListEl = document.getElementById('nutrDrinkList');
+  if(drinkListEl) drinkListEl.innerHTML = allDrinks.filter(p=>p.brand===_nutrActiveBrandDrink).map(mkCard).join('');
+}
+
+function filterNutrBrand(type, brand) {
+  // Save current checked state before re-rendering
+  const checked = [...document.querySelectorAll('input[data-nutr]:checked')].map(i=>i.dataset.nutr);
+  userProfile.nutrition_products = [...new Set([...(userProfile.nutrition_products||[]),...checked])];
+  if(type==='gel') _nutrActiveBrandGel = brand;
+  else _nutrActiveBrandDrink = brand;
+  renderNutritionProducts();
+}
+
+async function saveNutritionProducts() {
+  const checked = [...document.querySelectorAll('input[data-nutr]:checked')].map(i=>i.dataset.nutr);
+  userProfile.nutrition_products = checked;
+  const msg = document.getElementById('nutrSaveMsg');
+  const {error} = await sb.from('profiles').upsert({id:currentUser.id, nutrition_products: checked});
+  if(error){msg.textContent='❌ Erreur';msg.style.color='var(--red)';}
+  else{msg.textContent=`✓ ${checked.length} produit(s) sauvegardé(s)`;msg.style.color='var(--green)';setTimeout(()=>msg.textContent='',3000);}
+}
+
+function openProfil() {
+  document.getElementById('profilOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  if(currentUser?.email) document.getElementById('p-email').value=currentUser.email;
+  renderNutritionProducts();
+}
+function closeProfil() {
+  document.getElementById('profilOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+async function changePassword() {
+  const msg=document.getElementById('pwMsg');
+  msg.textContent='Envoi...';msg.style.color='var(--text2)';
+  const {error}=await sb.auth.resetPasswordForEmail(currentUser.email,{redirectTo:REDIRECT_URI});
+  if(error){msg.textContent='❌ '+error.message;msg.style.color='var(--red)';}
+  else{msg.textContent='✓ Email envoyé !';msg.style.color='var(--green)';}
+}
+let _cropState = {x:0,y:0,scale:1,startX:0,startY:0,startDist:0,dragging:false};
+
+async function uploadAvatar(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const modal = document.getElementById('cropModal');
+    const img = document.getElementById('cropImage');
+    modal.style.display = 'flex';
+    img.onload = () => {
+      // Center image in 280x280 container
+      const r = Math.max(280/img.naturalWidth, 280/img.naturalHeight);
+      _cropState = {x:0, y:0, scale:r, startX:0, startY:0, startDist:0, dragging:false};
+      applyTransform();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyTransform() {
+  const img = document.getElementById('cropImage');
+  img.style.transform = `translate(${_cropState.x}px,${_cropState.y}px) scale(${_cropState.scale})`;
+  img.style.transformOrigin = 'top left';
+}
+
+function closeCropModal() {
+  document.getElementById('cropModal').style.display = 'none';
+}
+
+async function confirmCrop() {
+  const img = document.getElementById('cropImage');
+  const size = 400;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const s = _cropState.scale;
+  // Draw cropped area
+  ctx.drawImage(img,
+    -_cropState.x/s, -_cropState.y/s,
+    280/s, 280/s,
+    0, 0, size, size
+  );
+  closeCropModal();
+  showToast('Upload en cours...', 'info', 2000);
+  canvas.toBlob(async (blob) => {
+    const path = `${currentUser.id}/avatar.jpg`;
+    const {error} = await sb.storage.from('avatars').upload(path, blob, {upsert:true, contentType:'image/jpeg'});
+    if(error){ showToast('Erreur : '+error.message, 'error'); return; }
+    const {data} = sb.storage.from('avatars').getPublicUrl(path);
+    const url = data.publicUrl + '?t=' + Date.now();
+    await sb.from('profiles').upsert({id:currentUser.id, avatar_url:url});
+    userProfile.avatar_url = url;
+    updateAvatar(url);
+    showToast('Photo mise à jour ✓', 'success');
+  }, 'image/jpeg', 0.88);
+}
+
+// Touch & mouse events for crop
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('cropContainer');
+  if(!container) return;
+  let lastTouchDist = 0;
+
+  container.addEventListener('mousedown', e => { _cropState.dragging=true; _cropState.startX=e.clientX-_cropState.x; _cropState.startY=e.clientY-_cropState.y; });
+  document.addEventListener('mousemove', e => { if(!_cropState.dragging) return; _cropState.x=e.clientX-_cropState.startX; _cropState.y=e.clientY-_cropState.startY; applyTransform(); });
+  document.addEventListener('mouseup', () => _cropState.dragging=false);
+
+  container.addEventListener('touchstart', e => {
+    if(e.touches.length===1){ _cropState.dragging=true; _cropState.startX=e.touches[0].clientX-_cropState.x; _cropState.startY=e.touches[0].clientY-_cropState.y; }
+    if(e.touches.length===2){ lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+    e.preventDefault();
+  },{passive:false});
+  container.addEventListener('touchmove', e => {
+    if(e.touches.length===1 && _cropState.dragging){ _cropState.x=e.touches[0].clientX-_cropState.startX; _cropState.y=e.touches[0].clientY-_cropState.startY; applyTransform(); }
+    if(e.touches.length===2){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      _cropState.scale*=dist/lastTouchDist; lastTouchDist=dist; applyTransform();
+    }
+    e.preventDefault();
+  },{passive:false});
+  container.addEventListener('touchend', () => _cropState.dragging=false);
+});
+function updateAvatar(url) {
+  const mark=document.getElementById('avatarMark');
+  const preview=document.getElementById('avatarPreview');
+  if(url){
+    mark.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    if(preview)preview.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// RENFO & PRÉVENTION
+// ════════════════════════════════════════════════════
+function switchRenfoMode(mode,btn){
+  document.querySelectorAll('.renfo-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mode-prevention').style.display=mode==='prevention'?'block':'none';
+  document.getElementById('mode-progression').style.display=mode==='progression'?'block':'none';
+}
+
+function ankleContent(){return{blessures:[{name:'Entorse latérale',desc:'Lésion ligaments péronéo-astragaliens. Très fréquente en descente trail sur terrain irrégulier. Risque accru si historique d\'entorse ou ligaments affaiblis.'},{name:'Tendinopathie des péroniers',desc:'Surmenage des tendons stabilisateurs latéraux. Apparaît sur terrains dévers ou en surentraînement.'},{name:'Instabilité chronique',desc:'Séquelles d\'entorses répétées. Sensation d\'insécurité en terrain technique. Se compense par le renforcement musculaire.'}],exercices:[{title:'Équilibre unipodal',meta:'3×30s par jambe · 3×/semaine',desc:'Debout sur une jambe, maintenir 30s. Progresser : yeux fermés, surface instable. Compense les ligaments déficients par la proprioception.',ref:'Bahr et al., 1997 · Am J Sports Med',yt:'BH4Z04j5c1E'},{title:'Renfo péroniers — élastique',meta:'3×15 reps · 3×/semaine',desc:'Assis, élastique autour de l\'avant-pied. Tourner vers l\'extérieur contre résistance. Renforce les stabilisateurs latéraux.',ref:'Mafi et al., 2001 · BJSM',yt:'XyEaFQG5Hxc'},{title:'Step down excentrique',meta:'3×10 reps lent · 3×/semaine',desc:'Debout sur une marche, descendre lentement sur une jambe. Renforce le contrôle neuromusculaire en descente.',ref:'Heiderscheit et al., 2011',yt:'nspDpk90RWE'}]};}
+function kneeContent(){return{blessures:[{name:'Syndrome de l\'essuie-glace (ITB)',desc:'Friction bandelette ilio-tibiale sur condyle fémoral. Douleur latérale genou surtout en descente. Très fréquent en trail.'},{name:'Syndrome fémoro-patellaire',desc:'Douleur sous/autour rotule. Aggravé montée/descente. Lié à déséquilibre quadriceps/fessiers.'},{name:'Tendinopathie rotulienne',desc:'Douleur au tendon rotulien. Apparaît en surcharge brutale ou terrain dur répété.'}],exercices:[{title:'Clamshell — fessier moyen',meta:'3×20 reps · 3×/semaine',desc:'Allongé sur le côté, ouvrir le genou supérieur. Active le fessier moyen, stabilisateur clé du genou.',ref:'Fredericson et al., 2000 · Clin J Sport Med',yt:'3djM-j3-WMo'},{title:'Squat sumo avec élastique',meta:'3×15 reps · 3×/semaine',desc:'Élastique au-dessus des genoux, descente large. Renforce fessiers et stabilisateurs du genou.',ref:'Noehren et al., 2011 · JOSPT',yt:'aclHkVaku9U'},{title:'Foam roller ITB',meta:'2×60s · post-effort',desc:'Roller face externe de la cuisse. Libère les tensions de la bandelette. Ne pas rouler sur la douleur aiguë.',ref:'Cheatham et al., 2015 · IJSPT',yt:'7p2hLdGGFXE'}]};}
+function calfContent(){return{blessures:[{name:'Périostite tibiale',desc:'Inflammation périoste du tibia. Douleur diffuse face interne. Fréquente en reprise ou augmentation brutale de volume.'},{name:'Tendinopathie d\'Achille',desc:'Dégénérescence progressive du tendon. Raideur matinale, douleur 2-6cm au-dessus de l\'insertion.'},{name:'Claquage mollet',desc:'Déchirure partielle gastrocnémien ou soléaire. Douleur brutale en effort, impossibilité de continuer.'}],exercices:[{title:'Heel drop excentrique — protocole Alfredson',meta:'3×15 reps lent · 2×/jour · 12 semaines',desc:'Sur une marche, monter sur 2 pieds, descendre lentement sur 1. Protocole validé cliniquement pour tendinopathie d\'Achille.',ref:'Alfredson et al., 1998 · Am J Sports Med',yt:'4Dl0zAzsxBQ'},{title:'Renfo soléaire assis',meta:'3×20 reps · 3×/semaine',desc:'Assis, genoux à 90°, monter sur les pointes avec charge sur les cuisses. Cible le soléaire (endurance).',ref:'Silbernagel et al., 2007 · BJSM',yt:'3R4GKGP3pg4'}]};}
+function quadContent(){return{blessures:[{name:'Syndrome ischio-jambiers',desc:'Tendinopathie proximale ou distale. Douleur arrière cuisse, aggravée en montée trail.'},{name:'Contracture quadriceps',desc:'Surmenage en descente technique répétée. Travail excentrique sur km de D-.'},{name:'Syndrome du piriforme',desc:'Contraction excessive, peut comprimer le sciatique. Douleur fessière irradiante.'}],exercices:[{title:'Nordic curl',meta:'3×6-8 reps · 2×/semaine',desc:'Agenouillé pieds bloqués, descendre lentement vers l\'avant. Le plus efficace pour prévenir claquages ischio-jambiers.',ref:'Petersen et al., 2011 · Am J Sports Med',yt:'6SCEAWcuF0Y'},{title:'Squat bulgare',meta:'3×8 reps · 2×/semaine',desc:'Pied arrière surélevé, descente contrôlée. Quadriceps et fessiers unilatéral, corrige asymétries.',ref:'Speirs et al., 2016 · J Strength Cond',yt:'2C-uNgKwPLE'}]};}
+function hipContent(){return{blessures:[{name:'Tendinopathie trochantérienne',desc:'Douleur latérale hanche. Aggravée montée et surfaces déversées. Très fréquent en trail.'},{name:'Contracture du psoas',desc:'Fléchisseur suractivé. Raccourcissement progressif, bascule bassin, douleur lombaire.'}],exercices:[{title:'Hip thrust',meta:'3×12 reps · 3×/semaine',desc:'Dos contre banc, barre sur hanches, pousser bassin vers le haut. Exercice roi du grand fessier. Fondamental pour traileurs.',ref:'Contreras et al., 2015 · J Strength Cond',yt:'Zp26q4BY5HE'},{title:'Étirement psoas — fente basse',meta:'2×60s par côté · quotidien',desc:'Fente basse genou arrière au sol, basculer bassin en rétroversion. Libère le psoas, améliore l\'amplitude en montée.',ref:'Page, 2012 · Int J Sports Phys Ther',yt:'OPYTe3BZMPI'}]};}
+function backContent(){return{blessures:[{name:'Lombalgie du coureur',desc:'Core insuffisant + répétition impacts. Aggravée longues sorties.'},{name:'Hyperlordose compensatrice',desc:'Psoas court + fessiers faibles. Très fréquent chez traileurs.'}],exercices:[{title:'McGill Big 3 — planche + latérale + bird-dog',meta:'3×30s · quotidien',desc:'Les 3 exercices de Stuart McGill pour stabiliser la colonne sans la comprimer. Fondation de tout programme core running.',ref:'McGill, 2010 · J Strength Cond Res',yt:'ASdvHqQX7dw'},{title:'Dead bug',meta:'3×10 reps · 3×/semaine',desc:'Allongé sur le dos, abaisser alternativement bras et jambe opposée en gardant bas du dos plaqué.',ref:'Akuthota & Nadler, 2004',yt:'4XLEnwUr1d8'}]};}
+function footContent(){return{blessures:[{name:'Fasciite plantaire',desc:'Inflammation aponévrose plantaire. Douleur au talon le matin. Fréquente en trail avec D+ important.'},{name:'Métatarsalgie',desc:'Douleur sous avant-pied. Surcharge têtes métatarsiennes, souvent liée à attaque talon.'}],exercices:[{title:'Serviette avec les orteils',meta:'3×30s · quotidien',desc:'Ramasser une serviette avec les orteils. Renforce muscles intrinsèques du pied, améliore contrôle voûte plantaire.',ref:'Mulligan & Cook, 2013',yt:'1FIyPYAc5mI'},{title:'Short foot exercise',meta:'3×10s maintenu · 3×/semaine',desc:'Rapprocher la tête des métatarses vers le talon sans recroqueviller les orteils. Active le court fléchisseur.',ref:'Jung et al., 2011 · Man Ther',yt:'LWtXEAIBhyg'}]};}
+
+function headContent(){return{blessures:[{name:'Stress & anxiété pré-compétition',desc:'Activation du système sympathique avant une course. Pensées négatives, doute, tension musculaire. Très fréquent chez les coureurs ambitieux.'},{name:'Mur mental en course',desc:'Effondrement de la motivation en milieu de course. Dialogue intérieur négatif. Souvent déclenché par la douleur ou l\'inconfort.'},{name:'Burn-out du coureur',desc:'Épuisement psychologique lié à un entraînement trop rigide ou à des attentes irréalistes. Perte de plaisir, motivation zéro.'}],exercices:[{title:'Visualisation pré-course',meta:'10min la veille de la course',desc:'Ferme les yeux, visualise le parcours section par section. Imagine ta foulée sur les montées, ta FC qui redescend dans les descentes, ta respiration au ravito. Le cerveau ne distingue pas bien le réel du mental — il s\'entraîne aussi.',ref:'Guillot & Collet, 2008 · J Sport Sci',yt:''},{title:'Cohérence cardiaque 5min',meta:'Matin et soir · avant chaque sortie difficile',desc:'6 respirations par minute : 5s inspire par le nez, 5s expire par la bouche. 5 minutes. Réduit le cortisol, améliore la HRV, renforce le système nerveux parasympathique. L\'outil le plus puissant et le plus sous-estimé.',ref:'McCraty et al., 2009 · J Altern Complement Med',yt:''},{title:'Reformulation du dialogue intérieur',meta:'Technique à appliquer en course',desc:'Dès qu\'une pensée négative apparaît ("je vais abandonner", "trop dur"), remplace-la immédiatement par une affirmation concrète et factuelle : "ma foulée est efficace", "je respire bien", "je contrôle mon allure". Focalise sur le processus, pas le résultat.',ref:'Hardy et al., 1996 · J Sport Exerc Psychol',yt:''},{title:'Segmentation du parcours',meta:'Stratégie mentale en course',desc:'Ne pense jamais à la distance totale restante. Découpe la course en micro-objectifs : atteindre le prochain arbre, finir cette montée, rejoindre le prochain ravito. Chaque segment gagné renforce la confiance.',ref:'Tenenbaum, 2001 · J Sport Sci',yt:''}]};}
+const ZONE_FN={head:headContent,ankle_l:ankleContent,ankle_r:ankleContent,knee_l:kneeContent,knee_r:kneeContent,calf_l:calfContent,calf_r:calfContent,quad_l:quadContent,quad_r:quadContent,hip:hipContent,back:backContent,foot_l:footContent,foot_r:footContent};
+const ZONE_INFO={head:{name:'Mental & Préparation psychologique',color:'var(--purple)'},ankle_l:{name:'Cheville gauche',color:'var(--orange)'},ankle_r:{name:'Cheville droite',color:'var(--orange)'},knee_l:{name:'Genou gauche',color:'var(--yellow)'},knee_r:{name:'Genou droit',color:'var(--yellow)'},calf_l:{name:'Mollet / Tibia gauche',color:'var(--cyan)'},calf_r:{name:'Mollet / Tibia droit',color:'var(--cyan)'},quad_l:{name:'Quadriceps gauche',color:'var(--purple)'},quad_r:{name:'Quadriceps droit',color:'var(--purple)'},hip:{name:'Hanche / ITB',color:'var(--red)'},back:{name:'Dos / Core',color:'var(--green)'},foot_l:{name:'Pied gauche',color:'var(--orange)'},foot_r:{name:'Pied droit',color:'var(--orange)'}};
+
+function initBodySvg(){
+  document.querySelectorAll('.bz').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const zone=el.dataset.zone;
+      if(!ZONE_INFO[zone])return;
+      document.querySelectorAll('.bz').forEach(z=>z.classList.remove('selected'));
+      el.classList.add('selected');
+      renderZoneContent(zone);
+    });
+  });
+}
+
+function renderZoneContent(zone){
+  const info=ZONE_INFO[zone];
+  const fn=ZONE_FN[zone];
+  if(!info||!fn)return;
+  const c=fn();
+  document.getElementById('renfoContent').innerHTML=`
+    <div>
+      <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;color:${info.color};margin-bottom:.75rem">${info.name}</div>
+      <div class="clabel" style="margin-bottom:.5rem">Blessures fréquentes en trail/running</div>
+      ${c.blessures.map(b=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:7px"><div style="font-weight:600;font-size:.82rem;color:var(--orange);margin-bottom:3px">⚠️ ${b.name}</div><div style="font-size:.76rem;color:var(--text2);line-height:1.5">${b.desc}</div></div>`).join('')}
+      <div class="clabel" style="margin-bottom:.5rem;margin-top:1rem">Exercices de prévention</div>
+      ${c.exercices.map(e=>`<div class="exercise-card"><div class="exercise-title">${e.title}</div><div class="exercise-meta">${e.meta}</div><div class="exercise-desc">${e.desc}</div>${e.ref?`<div class="exercise-ref">📖 ${e.ref}</div>`:''} ${e.yt?`<a href="https://www.youtube.com/watch?v=${e.yt}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.3);border-radius:7px;padding:7px 12px;font-family:var(--mono);font-size:.6rem;color:#ff4444;text-decoration:none;">▶ Voir l'exercice sur YouTube</a>`:''}</div>`).join('')}
+    </div>`;
+}
+
+const PROGRAMS={
+  montee:{title:'⛰️ Progression en montée',subtitle:'VAM & force spécifique',ref:'Millet et al., 2011',exercices:[{title:'Hip thrust unilatéral',meta:'3×10 · 3×/sem',desc:'Force de poussée en extension de hanche — moteur principal de la montée.'},{title:'Montées de step',meta:'3×20 reps · 2×/sem',desc:'Step 20cm, alterner les jambes. Reproduit le geste montée trail.'},{title:'Sprints côte 10-15s',meta:'6-8 reps · 1×/sem · récup complète',desc:'Stimulus neuromusculaire maximal en condition spécifique.'},{title:'Squat bulgare chargé',meta:'3×8 · 2×/sem',desc:'Amplitude maximale. Quadriceps et fessiers.'}]},
+  descente:{title:'🎿 Progression en descente',subtitle:'Contrôle excentrique & réduction risque quadriceps',ref:'Gottschall & Kram, 2005',exercices:[{title:'Squat excentrique lent (5s descente)',meta:'3×10 · 3×/sem',desc:'Charge les quadriceps comme en descente trail. 5s de descente, remontée normale.'},{title:'Step down unilatéral',meta:'3×12 · 3×/sem',desc:'Descente lente sur une jambe. Contrôle neuromusculaire cheville-genou-hanche.'},{title:'Sauts en contrebas réceptionné',meta:'3×8 · 2×/sem',desc:'Sauter d\'une marche, réceptionner amorti et contrôlé. Simule impacts descente.'},{title:'Course en descente progressive',meta:'2×10min · 1×/sem',desc:'Pente douce puis plus technique. Augmenter progressivement.'}]},
+  vitesse:{title:'⚡ Vitesse maximale',subtitle:'Développement neuromusculaire',ref:'Heiderscheit et al., 2011 · Dorn et al., 2012',exercices:[{title:'Montées de genoux haute fréquence',meta:'6×10s · 2×/sem',desc:'Vitesse max de cycle. Améliore la fréquence de foulée.'},{title:'Talons-fesses dynamiques',meta:'6×10s · 2×/sem',desc:'Travail fléchisseurs genou, phase de recouvrement.'},{title:'Sprints plats 60-80m',meta:'6×60m · 1×/sem · récup 3-4min',desc:'Développe la vitesse maximale. Récupération complète entre chaque.'},{title:'Sauts horizontaux enchaînés',meta:'3×8 · 2×/sem',desc:'Plyométrie horizontale. Améliore puissance propulsive et raideur musculaire.'}]},
+  endurance:{title:'🫀 Endurance fondamentale',subtitle:'Économie de course & seuil aérobie',ref:'Jones & Carter, 2000 · Saunders et al., 2004',exercices:[{title:'Sortie longue 80% Z2',meta:'1×/sem · +20% distance',desc:'FC 60-70% FCmax strictement. Base de l\'endurance aérobie.'},{title:'Tempo run 20-30min',meta:'1×/sem · allure seuil lactique',desc:'Repousse le seuil anaérobie. Allure à ta FCseuil.'},{title:'Intervalles 4×8min',meta:'1×/sem · récup 2min',desc:'85-90% FCmax. Développe VO2max et tolérance au lactate.'},{title:'Gainage anti-rotation',meta:'3×30s · 3×/sem',desc:'Rigidité du tronc = moins d\'énergie perdue en course.'}]},
+  recup:{title:'💨 Récupération intra-effort',subtitle:'Descendre la FC rapidement après une montée intense',ref:'Buchheit et al., 2009 · Seiler, 2010',exercices:[{title:'Intervalles 30s/90s chronométrés',meta:'10× · 2×/sem',desc:'30s à 90-95% FCmax, puis 90s de trot. Mesure ta FC à 60s. Objectif : sous 130bpm. Améliore la réactivité parasympathique.'},{title:'Respiration 4-7-8 post-montée',meta:'À chaque montée intense en course',desc:'Après une montée : 4s inspire, 7s retenir, 8s expire. Active le nerf vague, accélère la récupération cardiaque.'},{title:'Cohérence cardiaque quotidienne',meta:'5min matin et soir',desc:'6 respirations/min (5s inspire, 5s expire). Améliore la HRV et la capacité de récupération.'},{title:'Polarisation 80/20',meta:'80% sorties Z2 · 20% Z4-Z5',desc:'Modèle polarisé de Seiler (2010) : maximise récupération entre séances et amplifie adaptations cardio.'}]},
+  cadence:{title:'🦶 Cadence & économie de foulée',subtitle:'Vers 170-180 spm',ref:'Heiderscheit et al., 2011 · Schubert et al., 2014',exercices:[{title:'Mesure cadence actuelle',meta:'Sur 1min de course facile',desc:'Appuis droits × 2. Note ta cadence de base. Ne pas augmenter de plus de 5% par semaine.'},{title:'Métronome +5% cadence',meta:'2×10min · 2×/sem',desc:'App métronome à ta cadence + 5%. Foulée naturellement plus courte, moins d\'impact talonnement.'},{title:'Skipping rapide sur place',meta:'6×20m · quotidien',desc:'Montées de genoux très rapides. Neurostimulation de la fréquence de foulée.'},{title:'Sauts réactifs',meta:'3×10 · 2×/sem',desc:'Sauts très rapides, contact sol minimal. Améliore raideur musculotendineuse = meilleure restitution d\'énergie.'}]}
+};
+
+function showProgram(prog){
+  document.querySelectorAll('.prog-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p=PROGRAMS[prog];if(!p)return;
+  document.getElementById('programContent').innerHTML=`
+    <div class="card">
+      <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;margin-bottom:.25rem">${p.title}</div>
+      <div class="mono t2" style="margin-bottom:.25rem">${p.subtitle}</div>
+      <div class="exercise-ref" style="margin-bottom:1rem">📖 ${p.ref}</div>
+      ${p.exercices.map(e=>`<div class="exercise-card"><div class="exercise-title">${e.title}</div><div class="exercise-meta">${e.meta}</div><div class="exercise-desc">${e.desc}</div></div>`).join('')}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════
+// TOASTS
+// ════════════════════════════════════════════════════
+function showToast(msg, type='info', duration=4000) {
+  const icons = {success:'✓',error:'✕',info:'ℹ'};
+  const colors = {success:'var(--green)',error:'var(--red)',info:'var(--cyan)'};
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="color:${colors[type]};font-weight:700;font-size:1rem">${icons[type]}</span><span>${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;margin-left:auto;font-size:1rem">×</button>`;
+  container.appendChild(toast);
+  setTimeout(()=>{
+    toast.style.animation='slideOut .25s ease forwards';
+    setTimeout(()=>toast.remove(), 250);
+  }, duration);
+}
+
+// Patch global error handler
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || e.reason || 'Erreur inconnue';
+  if(msg.includes('Failed to fetch')||msg.includes('network')) showToast('Problème réseau — vérifie ta connexion', 'error');
+  else if(msg.includes('JWT')||msg.includes('auth')) showToast('Session expirée — reconnecte-toi', 'error');
+});
+
+// ════════════════════════════════════════════════════
+// ONBOARDING
+// ════════════════════════════════════════════════════
+let onbStep = 0;
+const ONB_TOTAL = 5;
+
+function initOnboarding() {
+  // Show only if profile is empty (new user)
+  if(!userProfile.name && !userProfile.fc_max) {
+    openOnboarding();
+  }
+}
+
+function openOnboarding() {
+  onbStep = 0;
+  updateOnbStep();
+  document.getElementById('onboardingOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOnboarding() {
+  document.getElementById('onboardingOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  localStorage.setItem('onb_done', '1');
+}
+
+function onbNav(dir) {
+  onbStep = Math.max(0, Math.min(ONB_TOTAL-1, onbStep+dir));
+  updateOnbStep();
+  if(onbStep === ONB_TOTAL-1) {
+    document.getElementById('onbNext').textContent = 'Commencer →';
+    document.getElementById('onbNext').onclick = closeOnboarding;
+  } else {
+    document.getElementById('onbNext').textContent = 'Suivant →';
+    document.getElementById('onbNext').onclick = () => onbNav(1);
+  }
+  document.getElementById('onbPrev').style.opacity = onbStep===0?'0':'1';
+  document.getElementById('onbPrev').style.pointerEvents = onbStep===0?'none':'all';
+}
+
+function updateOnbStep() {
+  document.querySelectorAll('.onb-step').forEach((el,i)=>el.classList.toggle('active',i===onbStep));
+  // Dots
+  ['onbDots','onbDots2'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML = Array.from({length:ONB_TOTAL},(_,i)=>`<div class="onb-dot${i===onbStep?' active':''}"></div>`).join('');
+  });
+}
+
+// ════════════════════════════════════════════════════
+// CGU
+// ════════════════════════════════════════════════════
+function openCGU() {
+  document.getElementById('cguOverlay').classList.add('open');
+}
+function closeCGU() {
+  document.getElementById('cguOverlay').classList.remove('open');
+}
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await initApp(session.user);
+  } else {
+    document.getElementById('authScreen').classList.add('show');
+  }
+});
 </script>
 </body>
 </html>
