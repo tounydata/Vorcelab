@@ -1,19 +1,10 @@
-import { AuthError } from './auth.ts'
+import { corsHeaders } from './cors.ts'
 
-interface ErrorResponse {
-  error: string
-  code?: string
-}
-
-export function errorResponse(err: unknown, headers: Record<string, string> = {}): Response {
-  if (err instanceof AuthError) {
-    return json({ error: err.message, code: 'UNAUTHORIZED' }, 401, headers)
-  }
-  if (err instanceof ValidationError) {
-    return json({ error: err.message, code: 'VALIDATION_ERROR' }, 400, headers)
-  }
-  console.error('[edge-function-error]', err)
-  return json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, 500, headers)
+export function errorResponse(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders(null), 'Content-Type': 'application/json' },
+  })
 }
 
 export function json<T>(data: T, status = 200, headers: Record<string, string> = {}): Response {

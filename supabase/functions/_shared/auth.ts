@@ -8,9 +8,14 @@ export function getServiceClient() {
   })
 }
 
-export async function requireAuth(req: Request): Promise<string> {
+export interface AuthUser {
+  id: string
+  email?: string
+}
+
+export async function requireAuth(req: Request): Promise<AuthUser> {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) throw new AuthError('Missing Authorization header')
+  if (!token) throw new Error('Unauthorized')
 
   const url = Deno.env.get('SUPABASE_URL')!
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -20,9 +25,9 @@ export async function requireAuth(req: Request): Promise<string> {
     data: { user },
     error,
   } = await client.auth.getUser(token)
-  if (error || !user) throw new AuthError('Invalid or expired token')
+  if (error || !user) throw new Error('Unauthorized')
 
-  return user.id
+  return { id: user.id, email: user.email }
 }
 
 export class AuthError extends Error {
