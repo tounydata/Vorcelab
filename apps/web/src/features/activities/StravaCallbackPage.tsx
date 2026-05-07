@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
 import { env } from '@/config/env'
-import type { StravaOAuthResponse } from '@runner-os/shared'
+import type { StravaOAuthResponse, StravaRefreshResponse } from '@runner-os/shared'
 
 type Status = 'loading' | 'success' | 'error' | 'no-auth'
 
@@ -46,16 +46,23 @@ export function StravaCallbackPage() {
         return
       }
 
+      const authHeaders = {
+        Authorization: `Bearer ${accessToken}`,
+      }
+
       try {
         await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>(
           env.strava.oauthFunctionName,
           {
             body: { code, scope },
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
+            headers: authHeaders,
           }
         )
+
+        await invokeFunction<Record<string, never>, StravaRefreshResponse>('strava-refresh', {
+          body: {},
+          headers: authHeaders,
+        })
 
         setStatus('success')
 
