@@ -5,16 +5,32 @@ const STATIC_ORIGINS = new Set([
   'http://localhost:4173',
 ])
 
+function normalizeOrigin(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  try {
+    return new URL(trimmed).origin
+  } catch {
+    return null
+  }
+}
+
 const dynamicOrigins: string[] = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
   .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean)
+  .map((o) => normalizeOrigin(o))
+  .filter((o): o is string => Boolean(o))
 
 function resolveOrigin(requestOrigin: string | null): string {
   if (!requestOrigin) return 'http://localhost:5173'
-  if (STATIC_ORIGINS.has(requestOrigin) || dynamicOrigins.includes(requestOrigin)) {
-    return requestOrigin
+
+  const normalizedRequestOrigin = normalizeOrigin(requestOrigin)
+  if (!normalizedRequestOrigin) return 'http://localhost:5173'
+
+  if (STATIC_ORIGINS.has(normalizedRequestOrigin) || dynamicOrigins.includes(normalizedRequestOrigin)) {
+    return normalizedRequestOrigin
   }
+
   return 'http://localhost:5173'
 }
 
