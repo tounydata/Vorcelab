@@ -22,6 +22,7 @@
 
   <section id="auth" class="card">
     <h2>Connexion / Inscription</h2>
+    <form id="authForm" novalidate>
     <div class="row">
       <div>
         <label>Email</label><input id="email" type="email" autocomplete="username" required>
@@ -31,10 +32,11 @@
       </div>
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="loginBtn" type="button">Se connecter</button>
+      <button id="loginBtn" type="submit">Se connecter</button>
       <button id="signupBtn" type="button">Créer le compte</button>
     </div>
     <p id="authMsg" class="muted"></p>
+    </form>
   </section>
 
   <section id="app" class="hidden">
@@ -61,7 +63,7 @@
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
-const appState = { user:null };
+const appState = { user:null, authMode:'login' };
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
 function storageKey(email){return `runner_user_${email.toLowerCase()}`;}
@@ -96,21 +98,26 @@ function render(){
 
 function validateEmail(email){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
-$('signupBtn').addEventListener('click', async ()=>{
+$('loginBtn').addEventListener('click', ()=>{ appState.authMode='login'; });
+$('signupBtn').addEventListener('click', ()=>{ appState.authMode='signup'; $('authForm').requestSubmit(); });
+
+$('authForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
   const email=$('email').value.trim().toLowerCase();
   const password=$('password').value;
   if(!validateEmail(email)) return setMsg('authMsg','Email invalide.','warn');
   if(password.length<10) return setMsg('authMsg','Mot de passe trop court (10 min).','warn');
-  if(loadUser(email)) return setMsg('authMsg','Compte déjà existant.','warn');
-  const passwordHash = await sha256(`${email}:${password}`);
-  const user={email,passwordHash,activities:[],createdAt:new Date().toISOString()};
-  saveUser(user);
-  setMsg('authMsg','Compte créé. Connecte-toi.','ok');
-});
 
-$('loginBtn').addEventListener('click', async ()=>{
-  const email=$('email').value.trim().toLowerCase();
-  const password=$('password').value;
+  if(appState.authMode==='signup'){
+    if(loadUser(email)) return setMsg('authMsg','Compte déjà existant.','warn');
+    const passwordHash = await sha256(`${email}:${password}`);
+    const user={email,passwordHash,activities:[],createdAt:new Date().toISOString()};
+    saveUser(user);
+    setMsg('authMsg','Compte créé. Connecte-toi.','ok');
+    appState.authMode='login';
+    return;
+  }
+
   const user=loadUser(email);
   if(!user) return setMsg('authMsg','Compte inconnu.','warn');
   const passwordHash = await sha256(`${email}:${password}`);
