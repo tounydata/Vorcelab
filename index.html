@@ -171,6 +171,19 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 .nutr-table th{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);}
 .nutr-table td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top;}
 .nutr-table tr:last-child td{border-bottom:none;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px;}
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;}
+.cal-day-label{font-family:var(--mono);font-size:.52rem;text-transform:uppercase;color:var(--text3);text-align:center;padding:4px 0;}
+.cal-cell{min-height:52px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:5px 6px;cursor:default;position:relative;transition:all .15s;}
+.cal-cell.other-month{opacity:.35;}
+.cal-cell.today{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan);}
+.cal-cell.has-event{background:var(--bg3);border-color:var(--purple);cursor:pointer;}
+.cal-cell.has-event:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.35);}
+.cal-day-num{font-family:var(--mono);font-size:.65rem;color:var(--text3);margin-bottom:3px;}
+.cal-event-dot{font-size:.62rem;line-height:1.3;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cal-event-type{font-size:.5rem;font-family:var(--mono);color:var(--text3);margin-top:1px;}
+.cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+.cal-month-title{flex:1;font-family:var(--display);font-size:1.1rem;letter-spacing:.03em;text-align:center;}
 .time-proj{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;}
 
 /* ── PROFILE ── */
@@ -351,7 +364,7 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
 <nav>
   <button class="nbtn active" onclick="showPanel('dashboard',this)">Dashboard</button>
-  <button class="nbtn" onclick="showPanel('strategie',this)">Stratégie Course</button>
+  <button class="nbtn" onclick="showPanel('strategie',this)">Calendrier</button>
   <button class="nbtn" onclick="showPanel('renfo',this)">Renfo & Prévention</button>
 </nav>
 
@@ -440,47 +453,77 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 <!-- ══ STRATÉGIE ══ -->
 
 <div class="panel" id="panel-strategie">
-  <div id="stratHeader">
-    <div class="stitle">Stratégie Course</div>
-    <div class="mono t2 mt1" style="margin-bottom:1.25rem">Upload un GPX ou associe une course de ton calendrier</div>
 
-<!-- Calendrier courses -->
-<div class="card" style="margin-bottom:1rem">
-  <div class="clabel">Mes courses</div>
-  <div class="race-list" id="raceList"><div class="mono t3">Aucune course planifiée</div></div>
-  <div class="add-race-btn mt2" onclick="toggleRaceForm()">+ Ajouter une course</div>
-  <div class="race-form" id="raceForm">
-    <div class="race-form-grid">
-      <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
-      <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
-      <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
-      <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
-      <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
-      <div class="fg"><label class="fl">Objectif temps</label><input class="fi" id="rGoal" placeholder="ex: 4h30"></div>
+  <!-- CALENDAR VIEW -->
+  <div id="calView">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.25rem">
+      <div class="stitle" style="margin:0">Calendrier</div>
+      <button class="hbtn" onclick="showAddRaceForm()" style="background:var(--purple);color:#fff;border-color:var(--purple)">+ Ajouter une course</button>
     </div>
-    <button class="save-btn" onclick="saveRace()">Enregistrer</button>
+
+    <!-- Add race form (hidden by default) -->
+    <div class="card" id="addRaceCard" style="display:none;margin-bottom:1rem">
+      <div class="clabel" style="margin-bottom:10px">Nouvelle course</div>
+      <div class="race-form-grid">
+        <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
+        <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
+        <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
+        <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
+        <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
+        <div class="fg"><label class="fl">Objectif temps</label><input class="fi" id="rGoal" placeholder="ex: 4h30"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="save-btn" onclick="saveRace()">Enregistrer</button>
+        <button class="hbtn" onclick="document.getElementById('addRaceCard').style.display='none'">Annuler</button>
+      </div>
+    </div>
+
+    <!-- Month navigation -->
+    <div class="cal-nav">
+      <button class="hbtn" onclick="calNavMonth(-1)">‹</button>
+      <div class="cal-month-title" id="calMonthTitle"></div>
+      <button class="hbtn" onclick="calNavMonth(1)">›</button>
+    </div>
+
+    <!-- Day labels -->
+    <div class="cal-header">
+      <div class="cal-day-label">Lun</div><div class="cal-day-label">Mar</div><div class="cal-day-label">Mer</div>
+      <div class="cal-day-label">Jeu</div><div class="cal-day-label">Ven</div><div class="cal-day-label">Sam</div><div class="cal-day-label">Dim</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- Upcoming list -->
+    <div id="upcomingRaces" style="margin-top:1.5rem"></div>
   </div>
-</div>
 
-<!-- Race selector from calendar -->
-<div id="raceSelector" style="display:none;margin-bottom:1rem">
-  <div class="clabel">Associer à une course</div>
-  <div id="raceSelectorList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-</div>
+  <!-- EVENT DETAIL VIEW (hidden by default) -->
+  <div id="eventView" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
+      <button class="hbtn" onclick="backToCalendar()">← Calendrier</button>
+      <div id="eventViewTitle" style="flex:1;font-family:var(--display);font-size:1.3rem;letter-spacing:.03em"></div>
+      <button class="hbtn" id="btnDeleteRace" style="color:var(--red);border-color:var(--red)">🗑 Supprimer</button>
+    </div>
 
-<div class="upload-zone" id="gpxDrop"
-  onclick="document.getElementById('gpxFile').click()"
-  ondragover="event.preventDefault();this.classList.add('drag')"
-  ondragleave="this.classList.remove('drag')"
-  ondrop="handleGpxDrop(event)">
-  <div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div>
-  <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div>
-  <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
-</div>
-<input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="handleGpxFile(event)">
+    <!-- Race selector from calendar (for GPX association) -->
+    <div id="raceSelector" style="display:none;margin-bottom:1rem">
+      <div class="clabel">Associer à une course</div>
+      <div id="raceSelectorList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
 
+    <div class="upload-zone" id="gpxDrop"
+      onclick="document.getElementById('gpxFile').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleGpxDrop(event)">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div>
+      <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div>
+      <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
+    </div>
+    <input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="handleGpxFile(event)">
+
+    <div id="stratResult" style="display:none"></div>
   </div>
-  <div id="stratResult" style="display:none"></div>
+
 </div>
 
 <!-- ══ RENFO & PRÉVENTION ══ -->
@@ -864,6 +907,7 @@ function showPanel(name, btn) {
   document.getElementById('panel-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   // Reset drop zone when navigating to strategie directly (not via prepareRace)
+  if(name==='strategie') { renderCalendar(); }
   if(name==='strategie' && !currentRaceContext) {
     const drop=document.getElementById('gpxDrop');
     if(drop){
@@ -1198,6 +1242,115 @@ async function fetchWeather(lat, lon, date) {
     const data=await r.json();
     return {temp:data.hourly?.temperature_2m?.[h]??null,precip:data.hourly?.precipitation?.[h]??null,wind:data.hourly?.windspeed_10m?.[h]??null};
   } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════
+// MONTHLY CALENDAR
+// ════════════════════════════════════════════════════
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-indexed
+
+function showAddRaceForm() {
+  const card = document.getElementById('addRaceCard');
+  if(card) card.style.display = card.style.display==='none'?'block':'none';
+}
+
+function renderCalendar() {
+  const titleEl = document.getElementById('calMonthTitle');
+  const gridEl = document.getElementById('calGrid');
+  if(!titleEl || !gridEl) return;
+
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  titleEl.textContent = `${months[calMonth]} ${calYear}`;
+
+  const today = new Date();
+  // First day of month (0=Sun..6=Sat → convert to Mon-based 0-6)
+  const firstDay = new Date(calYear, calMonth, 1);
+  let startDow = firstDay.getDay(); // 0=Sun
+  startDow = startDow === 0 ? 6 : startDow - 1; // Mon=0
+
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+
+  // Build lookup: dateStr → race
+  const raceByDate = {};
+  (races||[]).forEach(r => { if(r.date) raceByDate[r.date.substring(0,10)] = r; });
+
+  let cells = '';
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
+
+  for(let i = 0; i < totalCells; i++){
+    let dayNum, month = calMonth, year = calYear, otherMonth = false;
+    if(i < startDow){ dayNum = daysInPrev - startDow + i + 1; month = calMonth-1; if(month<0){month=11;year=calYear-1;} otherMonth=true; }
+    else if(i >= startDow + daysInMonth){ dayNum = i - startDow - daysInMonth + 1; month = calMonth+1; if(month>11){month=0;year=calYear+1;} otherMonth=true; }
+    else { dayNum = i - startDow + 1; }
+
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    const isToday = !otherMonth && year===today.getFullYear() && month===today.getMonth() && dayNum===today.getDate();
+    const race = raceByDate[dateStr];
+    const typeEmoji = race ? (race.type==='Trail'?'⛰️':race.type==='Ultra'?'🦅':'🏃') : '';
+
+    cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${race.id}')"`:''}>
+      <div class="cal-day-num">${dayNum}</div>
+      ${race ? `<div class="cal-event-dot">${typeEmoji} ${race.name}</div><div class="cal-event-type">${race.distance||'?'}km${race.elevation?` · ${race.elevation}m D+`:''}</div>` : ''}
+    </div>`;
+  }
+  gridEl.innerHTML = cells;
+
+  // Upcoming races list
+  const upcoming = (races||[]).filter(r=>r.date && new Date(r.date)>=new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5);
+  const upEl = document.getElementById('upcomingRaces');
+  if(upEl){
+    upEl.innerHTML = upcoming.length ? `
+      <div class="clabel" style="margin-bottom:8px">Prochaines courses</div>
+      ${upcoming.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="openEventView('${r.id}')">
+        <div style="font-size:1.2rem">${r.type==='Trail'?'⛰️':r.type==='Ultra'?'🦅':'🏃'}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:.85rem">${r.name}</div>
+          <div class="mono t3" style="font-size:.6rem">${new Date(r.date).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})} · ${r.distance||'?'}km${r.elevation?` · ${r.elevation}m D+`:''}</div>
+        </div>
+        <div class="mono" style="font-size:.7rem;color:var(--cyan)">${Math.ceil((new Date(r.date)-new Date())/(1000*60*60*24))}j →</div>
+      </div>`).join('')}` : '<div class="mono t3">Aucune course à venir — clique sur "+ Ajouter une course"</div>';
+  }
+}
+
+function calNavMonth(dir) {
+  calMonth += dir;
+  if(calMonth > 11){ calMonth=0; calYear++; }
+  if(calMonth < 0){ calMonth=11; calYear--; }
+  renderCalendar();
+}
+
+function openEventView(raceId) {
+  const race = (races||[]).find(r=>String(r.id)===String(raceId));
+  if(!race) return;
+  document.getElementById('calView').style.display = 'none';
+  document.getElementById('eventView').style.display = 'block';
+  const titleEl = document.getElementById('eventViewTitle');
+  if(titleEl) titleEl.textContent = `${race.type==='Trail'?'⛰️':race.type==='Ultra'?'🦅':'🏃'} ${race.name} — ${new Date(race.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}`;
+  // Wire up delete button
+  const delBtn = document.getElementById('btnDeleteRace');
+  if(delBtn) delBtn.onclick = ()=>deleteRace(raceId);
+  // Trigger existing prepareRace logic
+  prepareRace(race);
+}
+
+function backToCalendar() {
+  document.getElementById('eventView').style.display = 'none';
+  document.getElementById('calView').style.display = 'block';
+  // Reset GPX state
+  currentRaceContext = null;
+  document.getElementById('stratResult').style.display='none';
+  document.getElementById('gpxDrop').style.display='flex';
+  if(window._actMapInst2){window._actMapInst2.remove();window._actMapInst2=null;}
+}
+
+async function deleteRace(raceId) {
+  if(!confirm('Supprimer cette course ?')) return;
+  await sb.from('race_calendar').delete().eq('id', raceId);
+  await loadRaces();
+  backToCalendar();
+  renderCalendar();
 }
 
 // ════════════════════════════════════════════════════
@@ -1637,20 +1790,21 @@ function renderAthleteProfile(streams, act) {
   let inUphill=false, uphillStart=null;
   let prevState='flat';
 
-  for(let i=10; i<altD.length-10; i++){
-    const elev10 = altD[i+10]-altD[i]; // elevation over next 10 points
-    const dist10 = distD[i+10]-distD[i];
-    const grade = dist10>0 ? elev10/dist10*100 : 0;
+  const WIN = Math.min(30, Math.floor(altD.length/10)); // adaptive lookahead
+  for(let i=WIN; i<altD.length-WIN; i++){
+    const elevN = altD[i+WIN]-altD[i];
+    const distN = distD[i+WIN]-distD[i];
+    const grade = distN>0 ? elevN/distN*100 : 0;
 
-    if(grade > 5 && !inUphill){
+    if(grade > 4 && !inUphill){
       inUphill=true;
       uphillStart={idx:i, alt:altD[i], dist:distD[i], time:i};
-    } else if(grade <= 2 && inUphill){
+    } else if(grade <= 1.5 && inUphill){
       inUphill=false;
       const dAlt=altD[i]-uphillStart.alt;
       const dTime=(i-uphillStart.time);
       const dDist=distD[i]-uphillStart.dist;
-      if(dAlt>30 && dTime>0){
+      if(dAlt>10 && dTime>0){
         const vam=dAlt/(dTime/3600);
         const avgHR=hrD.length?hrD.slice(uphillStart.idx,i).reduce((a,b)=>a+b,0)/(i-uphillStart.idx):null;
         uphillSections.push({vam:Math.round(vam),dAlt:Math.round(dAlt),dist:Math.round(dDist),avgHR:avgHR?Math.round(avgHR):null});
@@ -1832,7 +1986,7 @@ function toggleRaceForm() { document.getElementById('raceForm').classList.toggle
 
 async function loadRaces() {
   const {data} = await sb.from('race_calendar').select('*').eq('user_id',currentUser.id).order('date');
-  if (data) { races=data; renderRaces(); populateRaceSelector(); }
+  if (data) { races=data; renderRaces(); populateRaceSelector(); renderCalendar(); }
 }
 
 async function saveRace() {
