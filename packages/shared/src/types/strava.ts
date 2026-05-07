@@ -1,40 +1,31 @@
-export interface StravaTokens {
-  user_id: string
-  access_token: string
-  refresh_token: string
-  expires_at: number
-  updated_at: string
-}
+// Public-safe Strava types — no tokens ever exposed here
 
-export interface StravaOAuthPayload {
-  code: string
-  scope: string
-}
-
-export interface StravaOAuthResponse {
-  access_token: string
-  refresh_token: string
-  expires_at: number
-  athlete: StravaAthlete
-}
-
-export interface StravaAthlete {
+export interface StravaPublicAthlete {
   id: number
   firstname: string
   lastname: string
-  profile_medium: string
-  profile: string
-  city: string | null
-  country: string | null
-  sex: 'M' | 'F' | null
-  weight: number | null
+  avatar: string | null
 }
 
-export interface StravaRefreshPayload {
-  userId: string
+export interface StravaConnectionStatus {
+  connected: boolean
+  athlete: StravaPublicAthlete | null
+  scope: string | null
+  last_sync_at: string | null
 }
 
-export interface StravaRefreshResponse {
-  access_token: string
-  expires_at: number
+export interface StravaOAuthResponse {
+  connected: true
+  athlete: StravaPublicAthlete
+  scope: string
+}
+
+export interface StravaSyncResponse {
+  connected: true
+  synced: number
+  last_sync_at: string
+}
+
+export interface StravaDisconnectResponse {
+  disconnected: true
 }

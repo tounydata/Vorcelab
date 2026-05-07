@@ -21,12 +21,11 @@ export type {
   RacePrediction,
 } from './types/race.js'
 export type {
-  StravaTokens,
-  StravaOAuthPayload,
+  StravaPublicAthlete,
+  StravaConnectionStatus,
   StravaOAuthResponse,
-  StravaAthlete,
-  StravaRefreshPayload,
-  StravaRefreshResponse,
+  StravaSyncResponse,
+  StravaDisconnectResponse,
 } from './types/strava.js'
 export type {
   AnalysisRequest,
@@ -42,12 +41,8 @@ export type {
 } from './types/analysis.js'
 
 // Schemas
-export {
-  stravaOAuthPayloadSchema,
-  stravaAthleteSchema,
-  stravaActivitySchema,
-  stravaActivitiesArraySchema,
-} from './schemas/strava.schema.js'
+export { stravaOAuthBodySchema, stravaSyncOptionsSchema } from './schemas/strava.schema.js'
+export type { StravaOAuthBody, StravaSyncOptions } from './schemas/strava.schema.js'
 export { raceInsertSchema, raceUpdateSchema } from './schemas/race.schema.js'
 export {
   analysisRequestSchema,
