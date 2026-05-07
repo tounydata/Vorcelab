@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Strava token exchange failed', 502)
     }
 
-    const tokenData = await tokenRes.json() as {
+    const tokenData = (await tokenRes.json()) as {
       access_token: string
       refresh_token: string
       expires_at: number

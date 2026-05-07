@@ -27,7 +27,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
       const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
 
       if (error && error.code !== 'PGRST116') throw error
-      set({ profile: data as Profile | null, loading: false })
+      set({ profile: data, loading: false })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur de chargement'
       logger.error('Failed to load profile', { message })
@@ -45,7 +45,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() } as { id: string; updated_at: string })
+        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() })
         .select()
         .single()
 

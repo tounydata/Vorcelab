@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
-import type { StravaOAuthResponse } from '@runner-os/shared'
+import { env } from '@/config/env'
+import type { StravaOAuthResponse, StravaRefreshResponse } from '@runner-os/shared'
 
 type Status = 'loading' | 'success' | 'error' | 'no-auth'
 
@@ -44,13 +45,28 @@ export function StravaCallbackPage() {
         return
       }
 
+      const authHeaders = {
+        Authorization: `Bearer ${accessToken}`,
+      }
+
       try {
-        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>('strava-oauth', {
-          body: { code, scope },
+        await invokeFunction<{ code: string; scope: string }, StravaOAuthResponse>(
+          env.strava.oauthFunctionName,
+          {
+            body: { code, scope },
+            headers: authHeaders,
+          }
+        )
+
+        await invokeFunction<Record<string, never>, StravaRefreshResponse>('strava-refresh', {
+          body: {},
+          headers: authHeaders,
         })
+
         setStatus('success')
-        // Clean URL, redirect after short delay so user sees success
-        window.history.replaceState({}, '', '/activities')
+
+        const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+        window.history.replaceState({}, '', `${basePath}/activities`)
         setTimeout(() => void navigate('/activities'), 1500)
       } catch (err) {
         setStatus('error')

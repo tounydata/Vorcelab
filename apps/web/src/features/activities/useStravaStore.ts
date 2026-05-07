@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { StravaActivity, StravaSyncResponse } from '@runner-os/shared'
+import type { StravaActivity, StravaRefreshResponse, ZoneData } from '@runner-os/shared'
 import { supabase } from '@/lib/supabase'
 import { invokeFunction } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
@@ -51,13 +51,17 @@ export const useStravaStore = create<StravaState>((set, get) => ({
 
   loadActivities: async () => {
     set({ loading: true, error: null })
+
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
 
-      const { data, error } = await supabase
+      if (!user) {
+        throw new Error('Not authenticated')
+      }
+
+      const { data: activitiesData, error } = await supabase
         .from('strava_activities')
         .select('*')
         .eq('user_id', user.id)
@@ -109,7 +113,9 @@ export const useStravaStore = create<StravaState>((set, get) => ({
     const state = crypto.randomUUID()
     sessionStorage.setItem('strava_oauth_state', state)
 
-    const redirectUri = `${window.location.origin}/auth/strava/callback`
+    const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+    const redirectUri = `${window.location.origin}${basePath}/auth/strava/callback`
+
     const params = new URLSearchParams({
       client_id: env.strava.clientId,
       redirect_uri: redirectUri,

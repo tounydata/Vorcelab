@@ -4,6 +4,7 @@ import { withRetry, isNetworkError } from '@/lib/retry'
 
 interface InvokeOptions<T> {
   body?: T
+  headers?: Record<string, string>
   retries?: number
 }
 
@@ -15,11 +16,14 @@ export async function invokeFunction<TBody, TResponse>(
   name: string,
   options: InvokeOptions<TBody> = {}
 ): Promise<TResponse> {
-  const { body, retries = 2 } = options
+  const { body, headers, retries = 2 } = options
 
   return withRetry(
     async () => {
-      const invokeOpts = body !== undefined ? { body: body as Record<string, unknown> } : {}
+      const invokeOpts = {
+        ...(body !== undefined ? { body: body as Record<string, unknown> } : {}),
+        ...(headers !== undefined ? { headers } : {}),
+      }
       const response = await supabase.functions.invoke<TResponse>(name, invokeOpts)
       if (response.error) {
         const msg: string =

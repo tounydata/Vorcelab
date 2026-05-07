@@ -50,7 +50,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
 
       const { data, error } = await supabase
         .from('race_calendar')
-        .insert({ ...raceData, user_id: user.id } as { user_id: string; name: string; date: string; type: string })
+        .insert({ ...raceData, user_id: user.id })
         .select()
         .single()
 

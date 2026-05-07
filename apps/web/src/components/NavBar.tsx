@@ -53,7 +53,7 @@ export function NavBar() {
         >
           AO
         </div>
-        <div>
+        <div style={{ textAlign: 'left' }}>
           <div
             style={{
               fontFamily: 'var(--display)',
@@ -62,21 +62,19 @@ export function NavBar() {
               color: 'var(--text)',
             }}
           >
-            RUNNER OS
+            VORCELAB
           </div>
-          {athleteName && (
-            <div
-              style={{
-                fontFamily: 'var(--mono)',
-                fontSize: '.6rem',
-                color: 'var(--text3)',
-                textTransform: 'uppercase',
-                letterSpacing: '.08em',
-              }}
-            >
-              {athleteName}
-            </div>
-          )}
+          <div
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '.6rem',
+              color: 'var(--text3)',
+              textTransform: 'uppercase',
+              letterSpacing: '.08em',
+            }}
+          >
+            {athleteName || 'Anthony Bollecker'}
+          </div>
         </div>
       </button>
 
