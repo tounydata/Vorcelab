@@ -437,7 +437,7 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   <div class="card">
     <div class="clabel">Prochaine course</div>
     <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
-    <div class="mono t3" style="font-size:.58rem;margin-top:8px">Gère tes courses dans <span style="color:var(--cyan);cursor:pointer" onclick="showPanel('strategie',document.querySelector('.nbtn[onclick*=strategie]'))">Stratégie Course →</span></div>
+    <div class="mono t3" style="font-size:.58rem;margin-top:8px">Clique sur ton événement pour accéder à la stratégie complète</div>
   </div>
 </div>
 
@@ -1338,6 +1338,12 @@ function openEventView(raceId) {
   prepareRace(race);
 }
 
+function goToEvent(raceId) {
+  const btn = document.querySelector('.nbtn[onclick*="strategie"]');
+  showPanel('strategie', btn);
+  openEventView(raceId);
+}
+
 function backToCalendar() {
   document.getElementById('eventView').style.display = 'none';
   document.getElementById('calView').style.display = 'block';
@@ -1857,7 +1863,7 @@ function renderAthleteProfile(streams, act) {
     </div>`;
 }
 
-function renderRaceComparison(act, streams, race) {
+async function renderRaceComparison(act, streams, race) {
   const section = document.getElementById('raceComparisonSection');
   if(!section || !race.gpx_data) return;
 
@@ -1874,12 +1880,12 @@ function renderRaceComparison(act, streams, race) {
   const kmSecs=[];let segTarget=500,prevIdx=0;
   for(let i=0;i<cumDist.length;i++){
     if(cumDist[i]>=segTarget||i===cumDist.length-1){
-      let sdp=0;
-      for(let j=prevIdx+1;j<=i;j++){if(gpxPts[j]?.ele&&gpxPts[j-1]?.ele){const diff=gpxPts[j].ele-gpxPts[j-1].ele;if(diff>0)sdp+=diff;}}
+      let sdp=0,sdm=0;
+      for(let j=prevIdx+1;j<=i;j++){if(gpxPts[j]?.ele&&gpxPts[j-1]?.ele){const diff=gpxPts[j].ele-gpxPts[j-1].ele;if(diff>0)sdp+=diff;else sdm+=Math.abs(diff);}}
       const segDist=cumDist[i]-cumDist[prevIdx];
       const elevChange=gpxPts[i]?.ele&&gpxPts[prevIdx]?.ele?gpxPts[i].ele-gpxPts[prevIdx].ele:0;
       const grade=segDist>0?(elevChange/segDist)*100:0;
-      kmSecs.push({startKm:+(cumDist[prevIdx]/1000).toFixed(2),endKm:+(cumDist[i]/1000).toFixed(2),dist:segDist,dplus:Math.round(sdp),grade:+grade.toFixed(1)});
+      kmSecs.push({startKm:+(cumDist[prevIdx]/1000).toFixed(2),endKm:+(cumDist[i]/1000).toFixed(2),dist:segDist,dplus:Math.round(sdp),dminus:Math.round(sdm),grade:+grade.toFixed(1)});
       prevIdx=i;segTarget=cumDist[i]+500;
     }
   }
@@ -2034,7 +2040,7 @@ function renderRaces() {
       <div class="mono t2">${next.distance||'?'}km · D+${next.elevation||'?'}m · ${next.type}</div>
       ${next.goal_time?`<div class="mono" style="color:${color};margin-top:4px">🎯 ${next.goal_time}</div>`:''}
       ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green);margin-top:6px;display:inline-block">✓ GPX</span>`:''}
-      <button class="btn-prepare" style="margin-top:10px" onclick='prepareRace(${JSON.stringify(next)})'>${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer la course'}</button>
+      <button class="btn-prepare" style="margin-top:10px" onclick='goToEvent("${next.id}")'>${hasGpx?'🗺️ Voir stratégie':'📅 Voir l\'événement'}</button>
     </div>`;
   } else { if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>'; }
   if(!list) { renderCalendar(); return; }
@@ -2465,17 +2471,13 @@ async function analyzeGPX(points, fname) {
           ${qualityCount>=4?`<span class="strat-tag" style="border-color:var(--green)40;color:var(--green)">📈 ${qualityCount} séances qualité analysées</span>`:'<span class="strat-tag" style="border-color:var(--text3)40;color:var(--text3)">Fais plus de séances qualité pour affiner</span>'}
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" class="no-print">
         <button onclick="resetStrategy()" class="hbtn">← Changer de GPX</button>
         ${currentRaceContext?.id
-          ? `<button onclick="saveGpxToRace()" class="hbtn" id="btnSaveGpx" style="background:var(--green);color:#000;border-color:var(--green)">💾 Associer à ${currentRaceContext.name}</button>`
-          : `<button onclick="showLinkRacePanel()" class="hbtn" id="btnLinkRace" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier à un événement</button>`
+          ? `<button onclick="saveGpxToRace()" class="hbtn" id="btnSaveGpx" style="background:var(--green);color:#000;border-color:var(--green)">💾 ${currentRaceContext.name}</button>`
+          : `<select class="fi" id="linkRaceSelect" style="max-width:200px;font-size:.7rem" onchange="linkGpxToRaceById(this.value)"><option value="">🔗 Lier à un événement...</option>${races.map(r=>`<option value="${r.id}">${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</option>`).join('')}</select>`
         }
         <button onclick="window.print()" class="hbtn" style="background:var(--cyan);color:#000;border-color:var(--cyan)">🖨️ Imprimer</button>
-      </div>
-      <div id="linkRacePanel" style="display:none;margin-top:.75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px">
-        <div class="clabel" style="margin-bottom:8px">Choisir un événement</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${r.name.replace(/"/g,'&quot;')}" onclick="linkGpxToRace(this.dataset.raceid,this.dataset.racename)">📅 ${r.name}</button>`).join('')||'<span class="mono t3">Aucune course à venir</span>'}</div>
       </div>
     </div>
 
@@ -2664,27 +2666,27 @@ async function analyzeGPX(points, fname) {
 }
 
 function buildDetailedSections(kmSecs){
-  // Smooth grades over 3-km window to avoid choppy sections
+  // Smooth grades over 5-segment window
   const smoothed = kmSecs.map((s,i)=>{
-    const window3 = kmSecs.slice(Math.max(0,i-1), Math.min(kmSecs.length,i+2));
-    const avgGrade = window3.reduce((a,k)=>a+k.grade,0)/window3.length;
+    const win = kmSecs.slice(Math.max(0,i-2), Math.min(kmSecs.length,i+3));
+    const avgGrade = win.reduce((a,k)=>a+k.grade,0)/win.length;
     return {...s, gradeSmooth: avgGrade};
   });
 
   const out=[];let i=0;
   while(i<smoothed.length){
     const s=smoothed[i];
-    // Uphill: grade > 6% smoothed, must be at least 200m D+
-    if(s.gradeSmooth>6){
+    // Uphill: net grade > 3% over 500m segment
+    if(s.gradeSmooth>3){
       let j=i;
-      while(j<smoothed.length&&smoothed[j].gradeSmooth>3)j++;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth>1)j++;
       const seg=smoothed.slice(i,j);
       const dp=seg.reduce((a,k)=>a+k.dplus,0);
-      const dm=seg.reduce((a,k)=>a+k.dminus,0);
+      const dm=seg.reduce((a,k)=>a+(k.dminus||0),0);
       const distM=seg.reduce((a,k)=>a+k.dist,0);
       const avgG=distM>0?dp/distM*100:0;
       // Only create uphill section if significant D+
-      if(dp>80){
+      if(dp>30){
         out.push({type:'up',startKm:smoothed[i].startKm,endKm:smoothed[Math.min(j,smoothed.length)-1].km,dplus:Math.round(dp),dminus:Math.round(dm),dist:distM,grade:+avgG.toFixed(1)});
         i=j;
       } else {
@@ -2692,15 +2694,15 @@ function buildDetailedSections(kmSecs){
         out.push({type:'flat',startKm:s.startKm,endKm:s.km,dplus:s.dplus,dminus:s.dminus,dist:s.dist,grade:s.grade});
         i++;
       }
-    } else if(s.gradeSmooth<-6){
+    } else if(s.gradeSmooth<-3){
       let j=i;
-      while(j<smoothed.length&&smoothed[j].gradeSmooth<-3)j++;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth<-1)j++;
       const seg=smoothed.slice(i,j);
-      const dm=seg.reduce((a,k)=>a+k.dminus,0);
+      const dm=seg.reduce((a,k)=>a+(k.dminus||0),0);
       const dp=seg.reduce((a,k)=>a+k.dplus,0);
       const distM=seg.reduce((a,k)=>a+k.dist,0);
       const avgG=distM>0?-dm/distM*100:0;
-      if(dm>80){
+      if(dm>30){
         out.push({type:'down',startKm:smoothed[i].startKm,endKm:smoothed[Math.min(j,smoothed.length)-1].km,dminus:Math.round(dm),dplus:Math.round(dp),dist:distM,grade:+avgG.toFixed(1)});
         i=j;
       } else {
@@ -2710,7 +2712,7 @@ function buildDetailedSections(kmSecs){
     } else {
       // Flat — merge consecutive flat sections
       let j=i;
-      while(j<smoothed.length&&smoothed[j].gradeSmooth>=-6&&smoothed[j].gradeSmooth<=6)j++;
+      while(j<smoothed.length&&smoothed[j].gradeSmooth>=-3&&smoothed[j].gradeSmooth<=3)j++;
       const seg=smoothed.slice(i,j);
       const dp=seg.reduce((a,k)=>a+k.dplus,0);
       const dm=seg.reduce((a,k)=>a+k.dminus,0);
@@ -3130,10 +3132,23 @@ function resetStrategy(){
   if(window._gpxChart){window._gpxChart.destroy();window._gpxChart=null;}
 }
 
+function linkGpxToRaceById(raceId) {
+  if(!raceId) return;
+  const race = races.find(r=>String(r.id)===String(raceId));
+  if(!race) return;
+  currentRaceContext = race;
+  saveGpxToRace();
+}
+
 function populateRaceSelector(){
   const container=document.getElementById('raceSelectorList');
-  if(!races.length){document.getElementById('raceSelector').style.display='none';return;}
-  document.getElementById('raceSelector').style.display='block';
+  // raceSelector block is hidden in event view (the analyzeGPX output handles association)
+  const sel=document.getElementById('raceSelector');
+  if(!container||!sel) return;
+  if(!races.length){sel.style.display='none';return;}
+  // Only show if not in event view
+  if(document.getElementById('eventView')?.style.display!=='none') return;
+  sel.style.display='block';
   container.innerHTML=races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
 }
 
