@@ -20,12 +20,22 @@ export function StravaCallbackPage() {
     const code = params.get('code')
     const scope = params.get('scope') ?? ''
     const error = params.get('error')
+    const returnedState = params.get('state')
+    const expectedState = sessionStorage.getItem('strava_oauth_state')
 
     if (error || !code) {
       setStatus('error')
       setErrorMsg(error === 'access_denied' ? 'Autorisation refusée.' : 'Code OAuth manquant.')
       return
     }
+
+    if (!returnedState || returnedState !== expectedState) {
+      setStatus('error')
+      setErrorMsg('État OAuth invalide. Réessaie la connexion.')
+      return
+    }
+
+    sessionStorage.removeItem('strava_oauth_state')
 
     // Verify user is logged in before exchanging the code
     void supabase.auth.getUser().then(async ({ data: { user } }) => {
