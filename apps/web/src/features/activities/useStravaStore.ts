@@ -17,8 +17,11 @@ interface StravaState {
   connected: boolean
   athleteName: string | null
   activities: StravaActivity[]
+  zoneData: ZoneData | null
   loading: boolean
   error: string | null
+  _lastLoadedAt: number
+  _inFlightLoad: Promise<void> | null
   loadActivities: () => Promise<void>
   loadConnectionStatus: () => Promise<void>
   connectStrava: () => void
@@ -29,8 +32,11 @@ export const useStravaStore = create<StravaState>((set, get) => ({
   connected: false,
   athleteName: null,
   activities: [],
+  zoneData: null,
   loading: false,
   error: null,
+  _lastLoadedAt: 0,
+  _inFlightLoad: null,
 
   loadConnectionStatus: async () => {
     try {
@@ -114,6 +120,46 @@ export const useStravaStore = create<StravaState>((set, get) => ({
       logger.error('Failed to load activities', { message })
       set({ error: message, loading: false })
     }
+
+    set({ loading: true, error: null })
+
+    const request = (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) throw new Error('Not authenticated')
+
+        const { data, error } = await supabase
+          .from('activities_history')
+          .select('data, zone_data')
+          .eq('user_id', user.id)
+          .order('imported_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (error && error.code !== 'PGRST116') throw error
+
+        const activities = (data?.data as StravaActivity[] | null) ?? []
+        set({
+          activities,
+          zoneData: (data?.zone_data as ZoneData | null) ?? null,
+          connected: activities.length > 0,
+          loading: false,
+          _lastLoadedAt: Date.now(),
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Erreur de chargement'
+        logger.error('Failed to load activities', { message })
+        set({ error: message, loading: false })
+      } finally {
+        set({ _inFlightLoad: null })
+      }
+    })()
+
+    set({ _inFlightLoad: request })
+    return request
   },
 
   connectStrava: () => {
@@ -130,11 +176,13 @@ export const useStravaStore = create<StravaState>((set, get) => ({
       scope: 'read,activity:read,activity:read_all',
       state,
     })
+
     window.location.href = `https://www.strava.com/oauth/authorize?${params.toString()}`
   },
 
   refreshActivities: async () => {
     set({ loading: true, error: null })
+
     try {
       // No body needed — user is identified from JWT via requireAuth in the Edge Function
       await invokeFunction<Record<string, never>, StravaSyncResponse>('strava-refresh', {})
