@@ -1,1 +1,152 @@
-PLACEHOLDER
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Runner Data — Stable Secure Multi-user</title>
+  <style>
+    :root{--bg:#0b1020;--card:#131b33;--txt:#ecf0ff;--muted:#8ea0c7;--ok:#38d39f;--warn:#ff8b5e;--line:#2a3558}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+    .wrap{max-width:980px;margin:0 auto;padding:24px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+    h1,h2{margin:0 0 12px}label{display:block;margin:8px 0 4px;color:var(--muted);font-size:14px}
+    input,button,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#0f1730;color:var(--txt)}
+    button{cursor:pointer;background:#1d2a52;font-weight:700}button:hover{opacity:.95}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hidden{display:none}.muted{color:var(--muted);font-size:13px}
+    .ok{color:var(--ok)}.warn{color:var(--warn)} table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Runner Data</h1>
+  <p class="muted">Version locale stable, sans dépendance Supabase côté client. Données isolées par utilisateur.</p>
+
+  <section id="auth" class="card">
+    <h2>Connexion / Inscription</h2>
+    <div class="row">
+      <div>
+        <label>Email</label><input id="email" type="email" autocomplete="username" required>
+      </div>
+      <div>
+        <label>Mot de passe</label><input id="password" type="password" autocomplete="current-password" minlength="10" required>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="loginBtn" type="button">Se connecter</button>
+      <button id="signupBtn" type="button">Créer le compte</button>
+    </div>
+    <p id="authMsg" class="muted"></p>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="card">
+      <h2>Session</h2>
+      <p>Connecté en tant que <strong id="who"></strong></p>
+      <button id="logoutBtn" type="button">Se déconnecter</button>
+    </div>
+
+    <div class="card">
+      <h2>Activités</h2>
+      <div class="row">
+        <div><label>Nom</label><input id="actName" type="text" maxlength="80"></div>
+        <div><label>Distance (km)</label><input id="actKm" type="number" min="0" step="0.1"></div>
+      </div>
+      <label>Notes</label><textarea id="actNotes" rows="3" maxlength="500"></textarea>
+      <button id="addActBtn" type="button" style="margin-top:10px">Ajouter</button>
+      <p id="appMsg" class="muted"></p>
+      <table><thead><tr><th>Date</th><th>Nom</th><th>Distance</th><th>Notes</th></tr></thead><tbody id="activities"></tbody></table>
+    </div>
+  </section>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const appState = { user:null };
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function storageKey(email){return `runner_user_${email.toLowerCase()}`;}
+
+async function sha256(input){
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function loadUser(email){
+  const raw = localStorage.getItem(storageKey(email));
+  return raw ? JSON.parse(raw) : null;
+}
+function saveUser(user){ localStorage.setItem(storageKey(user.email), JSON.stringify(user)); }
+
+function setMsg(id,text,cls='muted'){ const el=$(id); el.className=cls; el.textContent=text; }
+
+function render(){
+  const logged = !!appState.user;
+  $('auth').classList.toggle('hidden', logged);
+  $('app').classList.toggle('hidden', !logged);
+  if(!logged) return;
+  $('who').textContent = appState.user.email;
+  const tbody=$('activities'); tbody.innerHTML='';
+  for(const a of appState.user.activities){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(a.date)}</td><td>${esc(a.name)}</td><td>${esc(a.km)}</td><td>${esc(a.notes)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function validateEmail(email){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+
+$('signupBtn').addEventListener('click', async ()=>{
+  const email=$('email').value.trim().toLowerCase();
+  const password=$('password').value;
+  if(!validateEmail(email)) return setMsg('authMsg','Email invalide.','warn');
+  if(password.length<10) return setMsg('authMsg','Mot de passe trop court (10 min).','warn');
+  if(loadUser(email)) return setMsg('authMsg','Compte déjà existant.','warn');
+  const passwordHash = await sha256(`${email}:${password}`);
+  const user={email,passwordHash,activities:[],createdAt:new Date().toISOString()};
+  saveUser(user);
+  setMsg('authMsg','Compte créé. Connecte-toi.','ok');
+});
+
+$('loginBtn').addEventListener('click', async ()=>{
+  const email=$('email').value.trim().toLowerCase();
+  const password=$('password').value;
+  const user=loadUser(email);
+  if(!user) return setMsg('authMsg','Compte inconnu.','warn');
+  const passwordHash = await sha256(`${email}:${password}`);
+  if(passwordHash!==user.passwordHash) return setMsg('authMsg','Identifiants invalides.','warn');
+  appState.user=user;
+  sessionStorage.setItem('runner_session_email', email);
+  setMsg('authMsg','Connexion réussie.','ok');
+  render();
+});
+
+$('logoutBtn').addEventListener('click', ()=>{
+  appState.user=null;
+  sessionStorage.removeItem('runner_session_email');
+  render();
+});
+
+$('addActBtn').addEventListener('click', ()=>{
+  if(!appState.user) return;
+  const name=$('actName').value.trim();
+  const km=Number($('actKm').value);
+  const notes=$('actNotes').value.trim();
+  if(name.length<2 || name.length>80) return setMsg('appMsg','Nom activité invalide.','warn');
+  if(!Number.isFinite(km) || km<=0 || km>500) return setMsg('appMsg','Distance invalide.','warn');
+  if(notes.length>500) return setMsg('appMsg','Notes trop longues.','warn');
+  appState.user.activities.unshift({date:new Date().toISOString(),name,km:km.toFixed(1),notes});
+  saveUser(appState.user);
+  $('actName').value=''; $('actKm').value=''; $('actNotes').value='';
+  setMsg('appMsg','Activité ajoutée.','ok');
+  render();
+});
+
+(function boot(){
+  const email=sessionStorage.getItem('runner_session_email');
+  if(email){ const user=loadUser(email); if(user) appState.user=user; }
+  render();
+})();
+</script>
+</body>
+</html>
