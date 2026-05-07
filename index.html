@@ -1983,6 +1983,46 @@ async function renderRaceComparison(act, streams, race) {
     userProfile.coeff_uphill = 1 + avgUpDiff/100;
     sb.from('profiles').upsert({id:currentUser.id, coeff_uphill: userProfile.coeff_uphill});
   }
+
+  // AI analysis on comparison
+  if(validDiffs.length >= 2) {
+    const aiBox = document.createElement('div');
+    aiBox.className = 'ai-analysis mt2';
+    aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Bilan de course</div></div><div class="ai-loading"><div class="spinner"></div><div>Analyse en cours...</div></div>`;
+    section.appendChild(aiBox);
+
+    const avgDiff = validDiffs.length ? Math.round(validDiffs.reduce((a,b)=>a+b,0)/validDiffs.length) : 0;
+    const worstIdx = validDiffs.reduce((bi,d,i)=>d>validDiffs[bi]?i:bi,0);
+    const bestIdx = validDiffs.reduce((bi,d,i)=>d<validDiffs[bi]?i:bi,0);
+    const compPrompt = `Tu es un coach running expert. Analyse ce bilan de course de manière concise (4-5 phrases). Sois direct, factuel, actionnable.
+
+COURSE: ${race.name} · ${(totalDist/1000).toFixed(1)}km · D+${sections.reduce((a,s)=>a+(s.dplus||0),0)}m
+ATHLÈTE: FC max ${userProfile.fc_max||200} bpm · VO2max ${userProfile.vo2max||50}
+
+COMPARAISON PRÉVU / RÉEL PAR SECTION:
+${sections.map((s,i)=>{
+  const p=predicted[i],r=actual[i];
+  const d=r&&p?Math.round((r-p)/p*100):null;
+  return `- ${icons[s.type]} km${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} (${s.type==='up'?'+'+s.dplus+'m D+':s.type==='down'?'-'+s.dminus+'m D-':'plat'}) : prévu ${fmtT(p)}, réel ${r?fmtT(r):'—'}${d!==null?' ('+( d>0?'+':'')+d+'%)':''}${sectionHR[i]?' FC moy '+sectionHR[i]+'bpm':''}`;
+}).join('\n')}
+
+ÉCART GLOBAL: ${avgDiff>0?'+':''}${avgDiff}% vs prédictions${avgUpDiff!==null?' · montées: '+(avgUpDiff>0?'+':'')+avgUpDiff+'%':''}
+
+Identifie: 1) la section la mieux gérée 2) la section la plus difficile 3) ce que ça révèle sur le profil athlète 4) 1 conseil concret pour la prochaine course similaire. Ne mentionne pas le seuil lactique.`;
+
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const resp = await fetch('https://wanzrkdgqmcctwvnbmuv.supabase.co/functions/v1/smooth-processor', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||SUPA_KEY}`},
+        body:JSON.stringify({prompt:compPrompt})
+      });
+      const data = resp.ok ? await resp.json() : null;
+      aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Bilan de course</div></div><div class="ai-text">${data?.text||'Analyse non disponible.'}</div>`;
+    } catch {
+      aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Bilan de course</div></div><div class="ai-text">Analyse IA non disponible.</div>`;
+    }
+  }
 }
 
 function closeAnalyse() {
