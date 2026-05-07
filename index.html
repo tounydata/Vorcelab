@@ -1823,7 +1823,10 @@ function renderAthleteProfile(streams, act) {
     }
   }
 
-  if(!uphillSections.length && !recoveries.length) return;
+  if(!uphillSections.length && !recoveries.length) {
+    section.innerHTML = `<div class="card"><div class="clabel">Profil athlète</div><div class="mono t3" style="font-size:.75rem;padding:8px 0">Pas de montées significatives détectées sur cette sortie.</div></div>`;
+    return;
+  }
 
   const avgVAM = uphillSections.length ? Math.round(uphillSections.reduce((a,b)=>a+b.vam,0)/uphillSections.length) : null;
   const maxVAM = uphillSections.length ? Math.max(...uphillSections.map(s=>s.vam)) : null;
@@ -2905,10 +2908,7 @@ function genNutrition(distM, estTimeS){
   const hasProducts = userGels.length>0 || userBoissons.length>0;
   const rows = [];
 
-  // Avant course — commun
-  rows.push(`<tr><td class="mono">Départ −3h</td><td>Repas solide (pâtes, riz)</td><td>~80g</td><td>Charge glycogénique endogène · Burke et al., 2011</td></tr>`);
-  rows.push(`<tr><td class="mono">Départ −30min</td><td>Banane ou barre céréales</td><td>~30g</td><td>Dernier solide sans risque digestif</td></tr>`);
-  rows.push(`<tr><td class="mono">Départ −15min</td><td>Eau uniquement 150ml</td><td>0g</td><td>Éviter pic insulinique · Costill & Hargreaves, 1992</td></tr>`);
+  // No pre-race food — chacun fait ce qui marche pour lui
 
   if(dh < 1.5){
     // < 1h30 : hydratation simple selon température
