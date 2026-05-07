@@ -38,10 +38,9 @@ export function StravaCallbackPage() {
 
     sessionStorage.removeItem('strava_oauth_state')
 
-    void supabase.auth.getSession().then(async ({ data }) => {
-      const accessToken = data.session?.access_token
-
-      if (!accessToken) {
+    // Verify user is logged in before exchanging the code
+    void supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) {
         setStatus('no-auth')
         return
       }

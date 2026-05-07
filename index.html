@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -7,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -46,11 +46,10 @@ select.fi{cursor:pointer;}
 #appShell.show{display:block;}
 
 /* ── HEADER ── */
-header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 2rem;border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(6,8,16,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
-[data-light] header{background:var(--bg,#f0f4f8);backdrop-filter:blur(12px);}
-
+header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;background:rgba(6,8,16,.92);backdrop-filter:blur(20px);}
+[data-light] header{background:rgba(240,244,248,.92);}
 .logo{display:flex;align-items:center;gap:10px;}
-.logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;color:#000;cursor:pointer;}
+.logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;color:#000;}
 .logo-name{font-family:var(--mono);font-size:.6rem;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
 .hbtn{padding:6px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);font-size:.6rem;transition:all .2s;white-space:nowrap;}
 .hbtn:hover{border-color:var(--cyan);color:var(--cyan);}
@@ -59,16 +58,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.9r
 .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .dot-on{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
 .dot-off{background:var(--text3);}
-@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .strava-pill{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 11px;font-family:var(--mono);font-size:.6rem;color:var(--text2);}
+
+/* ── NAV ── */
+nav{display:flex;gap:2px;padding:.45rem 2rem;border-bottom:1px solid var(--border);background:var(--bg);overflow-x:auto;position:sticky;top:55px;z-index:100;}
 .nbtn{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;padding:6px 13px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s;white-space:nowrap;}
 .nbtn.active{background:var(--bg4);color:var(--text);border:1px solid var(--border2);}
 .nbtn:hover:not(.active){color:var(--text);}
-.tab-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(6,8,16,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border2);display:flex;padding:0 0 env(safe-area-inset-bottom,0);}
-.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0;border:none;background:transparent;color:var(--text3);cursor:pointer;font-family:var(--mono);font-size:.5rem;text-transform:uppercase;letter-spacing:.06em;gap:4px;transition:color .2s;}
-.tab-btn.active{color:var(--cyan);}
-.tab-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
+
+/* ── MAIN ── */
+main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 .panel{display:none;animation:fadeUp .3s ease;}
 .panel.active{display:block;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -140,11 +140,11 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 .a-sl{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 .a-ss{font-size:.65rem;color:var(--text2);margin-top:2px;}
 
-/* ── GAP ── */
-.gap-widget{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem;}
-.gap-factors{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
-.gap-factor{display:flex;align-items:center;gap:6px;background:var(--bg4);border-radius:7px;padding:6px 10px;border:1px solid var(--border);}
-.gap-result{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--bg4);border-radius:8px;}
+/* ── PAF ── */
+.paf-widget{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.paf-factors{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.paf-factor{display:flex;align-items:center;gap:6px;background:var(--bg4);border-radius:7px;padding:6px 10px;border:1px solid var(--border);}
+.paf-result{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--bg4);border-radius:8px;}
 
 /* ── CHARTS ── */
 .chart-wrap{position:relative;width:100%;}
@@ -296,13 +296,14 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 .btn-prepare:hover{opacity:.88;}
 
 @media print{header,nav,.no-print{display:none!important;}body{background:#fff;color:#000;}.print-only{display:block!important;}}
-
 .print-only{display:none;}
 </style>
+
 </head>
 <body>
 
 <!-- ══ AUTH ══ -->
+
 <div id="authScreen">
   <div class="auth-box">
     <div class="auth-logo">
@@ -332,30 +333,35 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 </div>
 
 <!-- ══ APP ══ -->
+
 <div id="appShell">
 <header>
-  <div class="logo" style="cursor:pointer" onclick="showPanel('dashboard',document.getElementById('tab-dashboard'))">
-    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()">VL</div>
-    <div onclick="event.stopPropagation();openProfil()">
-      <div style="font-family:var(--display);font-size:1.1rem;letter-spacing:.06em;color:var(--text)">VORCELAB</div>
-      <div class="logo-name" id="headerName"></div>
-    </div>
+  <div class="logo" style="cursor:pointer" onclick="showPanel('dashboard',document.querySelector('.nbtn'))">
+    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()">AO</div>
+    <div onclick="event.stopPropagation();openProfil()"><div class="logo-name" id="headerName" style="font-size:.75rem;font-weight:600;color:var(--text)">Runner OS</div></div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="strava-pill"><div class="dot dot-off" id="statusDot"></div><span id="statusText">Strava</span></div>
     <button class="hbtn strava" id="btnStrava" onclick="connectStrava()">Connecter Strava</button>
-    <button class="hbtn" id="btnRefresh" onclick="refreshActivities()" style="display:none" title="Actualiser les activités">↻</button>
     <button class="hbtn" onclick="toggleTheme()">◐</button>
     <button class="hbtn" onclick="logout()">Déconnexion</button>
   </div>
 </header>
 
+<nav>
+  <button class="nbtn active" onclick="showPanel('dashboard',this)">Dashboard</button>
+  <button class="nbtn" onclick="showPanel('strategie',this)">Stratégie Course</button>
+  <button class="nbtn" onclick="showPanel('renfo',this)">Renfo & Prévention</button>
+</nav>
+
 <main>
 
 <!-- ══ DASHBOARD ══ -->
+
 <div class="panel active" id="panel-dashboard">
 
   <!-- ONBOARDING (shown when no Strava) -->
+
   <div id="onboarding" style="display:none">
     <div class="onboard">
       <div class="onboard-icon">🏃</div>
@@ -389,100 +395,107 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
   </div>
 
   <!-- DASHBOARD CONTENT (shown when Strava connected) -->
+
   <div id="dashContent" style="display:none">
 
-    <!-- STRIP -->
-    <div class="strip">
-      <div class="scell"><div class="sval tg" id="s-km-month">—</div><div class="slbl">km / mois</div><div class="sdelta" id="s-km-month-delta"></div></div>
-      <div class="scell"><div class="sval tg" id="s-km-week">—</div><div class="slbl">km / semaine</div></div>
-      <div class="scell"><div class="sval to" id="s-dplus-month">—</div><div class="slbl">D+ / mois</div><div class="sdelta" id="s-dplus-delta"></div></div>
-      <div class="scell"><div class="sval to" id="s-dplus-week">—</div><div class="slbl">D+ / semaine</div></div>
-      <div class="scell"><div class="sval" id="s-runs-month">—</div><div class="slbl">sorties / mois</div><div class="sdelta" id="s-runs-delta"></div></div>
-    </div>
+<!-- STRIP -->
+<div class="strip">
+  <div class="scell"><div class="sval tg" id="s-km-month">—</div><div class="slbl">km / mois</div><div class="sdelta" id="s-km-month-delta"></div></div>
+  <div class="scell"><div class="sval tg" id="s-km-week">—</div><div class="slbl">km / semaine</div></div>
+  <div class="scell"><div class="sval to" id="s-dplus-month">—</div><div class="slbl">D+ / mois</div><div class="sdelta" id="s-dplus-delta"></div></div>
+  <div class="scell"><div class="sval to" id="s-dplus-week">—</div><div class="slbl">D+ / semaine</div></div>
+  <div class="scell"><div class="sval" id="s-runs-month">—</div><div class="slbl">sorties / mois</div><div class="sdelta" id="s-runs-delta"></div></div>
+</div>
 
-    <div class="grid-2">
-      <!-- STATS + ANNUAL CHART -->
-      <div class="card">
-        <div class="clabel">Volume annuel comparatif</div>
-        <div class="chart-wrap" style="height:220px"><canvas id="annualChart"></canvas></div>
-        <div class="clabel mt2">Stats du mois</div>
-        <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
-      </div>
+<div class="grid-2">
+  <!-- STATS + ANNUAL CHART -->
+  <div class="card">
+    <div class="clabel">Volume annuel comparatif</div>
+    <div class="chart-wrap" style="height:220px"><canvas id="annualChart"></canvas></div>
+    <div class="clabel mt2">Stats du mois</div>
+    <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
+  </div>
 
-      <!-- PROCHAINE COURSE + CALENDRIER -->
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="card">
-          <div class="clabel">Prochaine course</div>
-          <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
-        </div>
-        <div class="card" id="raceCalendarSection">
-          <div class="clabel">Calendrier courses</div>
-          <div class="race-list" id="raceList"><div class="mono t3">Aucune course planifiée</div></div>
-          <div class="add-race-btn mt2" onclick="toggleRaceForm()">+ Ajouter une course</div>
-          <div class="race-form" id="raceForm">
-            <div class="race-form-grid">
-              <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
-              <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
-              <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
-              <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
-              <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
-              <div class="fg"><label class="fl">Objectif</label><input class="fi" id="rGoal" placeholder=""></div>
-            </div>
-            <button class="save-btn" onclick="saveRace()">Enregistrer</button>
-          </div>
-        </div>
-      </div>
-    </div>
+  <!-- PROCHAINE COURSE -->
+  <div class="card">
+    <div class="clabel">Prochaine course</div>
+    <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
+    <div class="mono t3" style="font-size:.58rem;margin-top:8px">Gère tes courses dans <span style="color:var(--cyan);cursor:pointer" onclick="showPanel('strategie',document.querySelector('.nbtn[onclick*=strategie]'))">Stratégie Course →</span></div>
+  </div>
+</div>
 
-    <!-- ACTIVITÉS -->
-    <div class="mt3">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="clabel" style="margin:0">Dernières activités running</div>
-        <div class="mono t3" id="actsInfo"></div>
-      </div>
-      <div class="acts-grid" id="actsGrid"></div>
-    </div>
+<!-- ACTIVITÉS -->
+<div class="mt3">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div class="clabel" style="margin:0">Dernières activités running</div>
+    <div class="mono t3" id="actsInfo"></div>
+  </div>
+  <div class="acts-grid" id="actsGrid"></div>
+</div>
 
   </div><!-- end dashContent -->
 </div>
 
 <!-- ══ STRATÉGIE ══ -->
+
 <div class="panel" id="panel-strategie">
   <div id="stratHeader">
     <div class="stitle">Stratégie Course</div>
     <div class="mono t2 mt1" style="margin-bottom:1.25rem">Upload un GPX ou associe une course de ton calendrier</div>
 
-    <!-- Race selector from calendar -->
-    <div id="raceSelector" style="display:none;margin-bottom:1rem">
-      <div class="clabel">Course du calendrier</div>
-      <div id="raceSelectorList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+<!-- Calendrier courses -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Mes courses</div>
+  <div class="race-list" id="raceList"><div class="mono t3">Aucune course planifiée</div></div>
+  <div class="add-race-btn mt2" onclick="toggleRaceForm()">+ Ajouter une course</div>
+  <div class="race-form" id="raceForm">
+    <div class="race-form-grid">
+      <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
+      <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
+      <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
+      <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
+      <div class="fg"><label class="fl">Objectif temps</label><input class="fi" id="rGoal" placeholder="ex: 4h30"></div>
     </div>
+    <button class="save-btn" onclick="saveRace()">Enregistrer</button>
+  </div>
+</div>
 
-    <div class="upload-zone" id="gpxDrop"
-      onclick="document.getElementById('gpxFile').click()"
-      ondragover="event.preventDefault();this.classList.add('drag')"
-      ondragleave="this.classList.remove('drag')"
-      ondrop="handleGpxDrop(event)">
-      <div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div>
-      <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div>
-      <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
-    </div>
-    <input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="handleGpxFile(event)">
+<!-- Race selector from calendar -->
+<div id="raceSelector" style="display:none;margin-bottom:1rem">
+  <div class="clabel">Associer à une course</div>
+  <div id="raceSelectorList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+</div>
+
+<div class="upload-zone" id="gpxDrop"
+  onclick="document.getElementById('gpxFile').click()"
+  ondragover="event.preventDefault();this.classList.add('drag')"
+  ondragleave="this.classList.remove('drag')"
+  ondrop="handleGpxDrop(event)">
+  <div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div>
+  <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div>
+  <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
+</div>
+<input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="handleGpxFile(event)">
+
   </div>
   <div id="stratResult" style="display:none"></div>
 </div>
 
 <!-- ══ RENFO & PRÉVENTION ══ -->
+
 <div class="panel" id="panel-renfo">
   <div class="stitle">Renfo & Prévention</div>
 
   <!-- MODE TABS -->
+
   <div style="display:flex;gap:6px;margin-bottom:1.5rem">
     <button class="renfo-tab active" id="tab-prevention" onclick="switchRenfoMode('prevention',this)">🛡️ Prévention blessures</button>
     <button class="renfo-tab" id="tab-progression" onclick="switchRenfoMode('progression',this)">📈 Progression performance</button>
   </div>
 
   <!-- MODE PRÉVENTION -->
+
   <div id="mode-prevention">
     <div class="grid-2">
       <!-- SVG CORPS -->
@@ -499,97 +512,99 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
             </style>
           </defs>
 
-          <!-- SILHOUETTE DE BASE (fond) -->
-          <!-- Tête -->
-          <ellipse cx="100" cy="28" rx="19" ry="22" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Cou -->
-          <rect x="92" y="48" width="16" height="12" fill="#131b25" stroke="none"/>
-          <!-- Torse -->
-          <path d="M68,60 Q62,65 58,80 L55,148 Q58,155 100,157 Q142,155 145,148 L142,80 Q138,65 132,60 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Bras gauche -->
-          <path d="M58,80 Q45,85 38,100 Q32,118 33,145 L42,145 Q43,122 48,106 Q54,92 68,88 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Bras droit -->
-          <path d="M142,80 Q155,85 162,100 Q168,118 167,145 L158,145 Q157,122 152,106 Q146,92 132,88 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Bassin -->
-          <path d="M55,148 Q58,165 70,172 L130,172 Q142,165 145,148 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Cuisse gauche -->
-          <path d="M70,170 Q62,175 60,195 L58,245 Q60,255 80,257 Q88,255 88,245 L86,195 Q85,178 100,175 Q85,170 70,170 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Cuisse droite -->
-          <path d="M130,170 Q138,175 140,195 L142,245 Q140,255 120,257 Q112,255 112,245 L114,195 Q115,178 100,175 Q115,170 130,170 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Genou gauche -->
-          <ellipse cx="74" cy="260" rx="14" ry="12" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Genou droit -->
-          <ellipse cx="126" cy="260" rx="14" ry="12" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Jambe gauche -->
-          <path d="M62,268 Q58,290 60,320 L88,320 Q90,290 86,268 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Jambe droite -->
-          <path d="M138,268 Q142,290 140,320 L112,320 Q110,290 114,268 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Cheville gauche -->
-          <ellipse cx="74" cy="323" rx="13" ry="8" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Cheville droite -->
-          <ellipse cx="126" cy="323" rx="13" ry="8" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Pied gauche -->
-          <path d="M61,328 Q55,335 55,342 Q55,348 62,350 L90,350 Q94,348 94,342 L90,330 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
-          <!-- Pied droit -->
-          <path d="M139,328 Q145,335 145,342 Q145,348 138,350 L110,350 Q106,348 106,342 L110,330 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- SILHOUETTE DE BASE (fond) -->
+      <!-- Tête -->
+      <ellipse cx="100" cy="28" rx="19" ry="22" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Cou -->
+      <rect x="92" y="48" width="16" height="12" fill="#131b25" stroke="none"/>
+      <!-- Torse -->
+      <path d="M68,60 Q62,65 58,80 L55,148 Q58,155 100,157 Q142,155 145,148 L142,80 Q138,65 132,60 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Bras gauche -->
+      <path d="M58,80 Q45,85 38,100 Q32,118 33,145 L42,145 Q43,122 48,106 Q54,92 68,88 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Bras droit -->
+      <path d="M142,80 Q155,85 162,100 Q168,118 167,145 L158,145 Q157,122 152,106 Q146,92 132,88 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Bassin -->
+      <path d="M55,148 Q58,165 70,172 L130,172 Q142,165 145,148 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Cuisse gauche -->
+      <path d="M70,170 Q62,175 60,195 L58,245 Q60,255 80,257 Q88,255 88,245 L86,195 Q85,178 100,175 Q85,170 70,170 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Cuisse droite -->
+      <path d="M130,170 Q138,175 140,195 L142,245 Q140,255 120,257 Q112,255 112,245 L114,195 Q115,178 100,175 Q115,170 130,170 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Genou gauche -->
+      <ellipse cx="74" cy="260" rx="14" ry="12" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Genou droit -->
+      <ellipse cx="126" cy="260" rx="14" ry="12" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Jambe gauche -->
+      <path d="M62,268 Q58,290 60,320 L88,320 Q90,290 86,268 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Jambe droite -->
+      <path d="M138,268 Q142,290 140,320 L112,320 Q110,290 114,268 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Cheville gauche -->
+      <ellipse cx="74" cy="323" rx="13" ry="8" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Cheville droite -->
+      <ellipse cx="126" cy="323" rx="13" ry="8" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Pied gauche -->
+      <path d="M61,328 Q55,335 55,342 Q55,348 62,350 L90,350 Q94,348 94,342 L90,330 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
+      <!-- Pied droit -->
+      <path d="M139,328 Q145,335 145,342 Q145,348 138,350 L110,350 Q106,348 106,342 L110,330 Z" fill="#131b25" stroke="#1c2738" stroke-width="1"/>
 
-          <!-- ZONES CLIQUABLES (transparentes par-dessus) -->
-          <!-- Tête -->
-          <ellipse class="bz" data-zone="head" cx="100" cy="28" rx="20" ry="23"/>
-          <!-- Dos/Core -->
-          <path class="bz" data-zone="back" d="M70,62 Q64,68 61,82 L60,146 Q80,152 100,153 Q120,152 140,146 L139,82 Q136,68 130,62 Q115,58 100,57 Q85,58 70,62 Z"/>
-          <!-- Hanche/ITB -->
-          <path class="bz" data-zone="hip" d="M57,148 Q58,168 72,174 L128,174 Q142,168 143,148 L120,144 Q100,146 80,144 Z"/>
-          <!-- Cuisse gauche -->
-          <path class="bz" data-zone="quad_l" d="M71,174 Q61,178 59,198 L57,248 Q62,258 80,259 Q90,256 89,246 L87,196 Q86,178 100,176 Q85,173 71,174 Z"/>
-          <!-- Cuisse droite -->
-          <path class="bz" data-zone="quad_r" d="M129,174 Q139,178 141,198 L143,248 Q138,258 120,259 Q110,256 111,246 L113,196 Q114,178 100,176 Q115,173 129,174 Z"/>
-          <!-- Genou gauche -->
-          <ellipse class="bz" data-zone="knee_l" cx="74" cy="260" rx="16" ry="13"/>
-          <!-- Genou droit -->
-          <ellipse class="bz" data-zone="knee_r" cx="126" cy="260" rx="16" ry="13"/>
-          <!-- Mollet/Tibia gauche -->
-          <path class="bz" data-zone="calf_l" d="M61,270 Q57,292 59,320 L89,320 Q91,292 87,270 Z"/>
-          <!-- Mollet/Tibia droit -->
-          <path class="bz" data-zone="calf_r" d="M139,270 Q143,292 141,320 L111,320 Q109,292 113,270 Z"/>
-          <!-- Cheville gauche -->
-          <ellipse class="bz" data-zone="ankle_l" cx="74" cy="324" rx="15" ry="9"/>
-          <!-- Cheville droite -->
-          <ellipse class="bz" data-zone="ankle_r" cx="126" cy="324" rx="15" ry="9"/>
-          <!-- Pied gauche -->
-          <path class="bz" data-zone="foot_l" d="M60,330 Q53,337 53,344 Q53,350 62,352 L91,352 Q95,350 95,344 L91,332 Z"/>
-          <!-- Pied droit -->
-          <path class="bz" data-zone="foot_r" d="M140,330 Q147,337 147,344 Q147,350 138,352 L109,352 Q105,350 105,344 L109,332 Z"/>
+      <!-- ZONES CLIQUABLES (transparentes par-dessus) -->
+      <!-- Tête -->
+      <ellipse class="bz" data-zone="head" cx="100" cy="28" rx="20" ry="23"/>
+      <!-- Dos/Core -->
+      <path class="bz" data-zone="back" d="M70,62 Q64,68 61,82 L60,146 Q80,152 100,153 Q120,152 140,146 L139,82 Q136,68 130,62 Q115,58 100,57 Q85,58 70,62 Z"/>
+      <!-- Hanche/ITB -->
+      <path class="bz" data-zone="hip" d="M57,148 Q58,168 72,174 L128,174 Q142,168 143,148 L120,144 Q100,146 80,144 Z"/>
+      <!-- Cuisse gauche -->
+      <path class="bz" data-zone="quad_l" d="M71,174 Q61,178 59,198 L57,248 Q62,258 80,259 Q90,256 89,246 L87,196 Q86,178 100,176 Q85,173 71,174 Z"/>
+      <!-- Cuisse droite -->
+      <path class="bz" data-zone="quad_r" d="M129,174 Q139,178 141,198 L143,248 Q138,258 120,259 Q110,256 111,246 L113,196 Q114,178 100,176 Q115,173 129,174 Z"/>
+      <!-- Genou gauche -->
+      <ellipse class="bz" data-zone="knee_l" cx="74" cy="260" rx="16" ry="13"/>
+      <!-- Genou droit -->
+      <ellipse class="bz" data-zone="knee_r" cx="126" cy="260" rx="16" ry="13"/>
+      <!-- Mollet/Tibia gauche -->
+      <path class="bz" data-zone="calf_l" d="M61,270 Q57,292 59,320 L89,320 Q91,292 87,270 Z"/>
+      <!-- Mollet/Tibia droit -->
+      <path class="bz" data-zone="calf_r" d="M139,270 Q143,292 141,320 L111,320 Q109,292 113,270 Z"/>
+      <!-- Cheville gauche -->
+      <ellipse class="bz" data-zone="ankle_l" cx="74" cy="324" rx="15" ry="9"/>
+      <!-- Cheville droite -->
+      <ellipse class="bz" data-zone="ankle_r" cx="126" cy="324" rx="15" ry="9"/>
+      <!-- Pied gauche -->
+      <path class="bz" data-zone="foot_l" d="M60,330 Q53,337 53,344 Q53,350 62,352 L91,352 Q95,350 95,344 L91,332 Z"/>
+      <!-- Pied droit -->
+      <path class="bz" data-zone="foot_r" d="M140,330 Q147,337 147,344 Q147,350 138,352 L109,352 Q105,350 105,344 L109,332 Z"/>
 
-          <!-- LABELS -->
-          <text class="bt" x="100" y="28" text-anchor="middle">Mental</text>
-          <text class="bt" x="100" y="110" text-anchor="middle">Dos / Core</text>
-          <text class="bt" x="100" y="165" text-anchor="middle">Hanche / ITB</text>
-          <text class="bt" x="68" y="215" text-anchor="middle">Cuisse G</text>
-          <text class="bt" x="132" y="215" text-anchor="middle">Cuisse D</text>
-          <text class="bt" x="68" y="262" text-anchor="middle">Genou G</text>
-          <text class="bt" x="132" y="262" text-anchor="middle">Genou D</text>
-          <text class="bt" x="68" y="298" text-anchor="middle">Mollet G</text>
-          <text class="bt" x="132" y="298" text-anchor="middle">Mollet D</text>
-          <text class="bt" x="68" y="326" text-anchor="middle">Cheville G</text>
-          <text class="bt" x="132" y="326" text-anchor="middle">Cheville D</text>
-          <text class="bt" x="68" y="348" text-anchor="middle">Pied G</text>
-          <text class="bt" x="132" y="348" text-anchor="middle">Pied D</text>
-        </svg>
-        <div class="mono t3" style="font-size:.58rem;margin-top:.5rem;text-align:center">Clique sur une zone</div>
-      </div>
+      <!-- LABELS -->
+      <text class="bt" x="100" y="28" text-anchor="middle">Mental</text>
+      <text class="bt" x="100" y="110" text-anchor="middle">Dos / Core</text>
+      <text class="bt" x="100" y="165" text-anchor="middle">Hanche / ITB</text>
+      <text class="bt" x="68" y="215" text-anchor="middle">Cuisse G</text>
+      <text class="bt" x="132" y="215" text-anchor="middle">Cuisse D</text>
+      <text class="bt" x="68" y="262" text-anchor="middle">Genou G</text>
+      <text class="bt" x="132" y="262" text-anchor="middle">Genou D</text>
+      <text class="bt" x="68" y="298" text-anchor="middle">Mollet G</text>
+      <text class="bt" x="132" y="298" text-anchor="middle">Mollet D</text>
+      <text class="bt" x="68" y="326" text-anchor="middle">Cheville G</text>
+      <text class="bt" x="132" y="326" text-anchor="middle">Cheville D</text>
+      <text class="bt" x="68" y="348" text-anchor="middle">Pied G</text>
+      <text class="bt" x="132" y="348" text-anchor="middle">Pied D</text>
+    </svg>
+    <div class="mono t3" style="font-size:.58rem;margin-top:.5rem;text-align:center">Clique sur une zone</div>
+  </div>
 
-      <!-- CONTENU ZONE SÉLECTIONNÉE -->
-      <div id="renfoContent">
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:300px;text-align:center;gap:12px">
-          <div style="font-size:3rem;opacity:.3">👆</div>
-          <div class="mono t3">Clique sur une zone du corps<br>pour voir les blessures fréquentes<br>et les exercices de prévention</div>
-        </div>
-      </div>
+  <!-- CONTENU ZONE SÉLECTIONNÉE -->
+  <div id="renfoContent">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:300px;text-align:center;gap:12px">
+      <div style="font-size:3rem;opacity:.3">👆</div>
+      <div class="mono t3">Clique sur une zone du corps<br>pour voir les blessures fréquentes<br>et les exercices de prévention</div>
     </div>
+  </div>
+</div>
+
   </div>
 
   <!-- MODE PROGRESSION -->
+
   <div id="mode-progression" style="display:none">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:1.5rem">
       <button class="prog-btn" onclick="showProgram('montee')">⛰️ Montée<br><span>VAM & force</span></button>
@@ -613,11 +628,13 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 </div><!-- appShell -->
 
 <!-- ══ ANALYSE OVERLAY ══ -->
+
 <div class="overlay" id="analyseOverlay" onclick="if(event.target===this)closeAnalyse()">
   <div class="overlay-inner" id="analyseInner"></div>
 </div>
 
 <!-- ══ PROFIL OVERLAY ══ -->
+
 <div class="overlay" id="profilOverlay" onclick="if(event.target===this)closeProfil()" style="align-items:flex-start;padding:0">
   <div style="width:100%;max-width:900px;margin:0 auto;background:var(--bg2);min-height:100vh;padding:2rem;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
@@ -625,136 +642,138 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
       <button onclick="closeProfil()" class="hbtn">✕ Fermer</button>
     </div>
 
-    <!-- AVATAR + COMPTE -->
-    <div class="card" style="margin-bottom:1rem">
-      <div class="clabel">Compte</div>
-      <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
-        <div style="position:relative;cursor:pointer" onclick="document.getElementById('avatarInput').click()">
-          <div id="avatarPreview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:2rem;color:#000;overflow:hidden">AO</div>
-          <div style="position:absolute;bottom:0;right:0;background:var(--cyan);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:.7rem">📷</div>
-        </div>
-        <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
-        <div style="flex:1">
-          <div class="fg"><label class="fl">Email</label><input class="fi" id="p-email" readonly style="opacity:.6"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="hbtn" onclick="changePassword()">🔑 Changer le mot de passe</button>
-            <div class="mono t3" id="pwMsg" style="align-self:center"></div>
-          </div>
-        </div>
-      </div>
+<!-- AVATAR + COMPTE -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Compte</div>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+    <div style="position:relative;cursor:pointer" onclick="document.getElementById('avatarInput').click()">
+      <div id="avatarPreview" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:2rem;color:#000;overflow:hidden">AO</div>
+      <div style="position:absolute;bottom:0;right:0;background:var(--cyan);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:.7rem">📷</div>
     </div>
-
-    <!-- DONNÉES PHYSIO -->
-    <div class="profile-grid" style="margin-bottom:1rem">
-      <div class="card">
-        <div class="clabel">Données physiologiques</div>
-        <div class="fg"><label class="fl">Prénom / Nom</label><input class="fi" id="p-name" placeholder=""></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="p-birthdate"></div>
-          <div class="fg"><label class="fl">Sexe</label><select class="fi" id="p-sex"><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
-          <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="p-weight" placeholder="" step="0.1"></div>
-          <div class="fg"><label class="fl">Taille (cm)</label><input class="fi" type="number" id="p-height" placeholder=""></div>
-          <div class="fg"><label class="fl">VO2max</label><input class="fi" type="number" id="p-vo2max" placeholder="" step="0.1"></div>
-          <div class="fg"><label class="fl">FC max (bpm)</label><input class="fi" type="number" id="p-fcmax" placeholder=""></div>
-          <div class="fg"><label class="fl">Seuil lactique (bpm)</label><input class="fi" type="number" id="p-lactate" placeholder=""></div>
-          <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
-        </div>
-        <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
-        <button class="save-btn" onclick="saveProfile()">💾 Sauvegarder</button>
-        <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
+    <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
+    <div style="flex:1">
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="p-email" readonly style="opacity:.6"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="hbtn" onclick="changePassword()">🔑 Changer le mot de passe</button>
+        <div class="mono t3" id="pwMsg" style="align-self:center"></div>
       </div>
-
-      <!-- PR -->
-      <div class="card">
-        <div class="clabel">Records personnels</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--cyan);margin-bottom:6px">5 km</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-5k" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-5k-date"></div>
-            </div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--green);margin-bottom:6px">10 km</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-10k" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-10k-date"></div>
-            </div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--yellow);margin-bottom:6px">15 km</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-15k" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-15k-date"></div>
-            </div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--orange);margin-bottom:6px">Semi-marathon</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-semi" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-semi-date"></div>
-            </div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--purple);margin-bottom:6px">Marathon</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-marathon" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-marathon-date"></div>
-            </div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div class="clabel" style="color:var(--red);margin-bottom:6px">Ultra</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="fg" style="margin:0"><label class="fl">Distance (km)</label><input class="fi" type="number" id="pr-ultra-dist" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">D+ (m)</label><input class="fi" type="number" id="pr-ultra-dplus" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-ultra" placeholder=""></div>
-              <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-ultra-date"></div>
-            </div>
-          </div>
-        </div>
-        <button class="save-btn" style="margin-top:.75rem" onclick="savePRs()">💾 Sauvegarder les PR</button>
-        <div class="mono t3" id="prSaveMsg" style="margin-top:6px"></div>
-      </div>
-    </div>
-
-    <!-- ZIP IMPORT -->
-    <div class="card">
-      <div class="clabel">Historique complet — Archive Strava</div>
-      <div class="mono t2" style="margin-bottom:.75rem">Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.</div>
-      <div class="upload-hist" id="zipDropZone"
-        onclick="document.getElementById('zipFile').click()"
-        ondragover="event.preventDefault();this.classList.add('drag-over')"
-        ondragleave="this.classList.remove('drag-over')"
-        ondrop="handleZipDrop(event)">
-        <div style="font-size:1.8rem;margin-bottom:.5rem">📦</div>
-        <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem">Glisser le ZIP Strava ici</div>
-        <div class="mono">ou cliquer · export_XXXXXX.zip</div>
-      </div>
-      <input type="file" id="zipFile" accept=".zip" style="display:none" onchange="handleZipFile(event)">
-      <div id="histStats" style="display:none" class="hist-stats mt2"></div>
-    </div>
-
-    <!-- NUTRITION PRODUCTS -->
-    <div class="card" style="margin-top:1rem">
-      <div class="clabel">Mes produits nutrition</div>
-      <div class="mono t2" style="margin-bottom:1rem">Sélectionne tes marques puis coche tes produits.</div>
-
-      <div class="clabel" style="color:var(--cyan);margin-bottom:.5rem">Gels & Barres</div>
-      <div id="nutrGelBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
-      <div id="nutrGelList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem"></div>
-
-      <div class="clabel" style="color:var(--purple);margin-bottom:.5rem">Boissons isotoniques</div>
-      <div id="nutrDrinkBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
-      <div id="nutrDrinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1rem"></div>
-
-      <button class="save-btn" onclick="saveNutritionProducts()">💾 Sauvegarder mes produits</button>
-      <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
     </div>
   </div>
 </div>
 
+<!-- DONNÉES PHYSIO -->
+<div class="profile-grid" style="margin-bottom:1rem">
+  <div class="card">
+    <div class="clabel">Données physiologiques</div>
+    <div class="fg"><label class="fl">Prénom / Nom</label><input class="fi" id="p-name" placeholder=""></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="p-birthdate"></div>
+      <div class="fg"><label class="fl">Sexe</label><select class="fi" id="p-sex"><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
+      <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="p-weight" placeholder="" step="0.1"></div>
+      <div class="fg"><label class="fl">Taille (cm)</label><input class="fi" type="number" id="p-height" placeholder=""></div>
+      <div class="fg"><label class="fl">VO2max</label><input class="fi" type="number" id="p-vo2max" placeholder="" step="0.1"></div>
+      <div class="fg"><label class="fl">FC max (bpm)</label><input class="fi" type="number" id="p-fcmax" placeholder=""></div>
+      <div class="fg"><label class="fl">Seuil lactique (bpm)</label><input class="fi" type="number" id="p-lactate" placeholder=""></div>
+      <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
+    </div>
+    <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
+    <button class="save-btn" onclick="saveProfile()">💾 Sauvegarder</button>
+    <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
+  </div>
+
+  <!-- PR -->
+  <div class="card">
+    <div class="clabel">Records personnels</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--cyan);margin-bottom:6px">5 km</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-5k" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-5k-date"></div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--green);margin-bottom:6px">10 km</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-10k" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-10k-date"></div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--yellow);margin-bottom:6px">15 km</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-15k" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-15k-date"></div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--orange);margin-bottom:6px">Semi-marathon</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-semi" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-semi-date"></div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--purple);margin-bottom:6px">Marathon</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-marathon" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-marathon-date"></div>
+        </div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div class="clabel" style="color:var(--red);margin-bottom:6px">Ultra</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="fg" style="margin:0"><label class="fl">Distance (km)</label><input class="fi" type="number" id="pr-ultra-dist" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">D+ (m)</label><input class="fi" type="number" id="pr-ultra-dplus" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-ultra" placeholder=""></div>
+          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-ultra-date"></div>
+        </div>
+      </div>
+    </div>
+    <button class="save-btn" style="margin-top:.75rem" onclick="savePRs()">💾 Sauvegarder les PR</button>
+    <div class="mono t3" id="prSaveMsg" style="margin-top:6px"></div>
+  </div>
+</div>
+
+<!-- ZIP IMPORT -->
+<div class="card">
+  <div class="clabel">Historique complet — Archive Strava</div>
+  <div class="mono t2" style="margin-bottom:.75rem">Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.</div>
+  <div class="upload-hist" id="zipDropZone"
+    onclick="document.getElementById('zipFile').click()"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="handleZipDrop(event)">
+    <div style="font-size:1.8rem;margin-bottom:.5rem">📦</div>
+    <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem">Glisser le ZIP Strava ici</div>
+    <div class="mono">ou cliquer · export_XXXXXX.zip</div>
+  </div>
+  <input type="file" id="zipFile" accept=".zip" style="display:none" onchange="handleZipFile(event)">
+  <div id="histStats" style="display:none" class="hist-stats mt2"></div>
+</div>
+
+<!-- NUTRITION PRODUCTS -->
+<div class="card" style="margin-top:1rem">
+  <div class="clabel">Mes produits nutrition</div>
+  <div class="mono t2" style="margin-bottom:1rem">Sélectionne tes marques puis coche tes produits.</div>
+
+  <div class="clabel" style="color:var(--cyan);margin-bottom:.5rem">Gels & Barres</div>
+  <div id="nutrGelBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrGelList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem"></div>
+
+  <div class="clabel" style="color:var(--purple);margin-bottom:.5rem">Boissons isotoniques</div>
+  <div id="nutrDrinkBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrDrinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1rem"></div>
+
+  <button class="save-btn" onclick="saveNutritionProducts()">💾 Sauvegarder mes produits</button>
+  <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
+</div>
+
+  </div>
+</div>
+
 <!-- ══ SECTION POPUP ══ -->
+
 <div class="overlay" id="sectionPopup" style="background:rgba(0,0,0,.92)" onclick="if(event.target===this)closeSectionPopup()">
   <div style="max-width:700px;margin:0 auto;padding:1rem">
     <!-- Header navigation -->
@@ -768,20 +787,21 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
     </div>
     <button onclick="closeSectionPopup()" class="hbtn" style="position:absolute;top:1.5rem;right:1.5rem">✕</button>
 
-    <!-- Mini carte -->
-    <div id="sectionMap" style="height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2);margin-bottom:1rem"></div>
+<!-- Mini carte -->
+<div id="sectionMap" style="height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2);margin-bottom:1rem"></div>
 
-    <!-- Mini profil alti -->
-    <div class="card" style="margin-bottom:1rem">
-      <div class="clabel">Profil altimétrique — section</div>
-      <div style="height:120px"><canvas id="sectionAltiChart"></canvas></div>
-    </div>
+<!-- Mini profil alti -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Profil altimétrique — section</div>
+  <div style="height:120px"><canvas id="sectionAltiChart"></canvas></div>
+</div>
 
-    <!-- Stats section -->
-    <div id="sectionPopupStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1rem"></div>
+<!-- Stats section -->
+<div id="sectionPopupStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1rem"></div>
 
-    <!-- Conseils -->
-    <div id="sectionPopupAdvice" class="card"></div>
+<!-- Conseils -->
+<div id="sectionPopupAdvice" class="card"></div>
+
   </div>
 </div>
 
@@ -792,7 +812,7 @@ main{padding:5.5rem 2rem 6rem;max-width:1440px;margin:0 auto;}
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co';
 const SUPA_KEY = 'sb_publishable_6DuMJb6hw_CTxMpd3-MXpw_xQKhS0Oy';
 const CLIENT_ID = '161609';
-// CLIENT_SECRET removed — handled by Edge Functions strava-oauth/strava-refresh
+const CLIENT_SECRET = '25c5baca7486db776c4d1d8b7e0bcc6ba2fe5b71';
 const REDIRECT_URI = 'https://tounydata.github.io/runner-data/';
 const FC_MAX_DEFAULT = 205;
 const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
@@ -840,17 +860,9 @@ function toggleTheme() {
 function showPanel(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nbtn').forEach(b => b.classList.remove('active'));
-  const panel = document.getElementById('panel-' + name);
-  if(panel) panel.classList.add('active');
-  if(btn) btn.classList.add('active');
-  // Sync tab bar
-  const tabMap = {dashboard:'tab-dashboard', calendrier:'tab-dashboard', renfo:'tab-renfo', strategie:'tab-dashboard'};
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const activeTab = document.getElementById(tabMap[name]||'tab-dashboard');
-  if(activeTab) activeTab.classList.add('active');
-  // Scroll to calendar if needed
-  if(name==='calendrier') setTimeout(()=>{ const el=document.getElementById('raceCalendarSection'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 150);
-  // Reset GPX drop zone
+  document.getElementById('panel-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  // Reset drop zone when navigating to strategie directly (not via prepareRace)
   if(name==='strategie' && !currentRaceContext) {
     const drop=document.getElementById('gpxDrop');
     if(drop){
@@ -871,8 +883,6 @@ function switchTab(tab, btn) {
   document.getElementById('signupForm').style.display = tab === 'signup' ? 'block' : 'none';
   document.getElementById('authMsg').textContent = '';
 }
-
-
 
 async function login() {
   const email = document.getElementById('loginEmail').value;
@@ -1036,7 +1046,7 @@ function connectStrava() {
 }
 
 async function exchangeCode(code) {
-  const r = await fetch(`${SUPA_URL}/functions/v1/strava-auth`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'authorization_code',code})});
+  const r = await fetch('https://www.strava.com/oauth/token', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CLIENT_ID,client_secret:CLIENT_SECRET,code,grant_type:'authorization_code'})});
   const d = await r.json();
   if (d.access_token) { localStorage.setItem('s_token',d.access_token); localStorage.setItem('s_refresh',d.refresh_token); localStorage.setItem('s_expires',d.expires_at); localStorage.setItem('s_athlete',JSON.stringify(d.athlete||{})); return d.access_token; }
   return null;
@@ -1047,7 +1057,7 @@ async function getToken() {
   if (t && Date.now()/1000 < exp-300) return t;
   const ref=localStorage.getItem('s_refresh'); if(!ref) return null;
   try {
-    const r=await fetch(`${SUPA_URL}/functions/v1/strava-refresh`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:ref})});
+    const r=await fetch('https://www.strava.com/oauth/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CLIENT_ID,client_secret:CLIENT_SECRET,refresh_token:ref,grant_type:'refresh_token'})});
     const d=await r.json();
     if(d.access_token){localStorage.setItem('s_token',d.access_token);localStorage.setItem('s_refresh',d.refresh_token||ref);localStorage.setItem('s_expires',d.expires_at);return d.access_token;}
   } catch(e){}
@@ -1059,17 +1069,6 @@ function setStravaConnected() {
   const a = JSON.parse(localStorage.getItem('s_athlete')||'{}');
   document.getElementById('statusText').textContent = a.firstname ? `${a.firstname} ${a.lastname}` : 'Connecté';
   document.getElementById('btnStrava').style.display = 'none';
-  const refreshBtn = document.getElementById('btnRefresh');
-  if(refreshBtn) refreshBtn.style.display = 'inline-flex';
-}
-
-async function refreshActivities() {
-  const btn = document.getElementById('btnRefresh');
-  if(btn) { btn.textContent = '↻'; btn.style.animation = 'spin 1s linear infinite'; }
-  await loadHistoryFromDB();
-  renderDashboard();
-  if(btn) { btn.textContent = '↻'; btn.style.animation = ''; }
-  showToast('Activités actualisées ✓', 'success');
 }
 
 async function checkStravaToken() {
@@ -1097,7 +1096,7 @@ async function loadActivities(token) {
 }
 
 async function fetchStreams(token, id) {
-  const r = await fetch(`https://www.strava.com/api/v3/activities/${id}/streams?keys=time,distance,altitude,heartrate,velocity_smooth,cadence,latlng&key_by_type=true`,{headers:{Authorization:`Bearer ${token}`}});
+  const r = await fetch(`https://www.strava.com/api/v3/activities/${id}/streams?keys=time,distance,altitude,heartrate,velocity_smooth,cadence&key_by_type=true`,{headers:{Authorization:`Bearer ${token}`}});
   return r.json();
 }
 
@@ -1126,7 +1125,7 @@ function showDashContent() {
 // ════════════════════════════════════════════════════
 // DASHBOARD RENDER
 // ════════════════════════════════════════════════════
-async function renderDashboard() {
+function renderDashboard() {
   if (!allActivities.length) { showOnboarding(); return; }
   showDashContent();
 
@@ -1171,78 +1170,12 @@ async function renderDashboard() {
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
   const withHR = thisMonth.filter(a=>a.average_heartrate);
   const avgFC = withHR.length ? Math.round(withHR.reduce((s,a)=>s+a.average_heartrate,0)/withHR.length) : null;
-  // % temps Z2 et allure Z2 sur 7 jours glissants (basé streams stockés)
-  const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
-  const {data: zoneRows} = await sb.from('activities_history')
-    .select('id, zone_data, activity_date')
-    .eq('user_id', currentUser.id)
-    .not('zone_data', 'is', null)
-    .gte('activity_date', sevenDaysAgo.toISOString().split('T')[0]);
-
-  const runs7d = allActivities
-    .filter(a=>isRun(a.type) && new Date(a.start_date) >= sevenDaysAgo)
-    .sort((a,b)=>new Date(b.start_date)-new Date(a.start_date));
-
-  let totalTime7d = 0;
-  let z2Time7d = 0;
-  let z2Distance7d = 0;
-
-  const token = await getToken();
-  if(token && runs7d.length) {
-    for (const act of runs7d) {
-      try {
-        const streams = await fetchStreams(token, act.id);
-        const hr = streams.heartrate?.data||[];
-        if(!hr.length) continue;
-
-        const move = act.moving_time||0;
-        const dist = act.distance||0;
-        let z2Count = 0;
-
-        for(let i=0;i<hr.length;i++) {
-          const p = hr[i]/fcMax;
-          if(p>=0.60 && p<0.72) z2Count++;
-        }
-
-        const z2Ratio = z2Count/hr.length;
-        totalTime7d += move;
-        z2Time7d += move*z2Ratio;
-        z2Distance7d += dist*z2Ratio;
-
-        if(currentUser && z2Count>0) {
-          const z2Pct = Math.round(z2Ratio*100);
-          const zd = { Z1: 0, Z2: z2Pct, Z3: 0, Z4: 0, Z5: 0 };
-          sb.from('activities_history').upsert({
-            id: String(act.id),
-            user_id: currentUser.id,
-            activity_date: act.start_date?.split('T')[0],
-            zone_data: zd,
-          }, { onConflict: 'id' });
-        }
-      } catch(_) {}
-    }
-  }
-
-  const z2PctTime7d = totalTime7d>0 ? Math.round((z2Time7d/totalTime7d)*100) : null;
-  const z2Pace7d = (z2Time7d>0 && z2Distance7d>0) ? fmtP(z2Distance7d/z2Time7d) : null;
-
-  const z2PctLabel = z2PctTime7d===null ? '—' : `${z2PctTime7d}%`;
-  const z2PaceLabel = z2Pace7d || '—';
-
-  const withSpeed = thisMonth.filter(a=>a.average_speed);
-  const avgPaceMonth = withSpeed.length ? fmtP(withSpeed.reduce((sum,a)=>sum+(a.average_speed||0),0)/withSpeed.length) : '—';
-  const longestRun = allActivities
-    .filter(a=>isRun(a.type))
-    .reduce((max,a)=>Math.max(max,a.distance||0),0);
-  const longestRunLabel = longestRun>0 ? `${(longestRun/1000).toFixed(1)} km` : '—';
+  const z2 = withHR.length ? Math.round(withHR.filter(a=>a.average_heartrate/fcMax>=.6&&a.average_heartrate/fcMax<.7).length/withHR.length*100) : null;
 
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    <div class="s-stat"><div class="s-sv tc">${z2PctLabel}</div><div class="s-sl">Temps en Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">streams analysés</div></div>
-    <div class="s-stat"><div class="s-sv">${z2PaceLabel}</div><div class="s-sl">Allure Z2 · 7j</div><div style="font-size:.58rem;color:var(--text3)">pondérée par temps Z2</div></div>
-    <div class="s-stat"><div class="s-sv">${avgPaceMonth}</div><div class="s-sl">Allure moy mois</div></div>
-    <div class="s-stat"><div class="s-sv">${longestRunLabel}</div><div class="s-sl">Sortie la + longue</div></div>
+    ${z2!==null?`<div class="s-stat"><div class="s-sv tc">${z2}%</div><div class="s-sl">% Z2</div><div style="font-size:.58rem;color:var(--text3)">60-70% FCmax</div></div>`:''}
   `;
 
   // Annual chart
@@ -1329,16 +1262,16 @@ function renderActivities() {
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="act-date">${ds}</div>
       </div>
-      <button class="btn-analyse" onclick="openAnalyse(${act.id})">🔬 Analyser</button>
+      <button class="btn-analyse" onclick="openAnalyse(${JSON.stringify(act).replace(/"/g,'&quot;')})">🔬 Analyser</button>
       <div class="act-bar" style="background:${bC(act.type)}"></div>`;
     grid.appendChild(card);
   });
 }
 
 // ════════════════════════════════════════════════════
-// GAP
+// PAF
 // ════════════════════════════════════════════════════
-function computeGAP(act, weather) {
+function computePAF(act, weather) {
   const fcMax=userProfile.fc_max||FC_MAX_DEFAULT;
   let factors=[],totalAdj=0;
   if(weather?.temp!=null){const a=Math.max(0,(weather.temp-10)*0.008);totalAdj+=a;factors.push({icon:weather.temp>25?'🌡️':weather.temp<5?'❄️':'🌤️',label:'Température',value:`${weather.temp.toFixed(1)}°C`,adj:a>0.005?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.02?'var(--red)':a>0.01?'var(--orange)':'var(--green)'});}
@@ -1354,12 +1287,12 @@ function computeGAP(act, weather) {
 // ════════════════════════════════════════════════════
 // AI ANALYSIS
 // ════════════════════════════════════════════════════
-async function generateAIAnalysis(act, streams, gap) {
+async function generateAIAnalysis(act, streams, paf) {
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
   const seuil = userProfile.lactate_threshold || 181;
   const zones = [0,0,0,0,0];
   const hrS = streams.heartrate?.data||[];
-  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zones[0]++;else if(p<.72)zones[1]++;else if(p<.8)zones[2]++;else if(p<.9)zones[3]++;else zones[4]++;});const tot=hrS.length;zones.forEach((_,i)=>zones[i]=Math.round(zones[i]/tot*100));}
+  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zones[0]++;else if(p<.7)zones[1]++;else if(p<.8)zones[2]++;else if(p<.9)zones[3]++;else zones[4]++;});const tot=hrS.length;zones.forEach((_,i)=>zones[i]=Math.round(zones[i]/tot*100));}
 
   const prompt = `Tu es un coach running expert. Analyse cette sortie course à pied de manière concise et personnalisée en 4-5 phrases maximum. Sois direct, factuel, et actionnable. Ne commence pas par "Cette sortie" ou "Voici".
 
@@ -1370,10 +1303,10 @@ DONNÉES ATHLÈTE:
 
 DONNÉES SORTIE:
 - Type: ${act.type} | Distance: ${(act.distance/1000).toFixed(2)}km | Durée: ${fmtD(act.moving_time)}
-- Allure moyenne: ${fmtP(act.average_speed)}/km | Allure ajustée (GAP): ${gap.paceNorm}/km
+- Allure moyenne: ${fmtP(act.average_speed)}/km | Allure normalisée PAF: ${paf.paceNorm}/km
 - D+: ${act.total_elevation_gain||0}m | FC moy: ${act.average_heartrate||'N/A'} bpm | FC max: ${act.max_heartrate||'N/A'} bpm
 - Répartition zones FC: Z1=${zones[0]}% Z2=${zones[1]}% Z3=${zones[2]}% Z4=${zones[3]}% Z5=${zones[4]}%
-- Pénalité conditions: +${(gap.totalAdj*100).toFixed(0)}% (${gap.factors.map(f=>f.label+' '+f.value).join(', ')})
+- Pénalité conditions: +${(paf.totalAdj*100).toFixed(0)}% (${paf.factors.map(f=>f.label+' '+f.value).join(', ')})
 
 Donne une analyse courte incluant: qualité de l'effort, gestion FC, point fort et 1 conseil concret.`;
 
@@ -1387,37 +1320,18 @@ Donne une analyse courte incluant: qualité de l'effort, gestion FC, point fort 
       },
       body:JSON.stringify({prompt})
     });
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     return data.text || 'Analyse non disponible.';
   } catch(e) {
-    return 'Limite Groq atteinte — réessaie dans 1 minute.';
+    return 'Analyse IA non disponible — la fonction n\'est pas encore déployée sur ce projet.';
   }
 }
 
 // ════════════════════════════════════════════════════
 // ANALYSE OVERLAY
 // ════════════════════════════════════════════════════
-async function openAnalyseById(actId) {
-  const token = await getToken();
-  if(!token){ showToast('Connecte Strava pour voir l\'analyse', 'error'); return; }
-  showToast('Chargement de l\'activité...', 'info', 3000);
-  try {
-    const r = await fetch(`https://www.strava.com/api/v3/activities/${actId}`, {headers:{Authorization:`Bearer ${token}`}});
-    const act = await r.json();
-    if(act.id) openAnalyse(act);
-    else showToast('Activité introuvable', 'error');
-  } catch(e) { showToast('Erreur chargement activité', 'error'); }
-}
-
-async function openAnalyse(actOrId) {
-  let act = typeof actOrId === 'object' ? actOrId : allActivities.find(a=>String(a.id)===String(actOrId));
-  if(!act) {
-    const tkn0 = await getToken();
-    if(!tkn0) return;
-    const r0 = await fetch(`https://www.strava.com/api/v3/activities/${actOrId}`,{headers:{Authorization:`Bearer ${tkn0}`}});
-    act = await r0.json();
-  }
-  if(!act?.id) { showToast('Activité introuvable', 'error'); return; }
+async function openAnalyse(act) {
   const overlay = document.getElementById('analyseOverlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1431,37 +1345,20 @@ async function openAnalyse(actOrId) {
     act.start_latlng?.length>=2 ? fetchWeather(act.start_latlng[0],act.start_latlng[1],act.start_date_local) : Promise.resolve(null)
   ]);
 
-  const gap = computeGAP(act, weather);
+  const paf = computePAF(act, weather);
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
   const d = new Date(act.start_date_local);
   const dateStr = d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 
-  // Zones FC — depuis les vrais streams
+  // Zones FC
   let zd={Z1:0,Z2:0,Z3:0,Z4:0,Z5:0};
   const hrS=streams.heartrate?.data||[];
-  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zd.Z1++;else if(p<.72)zd.Z2++;else if(p<.8)zd.Z3++;else if(p<.9)zd.Z4++;else zd.Z5++;});const tot=hrS.length;Object.keys(zd).forEach(k=>zd[k]=Math.round(zd[k]/tot*100));}
-
-  // Stocker les zones en Supabase pour le calcul Z2 dashboard 7j glissants
-  if(hrS.length && currentUser) {
-    sb.from('activities_history').upsert({
-      id: String(act.id),
-      user_id: currentUser.id,
-      activity_date: act.start_date?.split('T')[0],
-      zone_data: zd
-    }, {onConflict: 'id'}).then(({error}) => {
-      if(!error) renderDashboard(); // refresh dashboard stats with new zone data
-    });
-  }
+  if(hrS.length){hrS.forEach(h=>{const p=h/fcMax;if(p<.6)zd.Z1++;else if(p<.7)zd.Z2++;else if(p<.8)zd.Z3++;else if(p<.9)zd.Z4++;else zd.Z5++;});const tot=hrS.length;Object.keys(zd).forEach(k=>zd[k]=Math.round(zd[k]/tot*100));}
 
   // Chart data
   const altD=streams.altitude?.data||[],hrD=streams.heartrate?.data||[],distD=streams.distance?.data||[];
   const step=Math.max(1,Math.floor(altD.length/80));
   const cA=altD.filter((_,i)=>i%step===0),cH=hrD.filter((_,i)=>i%step===0),cDist=distD.filter((_,i)=>i%step===0).map(d=>(d/1000).toFixed(2));
-
-  const linkedRaceEarly = races.find(r => r.strava_activity_id && Number(r.strava_activity_id) === Number(act.id));
-  const linkedRaceLater = linkedRaceEarly; // same ref used after HTML render
-  const linkBtnStyle = linkedRaceEarly ? 'background:var(--green);color:#000;border-color:var(--green)' : 'background:var(--purple);color:#fff;border-color:var(--purple)';
-  const linkBtnText = linkedRaceEarly ? '✓ Lié à ' + linkedRaceEarly.name : '🏁 Lier à un événement';
 
   document.getElementById('analyseInner').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
@@ -1470,7 +1367,7 @@ async function openAnalyse(actOrId) {
         <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${act.name}</div>
         <div class="mono t2">${dateStr} · ${act.type==='TrailRun'?'⛰️ Trail':'🏃 Route'}</div>
       </div>
-      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="${linkBtnStyle}">${linkBtnText}</button>
+      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Lier à un événement</button>
     </div>
     <div id="linkActivityPanel" style="display:none;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px;margin-bottom:1rem">
       <div class="clabel" style="margin-bottom:8px">Associer à une course du calendrier</div>
@@ -1480,7 +1377,7 @@ async function openAnalyse(actOrId) {
     <div class="a-stats">
       <div class="a-stat"><div class="a-sv tc">${(act.distance/1000).toFixed(2)} km</div><div class="a-sl">Distance</div></div>
       <div class="a-stat"><div class="a-sv">${fmtD(act.moving_time)}</div><div class="a-sl">Temps mvt</div></div>
-      <div class="a-stat"><div class="a-sv">${fmtP(act.average_speed)}/km</div><div class="a-sl">Allure</div><div class="a-ss t3" style="font-size:.58rem">ajustée (GAP) : ${gap.paceNorm}/km</div></div>
+      <div class="a-stat"><div class="a-sv">${fmtP(act.average_speed)}/km</div><div class="a-sl">Allure</div><div class="a-ss t3" style="font-size:.58rem">normalisée PAF : ${paf.paceNorm}/km</div></div>
       ${act.total_elevation_gain?`<div class="a-stat"><div class="a-sv to">+${act.total_elevation_gain}m</div><div class="a-sl">D+</div></div>`:''}
       ${act.average_heartrate?`<div class="a-stat"><div class="a-sv">${Math.round(act.average_heartrate)}</div><div class="a-sl">FC moy</div><div class="a-ss">max ${act.max_heartrate||'—'} bpm</div></div>`:''}
       ${act.kilojoules?`<div class="a-stat"><div class="a-sv">${Math.round(act.kilojoules*.239)}</div><div class="a-sl">kcal</div></div>`:''}
@@ -1492,13 +1389,13 @@ async function openAnalyse(actOrId) {
       <div class="ai-loading"><div class="spinner"></div><div>Analyse en cours...</div></div>
     </div>
 
-    <!-- GAP -->
-    <div class="gap-widget">
-      <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin-bottom:10px">GAP — Grade Adjusted Pace</div>
-      <div class="gap-factors">${gap.factors.map(f=>`<div class="gap-factor"><span style="font-size:.95rem">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
-      <div class="gap-result">
-        <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${gap.paceNorm}/km</div></div>
-        <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Facteurs de correction : <strong>+${(gap.totalAdj*100).toFixed(0)}%</strong></div>
+    <!-- PAF -->
+    <div class="paf-widget">
+      <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin-bottom:10px">Performance Adjustment Factor</div>
+      <div class="paf-factors">${paf.factors.map(f=>`<div class="paf-factor"><span style="font-size:.95rem">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
+      <div class="paf-result">
+        <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
+        <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Pénalité conditions : <strong>+${(paf.totalAdj*100).toFixed(0)}%</strong></div>
       </div>
       <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Minetti et al., 2002 · Ely et al., 2007 · Lejeune et al., 1998</div>
     </div>
@@ -1508,12 +1405,6 @@ async function openAnalyse(actOrId) {
       <div class="card"><div class="clabel">Répartition zones FC</div><div class="chart-wrap" style="height:190px"><canvas id="azChart"></canvas></div></div>
     </div>
 
-    <!-- CARTE ACTIVITÉ -->
-    <div class="card mt2" id="activityMapCard" style="display:none">
-      <div class="clabel">Carte de l'activité</div>
-      <div id="activityMap" style="height:280px;border-radius:8px;overflow:hidden"></div>
-    </div>
-
     <!-- PROFIL ATHLÈTE PAR SECTION (si streams dispo) -->
     <div id="athleteProfileSection" class="mt2"></div>
 
@@ -1521,39 +1412,33 @@ async function openAnalyse(actOrId) {
     <div id="raceComparisonSection" class="mt2"></div>`;
 
   // Charts
-  if(cA.length){new Chart(document.getElementById('apChart'),{type:'line',data:{labels:cDist,datasets:[{label:'Alt',data:cA,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:.4,pointRadius:0,borderWidth:1.5,yAxisID:'yA'},...(cH.length?[{label:'FC',data:cH,borderColor:'#f43f5e',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:0,borderWidth:1.5,borderDash:[3,2],yAxisID:'yH'}]:[])]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9},callback:function(val){return this.getLabelForValue(val)+'km';}},grid:{color:'rgba(255,255,255,.05)'}},yA:{position:'left',ticks:{font:{size:9},callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.05)'}},yH:{position:'right',min:50,max:220,ticks:{font:{size:9}},grid:{display:false}}}}})}
-  const zv=Object.values(zd);if(zv.some(v=>v>0)){new Chart(document.getElementById('azChart'),{type:'doughnut',data:{labels:['Z1 <60%','Z2 60-72%','Z3 72-80%','Z4 80-90%','Z5 >90%'],datasets:[{data:zv,backgroundColor:['#3b82f6','#2ecc71','#fbbf24','#ff6b35','#f43f5e'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},color:'#6b7d94',padding:8}}}}})}
+  if(cA.length){new Chart(document.getElementById('apChart'),{type:'line',data:{labels:cDist,datasets:[{label:'Alt',data:cA,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:.4,pointRadius:0,borderWidth:1.5,yAxisID:'yA'},...(cH.length?[{label:'FC',data:cH,borderColor:'#f43f5e',backgroundColor:'transparent',fill:false,tension:.4,pointRadius:0,borderWidth:1.5,borderDash:[3,2],yAxisID:'yH'}]:[])]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9},callback:v=>v+'km'},grid:{color:'rgba(255,255,255,.05)'}},yA:{position:'left',ticks:{font:{size:9},callback:v=>v+'m'},grid:{color:'rgba(255,255,255,.05)'}},yH:{position:'right',min:50,max:220,ticks:{font:{size:9}},grid:{display:false}}}}})}
+  const zv=Object.values(zd);if(zv.some(v=>v>0)){new Chart(document.getElementById('azChart'),{type:'doughnut',data:{labels:['Z1 <60%','Z2 60-70%','Z3 70-80%','Z4 80-90%','Z5 >90%'],datasets:[{data:zv,backgroundColor:['#3b82f6','#2ecc71','#fbbf24','#ff6b35','#f43f5e'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},color:'#6b7d94',padding:8}}}}})}
 
-  // Athlete profile + comparison — called after innerHTML is set so DOM elements exist
+  // Athlete profile by section (VAM, recovery, etc.)
   renderAthleteProfile(streams, act);
 
-  // Check if linked to a race
+  // Check if this activity is linked to a race — reload fresh from DB first
   await loadRaces();
-  const linkedRace = races.find(r => {
-    return r.strava_activity_id && Number(r.strava_activity_id) === Number(act.id);
-  });
+  const linkedRace = races.find(r => String(r.strava_activity_id) === String(act.id));
   if(linkedRace?.gpx_data) {
     renderRaceComparison(act, streams, linkedRace);
   } else {
+    // Populate link panel race list
     const linkList = document.getElementById('linkActivityRaceList');
     if(linkList) {
       const past = races.filter(r => new Date(r.date) < new Date());
       linkList.innerHTML = past.length
         ? past.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${r.name.replace(/"/g,'&quot;')}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">📅 ${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
-        : '<span class="mono t3">Aucune course passée</span>';
+        : '<span class="mono t3">Aucune course passée dans le calendrier</span>';
     }
   }
 
-  // Map
-  renderActivityMap(streams, act);
-
   // AI analysis async
-  const aiText = await generateAIAnalysis(act, streams, gap);
+  const aiText = await generateAIAnalysis(act, streams, paf);
   const aiBox = document.getElementById('aiBox');
   if (aiBox) {
-    aiBox.innerHTML = '<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div><div class="ai-text" id="aiTextContent"></div>';
-    const aiTextNode = document.getElementById('aiTextContent');
-    if (aiTextNode) aiTextNode.textContent = aiText;
+    aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">🤖</div><div class="ai-title">Analyse IA — Coach Runner</div></div><div class="ai-text">${aiText}</div>`;
   }
 }
 
@@ -1668,39 +1553,35 @@ function renderAthleteProfile(streams, act) {
 
 function renderRaceComparison(act, streams, race) {
   const section = document.getElementById('raceComparisonSection');
-  if(!section) return;
-  if(!race.gpx_data) return;
+  if(!section || !race.gpx_data) return;
 
+  // Parse GPX points
   let gpxPts;
-  try { gpxPts = JSON.parse(race.gpx_data); } 
-  catch(e) { return; }
-  if(!gpxPts?.length) return;
+  try { gpxPts = JSON.parse(race.gpx_data); } catch { return; }
 
-  try {
-  // Compute cumulative distance from GPX
+  // Rebuild cumDist from GPX
   const cumDist=[0];
   for(let i=1;i<gpxPts.length;i++) cumDist.push(cumDist[i-1]+hav(gpxPts[i-1],gpxPts[i]));
   const totalDist=cumDist[cumDist.length-1];
-  if(totalDist < 100) { showToast('GPX trop court pour comparaison', 'error'); return; }
 
-  // Build sections — adapt segment size to number of points
-  const segTarget = Math.max(200, totalDist / Math.min(gpxPts.length, 20));
-  const kmSecs=[];let prevIdx=0,target=segTarget;
+  // Build sections from GPX (500m segments)
+  const kmSecs=[];let segTarget=500,prevIdx=0;
   for(let i=0;i<cumDist.length;i++){
-    if(cumDist[i]>=target||i===cumDist.length-1){
+    if(cumDist[i]>=segTarget||i===cumDist.length-1){
       let sdp=0;
       for(let j=prevIdx+1;j<=i;j++){if(gpxPts[j]?.ele&&gpxPts[j-1]?.ele){const diff=gpxPts[j].ele-gpxPts[j-1].ele;if(diff>0)sdp+=diff;}}
       const segDist=cumDist[i]-cumDist[prevIdx];
       const elevChange=gpxPts[i]?.ele&&gpxPts[prevIdx]?.ele?gpxPts[i].ele-gpxPts[prevIdx].ele:0;
       const grade=segDist>0?(elevChange/segDist)*100:0;
-      kmSecs.push({startKm:+(cumDist[prevIdx]/1000).toFixed(2),km:+(cumDist[i]/1000).toFixed(2),dist:segDist,dplus:Math.round(sdp),grade:+grade.toFixed(1)});
-      prevIdx=i;target=cumDist[i]+segTarget;
+      kmSecs.push({startKm:+(cumDist[prevIdx]/1000).toFixed(2),endKm:+(cumDist[i]/1000).toFixed(2),dist:segDist,dplus:Math.round(sdp),grade:+grade.toFixed(1)});
+      prevIdx=i;segTarget=cumDist[i]+500;
     }
   }
 
+  // Build logical sections
   const sections=buildDetailedSections(kmSecs);
 
-  // Base pace
+  // Get base pace for predictions
   let basePaceS=320;
   if(race.goal_time){
     const parts=race.goal_time.split(/[h:]/);
@@ -1708,47 +1589,50 @@ function renderRaceComparison(act, streams, race) {
     if(parts.length===2)gs=parseInt(parts[0])*60+parseInt(parts[1]);
     else if(parts.length===3)gs=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
     if(gs>0)basePaceS=gs/(totalDist/1000)*0.85;
+  } else if(userProfile.prs?.semi?.timeS){
+    basePaceS=userProfile.prs.semi.timeS/21097*1000;
   }
 
-  // Predicted time per section
+  // Compute predicted time per section
   const predicted=sections.map(s=>{
     const g=s.grade/100;
-    const pen=g>0?g*8:g<-0.2?Math.abs(g)*4:g<-0.1?Math.abs(g)*2:0;
+    let pen=g>0?g*8:g<-0.2?Math.abs(g)*4:g<-0.1?Math.abs(g)*2:0;
     return Math.round(basePaceS*(1+pen)*s.dist/1000);
   });
 
-  // Actual time from Strava streams
+  // Compute actual time per section from streams
   const distD=streams.distance?.data||[];
-  const hrD=streams.heartrate?.data||[];
   const actual=sections.map(s=>{
     if(!distD.length) return null;
-    let si=distD.findIndex(d=>d>=s.startKm*1000);
-    let ei=distD.findIndex(d=>d>=s.endKm*1000);
-    if(si<0) si=0;
-    if(ei<0) ei=distD.length-1;
-    return ei>si ? ei-si : null;
+    const startIdx=distD.findIndex(d=>d>=s.startKm*1000);
+    const endIdx=distD.findIndex(d=>d>=s.endKm*1000);
+    if(startIdx<0||endIdx<0||endIdx<=startIdx) return null;
+    return endIdx-startIdx; // seconds (1 data point = 1 second on Strava)
   });
 
+  // HR per section
+  const hrD=streams.heartrate?.data||[];
   const sectionHR=sections.map(s=>{
     if(!hrD.length||!distD.length) return null;
-    let si=distD.findIndex(d=>d>=s.startKm*1000);
-    let ei=distD.findIndex(d=>d>=s.endKm*1000);
-    if(si<0) si=0; if(ei<0) ei=hrD.length-1;
+    const si=distD.findIndex(d=>d>=s.startKm*1000);
+    const ei=distD.findIndex(d=>d>=s.endKm*1000);
+    if(si<0||ei<0||ei<=si) return null;
     const slice=hrD.slice(si,ei);
-    return slice.length?Math.round(slice.reduce((a,b)=>a+b,0)/slice.length):null;
+    return slice.length ? Math.round(slice.reduce((a,b)=>a+b,0)/slice.length) : null;
   });
 
   const cols={up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'};
   const icons={up:'⛰️',down:'🎿',flat:'➡️'};
 
-  const rows=sections.map((s,i)=>{
-    const pred=predicted[i],real=actual[i];
-    const diff=real&&pred?Math.round((real-pred)/pred*100):null;
-    const diffColor=diff===null?'var(--text3)':Math.abs(diff)<=10?'var(--green)':Math.abs(diff)<=25?'var(--yellow)':'var(--red)';
-    const diffIcon=diff===null?'—':Math.abs(diff)<=10?'✓':Math.abs(diff)<=25?'~':'⚠️';
+  const rows = sections.map((s,i) => {
+    const pred=predicted[i];
+    const real=actual[i];
+    const diff=real&&pred ? Math.round((real-pred)/pred*100) : null;
+    const diffColor = diff===null?'var(--text3)':Math.abs(diff)<=10?'var(--green)':Math.abs(diff)<=25?'var(--yellow)':'var(--red)';
+    const diffIcon = diff===null?'—':diff>25?'⚠️':diff>10?'~':diff<-10?'✓':'✓';
     return `<tr>
-      <td style="color:${cols[s.type]}">${icons[s.type]} ${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)}km</td>
-      <td class="mono">${s.type==='up'?`+${s.dplus}m`:s.type==='down'?`-${s.dminus||0}m`:'—'}</td>
+      <td style="color:${cols[s.type]}">${icons[s.type]} ${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} km</td>
+      <td class="mono">${s.type==='up'?`+${s.dplus}m`:s.type==='down'?`-${s.dminus}m`:'—'}</td>
       <td class="mono">${fmtT(pred)}</td>
       <td class="mono">${real?fmtT(real):'—'}</td>
       <td class="mono" style="color:${diffColor};font-weight:600">${diff!==null?(diff>0?'+':'')+diff+'% '+diffIcon:'—'}</td>
@@ -1756,10 +1640,15 @@ function renderRaceComparison(act, streams, race) {
     </tr>`;
   }).join('');
 
-  const uphillDiffs=sections.map((s,i)=>s.type==='up'&&actual[i]&&predicted[i]?(actual[i]-predicted[i])/predicted[i]*100:null).filter(d=>d!==null);
-  const avgUpDiff=uphillDiffs.length?Math.round(uphillDiffs.reduce((a,b)=>a+b,0)/uphillDiffs.length):null;
+  // Verdict global
+  const validDiffs = sections.map((_,i)=>{
+    const p=predicted[i],r=actual[i];
+    return r&&p?(r-p)/p*100:null;
+  }).filter(d=>d!==null);
+  const uphillDiffs = sections.map((s,i)=>s.type==='up'&&actual[i]&&predicted[i]?(actual[i]-predicted[i])/predicted[i]*100:null).filter(d=>d!==null);
+  const avgUpDiff = uphillDiffs.length ? Math.round(uphillDiffs.reduce((a,b)=>a+b,0)/uphillDiffs.length) : null;
 
-  section.innerHTML=`
+  section.innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
         <div class="clabel" style="margin:0">Comparaison prévu / réel — ${race.name}</div>
@@ -1771,71 +1660,17 @@ function renderRaceComparison(act, streams, race) {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div class="mono t3" style="font-size:.56rem;margin-top:8px">✓ = ±10% · ~ = ±25% · ⚠️ = >25% d'écart</div>
+      <div class="mono t3" style="font-size:.56rem;margin-top:8px">
+        ✓ = ±10% · ~ = ±25% · ⚠️ = >25% d'écart
+        ${avgUpDiff!==null && Math.abs(avgUpDiff)>10 ? `<br>💡 Coefficient personnel montée : ×${(1+avgUpDiff/100).toFixed(2)} — appliqué aux prochaines projections sur ce type de course.` : ''}
+      </div>
     </div>`;
 
-  if(avgUpDiff!==null){
-    userProfile.coeff_uphill=1+avgUpDiff/100;
-    sb.from('profiles').upsert({id:currentUser.id,coeff_uphill:userProfile.coeff_uphill});
+  // Store personal coefficient for future predictions
+  if(avgUpDiff !== null) {
+    userProfile.coeff_uphill = 1 + avgUpDiff/100;
+    sb.from('profiles').upsert({id:currentUser.id, coeff_uphill: userProfile.coeff_uphill});
   }
-  } catch(e) { showToast('Erreur comparaison: '+e.message, 'error', 8000); }
-}
-
-function renderActivityMap(streams, act) {
-  const latlng = streams.latlng?.data;
-  if(!latlng || latlng.length < 2) return;
-
-  const card = document.getElementById('activityMapCard');
-  if(card) card.style.display = 'block';
-
-  setTimeout(() => {
-    if(window._activityMap) { window._activityMap.remove(); window._activityMap = null; }
-
-    const map = L.map('activityMap', {zoomControl:true, scrollWheelZoom:false});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:19}).addTo(map);
-    window._activityMap = map;
-
-    const hrD = streams.heartrate?.data || [];
-    const fcMax = userProfile.fc_max || 205;
-    const zoneColors = ['#3b82f6','#2ecc71','#fbbf24','#ff6b35','#f43f5e'];
-    function hrZone(hr){ const p=hr/fcMax; return p<.60?0:p<.70?1:p<.80?2:p<.90?3:4; }
-
-    const pts = latlng.filter((_,i)=>i%3===0);
-
-    if(hrD.length > 10) {
-      const step=3;
-      for(let i=0;i<latlng.length-step;i+=step){
-        const p1=[latlng[i][0],latlng[i][1]];
-        const p2=[latlng[i+step]?.[0]||latlng[i][0], latlng[i+step]?.[1]||latlng[i][1]];
-        const hr=hrD[i]||0;
-        L.polyline([p1,p2],{color:hr>0?zoneColors[hrZone(hr)]:'#6b7d94',weight:4,opacity:.85}).addTo(map);
-      }
-    } else {
-      L.polyline(pts.map(p=>[p[0],p[1]]),{color:'#00d4ff',weight:4,opacity:.85}).addTo(map);
-    }
-
-    L.circleMarker([latlng[0][0],latlng[0][1]],{radius:7,fillColor:'#2ecc71',color:'#fff',weight:2,fillOpacity:1}).bindTooltip('Départ').addTo(map);
-    L.circleMarker([latlng[latlng.length-1][0],latlng[latlng.length-1][1]],{radius:7,fillColor:'#f43f5e',color:'#fff',weight:2,fillOpacity:1}).bindTooltip('Arrivée').addTo(map);
-
-    // Hover marker synced with chart
-    const hoverMk = L.circleMarker([latlng[0][0],latlng[0][1]],{radius:6,fillColor:'#fff',color:'#00d4ff',weight:2,fillOpacity:0,opacity:0}).addTo(map);
-    const apCanvas = document.getElementById('apChart');
-    if(apCanvas){
-      apCanvas.addEventListener('mousemove', e=>{
-        const chart=Chart.getChart(apCanvas);if(!chart)return;
-        const el=chart.getElementsAtEventForMode(e,'nearest',{axis:'x'},true);
-        if(el.length){
-          const ratio=el[0].index/(chart.data.labels.length-1);
-          const mapIdx=Math.min(Math.round(ratio*(latlng.length-1)),latlng.length-1);
-          hoverMk.setLatLng([latlng[mapIdx][0],latlng[mapIdx][1]]);
-          hoverMk.setStyle({opacity:1,fillOpacity:1});
-        }
-      });
-      apCanvas.addEventListener('mouseleave',()=>hoverMk.setStyle({opacity:0,fillOpacity:0}));
-    }
-
-    map.fitBounds(L.latLngBounds(pts.map(p=>[p[0],p[1]])),{padding:[20,20]});
-  }, 300);
 }
 
 function closeAnalyse() {
@@ -1882,24 +1717,16 @@ function renderRaces() {
     const color=diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
     const hasGpx=!!next.gpx_data;
     nextWidget.innerHTML=`<div class="next-race-big">
-      <div style="font-family:var(--display);font-size:2.1rem;letter-spacing:.02em;line-height:1;margin-bottom:.5rem">${next.name}</div>
-      <div class="next-race-num" style="color:${color};font-size:2.6rem">J-${diff}</div>
-      <div class="next-race-unit">compte à rebours</div>
+      <div class="next-race-num" style="color:${color}">${diff}</div>
+      <div class="next-race-unit">jours</div>
+      <div style="font-weight:600;font-size:.9rem;margin-bottom:3px">${next.name}</div>
       <div class="mono t2">${next.distance||'?'}km · D+${next.elevation||'?'}m · ${next.type}</div>
       ${next.goal_time?`<div class="mono" style="color:${color};margin-top:4px">🎯 ${next.goal_time}</div>`:''}
       ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green);margin-top:6px;display:inline-block">✓ GPX</span>`:''}
       <button class="btn-prepare" style="margin-top:10px" onclick='prepareRace(${JSON.stringify(next)})'>${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer la course'}</button>
     </div>`;
   } else {nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>';}
-
-  // Split past/future, limit past to 2 by default
-  const pastRaces = races.filter(r=>new Date(r.date)<now).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const futureRaces = races.filter(r=>new Date(r.date)>=now);
-  const showAllPast = list.dataset.showAllPast === '1';
-  const visiblePast = showAllPast ? pastRaces : pastRaces.slice(0,2);
-  const allRaces = [...futureRaces, ...visiblePast];
-
-  list.innerHTML=[...allRaces.map(r=>{
+  list.innerHTML=races.map(r=>{
     const d=new Date(r.date),diff=Math.ceil((d-now)/86400000),past=diff<0;
     const color=past?'var(--text3)':diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
     const hasGpx=!!r.gpx_data;
@@ -1924,10 +1751,7 @@ function renderRaces() {
     }
 
     const linkedAct=hasActivity?allActivities.find(a=>String(a.id)===String(r.strava_activity_id)):null;
-    const onCardClick=linkedAct?`openAnalyse(${linkedAct.id})`
-      :hasActivity?`openAnalyseById(${r.strava_activity_id})`
-      :hasGpx?`prepareRace(${JSON.stringify(r)})`
-      :'';
+    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace(${JSON.stringify(r)})`:'';
 
     return `<div class="race-item" style="cursor:${onCardClick?'pointer':'default'};transition:background .15s"
       onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''"
@@ -1948,15 +1772,7 @@ function renderRaces() {
         <button onclick="deleteRace('${r.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.75rem">✕</button>
       </div>
     </div>`;
-  }),
-  // "Voir tout" toggle if more than 2 past races
-  pastRaces.length > 2 ? [`<div style="text-align:center;margin-top:.5rem">
-    <button onclick="document.getElementById('raceList').dataset.showAllPast=document.getElementById('raceList').dataset.showAllPast==='1'?'0':'1';renderRaces()" 
-      style="background:none;border:1px solid var(--border2);border-radius:20px;padding:5px 16px;font-family:var(--mono);font-size:.58rem;color:var(--text2);cursor:pointer">
-      ${showAllPast ? '▲ Masquer les anciennes' : `▼ Voir toutes les courses passées (${pastRaces.length})`}
-    </button>
-  </div>`] : []
-  ].flat().join('');
+  }).join('');
 }
 
 // ════════════════════════════════════════════════════
@@ -2716,16 +2532,16 @@ function buildSplitsTable(kmSecs, basePaceS){
   const fcMax=userProfile.fc_max||205;
   const pct88=Math.round(fcMax*.88),pct84=Math.round(fcMax*.84),pct79=Math.round(fcMax*.79);
   let cumTime=0,rows='';
-  kmSecs.forEach(s=>{
+  kmSecs.filter(s=>s!=null&&s.km!=null&&s.grade!=null).forEach(s=>{
     const grade=s.grade/100;
     let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
-    const distKm=s.dist/1000;
+    const distKm=(s.dist||0)/1000;
     const secTime=basePaceS*(1+pen)*distKm;
     cumTime+=secTime;
     const type=s.grade>4?'up':s.grade<-4?'down':'flat';
     const fc={up:`< ${Math.abs(s.grade)>10?pct84:pct88} bpm`,down:'Libre',flat:`< ${pct79} bpm`}[type];
     const conseil={up:Math.abs(s.grade)>10?'Marche active':'Courir régulier',down:'Foulées courtes',flat:'Récup'}[type];
-    rows+=`<tr class="section-${type}"><td class="mono">${s.startKm}→${s.endKm.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
+    rows+=`<tr class="section-${type}"><td class="mono">${(s.startKm??0).toFixed(1)}→${s.km.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
   });
   return rows;
 }
@@ -3107,39 +2923,10 @@ async function changePassword() {
   else{msg.textContent='✓ Email envoyé !';msg.style.color='var(--green)';}
 }
 let _cropState = {x:0,y:0,scale:1,startX:0,startY:0,startDist:0,dragging:false};
-let _cropEventsAttached = false;
-
-function attachCropEvents() {
-  if(_cropEventsAttached) return;
-  _cropEventsAttached = true;
-  const container = document.getElementById('cropContainer');
-  if(!container) return;
-  let lastTouchDist = 0;
-
-  container.addEventListener('mousedown', e => { _cropState.dragging=true; _cropState.startX=e.clientX-_cropState.x; _cropState.startY=e.clientY-_cropState.y; });
-  document.addEventListener('mousemove', e => { if(!_cropState.dragging) return; _cropState.x=e.clientX-_cropState.startX; _cropState.y=e.clientY-_cropState.startY; applyTransform(); });
-  document.addEventListener('mouseup', () => _cropState.dragging=false);
-
-  container.addEventListener('touchstart', e => {
-    if(e.touches.length===1){ _cropState.dragging=true; _cropState.startX=e.touches[0].clientX-_cropState.x; _cropState.startY=e.touches[0].clientY-_cropState.y; }
-    if(e.touches.length===2){ lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
-    e.preventDefault();
-  },{passive:false});
-  container.addEventListener('touchmove', e => {
-    if(e.touches.length===1 && _cropState.dragging){ _cropState.x=e.touches[0].clientX-_cropState.startX; _cropState.y=e.touches[0].clientY-_cropState.startY; applyTransform(); }
-    if(e.touches.length===2){
-      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-      _cropState.scale*=dist/lastTouchDist; lastTouchDist=dist; applyTransform();
-    }
-    e.preventDefault();
-  },{passive:false});
-  container.addEventListener('touchend', () => _cropState.dragging=false);
-}
 
 async function uploadAvatar(event) {
   const file = event.target.files[0];
   if(!file) return;
-  attachCropEvents();
   const reader = new FileReader();
   reader.onload = (e) => {
     const modal = document.getElementById('cropModal');
@@ -3195,11 +2982,35 @@ async function confirmCrop() {
 }
 
 // Touch & mouse events for crop
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('cropContainer');
+  if(!container) return;
+  let lastTouchDist = 0;
+
+  container.addEventListener('mousedown', e => { _cropState.dragging=true; _cropState.startX=e.clientX-_cropState.x; _cropState.startY=e.clientY-_cropState.y; });
+  document.addEventListener('mousemove', e => { if(!_cropState.dragging) return; _cropState.x=e.clientX-_cropState.startX; _cropState.y=e.clientY-_cropState.startY; applyTransform(); });
+  document.addEventListener('mouseup', () => _cropState.dragging=false);
+
+  container.addEventListener('touchstart', e => {
+    if(e.touches.length===1){ _cropState.dragging=true; _cropState.startX=e.touches[0].clientX-_cropState.x; _cropState.startY=e.touches[0].clientY-_cropState.y; }
+    if(e.touches.length===2){ lastTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+    e.preventDefault();
+  },{passive:false});
+  container.addEventListener('touchmove', e => {
+    if(e.touches.length===1 && _cropState.dragging){ _cropState.x=e.touches[0].clientX-_cropState.startX; _cropState.y=e.touches[0].clientY-_cropState.startY; applyTransform(); }
+    if(e.touches.length===2){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+      _cropState.scale*=dist/lastTouchDist; lastTouchDist=dist; applyTransform();
+    }
+    e.preventDefault();
+  },{passive:false});
+  container.addEventListener('touchend', () => _cropState.dragging=false);
+});
 function updateAvatar(url) {
   const mark=document.getElementById('avatarMark');
   const preview=document.getElementById('avatarPreview');
   if(url){
-    mark.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentElement.innerHTML='VL'">`;
+    mark.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
     if(preview)preview.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   }
 }
@@ -3375,75 +3186,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 </script>
+
 <!-- ══ TOAST CONTAINER ══ -->
 
-
-<!-- ══ BOTTOM TAB BAR ══ -->
-<nav class="tab-bar">
-  <button class="tab-btn nbtn active" id="tab-dashboard" onclick="showPanel('dashboard',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Dashboard
-  </button>
-  <button class="tab-btn nbtn" id="tab-calendrier" onclick="showPanel('dashboard',document.getElementById('tab-dashboard'));document.getElementById('tab-calendrier').classList.add('active');document.getElementById('tab-dashboard').classList.remove('active');setTimeout(()=>{const el=document.getElementById('raceCalendarSection');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},150)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Calendrier
-  </button>
-  <button class="tab-btn nbtn" id="tab-renfo" onclick="showPanel('renfo',this)">
-    <svg viewBox="0 0 24 24"><path d="M6 4v16M18 4v16M6 12h12M3 7h3M18 7h3M3 17h3M18 17h3"/></svg>
-    Renfo
-  </button>
-</nav>
 <div id="toastContainer"></div>
 
 <!-- ══ ONBOARDING ══ -->
+
 <div id="onboardingOverlay">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:2.5rem;max-width:480px;width:100%;text-align:center">
     <div class="onb-dots" id="onbDots"></div>
 
-    <div class="onb-step active" id="onb-0">
-      <div class="onb-icon">👋</div>
-      <div class="onb-title">Bienvenue sur Runner OS</div>
-      <div class="onb-desc">Ton dashboard personnel pour analyser tes sorties, préparer tes courses et progresser de façon structurée. Quelques étapes pour démarrer.</div>
-    </div>
+<div class="onb-step active" id="onb-0">
+  <div class="onb-icon">👋</div>
+  <div class="onb-title">Bienvenue sur Runner OS</div>
+  <div class="onb-desc">Ton dashboard personnel pour analyser tes sorties, préparer tes courses et progresser de façon structurée. Quelques étapes pour démarrer.</div>
+</div>
 
-    <div class="onb-step" id="onb-1">
-      <div class="onb-icon">👤</div>
-      <div class="onb-title">Ton profil</div>
-      <div class="onb-desc">Renseigne ta FC max, ton seuil lactique et tes PR — le dashboard et les stratégies de course s'adaptent à tes vraies données physiologiques.</div>
-      <button class="btn-primary" style="margin-top:.5rem" onclick="closeProfil();openProfil();closeOnboarding();">Remplir mon profil →</button>
-    </div>
+<div class="onb-step" id="onb-1">
+  <div class="onb-icon">👤</div>
+  <div class="onb-title">Ton profil</div>
+  <div class="onb-desc">Renseigne ta FC max, ton seuil lactique et tes PR — le dashboard et les stratégies de course s'adaptent à tes vraies données physiologiques.</div>
+  <button class="btn-primary" style="margin-top:.5rem" onclick="closeProfil();openProfil();closeOnboarding();">Remplir mon profil →</button>
+</div>
 
-    <div class="onb-step" id="onb-2">
-      <div class="onb-icon">🟠</div>
-      <div class="onb-title">Connecter Strava</div>
-      <div class="onb-desc">Tes activités se synchronisent automatiquement. Clique sur "Connecter Strava" en haut à droite pour autoriser l'accès.</div>
-    </div>
+<div class="onb-step" id="onb-2">
+  <div class="onb-icon">🟠</div>
+  <div class="onb-title">Connecter Strava</div>
+  <div class="onb-desc">Tes activités se synchronisent automatiquement. Clique sur "Connecter Strava" en haut à droite pour autoriser l'accès.</div>
+</div>
 
-    <div class="onb-step" id="onb-3">
-      <div class="onb-icon">🗺️</div>
-      <div class="onb-title">Préparer une course</div>
-      <div class="onb-desc">Ajoute une course dans le calendrier, uploade un GPX et laisse l'app générer ta stratégie section par section avec tes vraies zones et ton plan nutrition.</div>
-    </div>
+<div class="onb-step" id="onb-3">
+  <div class="onb-icon">🗺️</div>
+  <div class="onb-title">Préparer une course</div>
+  <div class="onb-desc">Ajoute une course dans le calendrier, uploade un GPX et laisse l'app générer ta stratégie section par section avec tes vraies zones et ton plan nutrition.</div>
+</div>
 
-    <div class="onb-step" id="onb-4">
-      <div class="onb-icon">✅</div>
-      <div class="onb-title">C'est parti !</div>
-      <div class="onb-desc">Runner OS apprend de tes sorties au fil du temps — plus tu l'utilises, plus les projections sont précises.</div>
-      <div class="mono t3" style="font-size:.6rem;margin-top:.5rem">En utilisant cette app tu acceptes les <a onclick="openCGU()" style="color:var(--cyan);cursor:pointer">CGU et la politique de confidentialité</a>.</div>
-    </div>
+<div class="onb-step" id="onb-4">
+  <div class="onb-icon">✅</div>
+  <div class="onb-title">C'est parti !</div>
+  <div class="onb-desc">Runner OS apprend de tes sorties au fil du temps — plus tu l'utilises, plus les projections sont précises.</div>
+  <div class="mono t3" style="font-size:.6rem;margin-top:.5rem">En utilisant cette app tu acceptes les <a onclick="openCGU()" style="color:var(--cyan);cursor:pointer">CGU et la politique de confidentialité</a>.</div>
+</div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">
-      <button class="hbtn" id="onbPrev" onclick="onbNav(-1)">← Précédent</button>
-      <div class="onb-dots" id="onbDots2" style="margin:0"></div>
-      <button class="hbtn" id="onbNext" onclick="onbNav(1)" style="background:var(--cyan);color:#000;border-color:var(--cyan)">Suivant →</button>
-    </div>
-    <div style="margin-top:.75rem">
-      <button onclick="closeOnboarding()" style="background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:.6rem;cursor:pointer">Passer →</button>
-    </div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">
+  <button class="hbtn" id="onbPrev" onclick="onbNav(-1)">← Précédent</button>
+  <div class="onb-dots" id="onbDots2" style="margin:0"></div>
+  <button class="hbtn" id="onbNext" onclick="onbNav(1)" style="background:var(--cyan);color:#000;border-color:var(--cyan)">Suivant →</button>
+</div>
+<div style="margin-top:.75rem">
+  <button onclick="closeOnboarding()" style="background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:.6rem;cursor:pointer">Passer →</button>
+</div>
+
   </div>
 </div>
 
 <!-- ══ CGU ══ -->
+
 <div id="cguOverlay" onclick="if(event.target===this)closeCGU()">
   <div class="cgu-inner">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
@@ -3451,39 +3250,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       <button onclick="closeCGU()" class="hbtn">✕</button>
     </div>
 
-    <div style="font-size:.82rem;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:70vh">
-      <div class="clabel" style="margin-bottom:.5rem">1. Objet</div>
-      <p style="margin-bottom:1rem">Runner OS est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
+<div style="font-size:.82rem;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:70vh">
+  <div class="clabel" style="margin-bottom:.5rem">1. Objet</div>
+  <p style="margin-bottom:1rem">Runner OS est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">2. Données personnelles</div>
-      <p style="margin-bottom:.5rem">Runner OS collecte et traite les données suivantes :</p>
-      <ul style="margin-left:1.5rem;margin-bottom:1rem">
-        <li>Données de compte : email (via Supabase Auth)</li>
-        <li>Données physiologiques : FC max, poids, taille, seuil lactique (saisies volontairement)</li>
-        <li>Données d'activité : activités Strava via l'API officielle Strava</li>
-        <li>Données de course : GPX, temps, stratégies (stockées en Supabase)</li>
-      </ul>
-      <p style="margin-bottom:1rem">Ces données sont stockées dans Supabase (infrastructure européenne). Chaque utilisateur n'a accès qu'à ses propres données.</p>
+  <div class="clabel" style="margin-bottom:.5rem">2. Données personnelles</div>
+  <p style="margin-bottom:.5rem">Runner OS collecte et traite les données suivantes :</p>
+  <ul style="margin-left:1.5rem;margin-bottom:1rem">
+    <li>Données de compte : email (via Supabase Auth)</li>
+    <li>Données physiologiques : FC max, poids, taille, seuil lactique (saisies volontairement)</li>
+    <li>Données d'activité : activités Strava via l'API officielle Strava</li>
+    <li>Données de course : GPX, temps, stratégies (stockées en Supabase)</li>
+  </ul>
+  <p style="margin-bottom:1rem">Ces données sont stockées dans Supabase (infrastructure européenne). Chaque utilisateur n'a accès qu'à ses propres données.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">3. Données Strava</div>
-      <p style="margin-bottom:1rem">L'accès aux données Strava est effectué via l'API officielle Strava conformément aux <a href="https://www.strava.com/legal/api" target="_blank" style="color:var(--cyan)">conditions d'utilisation de l'API Strava</a>. Les tokens d'accès sont stockés localement. Aucune donnée Strava n'est partagée avec des tiers.</p>
+  <div class="clabel" style="margin-bottom:.5rem">3. Données Strava</div>
+  <p style="margin-bottom:1rem">L'accès aux données Strava est effectué via l'API officielle Strava conformément aux <a href="https://www.strava.com/legal/api" target="_blank" style="color:var(--cyan)">conditions d'utilisation de l'API Strava</a>. Les tokens d'accès sont stockés localement. Aucune donnée Strava n'est partagée avec des tiers.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">4. Analyse IA</div>
-      <p style="margin-bottom:1rem">Les analyses de sortie utilisent l'API Groq (modèle llama). Les données d'activité sont transmises à Groq pour générer l'analyse. Aucune donnée d'identification personnelle (nom, email) n'est transmise.</p>
+  <div class="clabel" style="margin-bottom:.5rem">4. Analyse IA</div>
+  <p style="margin-bottom:1rem">Les analyses de sortie utilisent l'API Groq (modèle llama). Les données d'activité sont transmises à Groq pour générer l'analyse. Aucune donnée d'identification personnelle (nom, email) n'est transmise.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">5. Suppression des données</div>
-      <p style="margin-bottom:1rem">Tu peux supprimer ton compte et toutes tes données à tout moment en contactant l'administrateur de l'application. La déconnexion de Strava révoque l'accès immédiatement.</p>
+  <div class="clabel" style="margin-bottom:.5rem">5. Suppression des données</div>
+  <p style="margin-bottom:1rem">Tu peux supprimer ton compte et toutes tes données à tout moment en contactant l'administrateur de l'application. La déconnexion de Strava révoque l'accès immédiatement.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">6. Responsabilité</div>
-      <p style="margin-bottom:1rem">Les conseils de stratégie, nutrition et FC fournis par Runner OS sont indicatifs. Ils ne remplacent pas l'avis d'un médecin ou d'un entraîneur professionnel. L'utilisateur reste seul responsable de ses choix d'entraînement.</p>
+  <div class="clabel" style="margin-bottom:.5rem">6. Responsabilité</div>
+  <p style="margin-bottom:1rem">Les conseils de stratégie, nutrition et FC fournis par Runner OS sont indicatifs. Ils ne remplacent pas l'avis d'un médecin ou d'un entraîneur professionnel. L'utilisateur reste seul responsable de ses choix d'entraînement.</p>
 
-      <div class="clabel" style="margin-bottom:.5rem">7. Contact</div>
-      <p>Pour toute question : <a href="mailto:tony.bollecker@hotmail.fr" style="color:var(--cyan)">tony.bollecker@hotmail.fr</a></p>
-    </div>
+  <div class="clabel" style="margin-bottom:.5rem">7. Contact</div>
+  <p>Pour toute question : <a href="mailto:tony.bollecker@hotmail.fr" style="color:var(--cyan)">tony.bollecker@hotmail.fr</a></p>
+</div>
+
   </div>
 </div>
 
 <!-- ══ CROP AVATAR ══ -->
+
 <div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:800;align-items:center;justify-content:center;padding:1.5rem;flex-direction:column;gap:1rem">
   <div style="font-family:var(--display);font-size:1.2rem;color:#fff">Cadrer la photo</div>
   <div style="position:relative;width:280px;height:280px;overflow:hidden;border-radius:50%;border:2px solid var(--cyan);cursor:move" id="cropContainer">
