@@ -45,7 +45,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
 
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() })
+        .upsert({ id: user.id, ...updates, updated_at: new Date().toISOString() } as { id: string; updated_at: string })
         .select()
         .single()
 

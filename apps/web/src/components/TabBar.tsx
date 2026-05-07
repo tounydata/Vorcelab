@@ -2,10 +2,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 const TABS = [
   { path: '/', label: 'Dashboard', icon: '⊞' },
-  { path: '/activities', label: 'Activités', icon: '↗' },
-  { path: '/calendar', label: 'Courses', icon: '◎' },
-  { path: '/analysis', label: 'Analyse', icon: '◈' },
-  { path: '/profile', label: 'Profil', icon: '◉' },
+  { path: '/calendar', label: 'Calendrier', icon: '◎' },
+  { path: '/activities', label: 'Renfo', icon: '↗' },
 ] as const
 
 export function TabBar() {
@@ -14,16 +12,21 @@ export function TabBar() {
 
   return (
     <nav
+      aria-label="Navigation principale"
       style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 200,
+        minHeight: 60,
+        zIndex: 999,
         background: 'rgba(6,8,16,.85)',
         backdropFilter: 'blur(20px)',
-        borderTop: '1px solid var(--border2)',
+        borderTop: '1px solid rgba(0,212,255,.22)',
+        boxShadow: '0 -8px 24px rgba(0,0,0,.35)',
         display: 'flex',
+        visibility: 'visible',
+        opacity: 1,
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
       }}
     >
