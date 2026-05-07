@@ -10,7 +10,12 @@ interface LogEntry {
 const isDev = (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true
 
 function log(level: LogLevel, message: string, context?: Record<string, unknown>): void {
-  const entry: LogEntry = { level, message, context, timestamp: new Date().toISOString() }
+  const entry: LogEntry = {
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+    ...(context !== undefined ? { context } : {}),
+  }
 
   if (level === 'error') {
     console.error(`[${entry.timestamp}] ERROR: ${message}`, context ?? '')

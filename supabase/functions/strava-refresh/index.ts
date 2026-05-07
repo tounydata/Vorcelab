@@ -1,96 +1,59 @@
-import { handleCors, corsHeaders } from '../_shared/cors.ts'
-import { requireAuth, getServiceClient } from '../_shared/auth.ts'
-import { errorResponse, json } from '../_shared/error.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { errorResponse } from '../_shared/error.ts'
+import { requireAuth } from '../_shared/auth.ts'
+import { getValidStravaAccessToken, syncStravaActivitiesForUser } from '../_shared/strava.ts'
 
-/**
- * Refresh Strava access token using the stored refresh token.
- * Returns only { connected: true } — tokens stay server-side.
- */
 Deno.serve(async (req: Request) => {
-  const origin = req.headers.get('origin')
-  const cors = corsHeaders(origin)
-
-  const preflight = handleCors(req)
-  if (preflight) return preflight
+  if (req.method === 'OPTIONS') return handleCors(req)
 
   try {
-    const userId = await requireAuth(req)
-    const supabase = getServiceClient()
+    const user = await requireAuth(req)
 
-    const { data: tokenRow, error: fetchError } = await supabase
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // Check if user has a Strava connection
+    const { data: tokenRow } = await supabase
       .from('strava_tokens')
-      .select('access_token, refresh_token, expires_at')
-      .eq('user_id', userId)
+      .select('last_sync_at')
+      .eq('user_id', user.id)
       .single()
 
-    if (fetchError || !tokenRow) {
-      return json({ connected: false }, 200, cors)
+    if (!tokenRow) {
+      return new Response(JSON.stringify({ connected: false }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    const now = Math.floor(Date.now() / 1000)
-    // Token still valid (add 5min buffer)
-    if (tokenRow.expires_at > now + 300) {
-      await fetchAndStoreActivities(userId, tokenRow.access_token as string, supabase)
-      return json({ connected: true }, 200, cors)
-    }
+    const accessToken = await getValidStravaAccessToken(supabase, user.id)
 
-    // Refresh the token
-    const clientId = Deno.env.get('STRAVA_CLIENT_ID')
-    const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')
-
-    const refreshRes = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: tokenRow.refresh_token,
-        grant_type: 'refresh_token',
-      }),
+    const body = (await req.json().catch(() => ({}))) as { full?: boolean }
+    const synced = await syncStravaActivitiesForUser(supabase, user.id, accessToken, {
+      full: body.full === true,
     })
 
-    if (!refreshRes.ok) {
-      return json({ connected: false }, 200, cors)
-    }
-
-    const refreshed = (await refreshRes.json()) as {
-      access_token: string
-      refresh_token: string
-      expires_at: number
-    }
-
-    await supabase
+    const { data: updated } = await supabase
       .from('strava_tokens')
-      .update({
-        access_token: refreshed.access_token,
-        refresh_token: refreshed.refresh_token,
-        expires_at: refreshed.expires_at,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
+      .select('last_sync_at')
+      .eq('user_id', user.id)
+      .single()
 
-    await fetchAndStoreActivities(userId, refreshed.access_token, supabase)
-
-    return json({ connected: true }, 200, cors)
+    return new Response(
+      JSON.stringify({
+        connected: true,
+        synced,
+        last_sync_at: (updated?.last_sync_at as string) ?? new Date().toISOString(),
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (err) {
-    return errorResponse(err, cors)
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'Unauthorized') return errorResponse('Unauthorized', 401)
+    console.error('strava-refresh error:', message)
+    return errorResponse('Internal server error', 500)
   }
 })
-
-async function fetchAndStoreActivities(
-  userId: string,
-  accessToken: string,
-  supabase: ReturnType<typeof getServiceClient>
-): Promise<void> {
-  const res = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=100', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!res.ok) return
-
-  const activities = (await res.json()) as unknown[]
-  await supabase.from('activities_history').upsert({
-    user_id: userId,
-    data: activities,
-    imported_at: new Date().toISOString(),
-  })
-}
