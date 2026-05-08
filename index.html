@@ -166,6 +166,8 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 .strat-name{font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin:.2rem 0 .4rem;}
 .strat-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.4rem;}
 .strat-tag{font-family:var(--mono);font-size:.56rem;padding:2px 7px;border-radius:16px;border:1px solid;}
+.race-menu-item{display:block;width:100%;text-align:left;padding:8px 12px;background:transparent;border:none;color:var(--text1);font-family:var(--mono);font-size:.72rem;cursor:pointer;border-radius:7px;transition:background .15s;white-space:nowrap;}
+.race-menu-item:hover{background:rgba(255,255,255,.08);}
 .strat-body{font-size:.76rem;color:var(--text2);line-height:1.6;}
 .nutr-table{width:100%;border-collapse:collapse;font-size:.75rem;}
 .nutr-table th{font-family:var(--mono);font-size:.54rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);}
@@ -501,11 +503,20 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
   <!-- EVENT DETAIL VIEW (hidden by default) -->
   <div id="eventView" style="display:none">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
       <button class="hbtn" onclick="backToCalendar()">← Calendrier</button>
-      <div id="eventViewTitle" style="flex:1;font-family:var(--display);font-size:1.3rem;letter-spacing:.03em"></div>
-      <button class="hbtn" id="btnEditRace" onclick="toggleEditRaceForm()">✏️ Modifier</button>
-      <button class="hbtn" id="btnDeleteRace" style="color:var(--red);border-color:var(--red)">🗑 Supprimer</button>
+      <div id="eventViewTitle" style="flex:1;font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;min-width:0;overflow:hidden;text-overflow:ellipsis"></div>
+      <div style="position:relative;flex-shrink:0" id="raceMenuWrap">
+        <button class="hbtn" onclick="toggleRaceMenu(event)" style="font-size:1rem;padding:6px 10px">⚙️</button>
+        <div id="raceMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:200;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+          <button class="race-menu-item" onclick="toggleEditRaceForm();toggleRaceMenu()">✏️ Modifier</button>
+          <button class="race-menu-item" onclick="raceMenuChangeGpx()">🗺️ Changer de GPX</button>
+          <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="saveGpxToRace();toggleRaceMenu()">💾 Sauvegarder GPX</button>
+          <button class="race-menu-item" onclick="window.print();toggleRaceMenu()">🖨️ Imprimer</button>
+          <div style="border-top:1px solid var(--border);margin:4px 2px"></div>
+          <button class="race-menu-item" id="btnDeleteRace" style="color:var(--red)">🗑️ Supprimer</button>
+        </div>
+      </div>
     </div>
     <div id="editRaceForm" style="display:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px 16px;margin-bottom:1rem;grid-template-columns:1fr 1fr;gap:10px">
       <div style="grid-column:1/-1;font-family:var(--display);font-size:.9rem;letter-spacing:.03em;margin-bottom:2px">Modifier l'événement</div>
@@ -1358,6 +1369,7 @@ function backToCalendar() {
   document.getElementById('stratResult').style.display='none';
   document.getElementById('gpxDrop').style.display='flex';
   const ef=document.getElementById('editRaceForm');if(ef)ef.style.display='none';
+  const rm=document.getElementById('raceMenu');if(rm)rm.style.display='none';
   window._openEventRace=null;
   if(window._actMapInst2){window._actMapInst2.remove();window._actMapInst2=null;}
 }
@@ -1413,6 +1425,33 @@ async function saveEditRace() {
   document.getElementById('editRaceForm').style.display = 'none';
   renderCalendar();
 }
+
+function toggleRaceMenu(e) {
+  if(e) e.stopPropagation();
+  const menu = document.getElementById('raceMenu');
+  if(!menu) return;
+  const opening = menu.style.display === 'none';
+  menu.style.display = opening ? 'block' : 'none';
+  if(opening) {
+    const saveItem = document.getElementById('raceMenuSaveGpx');
+    if(saveItem) saveItem.style.display = (currentRaceContext?.id && window._pendingGpxSave) ? 'block' : 'none';
+  }
+}
+
+function raceMenuChangeGpx() {
+  const race = window._openEventRace;
+  toggleRaceMenu();
+  resetStrategy();
+  currentRaceContext = race;
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('raceMenuWrap');
+  const menu = document.getElementById('raceMenu');
+  if(menu && menu.style.display !== 'none' && wrap && !wrap.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
 
 // ════════════════════════════════════════════════════
 // ONBOARDING
@@ -2559,26 +2598,12 @@ async function analyzeGPX(points, fname) {
 
   const isTrail=isTrailRace();
 
+  // Update gear menu: show "Sauvegarder GPX" item only if GPX pending and race context available
+  const saveGpxItem = document.getElementById('raceMenuSaveGpx');
+  if(saveGpxItem) saveGpxItem.style.display = currentRaceContext?.id ? 'block' : 'none';
+
   res.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:1.25rem">
-      <div>
-        ${!currentRaceContext?`<div style="font-family:var(--display);font-size:2rem;letter-spacing:.03em">${raceName}</div>`:''}
-        ${raceDate&&!currentRaceContext?`<div class="mono t2">${raceDate}</div>`:''}
-        <div class="mono t2" style="font-size:.6rem;margin-top:4px">${projSource}</div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <span class="strat-tag" style="border-color:${isTrail?'var(--orange)40':'var(--cyan)40'};color:${isTrail?'var(--orange)':'var(--cyan)'}">${isTrail?'⛰️ Trail — RPE':'🏃 Route — FC structurée'}</span>
-          ${qualityCount>=4?`<span class="strat-tag" style="border-color:var(--green)40;color:var(--green)">📈 ${qualityCount} séances qualité analysées</span>`:'<span class="strat-tag" style="border-color:var(--text3)40;color:var(--text3)">Fais plus de séances qualité pour affiner</span>'}
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" class="no-print">
-        <button onclick="resetStrategy()" class="hbtn">← Changer de GPX</button>
-        ${currentRaceContext?.id
-          ? `<button onclick="saveGpxToRace()" class="hbtn" id="btnSaveGpx" style="background:var(--green);color:#000;border-color:var(--green)">💾 ${currentRaceContext.name}</button>`
-          : `<select class="fi" id="linkRaceSelect" style="max-width:200px;font-size:.7rem" onchange="linkGpxToRaceById(this.value)"><option value="">🔗 Lier à un événement...</option>${races.map(r=>`<option value="${r.id}">${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</option>`).join('')}</select>`
-        }
-        <button onclick="window.print()" class="hbtn" style="background:var(--cyan);color:#000;border-color:var(--cyan)">🖨️ Imprimer</button>
-      </div>
-    </div>
+    ${!currentRaceContext?`<div style="font-family:var(--display);font-size:1.6rem;letter-spacing:.03em;margin-bottom:.25rem">${raceName}</div><div class="mono t2" style="margin-bottom:1rem">${raceDate}</div>`:''}
 
     <div class="s-stats">
       <div class="s-stat"><div class="s-sv tc">${distKm.toFixed(2)} km</div><div class="s-sl">Distance</div></div>
