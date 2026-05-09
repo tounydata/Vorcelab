@@ -2648,7 +2648,7 @@ function handleGpxDrop(e){e.preventDefault();document.getElementById('gpxDrop').
 function handleGpxFile(e){const f=e.target.files[0];if(f)parseGPX(f);}
 
 function parseGPX(file, raceCtx=null){
-  currentRaceContext=raceCtx;
+  if(raceCtx) currentRaceContext=raceCtx;
   const reader=new FileReader();
   reader.onload=async e=>{
     const xml=new DOMParser().parseFromString(e.target.result,'text/xml');
@@ -2819,7 +2819,13 @@ async function analyzeGPX(points, fname) {
     ${sections.map((s,i)=>renderDetailedSection(s,sectionTimes[i],i)).join('')}
     </div>
 
-    <div class="card mt3"><div class="clabel">Tableau de splits km par km</div><div style="overflow-x:auto"><table class="splits-table"><thead><tr><th>Km</th><th>Type</th><th>Pente</th><th>D+</th><th>D-</th><th>Alt</th><th>Durée sect.</th><th>Temps cumulé</th><th>Conseil FC</th></tr></thead><tbody>${splits}</tbody></table></div></div>
+    <details class="card mt3" style="cursor:pointer">
+      <summary style="font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:2px 0;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <span>Tableau de splits km par km</span>
+        <span style="font-size:.8rem">▾</span>
+      </summary>
+      <div style="overflow-x:auto;margin-top:10px"><table class="splits-table"><thead><tr><th>Km</th><th>Type</th><th>Pente</th><th>D+</th><th>D-</th><th>Alt</th><th>Durée sect.</th><th>Temps cumulé</th><th>Conseil FC</th></tr></thead><tbody>${splits}</tbody></table></div>
+    </details>
 
     <div class="stitle mt3">Plan nutrition</div>
     <div class="card">
