@@ -2092,15 +2092,17 @@ async function renderRaceComparison(act, streams, race, targetId) {
     let gs=0;
     if(parts.length===2)gs=parseInt(parts[0])*60+parseInt(parts[1]);
     else if(parts.length===3)gs=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
-    if(gs>0)basePaceS=gs/(totalDist/1000)*0.85;
+    if(gs>0){
+      const tf=sections.reduce((a,s)=>a+(1+minettiGradePenalty(s.grade/100))*s.dist/1000,0);
+      basePaceS=tf>0?gs/tf:gs/(totalDist/1000);
+    }
   } else if(userProfile.prs?.semi?.timeS){
-    basePaceS=userProfile.prs.semi.timeS/21097*1000;
+    const isTrail=/trail|ultra/i.test(race.type||'');
+    basePaceS=userProfile.prs.semi.timeS/21097*1000*(isTrail?1.18:1.0);
   }
 
   const predicted=sections.map(s=>{
-    const g=s.grade/100;
-    let pen=g>0?g*8:g<-0.2?Math.abs(g)*4:g<-0.1?Math.abs(g)*2:0;
-    return Math.round(basePaceS*(1+pen)*s.dist/1000);
+    return Math.round(basePaceS*(1+minettiGradePenalty(s.grade/100))*s.dist/1000);
   });
 
   const distD=streams.distance?.data||[];
@@ -2211,16 +2213,7 @@ async function renderRaceComparison(act, streams, race, targetId) {
       </div>
       <div class="mono t3" style="font-size:.56rem;margin-top:8px">✓ = ±10% · ~ = ±25% · ⚠️ = &gt;25% d'écart</div>
     </div>
-    ${weatherHTML}
-    ${calHTML}
-    ${calibChips.length?`
-    <div class="card" style="background:var(--bg3);margin-top:12px">
-      <div class="clabel" style="margin-bottom:.5rem">📈 Calibration algorithme — ${sportType}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        ${calibChips.map(c=>`<span class="mono" style="background:var(--bg4);padding:4px 10px;border-radius:20px;font-size:.65rem">${c}</span>`).join('')}
-      </div>
-      <div class="mono t3" style="font-size:.56rem">Coefficients sauvegardés · utilisés pour calibrer les prochaines projections ${sportType}</div>
-    </div>`:''}`;
+    ${weatherHTML}`;
 
   // Save calibration coefficients (per sport type)
   const coeffKey=sportType.toLowerCase().includes('trail')||sportType.toLowerCase().includes('ultra')?'trail':'road';
@@ -2670,6 +2663,20 @@ function parseGPX(file, raceCtx=null){
 function hav(p1,p2){const R=6371000,r=Math.PI/180,dLat=(p2.lat-p1.lat)*r,dLon=(p2.lon-p1.lon)*r,a=Math.sin(dLat/2)**2+Math.cos(p1.lat*r)*Math.cos(p2.lat*r)*Math.sin(dLon/2)**2;return R*2*Math.asin(Math.sqrt(a));}
 function fmtT(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`;}
 
+// Minetti (2002) gradient penalty — uphill validated, downhill empirical trail model
+function minettiGradePenalty(grade) {
+  if(grade >= 0) {
+    const i=Math.min(grade, 0.50);
+    const c=280.5*i**5 - 58.7*i**4 - 76.8*i**3 + 51.9*i**2 + 19.6*i + 2.5;
+    return c/2.5 - 1;
+  } else {
+    const g=Math.abs(grade);
+    if(g<=0.12) return -g*0.5;
+    if(g<=0.25) return -0.06+(g-0.12)*1.5;
+    return 0.135+(g-0.25)*3.0;
+  }
+}
+
 async function analyzeGPX(points, fname) {
   let cumDist=[0],dplus=0,dminus=0;
   for(let i=1;i<points.length;i++){
@@ -2741,8 +2748,9 @@ async function analyzeGPX(points, fname) {
   const progressionFactor = computeProgressionFactor();
   const qualityCount = allActivities.filter(a=>isRun(a.type)&&a.average_heartrate>(userProfile.fc_max||205)*.80&&a.distance>3000).length;
 
-  // Base pace from goal time, progression-adjusted PR, or default
-  let basePaceS=320;
+  // Base pace from goal time (algebraic solve), progression-adjusted PR, or default
+  const isTrail=isTrailRace();
+  let basePaceS=isTrail?420:320; // 7:00/km trail, 5:20/km route par défaut
   let projSource='';
   if(currentRaceContext?.goal_time) {
     const gt=currentRaceContext.goal_time;
@@ -2751,7 +2759,9 @@ async function analyzeGPX(points, fname) {
     if(parts.length===2)goalS=parseInt(parts[0])*60+parseInt(parts[1]);
     else if(parts.length===3)goalS=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
     if(goalS>0){
-      basePaceS=(goalS/(totalDist/1000))*0.85;
+      // Solve: Σ(basePaceS × (1+pen_i) × dist_i) = goalS → basePaceS = goalS / terrainFactor
+      const tf=sections.reduce((a,s)=>a+(1+minettiGradePenalty(s.grade/100))*s.dist/1000,0);
+      basePaceS=tf>0?goalS/tf:goalS/(totalDist/1000);
       projSource=`🎯 Objectif ${currentRaceContext.goal_time}`;
     }
   } else if(userProfile.prs){
@@ -2760,10 +2770,11 @@ async function analyzeGPX(points, fname) {
     if(candidates.length){
       const pr=prs[candidates[0]];
       const rawPace=pr.timeS/pr.dist*1000;
-      // Apply progression factor and coeff_uphill
-      basePaceS=rawPace/progressionFactor;
-      const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}% progression`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}% régression`:'stable';
-      projSource=`📊 PR ${candidates[0].toUpperCase()} ajusté progression (${prog}${qualityCount>=4?`, ${qualityCount} séances qualité`:', données insuffisantes'})`;
+      // Trail: road PR × 1.18 (terrain roughness) / progression
+      const trailCoeff=isTrail?1.18:1.0;
+      basePaceS=(rawPace*trailCoeff)/progressionFactor;
+      const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
+      projSource=`📊 PR ${candidates[0].toUpperCase()}${isTrail?' + coeff trail':''} · progression ${prog}`;
     }
   }
   if(!projSource) projSource='⚙️ Estimation par défaut — renseigne tes PR ou ton objectif temps';
@@ -2775,10 +2786,7 @@ async function analyzeGPX(points, fname) {
   const sectionTimes=[];
   let estTimeS=0;
   sections.forEach(s=>{
-    const distKm=s.dist/1000;
-    const grade=s.grade/100;
-    let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
-    const t=basePaceS*(1+pen)*distKm;
+    const t=basePaceS*(1+minettiGradePenalty(s.grade/100))*s.dist/1000;
     sectionTimes.push(Math.round(t));estTimeS+=t;
   });
   const dh=estTimeS/3600;
@@ -2829,34 +2837,42 @@ async function analyzeGPX(points, fname) {
       <div class="mono t3" style="font-size:.56rem;margin-top:8px">Minetti et al., 2002 · ${currentRaceContext?.goal_time?`Calibré sur objectif ${currentRaceContext.goal_time}`:userProfile.prs?.semi?`PR semi ${userProfile.prs.semi.time}`:'Renseigne tes PR ou objectif temps dans le calendrier'}</div>
     </div>
 
-    <div class="stitle mt3" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Plan de course — sections</span>
-      <span class="mono t3" style="font-size:.65rem;font-weight:400">${sections.length} section${sections.length>1?'s':''}</span>
-    </div>
-    <div id="sectionsScroll" style="max-height:460px;overflow-y:auto;border-radius:var(--r);border:1px solid var(--border);padding:4px 0;scroll-behavior:smooth">
-    ${sections.map((s,i)=>renderDetailedSection(s,sectionTimes[i],i)).join('')}
-    </div>
-
-    <details class="card mt3" style="cursor:pointer">
-      <summary style="font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:2px 0;list-style:none;display:flex;align-items:center;justify-content:space-between">
-        <span>Tableau de splits km par km</span>
-        <span style="font-size:.8rem">▾</span>
+    <details open style="margin-top:1.5rem">
+      <summary style="list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:var(--display);font-size:1.1rem;letter-spacing:.04em;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);user-select:none">
+        <span>📍 Plan de course — sections</span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="mono t3" style="font-size:.62rem">${sections.length} section${sections.length>1?'s':''}</span><span class="mono t2" style="font-size:.9rem">▾</span></span>
       </summary>
-      <div style="overflow-x:auto;margin-top:10px"><table class="splits-table"><thead><tr><th>Km</th><th>Type</th><th>Pente</th><th>D+</th><th>D-</th><th>Alt</th><th>Durée sect.</th><th>Temps cumulé</th><th>Conseil FC</th></tr></thead><tbody>${splits}</tbody></table></div>
+      <div id="sectionsScroll" style="max-height:460px;overflow-y:auto;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:4px 0;scroll-behavior:smooth">
+        ${sections.map((s,i)=>renderDetailedSection(s,sectionTimes[i],i)).join('')}
+      </div>
     </details>
 
-    <div class="stitle mt3">Plan nutrition</div>
-    <div class="card">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-bottom:1rem">
-        <div class="s-stat"><div class="s-sv to">${Math.round(dh*720)}</div><div class="s-sl">kcal estimées</div></div>
-        <div class="s-stat"><div class="s-sv tc">${dh<1.25?'Eau only':dh<2.5?Math.round(30*(dh-0.5))+'g':Math.round(60*(dh-0.5))+'g'}</div><div class="s-sl">Glucides cibles</div></div>
-        <div class="s-stat"><div class="s-sv tg">${Math.round(dh*400)} ml</div><div class="s-sl">Eau estimée</div></div>
-        <div class="s-stat"><div class="s-sv ${dh<1.25?'tg':dh<2.5?'ty':'to'}">${dh<1.25?'< 75min':dh<2.5?'75-150min':'> 150min'}</div><div class="s-sl">Protocole</div></div>
+    <details style="margin-top:.75rem">
+      <summary style="list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:var(--display);font-size:1.1rem;letter-spacing:.04em;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);user-select:none">
+        <span>🍌 Plan nutrition</span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="mono t3" style="font-size:.62rem">${dh<1.25?'< 75min':dh<2.5?'75–150min':'> 150min'}</span><span class="mono t2" style="font-size:.9rem">▾</span></span>
+      </summary>
+      <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin-bottom:1rem">
+          <div class="s-stat"><div class="s-sv tc">${dh<1.25?'Eau only':dh<2.5?Math.round(30*(dh-0.5))+'g':Math.round(60*(dh-0.5))+'g'}</div><div class="s-sl">Glucides cibles</div></div>
+          <div class="s-stat"><div class="s-sv tg">${Math.round(dh*400)} ml</div><div class="s-sl">Eau estimée</div></div>
+          <div class="s-stat"><div class="s-sv ${dh<1.25?'tg':dh<2.5?'ty':'to'}">${dh<1.25?'< 75min':dh<2.5?'75–150min':'> 150min'}</div><div class="s-sl">Protocole</div></div>
+        </div>
+        ${dh<1.25?`<div style="background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25);border-radius:8px;padding:10px 14px;font-size:.8rem;margin-bottom:.75rem"><strong class="tg">Effort &lt; 75 min — eau uniquement pendant la course.</strong><br><span class="mono t3" style="font-size:.62rem">Réserves glycogéniques endogènes suffisantes. Burke et al., 2011</span></div>`:''}
+        <table class="nutr-table"><thead><tr><th>Moment</th><th>Action</th><th>Glucides</th><th>Justification</th></tr></thead><tbody>${genNutrition(totalDist,estTimeS)}</tbody></table>
+        <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Burke 2011 · Jeukendrup 2004 · Currell & Jeukendrup 2008 · Ivy 1998</div>
       </div>
-      ${dh<1.25?`<div style="background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25);border-radius:8px;padding:10px 14px;font-size:.8rem;margin-bottom:.75rem"><strong class="tg">Effort estimé &lt; 75 minutes — eau uniquement pendant la course.</strong><br><span class="mono t3" style="font-size:.62rem">Réserves glycogéniques endogènes (~400-500g) suffisantes. Burke et al., 2011 — J Sports Sci</span></div>`:''}
-      <table class="nutr-table"><thead><tr><th>Moment</th><th>Action</th><th>Glucides</th><th>Justification scientifique</th></tr></thead><tbody>${genNutrition(totalDist,estTimeS)}</tbody></table>
-      <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Burke et al., 2011 · Jeukendrup, 2004 · Currell & Jeukendrup, 2008 · Ivy, 1998 · Sawka et al., 2007</div>
-    </div>`;
+    </details>
+
+    <details style="margin-top:.75rem">
+      <summary style="list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:var(--display);font-size:1.1rem;letter-spacing:.04em;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);user-select:none">
+        <span>📊 Splits km par km</span>
+        <span class="mono t2" style="font-size:.9rem">▾</span>
+      </summary>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);padding:10px">
+        <table class="splits-table"><thead><tr><th>Km</th><th>Type</th><th>Pente</th><th>D+</th><th>D-</th><th>Alt</th><th>Durée sect.</th><th>Temps cumulé</th><th>Conseil FC</th></tr></thead><tbody>${splits}</tbody></table>
+      </div>
+    </details>`;
 
   // ── Globals interactivité ──
   window._gpxPoints = points;
@@ -3369,10 +3385,8 @@ function buildSplitsTable(kmSecs, basePaceS){
   const pct88=Math.round(fcMax*.88),pct84=Math.round(fcMax*.84),pct79=Math.round(fcMax*.79);
   let cumTime=0,rows='';
   kmSecs.filter(s=>s!=null&&s.km!=null&&s.grade!=null).forEach(s=>{
-    const grade=s.grade/100;
-    let pen=grade>0?grade*8:grade<-0.2?Math.abs(grade)*4:grade<-0.1?Math.abs(grade)*2:0;
     const distKm=(s.dist||0)/1000;
-    const secTime=basePaceS*(1+pen)*distKm;
+    const secTime=basePaceS*(1+minettiGradePenalty(s.grade/100))*distKm;
     cumTime+=secTime;
     const type=s.grade>4?'up':s.grade<-4?'down':'flat';
     const fc={up:`< ${Math.abs(s.grade)>10?pct84:pct88} bpm`,down:'Libre',flat:`< ${pct79} bpm`}[type];
@@ -4138,6 +4152,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     <button onclick="confirmCrop()" class="hbtn" style="background:var(--cyan);color:#000;border-color:var(--cyan)">✓ Valider</button>
   </div>
 </div>
+
+<!-- Back to top -->
+<button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:24px;right:20px;z-index:900;width:44px;height:44px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:1.1rem;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.5);transition:opacity .2s">↑</button>
+<script>
+window.addEventListener('scroll',()=>{
+  const b=document.getElementById('scrollTopBtn');
+  if(b) b.style.display=window.scrollY>350?'flex':'none';
+},{passive:true});
+</script>
 
 </body>
 </html>
