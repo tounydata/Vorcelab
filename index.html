@@ -1785,6 +1785,7 @@ DONNÉES SORTIE:
 - D+: ${act.total_elevation_gain||0}m | FC moy: ${act.average_heartrate||'N/A'} bpm | FC max: ${act.max_heartrate||'N/A'} bpm
 - Répartition zones FC: Z1=${zones[0]}% Z2=${zones[1]}% Z3=${zones[2]}% Z4=${zones[3]}% Z5=${zones[4]}%
 - Pénalité conditions: +${(paf.totalAdj*100).toFixed(0)}% (${paf.factors.map(f=>f.label+' '+f.value).join(', ')})
+${act.description?`- Notes de l'athlète: "${act.description}"`:''}
 
 ${isInterval
   ? 'Analyse la qualité des répétitions, la régularité de l\'effort, la récupération entre les séries, et donne 1 conseil concret pour la prochaine séance de fractionné.'
@@ -2248,12 +2249,17 @@ ATHLÈTE: ${weight}kg · FC max ${userProfile.fc_max||200} bpm · VO2max ${userP
 ${weatherCtx}
 ${calCtx}
 
-PERTES DE TEMPS PAR SECTION (type · km · dénivelé · prévu → réel · écart · FC moy):
+PERTES DE TEMPS PAR SECTION (type · km · dénivelé · revêtement · prévu → réel · écart · FC moy):
 ${sections.map((s,i)=>{
   const p=predicted[i],r=actual[i];
   const d=r&&p?Math.round((r-p)/p*100):null;
-  return `  ${icons[s.type]} km${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} (${s.type==='up'?'+'+s.dplus+'m D+':s.type==='down'?'-'+s.dminus+'m D-':'plat'}) : ${fmtT(p)} → ${r?fmtT(r):'—'}${d!==null?' | '+(d>0?'+':'')+d+'%':''}${sectionHR[i]?' | FC '+sectionHR[i]+'bpm':''}`;
+  const sk=window._gpxSectionSurfaces?.[i];
+  const surfStr=sk?` · revêtement:${sk}`:'';
+  const slipStr=sk?slipRisk(sk,weather?.precip||0):'';
+  return `  ${icons[s.type]} km${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} (${s.type==='up'?'+'+s.dplus+'m D+':s.type==='down'?'-'+s.dminus+'m D-':'plat'}${surfStr}${slipStr?' · '+slipStr:''}) : ${fmtT(p)} → ${r?fmtT(r):'—'}${d!==null?' | '+(d>0?'+':'')+d+'%':''}${sectionHR[i]?' | FC '+sectionHR[i]+'bpm':''}`;
 }).join('\n')}
+${act.description?`\nDESCRIPTION STRAVA DE L'ATHLÈTE: "${act.description}"`:''}${race.notes?`\nNOTES COURSE: "${race.notes}"`:''}
+
 
 CALIBRATION RÉSULTANTE:${avgUpDiff!==null?' montées '+(avgUpDiff>0?'+':'')+avgUpDiff+'%':''}${avgDownDiff!==null?' · descentes '+(avgDownDiff>0?'+':'')+avgDownDiff+'%':''}${avgFlatDiff!==null?' · plat '+(avgFlatDiff>0?'+':'')+avgFlatDiff+'%':''}
 ÉCART GLOBAL: ${avgDiff>0?'+':''}${avgDiff}% vs algorithme
@@ -2758,6 +2764,8 @@ async function analyzeGPX(points, fname) {
 
   // Build sections
   const sections=buildDetailedSections(kmSecs);
+  // Fetch terrain surfaces in parallel (OSM Overpass) while we compute times
+  const surfacePromise=fetchTerrainSurfaces(points, sections);
   const sectionTimes=[];
   let estTimeS=0;
   sections.forEach(s=>{
@@ -2772,6 +2780,10 @@ async function analyzeGPX(points, fname) {
   const raceName=currentRaceContext?.name||fname.replace('.gpx','')||'Course';
   const raceDate=currentRaceContext?.date?new Date(currentRaceContext.date).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
   const splits=buildSplitsTable(kmSecs,basePaceS);
+
+  // Await terrain surfaces (fetched in parallel above)
+  window._gpxSectionSurfaces = await surfacePromise;
+  window._gpxWeather = weather;
 
   const res=document.getElementById('stratResult');
   res.style.display='block';
@@ -3027,6 +3039,80 @@ async function analyzeGPX(points, fname) {
   }
 }
 
+// ════════════ TERRAIN SURFACES via OSM Overpass ════════════
+const SURFACE_MAP={
+  rock:{fr:'Rochers',emoji:'🪨',risk:'high',col:'var(--red)'},
+  rocks:{fr:'Rochers',emoji:'🪨',risk:'high',col:'var(--red)'},
+  scree:{fr:'Éboulis',emoji:'⛰️',risk:'high',col:'var(--red)'},
+  mud:{fr:'Boue',emoji:'💧',risk:'high',col:'var(--red)'},
+  sand:{fr:'Sable',emoji:'🏖️',risk:'high',col:'var(--orange)'},
+  gravel:{fr:'Gravier',emoji:'🪨',risk:'medium',col:'var(--orange)'},
+  fine_gravel:{fr:'Gravier fin',emoji:'🪨',risk:'medium',col:'var(--yellow)'},
+  pebblestone:{fr:'Cailloux',emoji:'🪨',risk:'medium',col:'var(--orange)'},
+  dirt:{fr:'Terre',emoji:'🌿',risk:'medium',col:'var(--yellow)'},
+  ground:{fr:'Sol naturel',emoji:'🌿',risk:'medium',col:'var(--yellow)'},
+  grass:{fr:'Herbe',emoji:'🌿',risk:'medium',col:'var(--yellow)'},
+  cobblestone:{fr:'Pavés',emoji:'🧱',risk:'medium',col:'var(--orange)'},
+  compacted:{fr:'Compacté',emoji:'🔵',risk:'low',col:'var(--cyan)'},
+  paved:{fr:'Bitume',emoji:'🛣️',risk:'none',col:'var(--text3)'},
+  asphalt:{fr:'Bitume',emoji:'🛣️',risk:'none',col:'var(--text3)'},
+  concrete:{fr:'Béton',emoji:'🛣️',risk:'none',col:'var(--text3)'},
+  path:{fr:'Sentier',emoji:'🥾',risk:'medium',col:'var(--yellow)'},
+  track:{fr:'Chemin',emoji:'🥾',risk:'low',col:'var(--cyan)'},
+  footway:{fr:'Sentier',emoji:'🥾',risk:'medium',col:'var(--yellow)'},
+  bridleway:{fr:'Piste',emoji:'🥾',risk:'medium',col:'var(--yellow)'},
+};
+function surfaceInfo(k){return SURFACE_MAP[k]||{fr:k,emoji:'🌍',risk:'medium',col:'var(--text2)'};}
+
+function _ptSegDist(px,py,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy;
+  if(!len) return Math.hypot(px-ax,py-ay);
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/len));
+  return Math.hypot(px-ax-t*dx,py-ay-t*dy);
+}
+
+async function fetchTerrainSurfaces(points, sections) {
+  try {
+    const lats=points.map(p=>p.lat),lons=points.map(p=>p.lon);
+    const S=Math.min(...lats).toFixed(5),N=Math.max(...lats).toFixed(5);
+    const W=Math.min(...lons).toFixed(5),E=Math.max(...lons).toFixed(5);
+    const q=`[out:json][timeout:25];(way(${S},${W},${N},${E})["surface"];way(${S},${W},${N},${E})["highway"~"^(path|track|footway|bridleway)$"];);out body geom;`;
+    const ctrl=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(18000):undefined;
+    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q),signal:ctrl});
+    if(!res.ok) return sections.map(()=>null);
+    const {elements=[]}=await res.json();
+    const ways=elements.filter(e=>e.geometry?.length>=2);
+
+    const cumDist=[0];
+    for(let i=1;i<points.length;i++) cumDist.push(cumDist[i-1]+hav(points[i-1],points[i]));
+
+    return sections.map(s=>{
+      const mid=((s.startKm+(s.endKm??s.km??s.startKm))/2)*1000;
+      let ci=0,minD=Infinity;
+      cumDist.forEach((d,i)=>{const dd=Math.abs(d-mid);if(dd<minD){minD=dd;ci=i;}});
+      const pt=points[ci]; if(!pt) return null;
+      let bestD=Infinity,bestSurf=null;
+      for(const way of ways){
+        const g=way.geometry;
+        for(let i=0;i<g.length-1;i++){
+          const d=_ptSegDist(pt.lat,pt.lon,g[i].lat,g[i].lon,g[i+1].lat,g[i+1].lon);
+          if(d<bestD){bestD=d;bestSurf=way.tags?.surface||way.tags?.highway||null;}
+        }
+      }
+      return bestD<0.0007?bestSurf:null;
+    });
+  } catch { return sections.map(()=>null); }
+}
+
+function slipRisk(surfKey, precipMm) {
+  const info=SURFACE_MAP[surfKey]; if(!info||info.risk==='none') return null;
+  const wet=precipMm>0.5;
+  if(wet&&info.risk==='high') return 'très glissant (humide)';
+  if(wet&&info.risk==='medium') return 'glissant (humide)';
+  if(info.risk==='high') return 'terrain technique';
+  return null;
+}
+
 function buildDetailedSections(kmSecs){
   if(!kmSecs.length) return [];
 
@@ -3150,6 +3236,9 @@ function renderDetailedSection(s, secTimeS, idx=0){
   const icons={up:'⛰️',down:'🎿',flat:'➡️'};
   const names={up:'Montée',down:'Descente',flat:'Plat / Liaison'};
   const distKm=(s.dist/1000).toFixed(2);
+  const surfKey=window._gpxSectionSurfaces?.[idx]||null;
+  const surf=surfKey?surfaceInfo(surfKey):null;
+  const slip=surf?slipRisk(surfKey, window._gpxWeather?.precip||0):null;
   let tags=[],advice='',rpeBadge='';
 
   if(s.type==='up'){
@@ -3166,6 +3255,7 @@ function renderDetailedSection(s, secTimeS, idx=0){
         {l:steep?'RPE 7 max — marche si > 8':'RPE 6-7 max',c:'var(--cyan)'},
         {l:steep?'Marche active recommandée':'Courir régulier',c:'var(--green)'}
       ];
+      if(surf) tags.push({l:`${surf.emoji} ${surf.fr}${slip?' · '+slip:''}`,c:surf.col});
       advice=steep
         ? `<strong>Montée raide (${Math.abs(s.grade).toFixed(1)}%)</strong> — passe en <strong>marche active</strong> dès que tu ne peux plus tenir une conversation (RPE 8+). La marche rapide est souvent plus efficace que courir en souffrant ici.<br><span class="mono t3" style="font-size:.6rem">FC indicative : si tu dépasses Z4 (≥${z4top} bpm) durablement, ralentis.</span>${vam>0?`<br>VAM requise ~${vam} m/h.`:''}`
         : `<strong>Montée modérée (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulée courte et fréquente, appuis avant-pied, bras actifs. Vise RPE 6-7 : tu dois pouvoir dire 2-3 mots entre chaque respiration.<br><span class="mono t3" style="font-size:.6rem">FC indicative : Z4 (${z3top}-${z4top} bpm) acceptable, attention si ça dure.</span>${vam>0?`<br>VAM requise ~${vam} m/h.`:''}`;
@@ -3183,6 +3273,7 @@ function renderDetailedSection(s, secTimeS, idx=0){
 
   } else if(s.type==='down'){
     const technical=Math.abs(s.grade)>12;
+    const highRiskTerrain=surf&&(surf.risk==='high'||surf.risk==='medium');
     if(trail){
       tags=[
         {l:`${distKm} km`,c:'var(--purple)'},
@@ -3191,9 +3282,12 @@ function renderDetailedSection(s, secTimeS, idx=0){
         {l:'RPE 3-4',c:'var(--cyan)'},
         {l:'Récupération active',c:'var(--green)'}
       ];
-      advice=technical
-        ? `<strong>Descente technique (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulées très courtes et rapides, regard 2-3m devant, léger penché avant. Ne jamais freiner avec les talons (impact 3-4× ton poids). RPE 4 max — c'est du temps récupéré "gratuit" si tu gères bien.<br><span class="mono t3" style="font-size:.6rem">FC : elle va naturellement redescendre ici, profite-en.</span>`
-        : `<strong>Descente douce (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulées courtes et rapides, laisse la FC descendre sous Z3 (${z2top}-${z3top} bpm). C'est ta fenêtre de récupération. RPE 3-4.`;
+      if(surf) tags.push({l:`${surf.emoji} ${surf.fr}${slip?' · '+slip:''}`,c:surf.col});
+      const terrainNote=slip?`<br><span class="mono t3" style="font-size:.6rem;color:var(--red)">⚠️ Sol ${slip} — réduis l'amplitude, priorise la sécurité sur le chrono.</span>`
+        :(surf&&surf.risk!=='none'?`<br><span class="mono t3" style="font-size:.6rem">Revêtement : ${surf.fr} — adapte l'amplitude à l'adhérence.</span>`:'');
+      advice=(technical||highRiskTerrain)
+        ? `<strong>Descente technique (${Math.abs(s.grade).toFixed(1)}%${surf?` · ${surf.fr}`:''})</strong> — foulées très courtes et rapides, regard 2-3m devant, léger penché avant. Ne jamais freiner avec les talons (impact 3-4× ton poids). RPE 4 max.${terrainNote}<br><span class="mono t3" style="font-size:.6rem">FC : elle va naturellement redescendre ici, profite-en.</span>`
+        : `<strong>Descente douce (${Math.abs(s.grade).toFixed(1)}%)</strong> — foulées courtes et rapides, laisse la FC descendre sous Z3 (${z2top}-${z3top} bpm). C'est ta fenêtre de récupération. RPE 3-4.${terrainNote}`;
     } else {
       tags=[
         {l:`${distKm} km`,c:'var(--purple)'},
@@ -3210,6 +3304,7 @@ function renderDetailedSection(s, secTimeS, idx=0){
         {l:'RPE 4-5',c:'var(--green)'},
         {l:'Récupération active',c:'var(--cyan)'}
       ];
+      if(surf) tags.push({l:`${surf.emoji} ${surf.fr}${slip?' · '+slip:''}`,c:surf.col});
       advice=`<strong>Section plate / liaison</strong> — laisse la FC redescendre, reprends la respiration. RPE 4-5 : tu dois pouvoir parler en phrases courtes. Si tu as un ravito, c'est ici qu'on mange et qu'on boit.`;
     } else {
       tags=[
