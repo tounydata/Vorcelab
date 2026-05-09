@@ -2239,7 +2239,7 @@ async function renderRaceComparison(act, streams, race, targetId) {
     section.appendChild(aiBox);
 
     const avgDiff=validDiffs.length?Math.round(validDiffs.reduce((a,b)=>a+b,0)/validDiffs.length):0;
-    const weatherCtx=weather?`CONDITIONS MÉTÉO LE JOUR J: ${[weather.temp!==null?weather.temp+'°C':'',weather.wind!==null?'vent '+weather.wind+'km/h':'',weather.precip!==null?'précip '+weather.precip+'mm':''].filter(Boolean).join(' · ')}`:' (météo non disponible)';
+    const weatherCtx=weather?`CONDITIONS MÉTÉO LE JOUR J: ${[weather.temp!=null?Math.round(weather.temp)+'°C':'',weather.wind!=null?'vent '+Math.round(weather.wind)+'km/h':'',weather.precip!=null?'précip '+weather.precip+'mm':'',weather.precip_recent!=null&&weather.precip_recent>0?'cumul 6h avant: '+weather.precip_recent.toFixed(1)+'mm':''].filter(Boolean).join(' · ')}`:' (météo non disponible)';
     const calCtx=actCal?`ÉNERGIE: prévu ${predCal} kcal · Strava ${actCal} kcal (écart ${calDiff>0?'+':''}${calDiff}%)`:' (calories Strava non disponibles)';
 
     const compPrompt=`Tu es un coach running expert. Voici le bilan complet d'une course. Analyse-le de manière structurée et directement actionnable. 6-8 phrases. Commence sans formule d'introduction.
@@ -2255,7 +2255,7 @@ ${sections.map((s,i)=>{
   const d=r&&p?Math.round((r-p)/p*100):null;
   const sk=window._gpxSectionSurfaces?.[i];
   const surfStr=sk?` · revêtement:${sk}`:'';
-  const slipStr=sk?slipRisk(sk,weather?.precip||0):'';
+  const slipStr=sk?slipRisk(sk,weather,s.grade||0):'';
   return `  ${icons[s.type]} km${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} (${s.type==='up'?'+'+s.dplus+'m D+':s.type==='down'?'-'+s.dminus+'m D-':'plat'}${surfStr}${slipStr?' · '+slipStr:''}) : ${fmtT(p)} → ${r?fmtT(r):'—'}${d!==null?' | '+(d>0?'+':'')+d+'%':''}${sectionHR[i]?' | FC '+sectionHR[i]+'bpm':''}`;
 }).join('\n')}
 ${act.description?`\nDESCRIPTION STRAVA DE L'ATHLÈTE: "${act.description}"`:''}${race.notes?`\nNOTES COURSE: "${race.notes}"`:''}
@@ -2685,9 +2685,15 @@ async function analyzeGPX(points, fname) {
   for(let i=0;i<points.length;i++){if(cumDist[i]>=target){samples.push({d:+(cumDist[i]/1000).toFixed(2),alt:points[i].ele?Math.round(points[i].ele):null});target+=100;}}
   samples.push({d:+(totalDist/1000).toFixed(2),alt:eles[eles.length-1]?Math.round(eles[eles.length-1]):null});
 
-  // Weather
+  // Weather — forecast : récupère aussi precipitation (mm) et fenêtre 6h
   let weather=null;
-  try{const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`);const d=await r.json();const h=9;weather={temp:d.hourly?.temperature_2m?.[h],precip:d.hourly?.precipitation_probability?.[h],wind:d.hourly?.windspeed_10m?.[h]};}catch{}
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`);
+    const d=await r.json();
+    const h=9;
+    const precip6h=(d.hourly?.precipitation||[]).slice(Math.max(0,h-6),h+1).reduce((a,v)=>a+(v||0),0);
+    weather={temp:d.hourly?.temperature_2m?.[h],precip_prob:d.hourly?.precipitation_probability?.[h]??0,precip:d.hourly?.precipitation?.[h]??0,precip_recent:precip6h,wind:d.hourly?.windspeed_10m?.[h]};
+  }catch{}
 
   // 500m sections with detailed grade
   const kmSecs=[];let segTarget=500,prevIdx=0,segNum=0;
@@ -2806,7 +2812,7 @@ async function analyzeGPX(points, fname) {
       <div class="s-stat"><div class="s-sv">${altMax}m</div><div class="s-sl">Alt. max</div></div>
       ${weather?.temp!=null?`<div class="s-stat"><div class="s-sv ${weather.temp>25?'tr':weather.temp<5?'tc':'tg'}">${Math.round(weather.temp)}°C</div><div class="s-sl">Météo prévue</div></div>`:''}
       ${weather?.wind!=null?`<div class="s-stat"><div class="s-sv">${Math.round(weather.wind)} km/h</div><div class="s-sl">Vent</div></div>`:''}
-      ${weather?.precip!=null?`<div class="s-stat"><div class="s-sv ${weather.precip>50?'tr':'tg'}">${weather.precip}%</div><div class="s-sl">Prob. pluie</div></div>`:''}
+      ${weather?.precip_prob!=null?`<div class="s-stat"><div class="s-sv ${weather.precip_prob>50?'tr':'tg'}">${weather.precip_prob}%</div><div class="s-sl">Prob. pluie</div></div>`:''}
     </div>
 
     <div class="card mt2 no-print"><div class="clabel">Tracé du parcours — OpenStreetMap</div><div id="raceMap" style="height:300px;border-radius:9px;overflow:hidden"></div></div>
@@ -3104,12 +3110,44 @@ async function fetchTerrainSurfaces(points, sections) {
   } catch { return sections.map(()=>null); }
 }
 
-function slipRisk(surfKey, precipMm) {
+function slipRisk(surfKey, weather, grade=0) {
+  if(!surfKey) return null;
   const info=SURFACE_MAP[surfKey]; if(!info||info.risk==='none') return null;
-  const wet=precipMm>0.5;
-  if(wet&&info.risk==='high') return 'très glissant (humide)';
-  if(wet&&info.risk==='medium') return 'glissant (humide)';
-  if(info.risk==='high') return 'terrain technique';
+  // Normalise : weather peut venir du forecast (precip_prob+precip_recent) ou de l'archive (precip en mm)
+  const prob  = weather?.precip_prob ?? (weather?.precip > 0 ? 70 : 0);
+  const mm6h  = weather?.precip_recent ?? weather?.precip ?? 0;
+  const wet   = prob > 20 || mm6h > 0.3;
+  const vwet  = prob > 50 || mm6h > 2;
+  const steep = Math.abs(grade) > 10;
+
+  if(surfKey==='mud') return 'boue — très glissant';
+  if(surfKey==='sand') return 'sable instable';
+
+  // Herbe : glissante avec très peu de pluie (rosée suffit)
+  if(surfKey==='grass') return wet?'glissant (herbe mouillée)':null;
+
+  // Rochers / éboulis : technique sec, très glissant humide
+  if(surfKey==='rock'||surfKey==='rocks'||surfKey==='scree')
+    return wet?'très glissant (rochers humides)':'terrain rocheux technique';
+
+  // Gravier/cailloux : instable en descente raide même sec (poussière + matériaux mobiles)
+  if(surfKey==='gravel'||surfKey==='fine_gravel'||surfKey==='pebblestone'){
+    if(vwet) return 'très glissant (graviers détrempés)';
+    if(wet)  return 'glissant (graviers humides)';
+    if(steep) return 'instable (graviers/poussière — descente raide)';
+    return null;
+  }
+
+  // Terre / sol naturel : glissant dès les premières gouttes
+  if(surfKey==='dirt'||surfKey==='ground')
+    return wet?'glissant (terre détrempée)':null;
+
+  // Pavés / cobblestone
+  if(surfKey==='cobblestone') return wet?'glissant (pavés mouillés)':null;
+
+  // Sentier générique
+  if(info.risk==='high') return wet?'très glissant':'terrain technique';
+  if(info.risk==='medium'&&vwet) return 'glissant (humide)';
   return null;
 }
 
@@ -3238,7 +3276,7 @@ function renderDetailedSection(s, secTimeS, idx=0){
   const distKm=(s.dist/1000).toFixed(2);
   const surfKey=window._gpxSectionSurfaces?.[idx]||null;
   const surf=surfKey?surfaceInfo(surfKey):null;
-  const slip=surf?slipRisk(surfKey, window._gpxWeather?.precip||0):null;
+  const slip=surf?slipRisk(surfKey, window._gpxWeather, s.grade||0):null;
   let tags=[],advice='',rpeBadge='';
 
   if(s.type==='up'){
