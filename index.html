@@ -1792,29 +1792,76 @@ async function generateAIAnalysis(act, streams, paf) {
     sessionTypeBlock = `TYPE DE SÉANCE: SORTIE CONTINUE (endurance / tempo)`;
   }
 
-  const prompt = `Tu es un coach running expert. Analyse cette sortie course à pied de manière concise et personnalisée en 4-5 phrases maximum. Sois direct, factuel, et actionnable. Ne commence pas par "Cette sortie" ou "Voici".
+  // ── Build historical context for the prompt ──────────────────────────────
+  const actDate = new Date(act.start_date);
+  const d28ago = new Date(actDate); d28ago.setDate(actDate.getDate()-28);
+  const d7ago  = new Date(actDate); d7ago.setDate(actDate.getDate()-7);
+  const recentRuns = allActivities.filter(a => {
+    const d=new Date(a.start_date);
+    return isRun(a.type) && d>=d28ago && d<actDate;
+  });
+  const last7Runs = recentRuns.filter(a=>new Date(a.start_date)>=d7ago);
+  const km28 = recentRuns.reduce((s,a)=>s+a.distance/1000,0).toFixed(0);
+  const km7  = last7Runs.reduce((s,a)=>s+a.distance/1000,0).toFixed(0);
+  const dp28 = recentRuns.reduce((s,a)=>s+(a.total_elevation_gain||0),0).toFixed(0);
 
-DONNÉES ATHLÈTE:
-- Age: ${userProfile.age||34} ans | Poids: ${userProfile.weight||79}kg | VO2max: ${userProfile.vo2max||50.4}
-- FC max: ${fcMax} bpm
+  // Find comparable efforts: similar distance (±40%) with significant elevation
+  const distKm = act.distance/1000;
+  const isTrailLike = (act.total_elevation_gain||0) > 200;
+  const comparables = allActivities.filter(a => {
+    if(!isRun(a.type)||a.id===act.id) return false;
+    const dk=a.distance/1000;
+    return dk>=distKm*0.6 && dk<=distKm*1.4 && (isTrailLike ? (a.total_elevation_gain||0)>100 : true);
+  }).sort((a,b)=>new Date(b.start_date)-new Date(a.start_date)).slice(0,5);
+  const compBlock = comparables.length ? comparables.map(a=>{
+    const dkC=a.distance/1000;
+    return `  • ${new Date(a.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} — ${dkC.toFixed(1)}km / D+${a.total_elevation_gain||0}m — allure ${fmtP(a.average_speed)}/km — FC moy ${a.average_heartrate||'?'} bpm`;
+  }).join('\n') : '  (aucune sortie comparable dans l\'historique)';
+
+  // Intensity verdict helper data
+  const fcPct = act.average_heartrate ? Math.round(act.average_heartrate/fcMax*100) : null;
+  const intensityLabel = fcPct==null ? '' : fcPct<70 ? 'faible (<70% FCmax)' : fcPct<80 ? 'modérée (70-80% FCmax)' : fcPct<88 ? 'élevée (80-88% FCmax)' : 'très élevée (>88% FCmax)';
+
+  // PRs context
+  const prsBlock = userProfile.prs ? Object.entries(userProfile.prs).filter(([,v])=>v?.time).map(([k,v])=>`  • ${k}: ${v.time}`).join('\n') : '  (aucun PR enregistré)';
+
+  const prompt = `Tu es un coach running. Analyse cette séance de manière TRANCHÉE et PERSONNALISÉE en exactement 4 phrases.
+
+RÈGLES ABSOLUES:
+- Cite OBLIGATOIREMENT des chiffres de la séance (pas de généralité)
+- Compare TOUJOURS à l'historique fourni ci-dessous
+- Donne UN verdict sur l'intensité : trop fort / bien dosé / trop facile
+- La phrase 4 = UN conseil UNIQUE et CONCRET pour la prochaine semaine (ex: "Fais un footing 45min à <140 bpm mercredi pour récupérer")
+- INTERDIT: "bonne séance", "effort intéressant", "belle performance", tout compliment vague
+- Ne commence pas par "Cette sortie", "Voici" ou le prénom
+
+PROFIL:
+- Âge: ${userProfile.age||34} ans | FC max: ${fcMax} bpm | VO2max: ${userProfile.vo2max||'?'}
+- PR: ${prsBlock}
 - Zones douloureuses: ${(userProfile.pain_zones||[]).join(', ')||'aucune'}
 
 ${sessionTypeBlock}
 
-DONNÉES SORTIE:
-- Nom: ${act.name}
-- Distance: ${(act.distance/1000).toFixed(2)}km | Durée: ${fmtD(act.moving_time)}
-- Allure moyenne: ${fmtP(act.average_speed)}/km | Allure normalisée PAF: ${paf.paceNorm}/km
-- D+: ${act.total_elevation_gain||0}m | FC moy: ${act.average_heartrate||'N/A'} bpm | FC max: ${act.max_heartrate||'N/A'} bpm
-- Répartition zones FC: Z1=${zones[0]}% Z2=${zones[1]}% Z3=${zones[2]}% Z4=${zones[3]}% Z5=${zones[4]}%
-- Pénalité conditions: +${(paf.totalAdj*100).toFixed(0)}% (${paf.factors.map(f=>f.label+' '+f.value).join(', ')})
-${act.description?`- Notes de l'athlète: "${act.description}"`:''}
+SÉANCE ANALYSÉE:
+- ${act.name}
+- Distance: ${distKm.toFixed(2)} km | Durée: ${fmtD(act.moving_time)} | D+: ${act.total_elevation_gain||0}m
+- Allure réelle: ${fmtP(act.average_speed)}/km | Allure normalisée (terrain+météo): ${paf.paceNorm}/km
+- FC moy: ${act.average_heartrate||'?'} bpm${fcPct?` (${fcPct}% FCmax — intensité ${intensityLabel})`:''}  | FC max séance: ${act.max_heartrate||'?'} bpm
+- Zones FC: Z1=${zones[0]}% Z2=${zones[1]}% Z3=${zones[2]}% Z4=${zones[3]}% Z5=${zones[4]}%
+- Pénalité terrain+météo: +${(paf.totalAdj*100).toFixed(0)}% (${paf.factors.map(f=>f.label+' '+f.value).join(', ')})
+${act.description?`- Notes athlète: "${act.description}"`:''}
+
+CHARGE DES 28 DERNIERS JOURS (avant cette sortie):
+- ${recentRuns.length} sorties | ${km28} km | D+ ${dp28}m
+- 7 derniers jours: ${last7Runs.length} sortie(s) | ${km7} km
+
+SORTIES COMPARABLES (même distance ±40%${isTrailLike?' avec D+':''}) — historique récent:
+${compBlock}
 
 ${isInterval
-  ? 'Analyse la qualité des répétitions, la régularité de l\'effort, la récupération entre les séries, et donne 1 conseil concret pour la prochaine séance de fractionné.'
-  : 'Analyse la qualité de l\'effort, la gestion FC, le point fort de la séance, et donne 1 conseil concret.'
-}
-Ne mentionne pas le seuil lactique sauf si la séance est explicitement un travail au seuil.`;
+  ? 'Structure: [P1] verdict intensité+régularité des répétitions avec chiffres. [P2] point faible détecté (temps de récup, dérive FC, perte de vitesse). [P3] comparaison à l\'historique. [P4] conseil concret pour la prochaine séance de fractionné.'
+  : 'Structure: [P1] verdict intensité (trop fort/bien/facile) avec chiffre FC%. [P2] point positif PRÉCIS observable dans les données. [P3] anomalie ou axe d\'amélioration PRÉCIS avec chiffre. [P4] conseil concret pour la prochaine sortie cette semaine.'
+}`;
 
   try {
     const { data: { session } } = await sb.auth.getSession();
