@@ -1566,10 +1566,14 @@ function renderDashboard() {
     const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
     return d.getMonth()===lm.getMonth() && d.getFullYear()===lm.getFullYear();
   });
-  const weekAgo = Date.now()-7*24*3600*1000;
-  const prevWeekAgo = Date.now()-14*24*3600*1000;
-  const thisWeek = allActivities.filter(a => new Date(a.start_date).getTime()>weekAgo);
-  const prevWeek = allActivities.filter(a => { const t=new Date(a.start_date).getTime(); return t>prevWeekAgo && t<=weekAgo; });
+  // Calendar week: Monday 00:00 → Sunday 23:59
+  const dowNow = now.getDay(); // 0=Sun,1=Mon…6=Sat
+  const daysToMon = (dowNow + 6) % 7; // days since last Monday
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMon);
+  const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(weekStart.getDate() - 7);
+  const prevWeekEnd   = new Date(weekStart); // exclusive upper bound (= weekStart)
+  const thisWeek = allActivities.filter(a => new Date(a.start_date) >= weekStart);
+  const prevWeek = allActivities.filter(a => { const d=new Date(a.start_date); return d>=prevWeekStart && d<prevWeekEnd; });
 
   const km = r => r.reduce((s,a)=>s+a.distance/1000,0);
   const dp = r => r.reduce((s,a)=>s+(a.total_elevation_gain||0),0);
