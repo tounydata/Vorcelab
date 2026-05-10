@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Vorcelab",
+    "slug": "vorcelab",
+    "version": "1.0.0",
+    "scheme": "vorcelab",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vorcelab.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#060810"
+      },
+      "package": "com.vorcelab.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

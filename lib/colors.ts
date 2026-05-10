@@ -1,0 +1,17 @@
+export const colors = {
+  bg: '#060810',
+  bg2: '#0d1219',
+  bg3: '#141b26',
+  bg4: '#1a2233',
+  border: 'rgba(255,255,255,0.08)',
+  border2: 'rgba(255,255,255,0.12)',
+  text: '#e8eaf0',
+  text2: '#8892a4',
+  text3: '#4a5568',
+  cyan: '#00d4ff',
+  purple: '#a78bfa',
+  green: '#4ade80',
+  orange: '#ff6b35',
+  red: '#f87171',
+  yellow: '#fbbf24',
+} as const
