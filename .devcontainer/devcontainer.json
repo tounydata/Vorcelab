@@ -1,7 +1,7 @@
 {
   "name": "Vorcelab",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
-  "postCreateCommand": "npm install && npm install -g @expo/ngrok@^4.1.0",
+  "postCreateCommand": "npm install && curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && sudo install /tmp/cloudflared /usr/local/bin/cloudflared",
   "forwardPorts": [8081, 19000, 19001],
   "portsAttributes": {
     "8081": {
