@@ -3,6 +3,11 @@ const { spawn } = require('child_process');
 
 let _proc = null;
 
+async function connect(opts) {
+  const port = (opts && (opts.addr || opts.port)) || opts;
+  return startAsync(port);
+}
+
 async function startAsync(port) {
   return new Promise((resolve, reject) => {
     _proc = spawn('cloudflared', [
@@ -27,11 +32,19 @@ async function startAsync(port) {
   });
 }
 
-async function stopAsync() {
+async function disconnect() {
+  return kill();
+}
+
+async function kill() {
   if (_proc) {
     _proc.kill();
     _proc = null;
   }
 }
 
-module.exports = { startAsync, stopAsync };
+async function stopAsync() {
+  return kill();
+}
+
+module.exports = { connect, disconnect, kill, startAsync, stopAsync };
