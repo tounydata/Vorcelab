@@ -445,10 +445,16 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
     <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
   </div>
 
-  <!-- PROCHAINE COURSE -->
-  <div class="card">
-    <div class="clabel">Prochaine course</div>
-    <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
+  <!-- PROCHAINE COURSE + DERNIÈRE ACTIVITÉ -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <div class="clabel">Prochaine course</div>
+      <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
+    </div>
+    <div class="card">
+      <div class="clabel">Dernière activité</div>
+      <div id="lastActWidget"><div class="mono t3">Aucune activité</div></div>
+    </div>
   </div>
 </div>
 
@@ -1662,8 +1668,61 @@ function renderDashboard() {
   // Activities grid
   renderActivities();
 
+  // Last activity card
+  renderLastActivity();
+
   // Async: fetch HR streams for this week and compute real aerobic %
   loadAerobicStat(thisWeek, fcMax);
+}
+
+function renderLastActivity() {
+  const w = document.getElementById('lastActWidget');
+  if (!w) return;
+  const act = allActivities[0];
+  if (!act) { w.innerHTML = '<div class="mono t3">Aucune activité</div>'; return; }
+
+  const now = new Date();
+  const diffDays = Math.floor((now - new Date(act.start_date)) / 86400000);
+  const relDate = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? 'Hier' : `Il y a ${diffDays} j`;
+  const typeEmoji = (act.sport_type||act.type||'').toLowerCase().includes('trail') ? '🏔️' : '🏃';
+  const distKm = (act.distance / 1000).toFixed(1);
+  const hasEle = act.total_elevation_gain > 0;
+  const hasHR = !!act.average_heartrate;
+  const cols = 3 + (hasEle ? 1 : 0) + (hasHR ? 1 : 0);
+
+  w.innerHTML = `
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px">
+    <div style="min-width:0">
+      <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${typeEmoji} ${act.name}</div>
+      <div class="mono t3" style="font-size:.52rem;margin-top:2px">${relDate} · ${new Date(act.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
+    </div>
+    <span class="race-tag" style="flex-shrink:0">${act.sport_type||act.type}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px">
+    <div style="background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center">
+      <div style="font-family:var(--display);font-size:1.25rem;color:var(--cyan)">${distKm}</div>
+      <div class="mono t3" style="font-size:.46rem;text-transform:uppercase;letter-spacing:.06em">km</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center">
+      <div style="font-family:var(--display);font-size:1.25rem">${fmtD(act.moving_time)}</div>
+      <div class="mono t3" style="font-size:.46rem;text-transform:uppercase;letter-spacing:.06em">temps</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center">
+      <div style="font-family:var(--display);font-size:1.25rem">${fmtP(act.average_speed)}</div>
+      <div class="mono t3" style="font-size:.46rem;text-transform:uppercase;letter-spacing:.06em">/km</div>
+    </div>
+    ${hasEle ? `<div style="background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center">
+      <div style="font-family:var(--display);font-size:1.25rem;color:var(--orange)">+${act.total_elevation_gain}</div>
+      <div class="mono t3" style="font-size:.46rem;text-transform:uppercase;letter-spacing:.06em">D+ m</div>
+    </div>` : ''}
+    ${hasHR ? `<div style="background:var(--bg3);border-radius:8px;padding:8px 4px;text-align:center">
+      <div style="font-family:var(--display);font-size:1.25rem;color:var(--red)">${Math.round(act.average_heartrate)}</div>
+      <div class="mono t3" style="font-size:.46rem;text-transform:uppercase;letter-spacing:.06em">FC moy</div>
+    </div>` : ''}
+  </div>
+  <div style="margin-top:8px">
+    <button class="btn-prepare" style="width:100%;justify-content:center;background:var(--bg3);color:var(--text2);border:1px solid var(--border2)" onclick="openAnalyse(${JSON.stringify(act).replace(/"/g,'&quot;')})">🔬 Analyser cette sortie</button>
+  </div>`;
 }
 
 async function loadAerobicStat(weekActs, fcMax) {
