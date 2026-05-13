@@ -3093,37 +3093,34 @@ async function analyzeGPX(points, fname) {
 
   // ── ALGO PROGRESSION ──
   // Compute performance index from recent quality sessions (>20% time in Z3+)
-  function computeProgressionFactor() {
+  function computeProgressionFactor(trailOnly=false) {
     if(!allActivities.length) return 1;
     const fcMax=userProfile.fc_max||205;
     const z3min=Math.round(fcMax*.80);
-    // Get quality sessions with HR data
-    const qualitySessions=allActivities.filter(a=>{
+    let sessions=allActivities.filter(a=>{
       if(!isRun(a.type)) return false;
+      if(trailOnly && a.type!=='TrailRun') return false;
       if(!a.average_heartrate) return false;
-      // Proxy: avg HR > 80% FCmax = quality session
       return a.average_heartrate > z3min && a.distance > 3000;
     }).sort((a,b)=>new Date(a.start_date)-new Date(b.start_date));
-    if(qualitySessions.length<4) return 1;
-    // Split into first half / second half
-    const half=Math.floor(qualitySessions.length/2);
-    const early=qualitySessions.slice(0,half);
-    const recent=qualitySessions.slice(-half);
-    // Compute normalized pace (speed m/s) for each group — lower is better
+    // Fall back to all runs if not enough trail sessions
+    if(sessions.length<4 && trailOnly) return computeProgressionFactor(false);
+    if(sessions.length<4) return 1;
+    const half=Math.floor(sessions.length/2);
+    const early=sessions.slice(0,half);
+    const recent=sessions.slice(-half);
     const avgPaceEarly=early.reduce((s,a)=>s+a.average_speed,0)/early.length;
     const avgPaceRecent=recent.reduce((s,a)=>s+a.average_speed,0)/recent.length;
     if(avgPaceEarly<=0) return 1;
-    const factor=avgPaceRecent/avgPaceEarly; // >1 = improvement
-    // Cap between 0.90 and 1.10 (±10% max)
-    return Math.min(1.10, Math.max(0.90, factor));
+    return Math.min(1.10, Math.max(0.90, avgPaceRecent/avgPaceEarly));
   }
 
-  const progressionFactor = computeProgressionFactor();
+  const isTrail=isTrailRace();
+  const progressionFactor = computeProgressionFactor(isTrail);
   const qualityCount = allActivities.filter(a=>isRun(a.type)&&a.average_heartrate>(userProfile.fc_max||205)*.80&&a.distance>3000).length;
 
-  // Base pace from goal time (algebraic solve), progression-adjusted PR, or default
-  const isTrail=isTrailRace();
-  let basePaceS=isTrail?420:320; // 7:00/km trail, 5:20/km route par défaut
+  // Base pace: goal time → trail activities → road PRs (with coeff) → default
+  let basePaceS=isTrail?420:320;
   let projSource='';
   if(currentRaceContext?.goal_time) {
     const gt=currentRaceContext.goal_time;
@@ -3132,22 +3129,41 @@ async function analyzeGPX(points, fname) {
     if(parts.length===2)goalS=parseInt(parts[0])*60+parseInt(parts[1]);
     else if(parts.length===3)goalS=parseInt(parts[0])*3600+parseInt(parts[1])*60+(parseInt(parts[2])||0);
     if(goalS>0){
-      // Solve: Σ(basePaceS × (1+pen_i) × dist_i) = goalS → basePaceS = goalS / terrainFactor
       const tf=sections.reduce((a,s)=>a+(1+minettiGradePenalty(s.grade/100))*s.dist/1000,0);
       basePaceS=tf>0?goalS/tf:goalS/(totalDist/1000);
       projSource=`🎯 Objectif ${currentRaceContext.goal_time}`;
     }
+  } else if(isTrail) {
+    // Trail races: use real trail activities, not road PRs
+    const trailRuns=allActivities
+      .filter(a=>a.type==='TrailRun'&&a.distance>5000&&a.average_speed>0)
+      .sort((a,b)=>b.average_speed-a.average_speed);
+    if(trailRuns.length>=2){
+      // Median pace of top-5 trail runs → adjusted for progression
+      const top=trailRuns.slice(0,Math.min(5,trailRuns.length));
+      const medianPaceS=1000/top[Math.floor(top.length/2)].average_speed;
+      basePaceS=medianPaceS/progressionFactor;
+      const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
+      projSource=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · progression ${prog}`;
+    } else if(userProfile.prs){
+      // Fallback to road PR + coefficient only if no trail data
+      const prs=userProfile.prs;
+      const candidates=['semi','10k','15k','marathon','5k'].filter(k=>prs[k]?.timeS&&prs[k]?.dist);
+      if(candidates.length){
+        const pr=prs[candidates[0]];
+        basePaceS=(pr.timeS/pr.dist*1000*1.18)/progressionFactor;
+        projSource=`📊 PR ${candidates[0].toUpperCase()} × coeff trail (aucune sortie trail disponible)`;
+      }
+    }
   } else if(userProfile.prs){
+    // Road race: use road PRs directly
     const prs=userProfile.prs;
     const candidates=['semi','10k','15k','marathon','5k'].filter(k=>prs[k]?.timeS&&prs[k]?.dist);
     if(candidates.length){
       const pr=prs[candidates[0]];
-      const rawPace=pr.timeS/pr.dist*1000;
-      // Trail: road PR × 1.18 (terrain roughness) / progression
-      const trailCoeff=isTrail?1.18:1.0;
-      basePaceS=(rawPace*trailCoeff)/progressionFactor;
+      basePaceS=(pr.timeS/pr.dist*1000)/progressionFactor;
       const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
-      projSource=`📊 PR ${candidates[0].toUpperCase()}${isTrail?' + coeff trail':''} · progression ${prog}`;
+      projSource=`📊 PR ${candidates[0].toUpperCase()} · progression ${prog}`;
     }
   }
   if(!projSource) projSource='⚙️ Estimation par défaut — renseigne tes PR ou ton objectif temps';
@@ -3312,9 +3328,14 @@ async function analyzeGPX(points, fname) {
 
     // Polylines colorées par section + interactivité
     window._sectionPolylines = sections.map((s,idx)=>{
-      const si=Math.round((s.startKm/distKm)*points.length);
-      const ei=Math.min(Math.round((s.endKm/distKm)*points.length),points.length-1);
-      const ll=points.slice(si,ei+1).filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
+      // Use cumDist for accurate section boundaries (GPS points not uniformly spaced)
+      const si=Math.max(0, cumDist.findIndex(d=>d>=s.startKm*1000));
+      const eiRaw=cumDist.findIndex(d=>d>=s.endKm*1000);
+      const ei=eiRaw<0?points.length-1:Math.min(eiRaw,points.length-1);
+      // Adaptive decimation: max ~80 pts per section, always keep last point to avoid gaps
+      const raw=points.slice(si,ei+1);
+      const step=Math.max(1,Math.floor(raw.length/80));
+      const ll=raw.filter((_,i)=>i%step===0||i===raw.length-1).map(p=>[p.lat,p.lon]);
       const col={up:'#E5562A',down:'#E8A23A',flat:'#10B981'}[s.type];
       const poly=L.polyline(ll,{color:col,weight:4,opacity:.85}).addTo(leafletMap);
       poly.on('click',()=>highlightSection(idx));
