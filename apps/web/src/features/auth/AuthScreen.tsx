@@ -1,6 +1,38 @@
 import { useState } from 'react'
 import { useAuthStore } from './useAuthStore'
 
+function AuthLogo() {
+  const [err, setErr] = useState(false)
+  if (!err) {
+    return (
+      <img
+        src="/logo.png"
+        alt="Vorcelab"
+        onError={() => { setErr(true) }}
+        style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 8 }}
+      />
+    )
+  }
+  return (
+    <div
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        background: 'linear-gradient(135deg,var(--cyan),var(--purple))',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--display)',
+        fontSize: 24,
+        color: '#000',
+      }}
+    >
+      V
+    </div>
+  )
+}
+
 type Tab = 'login' | 'signup'
 
 export function AuthScreen() {
@@ -45,27 +77,12 @@ export function AuthScreen() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg,var(--cyan),var(--purple))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--display)',
-              fontSize: 24,
-              color: '#000',
-            }}
-          >
-            AO
-          </div>
+          <AuthLogo />
           <div>
             <div
               style={{ fontFamily: 'var(--display)', fontSize: '1.6rem', letterSpacing: '.04em' }}
             >
-              Runner OS
+              VORCELAB
             </div>
             <div
               style={{

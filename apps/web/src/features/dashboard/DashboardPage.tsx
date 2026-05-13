@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStravaStore } from '@/features/activities/useStravaStore'
 import { useRaceStore } from '@/features/race-calendar/useRaceStore'
-import type { StravaActivity } from '@runner-os/shared'
+import type { Race, StravaActivity } from '@runner-os/shared'
 import { metresToKm, speedToPace } from '@runner-os/shared'
 
 function formatDuration(seconds: number): string {
@@ -19,6 +20,158 @@ function formatDate(value: string): string {
 
 function getRuns(activities: StravaActivity[]): StravaActivity[] {
   return activities.filter((a) => ['Run', 'TrailRun', 'VirtualRun'].includes(a.type))
+}
+
+function getRacePhase(days: number): { label: string; color: string } {
+  if (days <= 7) return { label: '🏁 Semaine de course !', color: 'var(--orange)' }
+  if (days <= 21) return { label: 'Affûtage', color: 'var(--yellow)' }
+  if (days <= 42) return { label: 'Préparation spécifique', color: 'var(--cyan)' }
+  return { label: 'Construction de base', color: 'var(--green)' }
+}
+
+function formatRaceDate(dateStr: string): string {
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(dateStr))
+}
+
+function NextRacePanel({ nextRace, daysToNext }: { nextRace: Race | undefined; daysToNext: number | null }) {
+  const navigate = useNavigate()
+
+  if (!nextRace || daysToNext == null) {
+    return (
+      <section
+        style={{
+          background: 'var(--bg2)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r)',
+          padding: '1.25rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}
+      >
+        <div style={{ fontFamily: 'var(--mono)', fontSize: '.56rem', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.1em' }}>
+          Prochaine course
+        </div>
+        <div style={{ fontSize: '2rem', opacity: .25, textAlign: 'center', padding: '1rem 0' }}>🏔</div>
+        <div style={{ color: 'var(--text2)', fontSize: '.82rem', lineHeight: 1.7, textAlign: 'center' }}>
+          Aucune course planifiée.<br />Ajoute-en une pour voir ton compte à rebours et ta phase d&apos;entraînement.
+        </div>
+        <button
+          onClick={() => { void navigate('/calendar') }}
+          style={{
+            background: 'var(--cyan)', color: '#000', border: 'none',
+            borderRadius: 8, padding: '9px 16px',
+            fontFamily: 'var(--body)', fontWeight: 700, fontSize: '.82rem',
+            cursor: 'pointer', marginTop: 'auto',
+          }}
+        >
+          + Ajouter une course
+        </button>
+      </section>
+    )
+  }
+
+  const phase = getRacePhase(daysToNext)
+  const totalWeeks = Math.ceil(daysToNext / 7)
+  const progressPct = Math.max(0, Math.min(100, 100 - (daysToNext / Math.max(daysToNext + 14, 84)) * 100))
+
+  return (
+    <section
+      style={{
+        background: 'var(--bg2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--r)',
+        padding: '1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '.9rem',
+      }}
+    >
+      <div style={{ fontFamily: 'var(--mono)', fontSize: '.56rem', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.1em' }}>
+        Prochaine course
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '.75rem' }}>
+        <div style={{ fontFamily: 'var(--display)', fontSize: '3.8rem', lineHeight: 1, color: 'var(--cyan)' }}>
+          {String(daysToNext)}
+        </div>
+        <div style={{ paddingBottom: '.4rem' }}>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: '.56rem', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+            jours
+          </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: '.65rem', color: phase.color, marginTop: 2 }}>
+            {phase.label}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontWeight: 700, fontSize: '.95rem', lineHeight: 1.3 }}>{nextRace.name}</div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: '.58rem', color: 'var(--text3)', marginTop: 2 }}>
+          {formatRaceDate(nextRace.date)}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {nextRace.type && (
+          <span style={{
+            fontFamily: 'var(--mono)', fontSize: '.58rem', color: 'var(--cyan)',
+            background: 'rgba(0,212,255,.08)', border: '1px solid rgba(0,212,255,.2)',
+            borderRadius: 20, padding: '3px 9px',
+          }}>{nextRace.type}</span>
+        )}
+        {nextRace.distance != null && (
+          <span style={{
+            fontFamily: 'var(--mono)', fontSize: '.58rem', color: 'var(--text2)',
+            background: 'var(--bg3)', border: '1px solid var(--border2)',
+            borderRadius: 20, padding: '3px 9px',
+          }}>{nextRace.distance} km</span>
+        )}
+        {nextRace.elevation != null && nextRace.elevation > 0 && (
+          <span style={{
+            fontFamily: 'var(--mono)', fontSize: '.58rem', color: 'var(--text2)',
+            background: 'var(--bg3)', border: '1px solid var(--border2)',
+            borderRadius: 20, padding: '3px 9px',
+          }}>D+ {nextRace.elevation} m</span>
+        )}
+        {nextRace.goal_time && (
+          <span style={{
+            fontFamily: 'var(--mono)', fontSize: '.58rem', color: 'var(--yellow)',
+            background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.2)',
+            borderRadius: 20, padding: '3px 9px',
+          }}>Objectif {nextRace.goal_time}</span>
+        )}
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: '.52rem', color: 'var(--text3)', marginBottom: 5 }}>
+          <span>Progression</span>
+          <span>{totalWeeks} sem. restantes</span>
+        </div>
+        <div style={{ background: 'var(--bg4)', borderRadius: 4, height: 5, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 4,
+            background: `linear-gradient(90deg, var(--cyan), var(--purple))`,
+            width: `${progressPct}%`,
+            transition: 'width .4s ease',
+          }} />
+        </div>
+      </div>
+
+      <button
+        onClick={() => { void navigate('/calendar') }}
+        style={{
+          background: 'transparent', color: 'var(--cyan)',
+          border: '1px solid rgba(0,212,255,.3)', borderRadius: 8,
+          padding: '8px 14px', fontFamily: 'var(--mono)',
+          fontSize: '.62rem', textTransform: 'uppercase', letterSpacing: '.06em',
+          cursor: 'pointer', marginTop: 'auto',
+        }}
+      >
+        Voir le calendrier →
+      </button>
+    </section>
+  )
 }
 
 export function DashboardPage() {
@@ -302,61 +455,7 @@ export function DashboardPage() {
           </div>
         </section>
 
-        <section
-          style={{
-            background: 'var(--bg2)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--r)',
-            padding: '1.25rem',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--mono)',
-              fontSize: '.56rem',
-              color: 'var(--text3)',
-              textTransform: 'uppercase',
-              letterSpacing: '.1em',
-              marginBottom: '.75rem',
-            }}
-          >
-            Prochain objectif
-          </div>
-          {nextRace && daysToNext != null ? (
-            <>
-              <div
-                style={{
-                  fontFamily: 'var(--display)',
-                  fontSize: '4rem',
-                  lineHeight: 1,
-                  color: 'var(--cyan)',
-                }}
-              >
-                {String(daysToNext)}
-              </div>
-              <div
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: '.6rem',
-                  color: 'var(--text3)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '.08em',
-                  marginBottom: '.6rem',
-                }}
-              >
-                jours restants
-              </div>
-              <div style={{ fontWeight: 700 }}>{nextRace.name}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: '.62rem', color: 'var(--text2)', marginTop: 4 }}>
-                {nextRace.distance} km · {nextRace.elevation ?? 0} m D+
-              </div>
-            </>
-          ) : (
-            <div style={{ color: 'var(--text2)', fontSize: '.82rem', lineHeight: 1.6 }}>
-              Ajoute une course dans le calendrier pour afficher le compte à rebours et les objectifs.
-            </div>
-          )}
-        </section>
+        <NextRacePanel nextRace={nextRace} daysToNext={daysToNext} />
       </div>
 
       <section>
