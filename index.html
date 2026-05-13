@@ -553,31 +553,28 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
   <div id="dashContent" style="display:none">
 
-<!-- GREETING -->
-<div style="padding:1.75rem 0 .75rem">
-  <div id="dashWeekLabel" class="mlabel" style="color:var(--vl-text-3);margin-bottom:6px"></div>
-  <div style="font-family:var(--vl-display);font-size:clamp(2.2rem,5vw,3.5rem);letter-spacing:0.01em;line-height:0.92;font-weight:700">
-    BONJOUR,<br><span id="dashGreetName" style="color:var(--vl-text)">ANTHONY.</span>
-  </div>
+<!-- WEEK LABEL -->
+<div style="padding:.75rem 0 .5rem">
+  <div id="dashWeekLabel" class="mlabel" style="color:var(--vl-text-3)"></div>
 </div>
 
 <!-- HERO KPIs -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
   <div class="vl-hero-kpi">
-    <div class="mlabel" style="font-size:9px">ce mois</div>
-    <div class="vl-hk-val tg" id="s-km-month">—</div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px">
-      <div class="vl-hk-delta delta-up" id="s-km-month-delta"></div>
-      <svg id="spark-km" viewBox="0 0 64 22" width="64" height="22" preserveAspectRatio="none" style="flex-shrink:0"></svg>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="mlabel" style="font-size:9px">km / mois</div>
+      <div class="vl-hk-delta" id="s-km-month-delta"></div>
     </div>
+    <div class="vl-hk-val tg" id="s-km-month">—</div>
+    <svg id="spark-km" viewBox="0 0 100 28" width="100%" height="28" preserveAspectRatio="none" style="display:block;margin-top:10px"></svg>
   </div>
   <div class="vl-hero-kpi">
-    <div class="mlabel" style="font-size:9px">ce mois</div>
-    <div class="vl-hk-val" style="color:var(--vl-ember)" id="s-dplus-month">—</div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="mlabel" style="font-size:9px">D+ / mois</div>
       <div class="vl-hk-delta" id="s-dplus-delta"></div>
-      <svg id="spark-dp" viewBox="0 0 64 22" width="64" height="22" preserveAspectRatio="none" style="flex-shrink:0"></svg>
     </div>
+    <div class="vl-hk-val" style="color:var(--vl-ember)" id="s-dplus-month">—</div>
+    <svg id="spark-dp" viewBox="0 0 100 28" width="100%" height="28" preserveAspectRatio="none" style="display:block;margin-top:10px"></svg>
   </div>
 </div>
 
@@ -1787,7 +1784,7 @@ function renderSparkline(id, data, color) {
   if (!el || !data.length) return;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
-  const W = 64, H = 22;
+  const W = 100, H = 28;
   const pts = data.map((v, i) => `${(i/(data.length-1))*W},${H-2-((v-min)/range)*(H-6)}`).join(' ');
   const fillPts = `0,${H} ${pts} ${W},${H}`;
   el.innerHTML = `<defs><linearGradient id="sg-${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity="0.25"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><polygon points="${fillPts}" fill="url(#sg-${id})"/><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -1806,9 +1803,7 @@ function renderDashboard() {
   const weekNum = (() => { const d=new Date(now); d.setHours(0,0,0,0); d.setDate(d.getDate()+3-(d.getDay()+6)%7); const w=new Date(d.getFullYear(),0,4); return 1+Math.round(((d-w)/86400000-3+(w.getDay()+6)%7)/7); })();
   const monthFr = ['jan','fév','mars','avr','mai','juin','juil','août','sep','oct','nov','déc'][now.getMonth()].toUpperCase();
   const weekLbl = document.getElementById('dashWeekLabel');
-  const greetName = document.getElementById('dashGreetName');
   if (weekLbl) weekLbl.textContent = `SEM. ${weekNum} · ${monthFr} ${now.getFullYear()}`;
-  if (greetName) { const n = (userProfile?.name||'').split(' ')[0].toUpperCase() || 'COUREUR'; greetName.textContent = n + '.'; }
   const thisMonth = allActivities.filter(a => {
     const d = new Date(a.start_date);
     return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
@@ -1845,14 +1840,21 @@ function renderDashboard() {
   document.getElementById('s-runs-month').textContent = runsM;
   document.getElementById('s-runs-week').textContent = runsW;
 
-  // Sparklines — last 7 months
+  // Sparklines — last 7 months (allActivities only, project current partial month)
   const sparkKmData=[], sparkDpData=[];
+  const daysInMonth=(yr,mn)=>new Date(yr,mn+1,0).getDate();
   for(let i=6;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const mn=d.getMonth(),yr=d.getFullYear();
-    const mo=[...allActivities,...historyActivities.map(h=>({type:h['Activity Type']==='Trail Run'?'TrailRun':'Run',distance:parseFloat(h['Distance'])*1000||0,total_elevation_gain:parseFloat(h['Elevation Gain'])||0,start_date:h['Activity Date']}))].filter(a=>{const ad=new Date(a.start_date);return ad.getMonth()===mn&&ad.getFullYear()===yr&&isRun(a.type);});
-    sparkKmData.push(mo.reduce((s,a)=>s+a.distance/1000,0));
-    sparkDpData.push(mo.reduce((s,a)=>s+(a.total_elevation_gain||0),0));
+    const mo=allActivities.filter(a=>{const ad=new Date(a.start_date);return ad.getMonth()===mn&&ad.getFullYear()===yr&&isRun(a.type);});
+    let kmVal=mo.reduce((s,a)=>s+a.distance/1000,0);
+    let dpVal=mo.reduce((s,a)=>s+(a.total_elevation_gain||0),0);
+    if(i===0&&now.getDate()<daysInMonth(yr,mn)){
+      const proj=daysInMonth(yr,mn)/now.getDate();
+      kmVal=kmVal*proj; dpVal=dpVal*proj;
+    }
+    sparkKmData.push(kmVal);
+    sparkDpData.push(dpVal);
   }
   renderSparkline('spark-km',sparkKmData,'#10B981');
   renderSparkline('spark-dp',sparkDpData,'#E5562A');
@@ -3208,11 +3210,6 @@ async function analyzeGPX(points, fname) {
       <div style="padding:0 14px 0;border-top:1px solid var(--vl-line)">
         <div class="chart-wrap" style="height:100px"><canvas id="gpxChart"></canvas></div>
       </div>
-      ${isTrail?`<div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--vl-line)">
-        <div class="vl-strat-dstat" style="background:var(--vl-surf-2)"><div class="val" style="font-size:1.3rem;color:var(--vl-amber)">+${Math.round(dplus)} m</div><div class="lbl">D+</div></div>
-        <div class="vl-strat-dstat" style="background:var(--vl-surf-2)"><div class="val" style="font-size:1.3rem">${distKm.toFixed(1)} km</div><div class="lbl">Distance</div></div>
-        <div class="vl-strat-dstat" style="background:var(--vl-surf-2)"><div class="val" style="font-size:1.3rem;color:var(--vl-text-2)">−${Math.round(dminus)} m</div><div class="lbl">D−</div></div>
-      </div>`:''}
     </div>
 
     <!-- Projection -->
@@ -3298,7 +3295,7 @@ async function analyzeGPX(points, fname) {
   setTimeout(()=>{
     if(leafletMap){leafletMap.remove();leafletMap=null;}
     leafletMap=L.map('raceMap',{zoomControl:true,scrollWheelZoom:false});
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png',{attribution:'© Stadia Maps',maxZoom:20}).addTo(leafletMap);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:20,subdomains:'abcd'}).addTo(leafletMap);
 
     // Tracé de fond sombre
     const allLL=points.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
@@ -4018,7 +4015,7 @@ function openSectionPopup(idx) {
   setTimeout(()=>{
     if(sectionMapInst){sectionMapInst.remove();sectionMapInst=null;}
     sectionMapInst=L.map('sectionMap',{zoomControl:false,scrollWheelZoom:false,dragging:false});
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png',{attribution:'© Stadia Maps',maxZoom:20}).addTo(sectionMapInst);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:20,subdomains:'abcd'}).addTo(sectionMapInst);
     const col={up:'#E5562A',down:'#E8A23A',flat:'#10B981'}[s.type];
     const ll=segPts.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
     const poly=L.polyline(ll,{color:col,weight:5,opacity:1}).addTo(sectionMapInst);
