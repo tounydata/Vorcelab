@@ -762,118 +762,127 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
           <!-- FRONT -->
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-            <svg id="bodySvg" viewBox="0 0 200 385" style="width:115px;cursor:pointer">
+            <svg id="bodySvg" viewBox="0 0 200 390" style="width:115px;cursor:pointer">
               <defs>
                 <style>
-                  .sg{fill:#1e3a69;stroke:#1e3a69;stroke-width:3;stroke-linejoin:round;}
-                  .bz{fill:rgba(0,0,0,0);stroke:rgba(100,160,255,.28);stroke-width:1;transition:all .2s;cursor:pointer;}
+                  .sg{fill:rgba(243,239,228,0.10);stroke:rgba(243,239,228,0.30);stroke-width:1.2;stroke-linejoin:round;stroke-linecap:round;}
+                  .bz{fill:rgba(0,0,0,0);stroke:rgba(243,239,228,.10);stroke-width:1;transition:all .2s;cursor:pointer;}
                   .bz:hover{fill:rgba(16,185,129,.15);stroke:#10B981;stroke-width:1.5;}
                   .bz.selected{fill:rgba(229,86,42,.28);stroke:#E5562A;stroke-width:2;}
-                  .bzb{fill:rgba(0,0,0,0);stroke:rgba(243,239,228,.18);stroke-width:1;transition:all .2s;cursor:pointer;}
+                  .bzb{fill:rgba(0,0,0,0);stroke:rgba(243,239,228,.10);stroke-width:1;transition:all .2s;cursor:pointer;}
                   .bzb:hover{fill:rgba(16,185,129,.15);stroke:#10B981;stroke-width:1.5;}
                   .bzb.selected{fill:rgba(229,86,42,.28);stroke:#E5562A;stroke-width:2;}
-                  .dl{stroke:rgba(255,255,255,.22);stroke-width:.8;fill:none;pointer-events:none;}
+                  .dl{stroke:rgba(243,239,228,.18);stroke-width:.8;fill:none;pointer-events:none;}
                 </style>
               </defs>
               <!-- HEAD -->
-              <ellipse class="sg" cx="100" cy="24" rx="20" ry="23"/>
+              <ellipse class="sg" cx="100" cy="25" rx="21" ry="24"/>
               <!-- NECK -->
-              <path class="sg" d="M91,45 C89,50 89,56 91,59 L109,59 C111,56 111,50 109,45 Z"/>
-              <!-- TORSO -->
-              <path class="sg" d="M91,58 C107,56 109,58 109,58 C126,58 150,65 157,77 C163,88 162,110 157,126 C152,140 145,148 141,155 C138,164 136,174 134,178 L66,178 C64,174 62,164 59,155 C55,148 48,140 43,126 C38,110 37,88 43,77 C50,65 74,58 91,58 Z"/>
+              <path class="sg" d="M90,47 C89,53 89,59 91,63 L109,63 C111,59 111,53 110,47 Z"/>
+              <!-- TORSO — shoulder caps + waist taper -->
+              <path class="sg" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 C55,170 57,178 58,186 L142,186 C143,178 145,170 148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
               <!-- LEFT ARM -->
-              <path class="sg" d="M43,77 C34,86 27,104 25,122 C23,138 25,156 27,168 L39,166 C38,154 37,138 39,122 C41,104 48,88 57,80 Z"/>
-              <ellipse class="sg" cx="33" cy="171" rx="7" ry="9"/>
+              <path class="sg" d="M38,80 C29,91 23,112 21,134 C19,154 22,172 25,184 L38,181 C36,170 34,153 36,134 C38,112 45,93 54,82 Z"/>
+              <ellipse class="sg" cx="32" cy="189" rx="9" ry="11"/>
               <!-- RIGHT ARM -->
-              <path class="sg" d="M157,77 C166,86 173,104 175,122 C177,138 175,156 173,168 L161,166 C162,154 163,138 161,122 C159,104 152,88 143,80 Z"/>
-              <ellipse class="sg" cx="167" cy="171" rx="7" ry="9"/>
-              <!-- PELVIS -->
-              <path class="sg" d="M57,155 C54,166 56,176 64,182 L136,182 C144,176 146,166 143,155 L118,152 Q100,154 82,152 Z"/>
+              <path class="sg" d="M162,80 C171,91 177,112 179,134 C181,154 178,172 175,184 L162,181 C164,170 166,153 164,134 C162,112 155,93 146,82 Z"/>
+              <ellipse class="sg" cx="168" cy="189" rx="9" ry="11"/>
               <!-- LEFT THIGH -->
-              <path class="sg" d="M64,180 C55,187 48,206 46,232 L46,260 C48,272 60,279 76,277 C85,275 88,267 88,258 L88,230 C88,206 92,187 100,183 C86,179 64,178 64,180 Z"/>
+              <path class="sg" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
               <!-- RIGHT THIGH -->
-              <path class="sg" d="M136,180 C145,187 152,206 154,232 L154,260 C152,272 140,279 124,277 C115,275 112,267 112,258 L112,230 C112,206 108,187 100,183 C114,179 136,178 136,180 Z"/>
+              <path class="sg" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
               <!-- LEFT KNEE -->
-              <ellipse class="sg" cx="67" cy="280" rx="17" ry="13"/>
+              <ellipse class="sg" cx="63" cy="288" rx="18" ry="14"/>
               <!-- RIGHT KNEE -->
-              <ellipse class="sg" cx="133" cy="280" rx="17" ry="13"/>
+              <ellipse class="sg" cx="137" cy="288" rx="18" ry="14"/>
               <!-- LEFT CALF -->
-              <path class="sg" d="M55,290 C48,304 48,318 52,330 C55,337 61,341 67,341 L77,341 C83,341 88,337 91,330 C95,318 94,304 88,290 C84,285 76,282 72,282 C68,282 59,285 55,290 Z"/>
+              <path class="sg" d="M48,299 C42,313 42,329 46,342 C49,350 56,354 63,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 74,291 68,291 C62,291 52,294 48,299 Z"/>
               <!-- RIGHT CALF -->
-              <path class="sg" d="M145,290 C152,304 152,318 148,330 C145,337 139,341 133,341 L123,341 C117,341 112,337 109,330 C105,318 106,304 112,290 C116,285 124,282 128,282 C132,282 141,285 145,290 Z"/>
+              <path class="sg" d="M152,299 C158,313 158,329 154,342 C151,350 144,354 137,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 126,291 132,291 C138,291 148,294 152,299 Z"/>
               <!-- LEFT ANKLE -->
-              <ellipse class="sg" cx="67" cy="344" rx="12" ry="8"/>
+              <ellipse class="sg" cx="63" cy="358" rx="12" ry="8"/>
               <!-- RIGHT ANKLE -->
-              <ellipse class="sg" cx="133" cy="344" rx="12" ry="8"/>
+              <ellipse class="sg" cx="137" cy="358" rx="12" ry="8"/>
               <!-- LEFT FOOT -->
-              <path class="sg" d="M56,350 C50,355 48,361 50,366 C52,370 58,372 68,372 L84,372 C88,370 88,366 86,360 L82,351 Z"/>
+              <path class="sg" d="M52,364 C46,369 44,375 46,380 C48,384 55,386 66,386 L82,386 C87,384 87,379 85,373 L80,364 Z"/>
               <!-- RIGHT FOOT -->
-              <path class="sg" d="M144,350 C150,355 152,361 150,366 C148,370 142,372 132,372 L116,372 C112,370 112,366 114,360 L118,351 Z"/>
-              <!-- FRONT definition lines -->
-              <line class="dl" x1="100" y1="60" x2="100" y2="95"/>
-              <path class="dl" d="M91,62 C86,66 80,70 74,78"/>
-              <path class="dl" d="M109,62 C114,66 120,70 126,78"/>
-              <line class="dl" x1="67" y1="196" x2="67" y2="268"/>
-              <line class="dl" x1="133" y1="196" x2="133" y2="268"/>
-              <!-- CLICKABLE ZONES (transparent overlays) -->
-              <ellipse class="bz" data-zone="head" cx="100" cy="24" rx="21" ry="24"/>
-              <path class="bz" data-zone="back" d="M91,58 C107,56 109,58 109,58 C126,58 150,65 157,77 C163,88 162,110 157,126 C152,140 145,148 141,155 L59,155 C55,148 48,140 43,126 C38,110 37,88 43,77 C50,65 74,58 91,58 Z"/>
-              <path class="bz" data-zone="hip" d="M57,154 C54,166 56,178 64,183 L136,183 C144,178 146,166 143,154 L118,151 Q100,153 82,151 Z"/>
-              <path class="bz" data-zone="quad_l" d="M64,181 C55,188 48,207 46,233 L46,261 C48,273 60,280 76,278 C85,276 89,268 89,259 L89,231 C89,207 92,188 100,184 C86,180 64,179 64,181 Z"/>
-              <path class="bz" data-zone="quad_r" d="M136,181 C145,188 152,207 154,233 L154,261 C152,273 140,280 124,278 C115,276 111,268 111,259 L111,231 C111,207 108,188 100,184 C114,180 136,179 136,181 Z"/>
-              <ellipse class="bz" data-zone="knee_l" cx="67" cy="280" rx="18" ry="14"/>
-              <ellipse class="bz" data-zone="knee_r" cx="133" cy="280" rx="18" ry="14"/>
-              <path class="bz" data-zone="calf_l" d="M55,291 C48,305 48,319 52,331 C55,338 61,342 67,342 L77,342 C83,342 88,338 91,331 C95,319 94,305 88,291 Z"/>
-              <path class="bz" data-zone="calf_r" d="M145,291 C152,305 152,319 148,331 C145,338 139,342 133,342 L123,342 C117,342 112,338 109,331 C105,319 106,305 112,291 Z"/>
-              <ellipse class="bz" data-zone="ankle_l" cx="67" cy="344" rx="13" ry="9"/>
-              <ellipse class="bz" data-zone="ankle_r" cx="133" cy="344" rx="13" ry="9"/>
-              <path class="bz" data-zone="foot_l" d="M56,351 C50,356 48,362 50,367 C52,371 58,373 68,373 L84,373 C88,371 88,367 86,361 L82,352 Z"/>
-              <path class="bz" data-zone="foot_r" d="M144,351 C150,356 152,362 150,367 C148,371 142,373 132,373 L116,373 C112,371 112,367 114,361 L118,352 Z"/>
+              <path class="sg" d="M148,364 C154,369 156,375 154,380 C152,384 145,386 134,386 L118,386 C113,384 113,379 115,373 L120,364 Z"/>
+              <!-- Sternum + pec lines -->
+              <line class="dl" x1="100" y1="65" x2="100" y2="106"/>
+              <path class="dl" d="M90,67 C86,75 83,88 84,104"/>
+              <path class="dl" d="M110,67 C114,75 117,88 116,104"/>
+              <!-- CLICKABLE ZONES -->
+              <ellipse class="bz" data-zone="head" cx="100" cy="25" rx="22" ry="25"/>
+              <path class="bz" data-zone="back" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 L148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
+              <path class="bz" data-zone="hip" d="M52,161 C50,173 52,184 59,188 L141,188 C148,184 150,173 148,161 L124,158 Q100,160 76,158 Z"/>
+              <path class="bz" data-zone="quad_l" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
+              <path class="bz" data-zone="quad_r" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
+              <ellipse class="bz" data-zone="knee_l" cx="63" cy="288" rx="19" ry="15"/>
+              <ellipse class="bz" data-zone="knee_r" cx="137" cy="288" rx="19" ry="15"/>
+              <path class="bz" data-zone="calf_l" d="M47,300 C41,314 41,330 45,343 C48,351 56,355 63,355 L74,355 C81,355 87,351 90,343 C94,330 93,314 87,300 Z"/>
+              <path class="bz" data-zone="calf_r" d="M153,300 C159,314 159,330 155,343 C152,351 144,355 137,355 L126,355 C119,355 113,351 110,343 C106,330 107,314 113,300 Z"/>
+              <ellipse class="bz" data-zone="ankle_l" cx="63" cy="359" rx="13" ry="9"/>
+              <ellipse class="bz" data-zone="ankle_r" cx="137" cy="359" rx="13" ry="9"/>
+              <path class="bz" data-zone="foot_l" d="M51,365 C45,370 43,376 45,381 C47,385 54,387 66,387 L83,387 C88,385 88,380 86,374 L81,365 Z"/>
+              <path class="bz" data-zone="foot_r" d="M149,365 C155,370 157,376 155,381 C153,385 146,387 134,387 L117,387 C112,385 112,380 114,374 L119,365 Z"/>
             </svg>
             <div class="mono t3" style="font-size:.52rem;letter-spacing:.1em">FRONT</div>
           </div>
 
           <!-- BACK -->
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-            <svg id="bodySvgBack" viewBox="0 0 200 385" style="width:115px;cursor:pointer">
-              <!-- BACK — same anatomy, different detail lines -->
-              <ellipse class="sg" cx="100" cy="24" rx="20" ry="23"/>
-              <path class="sg" d="M91,45 C89,50 89,56 91,59 L109,59 C111,56 111,50 109,45 Z"/>
-              <path class="sg" d="M91,58 C107,56 109,58 109,58 C126,58 150,65 157,77 C163,88 162,110 157,126 C152,140 145,148 141,155 C138,164 136,174 134,178 L66,178 C64,174 62,164 59,155 C55,148 48,140 43,126 C38,110 37,88 43,77 C50,65 74,58 91,58 Z"/>
-              <path class="sg" d="M43,77 C34,86 27,104 25,122 C23,138 25,156 27,168 L39,166 C38,154 37,138 39,122 C41,104 48,88 57,80 Z"/>
-              <ellipse class="sg" cx="33" cy="171" rx="7" ry="9"/>
-              <path class="sg" d="M157,77 C166,86 173,104 175,122 C177,138 175,156 173,168 L161,166 C162,154 163,138 161,122 C159,104 152,88 143,80 Z"/>
-              <ellipse class="sg" cx="167" cy="171" rx="7" ry="9"/>
-              <path class="sg" d="M57,155 C54,166 56,176 64,182 L136,182 C144,176 146,166 143,155 L118,152 Q100,154 82,152 Z"/>
-              <path class="sg" d="M64,180 C55,187 48,206 46,232 L46,260 C48,272 60,279 76,277 C85,275 88,267 88,258 L88,230 C88,206 92,187 100,183 C86,179 64,178 64,180 Z"/>
-              <path class="sg" d="M136,180 C145,187 152,206 154,232 L154,260 C152,272 140,279 124,277 C115,275 112,267 112,258 L112,230 C112,206 108,187 100,183 C114,179 136,178 136,180 Z"/>
-              <ellipse class="sg" cx="67" cy="280" rx="17" ry="13"/>
-              <ellipse class="sg" cx="133" cy="280" rx="17" ry="13"/>
-              <path class="sg" d="M55,290 C48,304 48,318 52,330 C55,337 61,341 67,341 L77,341 C83,341 88,337 91,330 C95,318 94,304 88,290 C84,285 76,282 72,282 C68,282 59,285 55,290 Z"/>
-              <path class="sg" d="M145,290 C152,304 152,318 148,330 C145,337 139,341 133,341 L123,341 C117,341 112,337 109,330 C105,318 106,304 112,290 C116,285 124,282 128,282 C132,282 141,285 145,290 Z"/>
-              <ellipse class="sg" cx="67" cy="344" rx="12" ry="8"/>
-              <ellipse class="sg" cx="133" cy="344" rx="12" ry="8"/>
-              <path class="sg" d="M56,350 C50,355 48,361 50,366 C52,370 58,372 68,372 L84,372 C88,370 88,366 86,360 L82,351 Z"/>
-              <path class="sg" d="M144,350 C150,355 152,361 150,366 C148,370 142,372 132,372 L116,372 C112,370 112,366 114,360 L118,351 Z"/>
-              <!-- BACK definition lines: spine, shoulder blades, glute -->
-              <line class="dl" x1="100" y1="60" x2="100" y2="182"/>
-              <path class="dl" d="M84,72 C80,84 80,100 84,114"/>
-              <path class="dl" d="M116,72 C120,84 120,100 116,114"/>
-              <line class="dl" x1="100" y1="182" x2="100" y2="206"/>
+            <svg id="bodySvgBack" viewBox="0 0 200 390" style="width:115px;cursor:pointer">
+              <!-- HEAD -->
+              <ellipse class="sg" cx="100" cy="25" rx="21" ry="24"/>
+              <!-- NECK -->
+              <path class="sg" d="M90,47 C89,53 89,59 91,63 L109,63 C111,59 111,53 110,47 Z"/>
+              <!-- TORSO BACK — trapezoid with lat flare -->
+              <path class="sg" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 C55,170 57,178 58,186 L142,186 C143,178 145,170 148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
+              <!-- LEFT ARM -->
+              <path class="sg" d="M38,80 C29,91 23,112 21,134 C19,154 22,172 25,184 L38,181 C36,170 34,153 36,134 C38,112 45,93 54,82 Z"/>
+              <ellipse class="sg" cx="32" cy="189" rx="9" ry="11"/>
+              <!-- RIGHT ARM -->
+              <path class="sg" d="M162,80 C171,91 177,112 179,134 C181,154 178,172 175,184 L162,181 C164,170 166,153 164,134 C162,112 155,93 146,82 Z"/>
+              <ellipse class="sg" cx="168" cy="189" rx="9" ry="11"/>
+              <!-- LEFT THIGH (hamstring view) -->
+              <path class="sg" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
+              <!-- RIGHT THIGH -->
+              <path class="sg" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
+              <!-- LEFT KNEE -->
+              <ellipse class="sg" cx="63" cy="288" rx="18" ry="14"/>
+              <!-- RIGHT KNEE -->
+              <ellipse class="sg" cx="137" cy="288" rx="18" ry="14"/>
+              <!-- LEFT CALF (gastrocnemius) -->
+              <path class="sg" d="M48,299 C42,313 42,329 46,342 C49,350 56,354 63,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 74,291 68,291 C62,291 52,294 48,299 Z"/>
+              <!-- RIGHT CALF -->
+              <path class="sg" d="M152,299 C158,313 158,329 154,342 C151,350 144,354 137,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 126,291 132,291 C138,291 148,294 152,299 Z"/>
+              <!-- LEFT ANKLE / ACHILLES -->
+              <ellipse class="sg" cx="63" cy="358" rx="12" ry="8"/>
+              <!-- RIGHT ANKLE -->
+              <ellipse class="sg" cx="137" cy="358" rx="12" ry="8"/>
+              <!-- LEFT FOOT (heel view) -->
+              <path class="sg" d="M52,364 C46,369 44,375 46,380 C48,384 55,386 66,386 L82,386 C87,384 87,379 85,373 L80,364 Z"/>
+              <!-- RIGHT FOOT -->
+              <path class="sg" d="M148,364 C154,369 156,375 154,380 C152,384 145,386 134,386 L118,386 C113,384 113,379 115,373 L120,364 Z"/>
+              <!-- Spine + shoulder blade lines -->
+              <line class="dl" x1="100" y1="65" x2="100" y2="188"/>
+              <path class="dl" d="M82,74 C78,86 78,102 82,116"/>
+              <path class="dl" d="M118,74 C122,86 122,102 118,116"/>
+              <line class="dl" x1="100" y1="188" x2="100" y2="214"/>
               <!-- BACK CLICKABLE ZONES -->
-              <ellipse class="bzb" data-zone="head" cx="100" cy="24" rx="21" ry="24"/>
-              <path class="bzb" data-zone="back" d="M91,58 C107,56 109,58 109,58 C126,58 150,65 157,77 C163,88 162,110 157,126 C152,140 145,148 141,155 L59,155 C55,148 48,140 43,126 C38,110 37,88 43,77 C50,65 74,58 91,58 Z"/>
-              <path class="bzb" data-zone="glute" d="M57,154 C54,166 56,178 64,183 L136,183 C144,178 146,166 143,154 L118,151 Q100,153 82,151 Z"/>
-              <path class="bzb" data-zone="hamstring_l" d="M64,181 C55,188 48,207 46,233 L46,261 C48,273 60,280 76,278 C85,276 89,268 89,259 L89,231 C89,207 92,188 100,184 C86,180 64,179 64,181 Z"/>
-              <path class="bzb" data-zone="hamstring_r" d="M136,181 C145,188 152,207 154,233 L154,261 C152,273 140,280 124,278 C115,276 111,268 111,259 L111,231 C111,207 108,188 100,184 C114,180 136,179 136,181 Z"/>
-              <ellipse class="bzb" data-zone="knee_l" cx="67" cy="280" rx="18" ry="14"/>
-              <ellipse class="bzb" data-zone="knee_r" cx="133" cy="280" rx="18" ry="14"/>
-              <path class="bzb" data-zone="calf_l" d="M55,291 C48,305 48,319 52,331 C55,338 61,342 67,342 L77,342 C83,342 88,338 91,331 C95,319 94,305 88,291 Z"/>
-              <path class="bzb" data-zone="calf_r" d="M145,291 C152,305 152,319 148,331 C145,338 139,342 133,342 L123,342 C117,342 112,338 109,331 C105,319 106,305 112,291 Z"/>
-              <ellipse class="bzb" data-zone="achilles_l" cx="67" cy="344" rx="13" ry="9"/>
-              <ellipse class="bzb" data-zone="achilles_r" cx="133" cy="344" rx="13" ry="9"/>
-              <path class="bzb" data-zone="plantar_l" d="M56,351 C50,356 48,362 50,367 C52,371 58,373 68,373 L84,373 C88,371 88,367 86,361 L82,352 Z"/>
-              <path class="bzb" data-zone="plantar_r" d="M144,351 C150,356 152,362 150,367 C148,371 142,373 132,373 L116,373 C112,371 112,367 114,361 L118,352 Z"/>
+              <ellipse class="bzb" data-zone="head" cx="100" cy="25" rx="22" ry="25"/>
+              <path class="bzb" data-zone="back" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 L148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
+              <path class="bzb" data-zone="glute" d="M52,161 C50,173 52,184 59,188 L141,188 C148,184 150,173 148,161 L124,158 Q100,160 76,158 Z"/>
+              <path class="bzb" data-zone="hamstring_l" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
+              <path class="bzb" data-zone="hamstring_r" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
+              <ellipse class="bzb" data-zone="knee_l" cx="63" cy="288" rx="19" ry="15"/>
+              <ellipse class="bzb" data-zone="knee_r" cx="137" cy="288" rx="19" ry="15"/>
+              <path class="bzb" data-zone="calf_l" d="M47,300 C41,314 41,330 45,343 C48,351 56,355 63,355 L74,355 C81,355 87,351 90,343 C94,330 93,314 87,300 Z"/>
+              <path class="bzb" data-zone="calf_r" d="M153,300 C159,314 159,330 155,343 C152,351 144,355 137,355 L126,355 C119,355 113,351 110,343 C106,330 107,314 113,300 Z"/>
+              <ellipse class="bzb" data-zone="achilles_l" cx="63" cy="359" rx="13" ry="9"/>
+              <ellipse class="bzb" data-zone="achilles_r" cx="137" cy="359" rx="13" ry="9"/>
+              <path class="bzb" data-zone="plantar_l" d="M51,365 C45,370 43,376 45,381 C47,385 54,387 66,387 L83,387 C88,385 88,380 86,374 L81,365 Z"/>
+              <path class="bzb" data-zone="plantar_r" d="M149,365 C155,370 157,376 155,381 C153,385 146,387 134,387 L118,387 C113,385 113,380 115,374 L120,365 Z"/>
             </svg>
             <div class="mono t3" style="font-size:.52rem;letter-spacing:.1em">BACK</div>
           </div>
