@@ -203,9 +203,12 @@ main{padding:1.5rem 2rem;max-width:1200px;}
 
 /* ── HERO KPIs ── */
 .vl-hero-kpi{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r);padding:14px;position:relative;overflow:hidden;}
-.vl-hk-val{font-family:var(--vl-display);font-size:2.8rem;font-weight:700;letter-spacing:0.01em;line-height:1;margin-top:6px;}
-.vl-hk-delta{font-family:var(--vl-mono);font-size:10px;font-weight:600;}
-.vl-sat-strip{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:4px 0;display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:14px;}
+.vl-hk-val{font-family:var(--vl-display);font-size:2.6rem;font-weight:700;letter-spacing:0.01em;line-height:1;margin:4px 0 2px;}
+.vl-hk-delta{font-family:var(--vl-mono);font-size:9px;font-weight:600;padding:2px 6px;background:var(--vl-surf-2);border-radius:4px;display:inline-block;}
+/* ── DASHBOARD GRID ── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+@media(max-width:900px){.dash-grid{grid-template-columns:1fr;}}
+.vl-sat-strip{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:4px 0;display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:10px;}
 .vl-sat-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--vl-line);}
 .vl-sat-cell:last-child{border-right:none;}
 .vl-sat-val{font-family:var(--vl-display);font-size:1.4rem;font-weight:700;letter-spacing:0.01em;line-height:1;}
@@ -457,8 +460,8 @@ main{padding:1.5rem 2rem;max-width:1200px;}
 .vl-strat-dstat .lbl{font-family:var(--vl-mono);font-size:10px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px;font-weight:600;}
 
 /* ── STRATEGY — map ── */
-#raceMap{height:260px;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);overflow:hidden;margin:0;clip-path:inset(0 0 0 0 round 0 0 var(--vl-r-sm) var(--vl-r-sm));isolation:isolate;}
-.gpx-chart-row{position:relative;z-index:2;}
+#raceMap{height:260px;overflow:hidden;margin:0;background:var(--vl-bg);}
+.gpx-chart-row{position:relative;z-index:2;background:var(--vl-surf);}
 
 </style>
 
@@ -633,82 +636,92 @@ main{padding:1.5rem 2rem;max-width:1200px;}
   <div id="dashWeekLabel" class="mlabel" style="color:var(--vl-text-3)"></div>
 </div>
 
-<!-- HERO KPIs -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-  <div class="vl-hero-kpi">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div class="mlabel" style="font-size:9px">km / mois</div>
-      <div class="vl-hk-delta" id="s-km-month-delta"></div>
+<div class="dash-grid">
+
+  <!-- ── LEFT COLUMN ── -->
+  <div>
+
+    <!-- HERO KPI CARDS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+
+      <!-- KM / mois -->
+      <div class="vl-hero-kpi">
+        <div class="mlabel" style="font-size:9px;letter-spacing:.16em">CE MOIS</div>
+        <div class="vl-hk-val tg" id="s-km-month">—</div>
+        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:10px">kilomètres</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end">
+          <div class="vl-hk-delta" id="s-km-month-delta"></div>
+          <svg id="spark-km" viewBox="0 0 100 28" width="80" height="24" preserveAspectRatio="none" style="display:block;flex-shrink:0"></svg>
+        </div>
+      </div>
+
+      <!-- D+ / mois -->
+      <div class="vl-hero-kpi">
+        <div class="mlabel" style="font-size:9px;letter-spacing:.16em">CE MOIS</div>
+        <div class="vl-hk-val" style="color:var(--vl-ember)" id="s-dplus-month">—</div>
+        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:10px">m D+</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end">
+          <div class="vl-hk-delta" id="s-dplus-delta"></div>
+          <svg id="spark-dp" viewBox="0 0 100 28" width="80" height="24" preserveAspectRatio="none" style="display:block;flex-shrink:0"></svg>
+        </div>
+      </div>
+
     </div>
-    <div class="vl-hk-val tg" id="s-km-month">—</div>
-    <svg id="spark-km" viewBox="0 0 100 28" width="100%" height="28" preserveAspectRatio="none" style="display:block;margin-top:10px"></svg>
-  </div>
-  <div class="vl-hero-kpi">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div class="mlabel" style="font-size:9px">D+ / mois</div>
-      <div class="vl-hk-delta" id="s-dplus-delta"></div>
+
+    <!-- SATELLITE KPIs -->
+    <div class="vl-sat-strip">
+      <div class="vl-sat-cell">
+        <div class="vl-sat-val" id="s-km-week">—</div>
+        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">km / sem.</div>
+        <div id="s-km-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
+      </div>
+      <div class="vl-sat-cell">
+        <div class="vl-sat-val" id="s-dplus-week">—</div>
+        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">D+ / sem.</div>
+        <div id="s-dplus-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
+      </div>
+      <div class="vl-sat-cell">
+        <div class="vl-sat-val" id="s-runs-month">—</div>
+        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / m.</div>
+        <div id="s-runs-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
+      </div>
+      <div class="vl-sat-cell">
+        <div class="vl-sat-val" id="s-runs-week">—</div>
+        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / s.</div>
+        <div id="s-runs-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
+      </div>
     </div>
-    <div class="vl-hk-val" style="color:var(--vl-ember)" id="s-dplus-month">—</div>
-    <svg id="spark-dp" viewBox="0 0 100 28" width="100%" height="28" preserveAspectRatio="none" style="display:block;margin-top:10px"></svg>
-  </div>
-</div>
 
-<!-- SATELLITE KPIs -->
-<div class="vl-sat-strip">
-  <div class="vl-sat-cell">
-    <div class="vl-sat-val" id="s-km-week">—</div>
-    <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">km / sem.</div>
-    <div id="s-km-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-  </div>
-  <div class="vl-sat-cell">
-    <div class="vl-sat-val" id="s-dplus-week">—</div>
-    <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">D+ / sem.</div>
-    <div id="s-dplus-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-  </div>
-  <div class="vl-sat-cell">
-    <div class="vl-sat-val" id="s-runs-month">—</div>
-    <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / m.</div>
-    <div id="s-runs-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-  </div>
-  <div class="vl-sat-cell">
-    <div class="vl-sat-val" id="s-runs-week">—</div>
-    <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / s.</div>
-    <div id="s-runs-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-  </div>
-</div>
-
-<div class="grid-2">
-  <!-- STATS + ANNUAL CHART -->
-  <div class="card">
-    <div class="clabel">Volume annuel comparatif</div>
-    <div class="chart-wrap" style="height:220px"><canvas id="annualChart"></canvas></div>
-    <div class="clabel mt2">Stats du mois</div>
-    <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
-  </div>
-
-  <!-- PROCHAINE COURSE + DERNIÈRE ACTIVITÉ -->
-  <div style="display:flex;flex-direction:column;gap:14px">
+    <!-- ANNUAL CHART -->
     <div class="card">
-      <div class="clabel">Prochaine course</div>
-      <div id="nextRaceWidget"><div class="mono t3">Aucune course planifiée</div></div>
+      <div class="clabel">Volume annuel comparatif</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="annualChart"></canvas></div>
+      <div class="clabel mt2">Stats du mois</div>
+      <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
     </div>
-    <div class="card">
-      <div class="clabel">Dernière activité</div>
-      <div id="lastActWidget"><div class="mono t3">Aucune activité</div></div>
-    </div>
-  </div>
-</div>
 
-<!-- ACTIVITÉS -->
-<div class="mt3">
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-    <div class="mlabel">Dernières sorties</div>
-    <div class="mlabel" style="color:var(--vl-text-2)" id="actsInfo"></div>
-  </div>
-  <div class="card" style="padding:0 16px">
-    <div class="acts-grid" id="actsGrid"></div>
-  </div>
-</div>
+  </div><!-- end left column -->
+
+  <!-- ── RIGHT COLUMN ── -->
+  <div style="display:flex;flex-direction:column;gap:10px">
+
+    <!-- PROCHAINE COURSE -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="nextRaceWidget"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
+    </div>
+
+    <!-- DERNIÈRES SORTIES (3 max) -->
+    <div class="card" style="padding:0 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0">
+        <div class="clabel" style="margin:0">Dernières sorties</div>
+        <button onclick="navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
+      </div>
+      <div class="acts-grid" id="actsGrid"></div>
+    </div>
+
+  </div><!-- end right column -->
+
+</div><!-- end dash-grid -->
 
   </div><!-- end dashContent -->
 </div>
@@ -1701,6 +1714,7 @@ async function loadActivities() {
     .limit(200);
   if (error) { console.error('loadActivities error:', error.message); return; }
   allActivities = (rows || []).filter(r => isRun(r.type)).map(mapDbActivity);
+  if (allActivities.length > 0) setStravaConnected();
   renderDashboard();
 }
 
@@ -2015,12 +2029,8 @@ function renderDashboard() {
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const mn=d.getMonth(),yr=d.getFullYear();
     const mo=allActivities.filter(a=>{const ad=new Date(a.start_date);return ad.getMonth()===mn&&ad.getFullYear()===yr&&isRun(a.type);});
-    let kmVal=mo.reduce((s,a)=>s+a.distance/1000,0);
-    let dpVal=mo.reduce((s,a)=>s+(a.total_elevation_gain||0),0);
-    if(i===0&&now.getDate()<daysInMonth(yr,mn)){
-      const proj=daysInMonth(yr,mn)/now.getDate();
-      kmVal=kmVal*proj; dpVal=dpVal*proj;
-    }
+    const kmVal=mo.reduce((s,a)=>s+a.distance/1000,0);
+    const dpVal=mo.reduce((s,a)=>s+(a.total_elevation_gain||0),0);
     sparkKmData.push(kmVal);
     sparkDpData.push(dpVal);
   }
@@ -2031,7 +2041,7 @@ function renderDashboard() {
   const pctKm = kmML>0?(kmM-kmML)/kmML*100:null;
   const pctDp = dpML>0?(dpM-dpML)/dpML*100:null;
   const pctRuns = runsML>0?(runsM-runsML)/runsML*100:null;
-  const setHeroDelta=(id,pct)=>{const el=document.getElementById(id);if(!el||pct===null)return;const sign=pct>0?'+ ':'− ';el.textContent=`${sign}${Math.abs(Math.round(pct))} %`;el.style.color=pct>5?'var(--vl-growth)':pct<-5?'var(--vl-ember)':'var(--vl-text-3)';};
+  const setHeroDelta=(id,pct)=>{const el=document.getElementById(id);if(!el||pct===null)return;const sign=pct>0?'+ ':'− ';el.textContent=`${sign}${Math.abs(Math.round(pct))}% · vs M-1`;el.style.color=pct>5?'var(--vl-growth)':pct<-5?'var(--vl-ember)':'var(--vl-text-3)';};
   setHeroDelta('s-km-month-delta',pctKm);
   setHeroDelta('s-dplus-delta',pctDp);
   // Satellite deltas
@@ -2059,9 +2069,6 @@ function renderDashboard() {
 
   // Activities grid
   renderActivities();
-
-  // Last activity card
-  renderLastActivity();
 
   // Async: fetch HR streams for this week and compute real aerobic %
   loadAerobicStat(thisWeek, fcMax);
@@ -2232,7 +2239,7 @@ function renderActivities() {
         </div>`;
       return card;
     };
-    if (grid && idx < 20) grid.appendChild(makeCard());
+    if (grid && idx < 3) grid.appendChild(makeCard());
     if (gridFull) gridFull.appendChild(makeCard());
   });
 }
@@ -2844,42 +2851,60 @@ function renderRaces() {
   const next=upcoming[0];
   if(next && nextWidget){
     const diff=Math.ceil((new Date(next.date)-now)/86400000);
-    const color=diff<7?'var(--vl-ember)':diff<30?'var(--vl-amber)':'var(--vl-ember)';
     const hasGpx=!!next.gpx_data;
     const phase=diff<=7?{label:'SEMAINE DE COURSE',c:'var(--vl-ember)'}:diff<=21?{label:'AFFÛTAGE',c:'var(--vl-amber)'}:diff<=42?{label:'PRÉPARATION SPÉCIFIQUE',c:'var(--vl-growth)'}:{label:'CONSTRUCTION DE BASE',c:'var(--vl-text-2)'};
     const totalWeeks=Math.ceil(diff/7);
     const progressPct=Math.max(2,Math.min(98,100-(diff/84)*100));
     const raceDate=new Date(next.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    // Mini altimetry SVG from GPX
+    let miniAlti='';
+    if(hasGpx){
+      try{
+        const doc=new DOMParser().parseFromString(next.gpx_data,'application/xml');
+        const eles=[...doc.querySelectorAll('trkpt ele')].map(e=>parseFloat(e.textContent)).filter(v=>!isNaN(v));
+        if(eles.length>4){
+          const step=Math.max(1,Math.floor(eles.length/80));
+          const pts=eles.filter((_,i)=>i%step===0);
+          const mn=Math.min(...pts),mx=Math.max(...pts),range=mx-mn||1;
+          const W=100,H=36;
+          const coords=pts.map((v,i)=>`${((i/(pts.length-1))*W).toFixed(1)},${(H-2-((v-mn)/range)*(H-6)).toFixed(1)}`);
+          const pathD=`M${coords.join(' L')}`;
+          miniAlti=`<svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" width="100%" height="44" style="display:block"><defs><linearGradient id="maG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--vl-ember)" stop-opacity="0.35"/><stop offset="1" stop-color="var(--vl-ember)" stop-opacity="0"/></linearGradient></defs><path d="${pathD} L${W},${H} L0,${H} Z" fill="url(#maG)"/><path d="${pathD}" fill="none" stroke="var(--vl-ember)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/></svg>`;
+        }
+      }catch(e){}
+    }
     nextWidget.innerHTML=`
-    <div class="next-race-big">
-      <div class="next-race-cd">
-        <div class="next-race-num">${diff}</div>
-        <div class="next-race-unit">jours</div>
+    <div style="position:relative;overflow:hidden">
+      <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:linear-gradient(to left,rgba(229,86,42,.13) 0%,transparent 100%);pointer-events:none"></div>
+      <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${next.type}</div>
+          <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.95;margin-bottom:5px">${next.name}</div>
+          <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.78rem;color:var(--vl-text-2);line-height:1.4">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
+        </div>
+        <button onclick='goToEvent("${next.id}")' style="flex-shrink:0;background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:2px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(229,86,42,.4)">STRATÉGIE →</button>
       </div>
-      <div class="next-race-info">
-        <div class="next-race-title">${next.name}</div>
-        <div class="mlabel" style="font-size:10px;color:var(--vl-text-3);margin-bottom:6px">${raceDate}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
-          <span class="race-tag" style="border-color:var(--vl-ember)40;color:var(--vl-ember)">${next.type}</span>
-          ${next.distance?`<span class="race-tag" style="border-color:var(--vl-line-2);color:var(--vl-text-2)">${next.distance} km</span>`:''}
-          ${next.elevation?`<span class="race-tag" style="border-color:var(--vl-line-2);color:var(--vl-text-2)">D+ ${next.elevation} m</span>`:''}
-          ${next.goal_time?`<span class="race-tag" style="border-color:var(--vl-amber)40;color:var(--vl-amber)">${next.goal_time}</span>`:''}
-          ${hasGpx?`<span class="race-tag" style="border-color:var(--vl-growth)40;color:var(--vl-growth)">GPX</span>`:''}
+      <div style="position:relative;display:flex;align-items:flex-end;gap:14px;padding:10px 16px 12px">
+        <div style="flex-shrink:0">
+          <div style="font-family:var(--vl-display);font-size:4.8rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
+          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:6px">jours</div>
+        </div>
+        <div style="flex:1;min-width:0;padding-bottom:4px">
+          <div style="font-family:var(--vl-mono);font-size:9px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:6px">${phase.label}</div>
+          <div style="background:var(--vl-surf-2);border-radius:3px;height:3px;overflow:hidden">
+            <div style="height:100%;border-radius:3px;background:var(--vl-ember);width:${progressPct}%;opacity:.9"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;margin-bottom:8px">
+            <span style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">Début prépa</span>
+            <span style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">${totalWeeks} sem.</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${next.goal_time}</span>`:''}
+            ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
+          </div>
         </div>
       </div>
-    </div>
-    <div style="margin-top:12px;padding:10px 12px;background:var(--vl-surf-2);border-radius:var(--vl-r-sm);border:1px solid var(--vl-line)">
-      <div class="mlabel" style="color:${phase.c}">${phase.label}</div>
-      <div style="margin-top:8px;background:var(--vl-surf-3);border-radius:4px;height:4px;overflow:hidden">
-        <div style="height:100%;border-radius:4px;background:var(--vl-ember);width:${progressPct}%;transition:width .4s ease;opacity:0.9"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:5px">
-        <span class="mlabel" style="font-size:9px;color:var(--vl-text-3)">Début prépa</span>
-        <span class="mlabel" style="font-size:9px;color:var(--vl-text-3)">${totalWeeks} sem. restantes</span>
-      </div>
-    </div>
-    <div style="margin-top:8px">
-      <button class="btn-prepare" style="width:100%;justify-content:center" onclick='goToEvent("${next.id}")'>${hasGpx?'Voir la stratégie →':'Voir l\'événement →'}</button>
+      ${miniAlti?`<div style="position:relative;overflow:hidden"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
     </div>`;
   } else { if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>'; }
   if(!list) { renderCalendar(); return; }
@@ -3411,7 +3436,7 @@ async function analyzeGPX(points, fname) {
         <div class="mlabel" style="margin-bottom:6px">Projection</div>
         <div class="vl-proj-time">${fmtT(estTimeS)}</div>
         ${marginStr?`<div class="vl-proj-margin" style="color:${marginColor};margin-top:4px">${marginStr}</div>`:''}
-        <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">${currentRaceContext?.goal_time?`Calibré sur objectif ${currentRaceContext.goal_time}`:userProfile.prs?.semi?`D'après PR semi ${userProfile.prs.semi.time}`:'Minetti 2002 · allure estimée'}</div>
+        <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">${projSource||'Minetti 2002 · allure estimée'}</div>
       </div>
       ${currentRaceContext?.goal_time?`
       <div class="vl-proj-obj">
