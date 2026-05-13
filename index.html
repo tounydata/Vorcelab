@@ -331,9 +331,9 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 <div id="authScreen">
   <div class="auth-box">
     <div class="auth-logo">
-      <div class="auth-mark">AO</div>
+      <div class="auth-mark" style="overflow:hidden;padding:0;background:transparent"><img src="logo.png" alt="Vorcelab" style="width:48px;height:48px;object-fit:contain;border-radius:8px" onerror="this.parentElement.style.background='linear-gradient(135deg,var(--cyan),var(--purple))';this.outerHTML='<span style=font-family:var(--display);font-size:24px;color:#000>V</span>'"></div>
       <div>
-        <div style="font-family:var(--display);font-size:1.6rem;letter-spacing:.04em">Runner OS</div>
+        <div style="font-family:var(--display);font-size:1.6rem;letter-spacing:.04em">VORCELAB</div>
         <div style="font-family:var(--mono);font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Connexion</div>
       </div>
     </div>
@@ -341,17 +341,17 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
       <button class="auth-tab active" onclick="switchTab('login',this)">Connexion</button>
       <button class="auth-tab" onclick="switchTab('signup',this)">Créer un compte</button>
     </div>
-    <div id="loginForm">
+    <form id="loginForm" onsubmit="event.preventDefault();login()">
       <input class="fi" type="email" id="loginEmail" placeholder="ton@email.com">
       <input class="fi" type="password" id="loginPassword" placeholder="••••••••">
-      <button class="btn-primary" onclick="login()">Se connecter</button>
-    </div>
-    <div id="signupForm" style="display:none">
+      <button class="btn-primary" type="submit">Se connecter</button>
+    </form>
+    <form id="signupForm" style="display:none" onsubmit="event.preventDefault();signup()">
       <input class="fi" type="text" id="signupName" placeholder="">
       <input class="fi" type="email" id="signupEmail" placeholder="ton@email.com">
       <input class="fi" type="password" id="signupPassword" placeholder="">
-      <button class="btn-primary" onclick="signup()">Créer mon compte</button>
-    </div>
+      <button class="btn-primary" type="submit">Créer mon compte</button>
+    </form>
     <div class="auth-msg" id="authMsg"></div>
   </div>
 </div>
@@ -361,10 +361,10 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 <div id="appShell">
 <header>
   <div class="logo" style="cursor:pointer" onclick="navigate('dashboard')">
-    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()">AO</div>
+    <div class="logo-mark" id="avatarMark" style="overflow:hidden;padding:0;font-size:13px;letter-spacing:0" onclick="event.stopPropagation();openProfil()"><img src="logo.png" alt="V" style="width:100%;height:100%;object-fit:contain;border-radius:8px" onerror="this.parentElement.style.background='linear-gradient(135deg,var(--cyan),var(--purple))';this.outerHTML='<span style=font-size:17px;font-family:var(--display);color:#000>V</span>'"></div>
     <div onclick="event.stopPropagation();openProfil()">
       <div style="font-family:var(--display);font-size:.9rem;letter-spacing:.06em;color:var(--cyan);line-height:1">VORCELAB</div>
-      <div class="logo-name" id="headerName" style="font-size:.55rem;color:var(--text3)">Runner OS</div>
+      <div class="logo-name" id="headerName" style="font-size:.55rem;color:var(--text3)">Anthony Bollecker</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
@@ -393,7 +393,7 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   <div id="onboarding" style="display:none">
     <div class="onboard">
       <div class="onboard-icon">🏃</div>
-      <div class="onboard-title">Bienvenue sur Runner OS</div>
+      <div class="onboard-title">Bienvenue sur VORCELAB</div>
       <div class="onboard-sub">Connecte ton compte Strava pour débloquer le dashboard et voir tes stats de course.</div>
       <div class="onboard-steps">
         <div class="onboard-step" id="step1">
@@ -734,7 +734,7 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 </div>
 
 <div class="app-footer">
-  Runner OS · Données sécurisées · 
+  VORCELAB · Données sécurisées ·
   <a onclick="openCGU()">CGU & Confidentialité</a> · 
   Strava API · Supabase·
 </div>
@@ -4088,7 +4088,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 <div class="onb-step active" id="onb-0">
   <div class="onb-icon">👋</div>
-  <div class="onb-title">Bienvenue sur Runner OS</div>
+  <div class="onb-title">Bienvenue sur VORCELAB</div>
   <div class="onb-desc">Ton dashboard personnel pour analyser tes sorties, préparer tes courses et progresser de façon structurée. Quelques étapes pour démarrer.</div>
 </div>
 
@@ -4114,7 +4114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 <div class="onb-step" id="onb-4">
   <div class="onb-icon">✅</div>
   <div class="onb-title">C'est parti !</div>
-  <div class="onb-desc">Runner OS affine ses projections à partir de ton historique personnel d’activités, de ton profil physiologique et des caractéristiques de course, sans communiquer de data à une IA.</div>
+  <div class="onb-desc">VORCELAB affine ses projections à partir de ton historique personnel d’activités, de ton profil physiologique et des caractéristiques de course, sans communiquer de data à une IA.</div>
   <div class="mono t3" style="font-size:.6rem;margin-top:.5rem">En utilisant cette app tu acceptes les <a onclick="openCGU()" style="color:var(--cyan);cursor:pointer">CGU et la politique de confidentialité</a>.</div>
 </div>
 
@@ -4141,10 +4141,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 <div style="font-size:.82rem;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:70vh">
   <div class="clabel" style="margin-bottom:.5rem">1. Objet</div>
-  <p style="margin-bottom:1rem">Runner OS est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
+  <p style="margin-bottom:1rem">VORCELAB est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
 
   <div class="clabel" style="margin-bottom:.5rem">2. Données personnelles</div>
-  <p style="margin-bottom:.5rem">Runner OS collecte et traite les données suivantes :</p>
+  <p style="margin-bottom:.5rem">VORCELAB collecte et traite les données suivantes :</p>
   <ul style="margin-left:1.5rem;margin-bottom:1rem">
     <li>Données de compte : email via Supabase Auth</li>
     <li>Données physiologiques : FC max, poids, taille, seuil lactique, saisies volontairement par l'utilisateur</li>
@@ -4175,7 +4175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   </p>
 
   <div class="clabel" style="margin-bottom:.5rem">6. Responsabilité</div>
-  <p style="margin-bottom:1rem">Les conseils de stratégie, nutrition, fréquence cardiaque et entraînement fournis par Runner OS sont indicatifs. Ils ne remplacent pas l'avis d'un médecin, d'un professionnel de santé ou d'un entraîneur qualifié. L'utilisateur reste seul responsable de ses choix d'entraînement et de santé.</p>
+  <p style="margin-bottom:1rem">Les conseils de stratégie, nutrition, fréquence cardiaque et entraînement fournis par VORCELAB sont indicatifs. Ils ne remplacent pas l'avis d'un médecin, d'un professionnel de santé ou d'un entraîneur qualifié. L'utilisateur reste seul responsable de ses choix d'entraînement et de santé.</p>
 
   <div class="clabel" style="margin-bottom:.5rem">7. Contact</div>
   <p>Pour toute question ou demande de suppression des données : <a href="mailto:tony.bollecker@hotmail.fr" style="color:var(--cyan)">tony.bollecker@hotmail.fr</a></p>
