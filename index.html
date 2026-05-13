@@ -101,20 +101,48 @@ input[type="date"],input[type="time"]{color-scheme:dark;-webkit-appearance:none;
 .btn-primary:hover{opacity:.88;}
 .auth-msg{font-family:var(--vl-mono);font-size:10.5px;text-align:center;margin-top:.75rem;min-height:1rem;color:var(--vl-ember);}
 
-/* ── APP ── */
+/* ── APP LAYOUT ── */
 #appShell{display:none;}
-#appShell.show{display:block;}
+#appShell.show{display:flex;min-height:100vh;}
 
-/* ── HEADER ── */
-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 2rem;border-bottom:1px solid var(--vl-line);position:sticky;top:0;z-index:200;background:rgba(14,13,10,.94);backdrop-filter:blur(20px);}
-[data-light] header{background:rgba(243,239,228,.95);}
+/* ── SIDEBAR (desktop) ── */
+.sidebar{width:220px;flex-shrink:0;background:var(--vl-surf);border-right:1px solid var(--vl-line);display:flex;flex-direction:column;padding:24px 16px;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:100;}
+[data-light] .sidebar{background:rgba(239,234,217,.98);}
+.sidebar-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;cursor:pointer;}
+.sidebar-subname{font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px;}
+.sidebar-section-label{font-family:var(--vl-mono);font-size:9.5px;color:var(--vl-text-3);letter-spacing:0.16em;text-transform:uppercase;font-weight:600;margin-bottom:10px;padding:0 2px;}
+.sidebar-item{display:flex;align-items:center;padding:9px 12px 9px 14px;border-radius:8px;border-left:2px solid transparent;cursor:pointer;font-family:var(--vl-body);font-size:13.5px;font-weight:400;color:var(--vl-text-2);transition:all .18s;margin-bottom:2px;background:transparent;width:100%;text-align:left;border-top:none;border-right:none;border-bottom:none;}
+.sidebar-item:hover:not(.active){color:var(--vl-text);background:color-mix(in oklab,var(--vl-text) 4%,transparent);}
+.sidebar-item.active{background:color-mix(in oklab,var(--vl-ember) 10%,transparent);color:var(--vl-text);border-left-color:var(--vl-ember);font-weight:500;padding-left:12px;}
+.sidebar-bottom{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding-top:16px;}
+.theme-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--vl-surf-2);border:1px solid var(--vl-line);border-radius:8px;}
+.theme-row-label{font-family:var(--vl-mono);font-size:9.5px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.1em;}
+.theme-toggle{display:flex;gap:1px;background:var(--vl-surf-3);border-radius:5px;padding:2px;}
+.theme-btn{padding:3px 7px;border-radius:3px;border:none;background:transparent;color:var(--vl-text-3);cursor:pointer;font-size:11px;transition:all .15s;line-height:1.4;}
+.theme-btn.active{background:var(--vl-surf);color:var(--vl-text);box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.sidebar-strava-block{padding:12px;background:var(--vl-surf-2);border-radius:10px;border:1px solid var(--vl-line);}
+
+/* ── MOBILE HEADER ── */
+.mobile-header{display:none;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--vl-line);background:rgba(14,13,10,.94);backdrop-filter:blur(20px);position:sticky;top:0;z-index:200;}
+[data-light] .mobile-header{background:rgba(243,239,228,.95);}
 [data-light] .overlay{background:rgba(239,234,217,.95);}
 [data-light] .ai-analysis{background:rgba(229,86,42,.04);border-color:rgba(229,86,42,.2);}
 [data-light] .dl{stroke:rgba(0,0,0,.15);}
-.logo{display:flex;align-items:center;gap:10px;cursor:pointer;}
-.logo-mark{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--vl-text);flex-shrink:0;}
-.logo-mark img{width:32px;height:32px;object-fit:cover;border-radius:6px;}
-.logo-name{font-family:var(--vl-mono);font-size:10px;color:var(--vl-text-3);letter-spacing:0.12em;text-transform:uppercase;}
+
+/* ── APP MAIN ── */
+.app-main{flex:1;overflow-x:hidden;min-width:0;}
+
+/* ── BOTTOM NAV (mobile) ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(14,13,10,.95);backdrop-filter:blur(20px);border-top:1px solid var(--vl-line);z-index:200;flex-direction:column;}
+[data-light] .bottom-nav{background:rgba(243,239,228,.96);}
+.bottom-nav-inner{display:flex;justify-content:space-around;padding:10px 12px 24px;}
+.bni{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--vl-text-3);cursor:pointer;padding:0 8px;position:relative;background:none;border:none;transition:color .15s;}
+.bni.active{color:var(--vl-text);}
+.bni .bn-label{font-family:var(--vl-mono);font-size:8.5px;letter-spacing:0.1em;text-transform:uppercase;}
+.bni .bn-dot{position:absolute;bottom:-6px;width:16px;height:2px;background:var(--vl-ember);border-radius:2px;display:none;}
+.bni.active .bn-dot{display:block;}
+
+/* ── SHARED BUTTONS ── */
 .hbtn{padding:6px 12px;border-radius:var(--vl-r-sm);border:1px solid var(--vl-line-2);background:var(--vl-surf-2);color:var(--vl-text-2);cursor:pointer;font-family:var(--vl-mono);font-size:10.5px;font-weight:600;letter-spacing:0.08em;transition:all .2s;white-space:nowrap;}
 .hbtn:hover{border-color:var(--vl-ember);color:var(--vl-text);}
 .hbtn.strava{background:#fc4c02;color:#fff;border-color:#fc4c02;}
@@ -123,19 +151,22 @@ header{display:flex;align-items:center;justify-content:space-between;padding:.85
 .dot-on{background:var(--vl-growth);box-shadow:0 0 6px var(--vl-growth);animation:blink 2s infinite;}
 .dot-off{background:var(--vl-text-3);}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
-.strava-pill{display:flex;align-items:center;gap:6px;background:var(--vl-surf-2);border:1px solid var(--vl-line-2);border-radius:20px;padding:5px 11px;font-family:var(--vl-mono);font-size:10px;color:var(--vl-text-2);}
-
-/* ── NAV ── */
-nav{display:flex;gap:2px;padding:.4rem 2rem;border-bottom:1px solid var(--vl-line);background:var(--vl-bg);overflow-x:auto;position:sticky;top:55px;z-index:100;}
-.nbtn{font-family:var(--vl-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;padding:7px 14px;border-radius:var(--vl-r-sm);border:none;cursor:pointer;background:transparent;color:var(--vl-text-3);transition:all .2s;white-space:nowrap;}
-.nbtn.active{background:color-mix(in oklab, var(--vl-ember) 10%, transparent);color:var(--vl-text);border-left:2px solid var(--vl-ember);padding-left:12px;}
-.nbtn:hover:not(.active){color:var(--vl-text-2);}
 
 /* ── MAIN ── */
-main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
+main{padding:1.5rem 2rem;max-width:1200px;}
 .panel{display:none;animation:fadeUp .3s ease;}
 .panel.active{display:block;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  #appShell.show{flex-direction:column;}
+  .sidebar{display:none;}
+  .mobile-header{display:flex;}
+  .bottom-nav{display:flex;}
+  .app-main{padding-bottom:90px;}
+  main{padding:1rem 1rem;}
+}
 
 /* ── CARDS ── */
 .card{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-lg);padding:1.25rem;}
@@ -426,7 +457,8 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 .vl-strat-dstat .lbl{font-family:var(--vl-mono);font-size:10px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px;font-weight:600;}
 
 /* ── STRATEGY — map ── */
-#raceMap{height:260px;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);overflow:hidden;margin:0;}
+#raceMap{height:260px;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);overflow:hidden;margin:0;clip-path:inset(0 0 0 0 round 0 0 var(--vl-r-sm) var(--vl-r-sm));isolation:isolate;}
+.gpx-chart-row{position:relative;z-index:2;}
 
 </style>
 
@@ -481,34 +513,77 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 <!-- ══ APP ══ -->
 
 <div id="appShell">
-<header>
-  <div class="logo" onclick="navigate('dashboard')">
-    <div class="logo-mark" id="avatarMark" onclick="event.stopPropagation();openProfil()" style="cursor:pointer">
-      <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
+
+<!-- ══ SIDEBAR (desktop) ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo" onclick="navigate('dashboard')">
+    <div style="color:var(--vl-text);flex-shrink:0">
+      <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
         <path d="M3 5 L18 30 L33 5" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
         <circle cx="18" cy="30" r="2.2" fill="#E5562A"/>
       </svg>
     </div>
-    <div onclick="event.stopPropagation();openProfil()" style="cursor:pointer">
-      <div style="font-family:var(--vl-display);font-size:.95rem;letter-spacing:.06em;color:var(--vl-text);line-height:1">VORCELAB</div>
-      <div class="logo-name" id="headerName">Anthony Bollecker</div>
+    <div>
+      <div style="font-family:var(--vl-display);font-size:1rem;letter-spacing:.06em;color:var(--vl-text);line-height:1">VORCELAB</div>
+      <div class="sidebar-subname" id="headerName">Anthony Bollecker</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section-label">Navigation</div>
+  <button class="sidebar-item active" data-panel="dashboard" onclick="navigate('dashboard')">Dashboard</button>
+  <button class="sidebar-item" data-panel="strategie" onclick="navigate('strategie')">Calendrier</button>
+  <button class="sidebar-item" data-panel="renfo" onclick="navigate('renfo')">Renfo &amp; Prévention</button>
+  <button class="sidebar-item" data-panel="activites" onclick="navigate('activites')">Activités</button>
+  <button class="sidebar-item" onclick="openProfil()">Profil</button>
+
+  <div class="sidebar-bottom">
+    <div class="theme-row">
+      <span class="theme-row-label">Thème</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" data-theme-btn="dark" onclick="setTheme('dark')" title="Sombre">🌙</button>
+        <button class="theme-btn active" data-theme-btn="auto" onclick="setTheme('auto')" title="Auto">◐</button>
+        <button class="theme-btn" data-theme-btn="light" onclick="setTheme('light')" title="Clair">☀️</button>
+      </div>
+    </div>
+    <div class="sidebar-strava-block">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <div class="dot dot-off" id="statusDot"></div>
+        <span style="font-family:var(--vl-mono);font-size:9.5px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.1em" id="statusText">Strava</span>
+      </div>
+      <div id="lastSyncLabel" style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:8px"></div>
+      <button class="hbtn strava" id="btnStrava" onclick="connectStrava()" style="width:100%;display:flex;justify-content:center">Connecter Strava</button>
+      <button class="hbtn" id="btnSync" style="display:none;width:100%;justify-content:center;margin-top:4px" onclick="manualSync()">⟳ Sync</button>
+      <button class="hbtn" onclick="logout()" style="width:100%;display:flex;justify-content:center;margin-top:4px">Déconnexion</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MOBILE HEADER ══ -->
+<div class="mobile-header">
+  <div class="sidebar-logo" onclick="navigate('dashboard')" style="margin:0">
+    <div style="color:var(--vl-text);flex-shrink:0">
+      <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
+        <path d="M3 5 L18 30 L33 5" stroke="currentColor" stroke-width="2.6" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
+        <circle cx="18" cy="30" r="2.2" fill="#E5562A"/>
+      </svg>
+    </div>
+    <div>
+      <div style="font-family:var(--vl-display);font-size:.88rem;letter-spacing:.06em;color:var(--vl-text);line-height:1">VORCELAB</div>
+      <div class="sidebar-subname" id="headerNameMobile"></div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <div class="strava-pill"><div class="dot dot-off" id="statusDot"></div><span id="statusText">Strava</span></div>
-    <button class="hbtn strava" id="btnStrava" onclick="connectStrava()">Connecter Strava</button>
-    <button class="hbtn" id="btnSync" style="display:none" onclick="manualSync()" title="Synchroniser les activités Strava">⟳</button>
-    <button class="hbtn" id="themebtn" onclick="cycleTheme()" title="Changer le thème"></button>
-    <button class="hbtn" onclick="logout()">Déconnexion</button>
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;border:1px solid var(--vl-line-2);font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-2)">
+      <div class="dot dot-off" id="statusDotMobile"></div>
+      <span>SYNC</span>
+    </div>
+    <button class="hbtn strava" id="btnStravaMobile" onclick="connectStrava()" style="display:none">Strava</button>
+    <button class="hbtn" id="btnSyncMobile" style="display:none" onclick="manualSync()">⟳</button>
   </div>
-</header>
+</div>
 
-<nav>
-  <button class="nbtn active" data-panel="dashboard" onclick="navigate('dashboard')">Dashboard</button>
-  <button class="nbtn" data-panel="strategie" onclick="navigate('strategie')">Calendrier</button>
-  <button class="nbtn" data-panel="renfo" onclick="navigate('renfo')">Renfo & Prévention</button>
-</nav>
-
+<!-- ══ MAIN CONTENT ══ -->
+<div class="app-main">
 <main>
 
 <!-- ══ DASHBOARD ══ -->
@@ -762,69 +837,102 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
 
           <!-- FRONT -->
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-            <svg id="bodySvg" viewBox="0 0 200 390" style="width:115px;cursor:pointer">
+            <svg id="bodySvg" viewBox="0 0 200 400" style="width:115px;cursor:pointer">
               <defs>
                 <style>
-                  .sg{fill:rgba(243,239,228,0.10);stroke:rgba(243,239,228,0.30);stroke-width:1.2;stroke-linejoin:round;stroke-linecap:round;}
+                  .sg{fill:rgba(243,239,228,0.78);stroke:none;}
                   .bz{fill:rgba(0,0,0,0);stroke:rgba(243,239,228,.10);stroke-width:1;transition:all .2s;cursor:pointer;}
-                  .bz:hover{fill:rgba(16,185,129,.15);stroke:#10B981;stroke-width:1.5;}
-                  .bz.selected{fill:rgba(229,86,42,.28);stroke:#E5562A;stroke-width:2;}
+                  .bz:hover{fill:rgba(16,185,129,.20);stroke:#10B981;stroke-width:1.5;}
+                  .bz.selected{fill:rgba(229,86,42,.35);stroke:#E5562A;stroke-width:2;}
                   .bzb{fill:rgba(0,0,0,0);stroke:rgba(243,239,228,.10);stroke-width:1;transition:all .2s;cursor:pointer;}
-                  .bzb:hover{fill:rgba(16,185,129,.15);stroke:#10B981;stroke-width:1.5;}
-                  .bzb.selected{fill:rgba(229,86,42,.28);stroke:#E5562A;stroke-width:2;}
-                  .dl{stroke:rgba(243,239,228,.18);stroke-width:.8;fill:none;pointer-events:none;}
+                  .bzb:hover{fill:rgba(16,185,129,.20);stroke:#10B981;stroke-width:1.5;}
+                  .bzb.selected{fill:rgba(229,86,42,.35);stroke:#E5562A;stroke-width:2;}
                 </style>
               </defs>
-              <!-- HEAD -->
-              <ellipse class="sg" cx="100" cy="25" rx="21" ry="24"/>
-              <!-- NECK -->
-              <path class="sg" d="M90,47 C89,53 89,59 91,63 L109,63 C111,59 111,53 110,47 Z"/>
-              <!-- TORSO — shoulder caps + waist taper -->
-              <path class="sg" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 C55,170 57,178 58,186 L142,186 C143,178 145,170 148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
-              <!-- LEFT ARM -->
-              <path class="sg" d="M38,80 C29,91 23,112 21,134 C19,154 22,172 25,184 L38,181 C36,170 34,153 36,134 C38,112 45,93 54,82 Z"/>
-              <ellipse class="sg" cx="32" cy="189" rx="9" ry="11"/>
-              <!-- RIGHT ARM -->
-              <path class="sg" d="M162,80 C171,91 177,112 179,134 C181,154 178,172 175,184 L162,181 C164,170 166,153 164,134 C162,112 155,93 146,82 Z"/>
-              <ellipse class="sg" cx="168" cy="189" rx="9" ry="11"/>
-              <!-- LEFT THIGH -->
-              <path class="sg" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
-              <!-- RIGHT THIGH -->
-              <path class="sg" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
-              <!-- LEFT KNEE -->
-              <ellipse class="sg" cx="63" cy="288" rx="18" ry="14"/>
-              <!-- RIGHT KNEE -->
-              <ellipse class="sg" cx="137" cy="288" rx="18" ry="14"/>
-              <!-- LEFT CALF -->
-              <path class="sg" d="M48,299 C42,313 42,329 46,342 C49,350 56,354 63,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 74,291 68,291 C62,291 52,294 48,299 Z"/>
-              <!-- RIGHT CALF -->
-              <path class="sg" d="M152,299 C158,313 158,329 154,342 C151,350 144,354 137,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 126,291 132,291 C138,291 148,294 152,299 Z"/>
-              <!-- LEFT ANKLE -->
-              <ellipse class="sg" cx="63" cy="358" rx="12" ry="8"/>
-              <!-- RIGHT ANKLE -->
-              <ellipse class="sg" cx="137" cy="358" rx="12" ry="8"/>
-              <!-- LEFT FOOT -->
-              <path class="sg" d="M52,364 C46,369 44,375 46,380 C48,384 55,386 66,386 L82,386 C87,384 87,379 85,373 L80,364 Z"/>
-              <!-- RIGHT FOOT -->
-              <path class="sg" d="M148,364 C154,369 156,375 154,380 C152,384 145,386 134,386 L118,386 C113,384 113,379 115,373 L120,364 Z"/>
-              <!-- Sternum + pec lines -->
-              <line class="dl" x1="100" y1="65" x2="100" y2="106"/>
-              <path class="dl" d="M90,67 C86,75 83,88 84,104"/>
-              <path class="dl" d="M110,67 C114,75 117,88 116,104"/>
-              <!-- CLICKABLE ZONES -->
-              <ellipse class="bz" data-zone="head" cx="100" cy="25" rx="22" ry="25"/>
-              <path class="bz" data-zone="back" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 L148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
-              <path class="bz" data-zone="hip" d="M52,161 C50,173 52,184 59,188 L141,188 C148,184 150,173 148,161 L124,158 Q100,160 76,158 Z"/>
-              <path class="bz" data-zone="quad_l" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
-              <path class="bz" data-zone="quad_r" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
-              <ellipse class="bz" data-zone="knee_l" cx="63" cy="288" rx="19" ry="15"/>
-              <ellipse class="bz" data-zone="knee_r" cx="137" cy="288" rx="19" ry="15"/>
-              <path class="bz" data-zone="calf_l" d="M47,300 C41,314 41,330 45,343 C48,351 56,355 63,355 L74,355 C81,355 87,351 90,343 C94,330 93,314 87,300 Z"/>
-              <path class="bz" data-zone="calf_r" d="M153,300 C159,314 159,330 155,343 C152,351 144,355 137,355 L126,355 C119,355 113,351 110,343 C106,330 107,314 113,300 Z"/>
-              <ellipse class="bz" data-zone="ankle_l" cx="63" cy="359" rx="13" ry="9"/>
-              <ellipse class="bz" data-zone="ankle_r" cx="137" cy="359" rx="13" ry="9"/>
-              <path class="bz" data-zone="foot_l" d="M51,365 C45,370 43,376 45,381 C47,385 54,387 66,387 L83,387 C88,385 88,380 86,374 L81,365 Z"/>
-              <path class="bz" data-zone="foot_r" d="M149,365 C155,370 157,376 155,381 C153,385 146,387 134,387 L117,387 C112,385 112,380 114,374 L119,365 Z"/>
+              <!-- ══ MALE SILHOUETTE (front) ══ -->
+              <g id="sg-front-m">
+                <!-- Head -->
+                <ellipse class="sg" cx="100" cy="26" rx="22" ry="25"/>
+                <!-- Neck -->
+                <path class="sg" d="M89,49 C88,55 88,62 90,66 L110,66 C112,62 112,55 111,49 Z"/>
+                <!-- Torso: broad shoulders, slight waist taper -->
+                <path class="sg" d="M90,66 C72,66 48,70 34,82 C22,92 20,114 24,134 C28,152 40,162 50,172 C53,180 56,190 57,198 L143,198 C144,190 147,180 150,172 C160,162 172,152 176,134 C180,114 178,92 166,82 C152,70 128,66 110,66 Z"/>
+                <!-- Left arm — separate, gap from body -->
+                <path class="sg" d="M32,84 C23,96 17,118 15,142 C13,164 16,184 20,198 L35,194 C32,182 30,163 32,142 C34,118 42,98 52,86 Z"/>
+                <ellipse class="sg" cx="28" cy="204" rx="10" ry="13"/>
+                <!-- Right arm -->
+                <path class="sg" d="M168,84 C177,96 183,118 185,142 C187,164 184,184 180,198 L165,194 C168,182 170,163 168,142 C166,118 158,98 148,86 Z"/>
+                <ellipse class="sg" cx="172" cy="204" rx="10" ry="13"/>
+                <!-- Left thigh -->
+                <path class="sg" d="M57,196 C47,204 40,226 38,252 L38,282 C40,296 54,304 70,302 C80,300 84,292 84,282 L84,252 C84,226 88,206 100,200 C84,196 57,194 57,196 Z"/>
+                <!-- Right thigh -->
+                <path class="sg" d="M143,196 C153,204 160,226 162,252 L162,282 C160,296 146,304 130,302 C120,300 116,292 116,282 L116,252 C116,226 112,206 100,200 C116,196 143,194 143,196 Z"/>
+                <!-- Left knee -->
+                <ellipse class="sg" cx="61" cy="306" rx="20" ry="15"/>
+                <!-- Right knee -->
+                <ellipse class="sg" cx="139" cy="306" rx="20" ry="15"/>
+                <!-- Left calf -->
+                <path class="sg" d="M44,318 C37,334 37,352 42,366 C45,375 53,380 61,380 L73,380 C81,380 87,375 90,366 C95,352 94,334 87,318 C83,312 74,308 68,308 C62,308 48,312 44,318 Z"/>
+                <!-- Right calf -->
+                <path class="sg" d="M156,318 C163,334 163,352 158,366 C155,375 147,380 139,380 L127,380 C119,380 113,375 110,366 C105,352 106,334 113,318 C117,312 126,308 132,308 C138,308 152,312 156,318 Z"/>
+                <!-- Left ankle -->
+                <ellipse class="sg" cx="61" cy="383" rx="14" ry="8"/>
+                <!-- Right ankle -->
+                <ellipse class="sg" cx="139" cy="383" rx="14" ry="8"/>
+                <!-- Left foot -->
+                <path class="sg" d="M48,389 C42,394 40,398 43,400 L88,400 C90,397 88,392 84,388 L72,389 Z"/>
+                <!-- Right foot -->
+                <path class="sg" d="M152,389 C158,394 160,398 157,400 L112,400 C110,397 112,392 116,388 L128,389 Z"/>
+              </g>
+              <!-- ══ FEMALE SILHOUETTE (front) ══ -->
+              <g id="sg-front-f" style="display:none">
+                <!-- Head (slightly smaller) -->
+                <ellipse class="sg" cx="100" cy="26" rx="20" ry="24"/>
+                <!-- Neck (slimmer) -->
+                <path class="sg" d="M91,48 C90,54 90,61 92,65 L108,65 C110,61 110,54 109,48 Z"/>
+                <!-- Torso: narrower shoulders, dramatic waist, wider hips -->
+                <path class="sg" d="M92,65 C76,65 55,69 44,80 C34,90 32,110 36,128 C40,145 50,155 58,164 C60,174 62,184 62,196 L138,196 C138,184 140,174 142,164 C150,155 160,145 164,128 C168,110 166,90 156,80 C145,69 124,65 108,65 Z"/>
+                <!-- Left arm (slimmer) -->
+                <path class="sg" d="M42,82 C33,94 27,116 25,140 C23,162 26,180 30,194 L44,190 C41,178 39,161 41,140 C43,116 51,96 62,84 Z"/>
+                <ellipse class="sg" cx="37" cy="200" rx="9" ry="12"/>
+                <!-- Right arm -->
+                <path class="sg" d="M158,82 C167,94 173,116 175,140 C177,162 174,180 170,194 L156,190 C159,178 161,161 159,140 C157,116 149,96 138,84 Z"/>
+                <ellipse class="sg" cx="163" cy="200" rx="9" ry="12"/>
+                <!-- Left thigh (fuller, wider hips) -->
+                <path class="sg" d="M62,194 C50,202 42,224 40,252 L40,280 C42,294 56,302 72,300 C82,298 86,290 86,280 L86,252 C86,224 90,204 100,198 C84,194 62,192 62,194 Z"/>
+                <!-- Right thigh -->
+                <path class="sg" d="M138,194 C150,202 158,224 160,252 L160,280 C158,294 144,302 128,300 C118,298 114,290 114,280 L114,252 C114,224 110,204 100,198 C116,194 138,192 138,194 Z"/>
+                <!-- Left knee -->
+                <ellipse class="sg" cx="63" cy="304" rx="19" ry="14"/>
+                <!-- Right knee -->
+                <ellipse class="sg" cx="137" cy="304" rx="19" ry="14"/>
+                <!-- Left calf (slimmer) -->
+                <path class="sg" d="M47,316 C40,332 40,350 45,364 C48,373 55,378 62,378 L74,378 C81,378 87,373 90,364 C95,350 94,332 87,316 C83,310 75,307 68,307 C61,307 51,310 47,316 Z"/>
+                <!-- Right calf -->
+                <path class="sg" d="M153,316 C160,332 160,350 155,364 C152,373 145,378 138,378 L126,378 C119,378 113,373 110,364 C105,350 106,332 113,316 C117,310 125,307 132,307 C139,307 149,310 153,316 Z"/>
+                <!-- Left ankle (slimmer) -->
+                <ellipse class="sg" cx="62" cy="381" rx="12" ry="7"/>
+                <!-- Right ankle -->
+                <ellipse class="sg" cx="138" cy="381" rx="12" ry="7"/>
+                <!-- Left foot -->
+                <path class="sg" d="M50,386 C44,391 42,396 45,398 L87,398 C89,395 87,390 83,387 L72,386 Z"/>
+                <!-- Right foot -->
+                <path class="sg" d="M150,386 C156,391 158,396 155,398 L113,398 C111,395 113,390 117,387 L128,386 Z"/>
+              </g>
+              <!-- CLICKABLE ZONES (shared, same for M/F) -->
+              <ellipse class="bz" data-zone="head" cx="100" cy="26" rx="23" ry="26"/>
+              <path class="bz" data-zone="back" d="M90,66 C70,66 46,70 32,84 C20,94 18,116 22,136 C26,154 38,164 50,174 L150,174 C162,164 174,154 178,136 C182,116 180,94 168,84 C154,70 130,66 110,66 Z"/>
+              <path class="bz" data-zone="hip" d="M50,173 C48,186 50,198 57,202 L143,202 C150,198 152,186 150,173 L124,170 Q100,172 76,170 Z"/>
+              <path class="bz" data-zone="quad_l" d="M57,200 C47,208 40,230 38,256 L38,284 C40,298 54,306 70,304 C80,302 85,294 85,284 L85,256 C85,230 89,210 100,202 C84,198 57,198 57,200 Z"/>
+              <path class="bz" data-zone="quad_r" d="M143,200 C153,208 160,230 162,256 L162,284 C160,298 146,306 130,304 C120,302 115,294 115,284 L115,256 C115,230 111,210 100,202 C116,198 143,198 143,200 Z"/>
+              <ellipse class="bz" data-zone="knee_l" cx="61" cy="308" rx="21" ry="16"/>
+              <ellipse class="bz" data-zone="knee_r" cx="139" cy="308" rx="21" ry="16"/>
+              <path class="bz" data-zone="calf_l" d="M43,319 C36,335 36,353 41,367 C44,376 53,381 61,381 L73,381 C81,381 88,376 91,367 C96,353 95,335 88,319 Z"/>
+              <path class="bz" data-zone="calf_r" d="M157,319 C164,335 164,353 159,367 C156,376 147,381 139,381 L127,381 C119,381 112,376 109,367 C104,353 105,335 112,319 Z"/>
+              <ellipse class="bz" data-zone="ankle_l" cx="61" cy="384" rx="15" ry="10"/>
+              <ellipse class="bz" data-zone="ankle_r" cx="139" cy="384" rx="15" ry="10"/>
+              <path class="bz" data-zone="foot_l" d="M41,388 C40,394 42,400 46,401 L88,401 C92,399 91,393 88,389 Z"/>
+              <path class="bz" data-zone="foot_r" d="M159,388 C160,394 158,400 154,401 L112,401 C108,399 109,393 112,389 Z"/>
             </svg>
             <div class="mono t3" style="font-size:.52rem;letter-spacing:.1em">FRONT</div>
           </div>
@@ -832,44 +940,47 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
           <!-- BACK -->
           <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
             <svg id="bodySvgBack" viewBox="0 0 200 390" style="width:115px;cursor:pointer">
-              <!-- HEAD -->
-              <ellipse class="sg" cx="100" cy="25" rx="21" ry="24"/>
-              <!-- NECK -->
-              <path class="sg" d="M90,47 C89,53 89,59 91,63 L109,63 C111,59 111,53 110,47 Z"/>
-              <!-- TORSO BACK — trapezoid with lat flare -->
-              <path class="sg" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 C55,170 57,178 58,186 L142,186 C143,178 145,170 148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
-              <!-- LEFT ARM -->
-              <path class="sg" d="M38,80 C29,91 23,112 21,134 C19,154 22,172 25,184 L38,181 C36,170 34,153 36,134 C38,112 45,93 54,82 Z"/>
-              <ellipse class="sg" cx="32" cy="189" rx="9" ry="11"/>
-              <!-- RIGHT ARM -->
-              <path class="sg" d="M162,80 C171,91 177,112 179,134 C181,154 178,172 175,184 L162,181 C164,170 166,153 164,134 C162,112 155,93 146,82 Z"/>
-              <ellipse class="sg" cx="168" cy="189" rx="9" ry="11"/>
-              <!-- LEFT THIGH (hamstring view) -->
-              <path class="sg" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
-              <!-- RIGHT THIGH -->
-              <path class="sg" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
-              <!-- LEFT KNEE -->
-              <ellipse class="sg" cx="63" cy="288" rx="18" ry="14"/>
-              <!-- RIGHT KNEE -->
-              <ellipse class="sg" cx="137" cy="288" rx="18" ry="14"/>
-              <!-- LEFT CALF (gastrocnemius) -->
-              <path class="sg" d="M48,299 C42,313 42,329 46,342 C49,350 56,354 63,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 74,291 68,291 C62,291 52,294 48,299 Z"/>
-              <!-- RIGHT CALF -->
-              <path class="sg" d="M152,299 C158,313 158,329 154,342 C151,350 144,354 137,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 126,291 132,291 C138,291 148,294 152,299 Z"/>
-              <!-- LEFT ANKLE / ACHILLES -->
-              <ellipse class="sg" cx="63" cy="358" rx="12" ry="8"/>
-              <!-- RIGHT ANKLE -->
-              <ellipse class="sg" cx="137" cy="358" rx="12" ry="8"/>
-              <!-- LEFT FOOT (heel view) -->
-              <path class="sg" d="M52,364 C46,369 44,375 46,380 C48,384 55,386 66,386 L82,386 C87,384 87,379 85,373 L80,364 Z"/>
-              <!-- RIGHT FOOT -->
-              <path class="sg" d="M148,364 C154,369 156,375 154,380 C152,384 145,386 134,386 L118,386 C113,384 113,379 115,373 L120,364 Z"/>
-              <!-- Spine + shoulder blade lines -->
-              <line class="dl" x1="100" y1="65" x2="100" y2="188"/>
-              <path class="dl" d="M82,74 C78,86 78,102 82,116"/>
-              <path class="dl" d="M118,74 C122,86 122,102 118,116"/>
-              <line class="dl" x1="100" y1="188" x2="100" y2="214"/>
-              <!-- BACK CLICKABLE ZONES -->
+              <!-- ══ MALE SILHOUETTE (back) ══ -->
+              <g id="sg-back-m">
+                <ellipse class="sg" cx="100" cy="25" rx="21" ry="24"/>
+                <path class="sg" d="M90,47 C89,53 89,59 91,63 L109,63 C111,59 111,53 110,47 Z"/>
+                <path class="sg" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 C55,170 57,178 58,186 L142,186 C143,178 145,170 148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
+                <path class="sg" d="M38,80 C29,91 23,112 21,134 C19,154 22,172 25,184 L38,181 C36,170 34,153 36,134 C38,112 45,93 54,82 Z"/>
+                <ellipse class="sg" cx="32" cy="189" rx="9" ry="11"/>
+                <path class="sg" d="M162,80 C171,91 177,112 179,134 C181,154 178,172 175,184 L162,181 C164,170 166,153 164,134 C162,112 155,93 146,82 Z"/>
+                <ellipse class="sg" cx="168" cy="189" rx="9" ry="11"/>
+                <path class="sg" d="M59,186 C50,193 43,213 41,238 L41,265 C43,278 56,285 72,283 C81,281 85,273 85,263 L85,237 C85,212 89,194 100,188 C85,184 59,184 59,186 Z"/>
+                <path class="sg" d="M141,186 C150,193 157,213 159,238 L159,265 C157,278 144,285 128,283 C119,281 115,273 115,263 L115,237 C115,212 111,194 100,188 C115,184 141,184 141,186 Z"/>
+                <ellipse class="sg" cx="63" cy="288" rx="18" ry="14"/>
+                <ellipse class="sg" cx="137" cy="288" rx="18" ry="14"/>
+                <path class="sg" d="M48,299 C42,313 42,329 46,342 C49,350 56,354 63,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 74,291 68,291 C62,291 52,294 48,299 Z"/>
+                <path class="sg" d="M152,299 C158,313 158,329 154,342 C151,350 144,354 137,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 126,291 132,291 C138,291 148,294 152,299 Z"/>
+                <ellipse class="sg" cx="63" cy="358" rx="12" ry="8"/>
+                <ellipse class="sg" cx="137" cy="358" rx="12" ry="8"/>
+                <path class="sg" d="M52,364 C46,369 44,375 46,380 C48,384 55,386 66,386 L82,386 C87,384 87,379 85,373 L80,364 Z"/>
+                <path class="sg" d="M148,364 C154,369 156,375 154,380 C152,384 145,386 134,386 L118,386 C113,384 113,379 115,373 L120,364 Z"/>
+              </g>
+              <!-- ══ FEMALE SILHOUETTE (back) ══ -->
+              <g id="sg-back-f" style="display:none">
+                <ellipse class="sg" cx="100" cy="25" rx="20" ry="23"/>
+                <path class="sg" d="M91,47 C90,53 90,59 92,63 L108,63 C110,59 110,53 109,47 Z"/>
+                <path class="sg" d="M92,63 C76,63 54,67 44,78 C34,88 32,108 36,126 C40,143 50,153 56,162 C52,174 44,184 42,192 L158,192 C156,184 148,174 144,162 C150,153 160,143 164,126 C168,108 166,88 156,78 C146,67 124,63 108,63 Z"/>
+                <path class="sg" d="M42,80 C33,92 27,112 25,136 C23,156 26,172 30,184 L42,181 C40,170 38,153 40,136 C42,112 50,94 60,82 Z"/>
+                <ellipse class="sg" cx="36" cy="189" rx="8" ry="10"/>
+                <path class="sg" d="M158,80 C167,92 173,112 175,136 C177,156 174,172 170,184 L158,181 C160,170 162,153 160,136 C158,112 150,94 140,82 Z"/>
+                <ellipse class="sg" cx="164" cy="189" rx="8" ry="10"/>
+                <path class="sg" d="M44,190 C34,198 27,218 25,244 L25,272 C27,285 42,292 58,290 C68,288 74,280 74,270 L74,244 C74,218 80,202 100,196 C82,192 44,190 44,190 Z"/>
+                <path class="sg" d="M156,190 C166,198 173,218 175,244 L175,272 C173,285 158,292 142,290 C132,288 126,280 126,270 L126,244 C126,218 120,202 100,196 C118,192 156,190 156,190 Z"/>
+                <ellipse class="sg" cx="63" cy="287" rx="17" ry="13"/>
+                <ellipse class="sg" cx="137" cy="287" rx="17" ry="13"/>
+                <path class="sg" d="M49,299 C43,313 43,329 47,342 C50,350 57,354 64,354 L74,354 C81,354 86,350 89,342 C93,329 92,313 86,299 C82,294 75,291 69,291 C63,291 53,294 49,299 Z"/>
+                <path class="sg" d="M151,299 C157,313 157,329 153,342 C150,350 143,354 136,354 L126,354 C119,354 114,350 111,342 C107,329 108,313 114,299 C118,294 125,291 131,291 C137,291 147,294 151,299 Z"/>
+                <ellipse class="sg" cx="63" cy="357" rx="11" ry="7"/>
+                <ellipse class="sg" cx="137" cy="357" rx="11" ry="7"/>
+                <path class="sg" d="M52,363 C46,368 44,374 46,379 C48,383 55,385 66,385 L82,385 C87,383 87,378 85,372 L80,363 Z"/>
+                <path class="sg" d="M148,363 C154,368 156,374 154,379 C152,383 145,385 134,385 L118,385 C113,383 113,378 115,372 L120,363 Z"/>
+              </g>
+              <!-- BACK CLICKABLE ZONES (shared) -->
               <ellipse class="bzb" data-zone="head" cx="100" cy="25" rx="22" ry="25"/>
               <path class="bzb" data-zone="back" d="M91,63 C74,63 52,66 40,77 C28,87 26,108 30,126 C34,143 44,153 52,162 L148,162 C156,153 166,143 170,126 C174,108 172,87 160,77 C148,66 126,63 109,63 Z"/>
               <path class="bzb" data-zone="glute" d="M52,161 C50,173 52,184 59,188 L141,188 C148,184 150,173 148,161 L124,158 Q100,160 76,158 Z"/>
@@ -916,13 +1027,52 @@ main{padding:1.5rem 2rem;max-width:1440px;margin:0 auto;}
   </div>
 </div>
 
+<!-- ══ ACTIVITÉS ══ -->
+<div class="panel" id="panel-activites">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+    <div class="stitle">Activités</div>
+    <div class="mlabel" style="color:var(--vl-text-2)" id="actsInfoFull"></div>
+  </div>
+  <div class="card" style="padding:0 16px">
+    <div class="acts-grid" id="actsGridFull"></div>
+  </div>
+</div>
+
 <div class="app-footer">
   VORCELAB · Données sécurisées ·
-  <a onclick="openCGU()">CGU & Confidentialité</a> · 
+  <a onclick="openCGU()">CGU & Confidentialité</a> ·
   Strava API · Supabase·
 </div>
 
 </main>
+</div><!-- app-main -->
+
+<!-- ══ BOTTOM NAV (mobile) ══ -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bni active" data-panel="dashboard" onclick="navigate('dashboard')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 13L8 6L13 12L17 9L21 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="bn-label">Forme</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" data-panel="strategie" onclick="navigate('strategie')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10H21M8 3V7M16 3V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Courses</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" data-panel="renfo" onclick="navigate('renfo')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 8V16M19 8V16M2 12H22M7 6V18M17 6V18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Renfo</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" onclick="openProfil()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21C4 16.58 7.58 13 12 13C16.42 13 20 16.58 20 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Profil</span>
+      <div class="bn-dot"></div>
+    </button>
+  </div>
+</nav>
+
 </div><!-- appShell -->
 
 <!-- ══ ANALYSE OVERLAY ══ -->
@@ -1154,8 +1304,6 @@ function deltaHTML(pct, label='mois dernier') {
 // ════════════════════════════════════════════════════
 // THEME
 // ════════════════════════════════════════════════════
-const THEME_ICONS = { dark: '🌙', light: '☀️', auto: '◐' };
-const THEME_CYCLE = ['dark', 'light', 'auto'];
 function applyTheme(mode) {
   themeMode = mode;
   if (mode === 'auto') {
@@ -1165,13 +1313,11 @@ function applyTheme(mode) {
   }
   document.body.toggleAttribute('data-light', isLight);
   document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
-  const btn = document.getElementById('themebtn');
-  if (btn) btn.textContent = THEME_ICONS[mode];
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.themeBtn === mode));
 }
-function cycleTheme() {
-  const next = THEME_CYCLE[(THEME_CYCLE.indexOf(themeMode) + 1) % THEME_CYCLE.length];
-  localStorage.setItem('vl-theme', next);
-  applyTheme(next);
+function setTheme(mode) {
+  localStorage.setItem('vl-theme', mode);
+  applyTheme(mode);
 }
 // Init theme on load
 applyTheme(themeMode);
@@ -1185,12 +1331,13 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
 // ════════════════════════════════════════════════════
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nbtn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item[data-panel]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bni[data-panel]').forEach(b => b.classList.remove('active'));
   const panel = document.getElementById('panel-' + name);
   if(!panel) return;
   panel.classList.add('active');
-  const navBtn = document.querySelector(`.nbtn[data-panel="${name}"]`);
-  if(navBtn) navBtn.classList.add('active');
+  document.querySelector(`.sidebar-item[data-panel="${name}"]`)?.classList.add('active');
+  document.querySelector(`.bni[data-panel="${name}"]`)?.classList.add('active');
   if(name==='strategie') { renderCalendar(); }
   if(name==='strategie' && !currentRaceContext) {
     const drop=document.getElementById('gpxDrop');
@@ -1312,6 +1459,14 @@ function togglePainZone(key, el) {
   else { userProfile.pain_zones.push(key); el.classList.add('active'); el.querySelector('input').checked=true; }
 }
 
+function updateSilhouetteSex() {
+  const sex = userProfile?.sex || 'M';
+  const isFemale = sex === 'F';
+  const show = (id, visible) => { const el=document.getElementById(id); if(el) el.style.display=visible?'':'none'; };
+  show('sg-front-m', !isFemale); show('sg-front-f', isFemale);
+  show('sg-back-m', !isFemale); show('sg-back-f', isFemale);
+}
+
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   if (data) {
@@ -1323,7 +1478,7 @@ async function loadProfile() {
     set('p-vo2max', data.vo2max); set('p-fcmax', data.fc_max);
     set('p-lactate', data.lactate_threshold); set('p-lactate-pace', data.lactate_pace);
     set('p-goals', data.goals);
-    if (data.name) document.getElementById('headerName').textContent = data.name;
+    if (data.name) { document.getElementById('headerName').textContent = data.name; const hm=document.getElementById('headerNameMobile'); if(hm) hm.textContent=data.name; }
     if (data.avatar_url) updateAvatar(data.avatar_url);
     if (data.nutrition_products) userProfile.nutrition_products = data.nutrition_products;
     if (data.prs) {
@@ -1336,6 +1491,7 @@ async function loadProfile() {
       if(p['marathon']){sp('pr-marathon',p['marathon'].time);sp('pr-marathon-date',p['marathon'].date);}
       if(p['ultra']){sp('pr-ultra',p['ultra'].time);sp('pr-ultra-date',p['ultra'].date);sp('pr-ultra-dist',p['ultra'].dist);sp('pr-ultra-dplus',p['ultra'].dplus);}
     }
+    updateSilhouetteSex();
   }
 }
 
@@ -1359,7 +1515,7 @@ async function saveProfile() {
   const { error } = await sb.from('profiles').upsert(profile);
   const msg = document.getElementById('profileSaveMsg');
   if (error) { msg.textContent='❌ '+error.message; msg.style.color='var(--red)'; }
-  else { userProfile={...userProfile,...profile}; msg.textContent='✓ Sauvegardé'; msg.style.color='var(--green)'; if(profile.name)document.getElementById('headerName').textContent=profile.name; setTimeout(()=>msg.textContent='',3000); }
+  else { userProfile={...userProfile,...profile}; updateSilhouetteSex(); msg.textContent='✓ Sauvegardé'; msg.style.color='var(--green)'; if(profile.name){document.getElementById('headerName').textContent=profile.name;const hm=document.getElementById('headerNameMobile');if(hm)hm.textContent=profile.name;} setTimeout(()=>msg.textContent='',3000); }
 }
 
 function parsePRTime(str) {
@@ -1435,6 +1591,9 @@ function setStravaConnected(name) {
   document.getElementById('statusText').textContent = name || 'Connecté';
   document.getElementById('btnStrava').style.display = 'none';
   const s = document.getElementById('btnSync'); if(s) s.style.display = 'inline-flex';
+  const dotM = document.getElementById('statusDotMobile'); if(dotM) dotM.className = 'dot dot-on';
+  const sm = document.getElementById('btnSyncMobile'); if(sm) sm.style.display = 'inline-flex';
+  const bsm = document.getElementById('btnStravaMobile'); if(bsm) bsm.style.display = 'none';
 }
 
 async function manualSync() {
@@ -2044,30 +2203,37 @@ function renderAnnualChart() {
 // ════════════════════════════════════════════════════
 function renderActivities() {
   const grid = document.getElementById('actsGrid');
+  const gridFull = document.getElementById('actsGridFull');
   const infoEl = document.getElementById('actsInfo');
+  const infoFull = document.getElementById('actsInfoFull');
   if (infoEl) infoEl.textContent = `${allActivities.length} sorties`;
-  grid.innerHTML = '';
-  allActivities.slice(0,20).forEach(act => {
+  if (infoFull) infoFull.textContent = `${allActivities.length} sorties`;
+  if (grid) grid.innerHTML = '';
+  if (gridFull) gridFull.innerHTML = '';
+  allActivities.forEach((act, idx) => {
     const d = new Date(act.start_date_local);
     const ds = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}).toUpperCase();
-    const isTrail = (act.sport_type||act.type||'').toLowerCase().includes('trail');
     const pace = fmtP(act.average_speed);
     const distKm = (act.distance/1000).toFixed(1);
     const meta = [distKm+' km', fmtD(act.moving_time), act.total_elevation_gain>0?`D+ ${act.total_elevation_gain}m`:null, act.average_heartrate?`${Math.round(act.average_heartrate)} bpm`:null].filter(Boolean).join(' · ');
-    const card = document.createElement('div');
-    card.className = 'act-card';
-    card.onclick = () => openAnalyse(act);
-    card.innerHTML = `
-      <div style="flex:1;min-width:0">
-        <div class="act-name">${act.name}</div>
-        <div class="act-meta">${meta}</div>
-      </div>
-      <div style="flex-shrink:0;text-align:right">
-        <div class="act-pace">${pace}</div>
-        <div class="act-date">/KM · ${ds}</div>
-        <div class="act-badge" style="margin-top:4px;display:inline-block">${tL(act.type)}</div>
-      </div>`;
-    grid.appendChild(card);
+    const makeCard = () => {
+      const card = document.createElement('div');
+      card.className = 'act-card';
+      card.onclick = () => openAnalyse(act);
+      card.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div class="act-name">${act.name}</div>
+          <div class="act-meta">${meta}</div>
+        </div>
+        <div style="flex-shrink:0;text-align:right">
+          <div class="act-pace">${pace}</div>
+          <div class="act-date">/KM · ${ds}</div>
+          <div class="act-badge" style="margin-top:4px;display:inline-block">${tL(act.type)}</div>
+        </div>`;
+      return card;
+    };
+    if (grid && idx < 20) grid.appendChild(makeCard());
+    if (gridFull) gridFull.appendChild(makeCard());
   });
 }
 
@@ -3139,24 +3305,26 @@ async function analyzeGPX(points, fname) {
       .filter(a=>a.type==='TrailRun'&&a.distance>5000&&a.average_speed>0)
       .sort((a,b)=>b.average_speed-a.average_speed);
     if(trailRuns.length>=2){
-      // Median pace of top-5 trail runs → adjusted for progression
+      // Use median pace of top trail runs, weight by D+ density (VAM proxy)
       const top=trailRuns.slice(0,Math.min(5,trailRuns.length));
-      const medianPaceS=1000/top[Math.floor(top.length/2)].average_speed;
-      basePaceS=medianPaceS/progressionFactor;
+      // D+-weighted pace: prefer activities with similar D+/km profile to current race
+      const raceDpKm=dplus/(totalDist/1000);
+      const scored=top.map(a=>{
+        const aDpKm=(a.total_elevation_gain||0)/(a.distance/1000);
+        const similarity=1-Math.min(1,Math.abs(aDpKm-raceDpKm)/(raceDpKm+1));
+        return {paceS:1000/a.average_speed, weight:0.4+0.6*similarity};
+      });
+      const totalW=scored.reduce((s,x)=>s+x.weight,0);
+      const weightedPace=scored.reduce((s,x)=>s+x.paceS*x.weight,0)/totalW;
+      basePaceS=weightedPace/progressionFactor;
       const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
-      projSource=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · progression ${prog}`;
-    } else if(userProfile.prs){
-      // Fallback to road PR + coefficient only if no trail data
-      const prs=userProfile.prs;
-      const candidates=['semi','10k','15k','marathon','5k'].filter(k=>prs[k]?.timeS&&prs[k]?.dist);
-      if(candidates.length){
-        const pr=prs[candidates[0]];
-        basePaceS=(pr.timeS/pr.dist*1000*1.18)/progressionFactor;
-        projSource=`📊 PR ${candidates[0].toUpperCase()} × coeff trail (aucune sortie trail disponible)`;
-      }
+      projSource=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · D+ pondéré · progression ${prog}`;
+    } else {
+      // No trail data — refuse to use road PRs for trail estimation
+      projSource='⚠️ Aucune sortie trail disponible — sync tes activités trail Strava pour une projection fiable';
     }
   } else if(userProfile.prs){
-    // Road race: use road PRs directly
+    // Road race: use road PRs directly (no trail coefficient)
     const prs=userProfile.prs;
     const candidates=['semi','10k','15k','marathon','5k'].filter(k=>prs[k]?.timeS&&prs[k]?.dist);
     if(candidates.length){
@@ -3166,7 +3334,7 @@ async function analyzeGPX(points, fname) {
       projSource=`📊 PR ${candidates[0].toUpperCase()} · progression ${prog}`;
     }
   }
-  if(!projSource) projSource='⚙️ Estimation par défaut — renseigne tes PR ou ton objectif temps';
+  if(!projSource) projSource=isTrail?'⚠️ Aucune sortie trail — sync Strava pour une projection trail fiable':'⚙️ Estimation par défaut — renseigne tes PR';
 
   // Build sections
   const sections=buildDetailedSections(kmSecs);
@@ -3232,7 +3400,7 @@ async function analyzeGPX(points, fname) {
         <span class="mlabel" style="color:var(--vl-text-3)">${distKm.toFixed(2)} km</span>
       </div>
       <div id="raceMap"></div>
-      <div style="padding:0 14px 0;border-top:1px solid var(--vl-line)">
+      <div class="gpx-chart-row" style="padding:0 14px 0;border-top:1px solid var(--vl-line)">
         <div class="chart-wrap" style="height:100px"><canvas id="gpxChart"></canvas></div>
       </div>
     </div>
