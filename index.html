@@ -153,7 +153,7 @@ input[type="date"],input[type="time"]{color-scheme:dark;-webkit-appearance:none;
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* ── MAIN ── */
-main{padding:1.5rem 2rem;max-width:1200px;}
+main{padding:1.5rem 2rem;max-width:1400px;}
 .panel{display:none;animation:fadeUp .3s ease;}
 .panel.active{display:block;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -206,7 +206,7 @@ main{padding:1.5rem 2rem;max-width:1200px;}
 .vl-hk-val{font-family:var(--vl-display);font-size:2.6rem;font-weight:700;letter-spacing:0.01em;line-height:1;margin:4px 0 2px;}
 .vl-hk-delta{font-family:var(--vl-mono);font-size:9px;font-weight:600;padding:2px 6px;background:var(--vl-surf-2);border-radius:4px;display:inline-block;}
 /* ── DASHBOARD GRID ── */
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
 @media(max-width:900px){.dash-grid{grid-template-columns:1fr;}}
 .vl-sat-strip{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:4px 0;display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:10px;}
 .vl-sat-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--vl-line);}
@@ -710,8 +710,8 @@ main{padding:1.5rem 2rem;max-width:1200px;}
       <div id="nextRaceWidget"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
     </div>
 
-    <!-- DERNIÈRES SORTIES (3 max) -->
-    <div class="card" style="padding:0 16px">
+    <!-- DERNIÈRES SORTIES (4 max) -->
+    <div class="card" style="padding:0 16px;flex:1">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0">
         <div class="clabel" style="margin:0">Dernières sorties</div>
         <button onclick="navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
@@ -784,6 +784,7 @@ main{padding:1.5rem 2rem;max-width:1200px;}
           <button class="race-menu-item" onclick="toggleEditRaceForm();toggleRaceMenu()">Modifier</button>
           <button class="race-menu-item" onclick="raceMenuChangeGpx()">Changer de GPX</button>
           <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="saveGpxToRace();toggleRaceMenu()">Enregistrer GPX</button>
+          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-text-2)" onclick="deleteGpxFromRace();toggleRaceMenu()">Supprimer le GPX</button>
           <button class="race-menu-item" onclick="raceMenuLinkActivity();toggleRaceMenu()">Lier à une activité</button>
           <button class="race-menu-item" onclick="window.print();toggleRaceMenu()">Imprimer</button>
           <div style="border-top:1px solid var(--vl-line);margin:4px 2px"></div>
@@ -1931,6 +1932,13 @@ function toggleRaceMenu(e) {
   if(opening) {
     const saveItem = document.getElementById('raceMenuSaveGpx');
     if(saveItem) saveItem.style.display = (currentRaceContext?.id && window._pendingGpxSave) ? 'block' : 'none';
+    const delGpxItem = document.getElementById('raceMenuDeleteGpx');
+    if(delGpxItem) {
+      const race = window._openEventRace;
+      let hasGpx = false;
+      try { if(race?.gpx_data){ const p=JSON.parse(race.gpx_data); hasGpx=Array.isArray(p)&&p.length>0; } } catch{}
+      delGpxItem.style.display = hasGpx ? 'block' : 'none';
+    }
   }
 }
 
@@ -2243,7 +2251,7 @@ function renderActivities() {
         </div>`;
       return card;
     };
-    if (grid && idx < 3) grid.appendChild(makeCard());
+    if (grid && idx < 4) grid.appendChild(makeCard());
     if (gridFull) gridFull.appendChild(makeCard());
   });
 }
@@ -3015,6 +3023,19 @@ async function saveGpxToRace() {
   }
 }
 
+async function deleteGpxFromRace() {
+  const race = window._openEventRace;
+  if(!race?.id) return;
+  const {error} = await sb.from('race_calendar').update({gpx_data: null}).eq('id', race.id);
+  if(error){ showToast('Erreur suppression GPX', 'error'); return; }
+  const idx = races.findIndex(r=>r.id===race.id);
+  if(idx>=0) races[idx].gpx_data = null;
+  race.gpx_data = null;
+  if(currentRaceContext?.id===race.id) currentRaceContext.gpx_data = null;
+  renderRaces();
+  showToast('GPX supprimé ✓', 'success');
+}
+
 function importOrgGpx(race) {
   // Create hidden file input and trigger click
   const input = document.createElement('input');
@@ -3516,7 +3537,7 @@ async function analyzeGPX(points, fname) {
   setTimeout(()=>{
     if(leafletMap){leafletMap.remove();leafletMap=null;}
     leafletMap=L.map('raceMap',{zoomControl:true,scrollWheelZoom:false});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:20,subdomains:'abcd',crossOrigin:true}).addTo(leafletMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(leafletMap);
 
     // Tracé de fond sombre
     const allLL=points.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
@@ -4243,7 +4264,7 @@ function openSectionPopup(idx) {
   setTimeout(()=>{
     if(sectionMapInst){sectionMapInst.remove();sectionMapInst=null;}
     sectionMapInst=L.map('sectionMap',{zoomControl:false,scrollWheelZoom:false,dragging:false});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap contributors © CARTO',maxZoom:20,subdomains:'abcd'}).addTo(sectionMapInst);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:19}).addTo(sectionMapInst);
     const col={up:'#E5562A',down:'#E8A23A',flat:'#10B981'}[s.type];
     const ll=segPts.filter((_,i)=>i%3===0).map(p=>[p.lat,p.lon]);
     const poly=L.polyline(ll,{color:col,weight:5,opacity:1}).addTo(sectionMapInst);
