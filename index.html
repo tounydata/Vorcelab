@@ -206,7 +206,7 @@ main{padding:1.5rem 2rem;max-width:1400px;}
 .vl-hk-val{font-family:var(--vl-display);font-size:2.6rem;font-weight:700;letter-spacing:0.01em;line-height:1;margin:4px 0 2px;}
 .vl-hk-delta{font-family:var(--vl-mono);font-size:9px;font-weight:600;padding:2px 6px;background:var(--vl-surf-2);border-radius:4px;display:inline-block;}
 /* ── DASHBOARD GRID ── */
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;min-height:calc(100vh - 3rem);}
 @media(max-width:900px){.dash-grid{grid-template-columns:1fr;}}
 .vl-sat-strip{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:4px 0;display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:10px;}
 .vl-sat-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--vl-line);}
@@ -780,11 +780,11 @@ main{padding:1.5rem 2rem;max-width:1400px;}
       <div id="eventViewSubtitle" class="mlabel" style="flex:1;color:var(--vl-text-3)"></div>
       <div style="position:relative;flex-shrink:0" id="raceMenuWrap">
         <button class="hbtn" onclick="toggleRaceMenu(event)" style="letter-spacing:.2em">···</button>
-        <div id="raceMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--vl-surf);border:1px solid var(--vl-line-2);border-radius:var(--vl-r-sm);padding:6px;z-index:200;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+        <div id="raceMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--vl-surf);border:1px solid var(--vl-line-2);border-radius:var(--vl-r-sm);padding:6px;z-index:2000;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
           <button class="race-menu-item" onclick="toggleEditRaceForm();toggleRaceMenu()">Modifier</button>
           <button class="race-menu-item" onclick="raceMenuChangeGpx()">Changer de GPX</button>
           <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="saveGpxToRace();toggleRaceMenu()">Enregistrer GPX</button>
-          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-text-2)" onclick="deleteGpxFromRace();toggleRaceMenu()">Supprimer le GPX</button>
+          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-ember)" onclick="deleteGpxFromRace();toggleRaceMenu()">Supprimer le GPX</button>
           <button class="race-menu-item" onclick="raceMenuLinkActivity();toggleRaceMenu()">Lier à une activité</button>
           <button class="race-menu-item" onclick="window.print();toggleRaceMenu()">Imprimer</button>
           <div style="border-top:1px solid var(--vl-line);margin:4px 2px"></div>
@@ -3351,11 +3351,12 @@ async function analyzeGPX(points, fname) {
   } else if(isTrail) {
     // Trail races: use real trail activities, not road PRs
     const trailRuns=allActivities
-      .filter(a=>a.type==='TrailRun'&&a.distance>5000&&a.average_speed>0)
-      .sort((a,b)=>b.average_speed-a.average_speed);
-    if(trailRuns.length>=2){
+      .filter(a=>(a.type==='TrailRun'||/trail/i.test(a.sport_type||''))&&a.distance>5000&&a.average_speed>0)
+      .sort((a,b)=>b.start_date_local-a.start_date_local||b.average_speed-a.average_speed)
+      .slice(0,10);
+    if(trailRuns.length>=1){
       // Use median pace of top trail runs, weight by D+ density (VAM proxy)
-      const top=trailRuns.slice(0,Math.min(5,trailRuns.length));
+      const top=trailRuns.slice(0,Math.min(10,trailRuns.length));
       // D+-weighted pace: prefer activities with similar D+/km profile to current race
       const raceDpKm=dplus/(totalDist/1000);
       const scored=top.map(a=>{
@@ -3367,7 +3368,7 @@ async function analyzeGPX(points, fname) {
       const weightedPace=scored.reduce((s,x)=>s+x.paceS*x.weight,0)/totalW;
       basePaceS=weightedPace/progressionFactor;
       const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
-      projSource=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · D+ pondéré · progression ${prog}`;
+      projSource=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail (10 dernières) · D+ pondéré · progression ${prog}`;
     } else {
       // No trail data — refuse to use road PRs for trail estimation
       projSource='⚠️ Aucune sortie trail disponible — sync tes activités trail Strava pour une projection fiable';
