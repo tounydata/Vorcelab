@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0E0D0A"/>
+  <!-- topo waves background -->
+  <g stroke="#F3EFE4" stroke-width="0.8" fill="none" opacity="0.05">
+    <path d="M-20,120 Q200,102 400,115 T840,108 T1220,118"/>
+    <path d="M-20,200 Q200,182 400,195 T840,188 T1220,198"/>
+    <path d="M-20,280 Q200,262 400,275 T840,268 T1220,278"/>
+    <path d="M-20,360 Q200,342 400,355 T840,348 T1220,358"/>
+    <path d="M-20,440 Q200,422 400,435 T840,428 T1220,438"/>
+    <path d="M-20,520 Q200,502 400,515 T840,508 T1220,518"/>
+  </g>
+  <!-- PEAK-DATA mark -->
+  <g transform="translate(480,180)">
+    <line x1="3" y1="170" x2="237" y2="170" stroke="#F3EFE4" stroke-width="2" opacity="0.3"/>
+    <path d="M3 148 L47 120 L74 134 L120 40 L154 100 L187 80 L237 107"
+          stroke="#F3EFE4" stroke-width="10" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
+    <circle cx="120" cy="40" r="10" fill="#E5562A"/>
+    <line x1="120" y1="170" x2="120" y2="188" stroke="#E5562A" stroke-width="4"/>
+  </g>
+  <!-- VORCELAB wordmark -->
+  <text x="600" y="435" font-family="'Big Shoulders Display', 'Bebas Neue', sans-serif" font-size="96" font-weight="800" letter-spacing="6" fill="#F3EFE4" text-anchor="middle">VORCELAB</text>
+  <!-- tagline -->
+  <text x="600" y="488" font-family="'JetBrains Mono', monospace" font-size="18" font-weight="600" letter-spacing="5" fill="#5E5B52" text-anchor="middle" text-transform="uppercase">LE LABORATOIRE DU COUREUR</text>
+</svg>
