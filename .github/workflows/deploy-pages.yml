@@ -27,6 +27,9 @@ jobs:
           mkdir -p .pages
           cp index.html .pages/index.html
           cp index.html .pages/404.html
+          [ -f style.css ] && cp style.css .pages/style.css || true
+          [ -f app.js ] && cp app.js .pages/app.js || true
+          [ -f og.svg ] && cp og.svg .pages/og.svg || true
           [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png || true
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
