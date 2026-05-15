@@ -594,9 +594,56 @@ function openEventView(raceId) {
   }
 }
 
+function showEventSplash(race, onDone) {
+  if (navigator.vibrate) navigator.vibrate(20);
+  let traceSvg = '';
+  if (race.gpx_data) {
+    try {
+      const pts = JSON.parse(race.gpx_data);
+      const step = Math.max(1, Math.floor(pts.length/200));
+      const sampled = pts.filter((_,i)=>i%step===0);
+      const lats=sampled.map(p=>p.lat), lons=sampled.map(p=>p.lon);
+      const minLat=Math.min(...lats), maxLat=Math.max(...lats), dLat=maxLat-minLat||0.001;
+      const minLon=Math.min(...lons), maxLon=Math.max(...lons), dLon=maxLon-minLon||0.001;
+      const VW=300, VH=180;
+      const scale=Math.min(VW/dLon, VH/dLat)*0.82;
+      const ox=(VW-dLon*scale)/2, oy=(VH-dLat*scale)/2;
+      const tracePts=sampled.map(p=>`${(ox+(p.lon-minLon)*scale).toFixed(1)},${(oy+(maxLat-p.lat)*scale).toFixed(1)}`);
+      traceSvg = `<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" style="width:min(85%,340px);height:160px;display:block;margin:0 auto"><polyline pathLength="1" points="${tracePts.join(' ')}" fill="none" stroke="var(--vl-ember)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" stroke-dashoffset="1" style="animation:drawRoute 700ms ease forwards;opacity:.45"/></svg>`;
+    } catch(e){}
+  }
+  const diff = Math.ceil((new Date(race.date)-new Date())/86400000);
+  const dateStr = new Date(race.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const splash = document.createElement('div');
+  splash.id = 'eventSplash';
+  splash.style.cssText = 'position:fixed;inset:0;background:var(--vl-bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:4px;cursor:pointer';
+  splash.innerHTML = `
+    <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;animation:fadeEl .3s ease forwards;opacity:0">${race.type||'Trail'}</div>
+    <div style="font-family:var(--vl-display);font-size:clamp(2rem,7vw,3.5rem);font-weight:800;text-transform:uppercase;text-align:center;line-height:.88;animation:fadeEl .35s ease .05s forwards;opacity:0">${race.name}</div>
+    <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.8rem;color:var(--vl-text-2);margin-top:6px;animation:fadeEl .35s ease .1s forwards;opacity:0">${dateStr}${race.distance?' · '+race.distance+' km':''}${race.elevation?' · D+ '+race.elevation+' m':''}</div>
+    <div style="margin-top:16px;animation:fadeEl .35s ease .2s forwards;opacity:0">${traceSvg}</div>
+    <div style="font-family:var(--vl-display);font-size:3.5rem;font-weight:800;color:var(--vl-ember);line-height:1;margin-top:8px;animation:fadeEl .4s ease .55s forwards;opacity:0">${diff<0?'PASSÉE':diff}</div>
+    ${diff>=0?`<div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);letter-spacing:.16em;text-transform:uppercase;animation:fadeEl .4s ease .6s forwards;opacity:0">jours</div>`:''}
+  `;
+  document.body.appendChild(splash);
+  const dismiss = () => {
+    if (!splash.parentNode) return;
+    splash.style.animation = 'splashOut .25s ease forwards';
+    setTimeout(() => {
+      splash.remove();
+      const pg = document.getElementById('strategie');
+      if (pg) { pg.style.animation='slideUpPage .35s ease'; setTimeout(()=>pg.style.animation='',400); }
+      onDone();
+    }, 230);
+  };
+  splash.addEventListener('click', dismiss);
+  setTimeout(dismiss, 750);
+}
+
 function goToEvent(raceId) {
-  navigate('strategie');
-  openEventView(raceId);
+  const race = (races||[]).find(r=>String(r.id)===String(raceId));
+  if (!race) { navigate('strategie'); openEventView(raceId); return; }
+  showEventSplash(race, () => { navigate('strategie'); openEventView(raceId); });
 }
 
 function backToCalendar() {
@@ -1948,6 +1995,7 @@ function prepareRace(race) {
       let d = 0;
       for(let i=1;i<validPts.length;i++) d += hav(validPts[i-1], validPts[i]);
       if (d < 100) { showGpxUploadPrompt(race); return; }
+      document.getElementById('gpxDrop').style.display = 'none';
       analyzeGPX(points, race.name);
     } catch(e) {
       showGpxUploadPrompt(race);

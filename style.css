@@ -461,4 +461,9 @@ main{padding:1.5rem 2rem;max-width:1400px;}
 .splash-tagline{opacity:0;animation:fadeEl .4s ease .85s forwards;font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#5E5B52;}
 @keyframes drawPeak{to{stroke-dashoffset:0;}}
 @keyframes fadeEl{to{opacity:1;}}
+@keyframes splashIn{from{opacity:0}to{opacity:1}}
+@keyframes splashOut{from{opacity:1}to{opacity:0}}
+@keyframes drawRoute{to{stroke-dashoffset:0}}
+@keyframes slideUpPage{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+#eventSplash{animation:splashIn .2s ease forwards}
 
