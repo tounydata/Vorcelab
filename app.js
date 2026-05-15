@@ -906,14 +906,28 @@ function renderAnnualChart() {
 
   const isDp = annualChartMode === 'dp';
 
+  // API activities: distance in meters → /1000 gives km
+  // CSV activities: distance in km → *1000 so /1000 below gives km again
+  // Deduplicate: if same day exists in API, skip the CSV entry (API is more accurate)
+  const apiDayKeys = new Set(allActivities.map(a => {
+    const d = new Date(a.start_date);
+    return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }).filter(Boolean));
+
   const allRuns = [
     ...allActivities,
-    ...historyActivities.map(h=>({
-      type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
-      distance: parseFloat(h['Distance'])||0,
-      total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
-      start_date: h['Activity Date'],
-    }))
+    ...historyActivities
+      .filter(h => {
+        const d = new Date(h['Activity Date']);
+        if (isNaN(d.getTime())) return false;
+        return !apiDayKeys.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+      })
+      .map(h=>({
+        type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
+        distance: (parseFloat(h['Distance'])||0) * 1000, // CSV is km → convert to meters
+        total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
+        start_date: h['Activity Date'],
+      }))
   ].filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
 
   // monthly raw values (for tooltip)
@@ -1643,8 +1657,10 @@ function renderRaces() {
     const raceDate=new Date(next.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
     // Mini altimetry SVG — parse from JSON points (gpx_data is [{lat,lon,ele}])
     let miniAlti='';
+    let gpxTrace='';
     if(gpxPts&&gpxPts.length>4){
       try{
+        // Altimetry profile
         const step=Math.max(1,Math.floor(gpxPts.length/80));
         const eles=gpxPts.filter((_,i)=>i%step===0).map(p=>p.ele||0);
         const mn=Math.min(...eles),mx=Math.max(...eles),range=mx-mn||1;
@@ -1652,11 +1668,24 @@ function renderRaces() {
         const coords=eles.map((v,i)=>`${((i/(eles.length-1))*W).toFixed(1)},${(H-2-((v-mn)/range)*(H-6)).toFixed(1)}`);
         const pathD=`M${coords.join(' L')}`;
         miniAlti=`<svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" width="100%" height="44" style="display:block"><defs><linearGradient id="maG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--vl-ember)" stop-opacity="0.35"/><stop offset="1" stop-color="var(--vl-ember)" stop-opacity="0"/></linearGradient></defs><path d="${pathD} L${W},${H} L0,${H} Z" fill="url(#maG)"/><path d="${pathD}" fill="none" stroke="var(--vl-ember)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/></svg>`;
+
+        // 2D route trace from lat/lon
+        const trStep=Math.max(1,Math.floor(gpxPts.length/200));
+        const pts=gpxPts.filter((_,i)=>i%trStep===0);
+        const lats=pts.map(p=>p.lat),lons=pts.map(p=>p.lon);
+        const minLat=Math.min(...lats),maxLat=Math.max(...lats),dLat=maxLat-minLat||0.001;
+        const minLon=Math.min(...lons),maxLon=Math.max(...lons),dLon=maxLon-minLon||0.001;
+        const VW=120,VH=90;
+        const scale=Math.min(VW/dLon,VH/dLat)*0.88;
+        const ox=(VW-dLon*scale)/2,oy=(VH-dLat*scale)/2;
+        const tracePts=pts.map(p=>`${(ox+(p.lon-minLon)*scale).toFixed(1)},${(oy+(maxLat-p.lat)*scale).toFixed(1)}`);
+        gpxTrace=`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" style="position:absolute;right:-10px;top:50%;transform:translateY(-50%);width:130px;height:100px;opacity:.18;pointer-events:none"><polyline points="${tracePts.join(' ')}" fill="none" stroke="var(--vl-ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       }catch(e){}
     }
     nextWidget.innerHTML=`
     <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column">
       <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:linear-gradient(to left,rgba(229,86,42,.13) 0%,transparent 100%);pointer-events:none"></div>
+      ${gpxTrace}
       <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${next.type}</div>
