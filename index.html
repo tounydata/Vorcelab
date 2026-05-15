@@ -16,6 +16,7 @@
 <meta name="twitter:description" content="Le laboratoire du coureur. Analyse tes sorties Strava, prépare tes courses trail et route.">
 <meta name="twitter:image" content="https://tounydata.github.io/Vorcelab/og.svg">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Inter:wght@400;500;600&family=Fraunces:ital,wght@1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -42,7 +43,7 @@
 <!-- ══ AUTH ══ -->
 
 <div id="authScreen" style="position:relative">
-  <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.04;pointer-events:none;color:var(--vl-text)" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.08;pointer-events:none;color:var(--vl-text)" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
     <g stroke="currentColor" stroke-width="0.8" fill="none">
       <path d="M-20,80 Q120,50 220,90 T440,70"/>
       <path d="M-20,200 Q100,170 220,210 T440,190"/>
@@ -277,7 +278,14 @@
 
     <!-- ANNUAL CHART -->
     <div class="card" style="flex:1;display:flex;flex-direction:column">
-      <div class="clabel">Volume annuel comparatif</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <div class="clabel" style="margin:0">Volume annuel comparatif</div>
+        <div style="display:flex;gap:3px">
+          <button id="annualBtnKm" onclick="setAnnualMode('km')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;background:var(--vl-ember);color:var(--vl-ink);transition:all .15s">KM</button>
+          <button id="annualBtnDp" onclick="setAnnualMode('dp')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;background:transparent;color:var(--vl-text-3);transition:all .15s">D+</button>
+        </div>
+      </div>
+      <div id="annualTotals" style="display:flex;gap:14px;margin-bottom:6px"></div>
       <div class="chart-wrap" style="flex:1;min-height:180px"><canvas id="annualChart"></canvas></div>
       <div class="clabel mt2">Stats du mois</div>
       <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
@@ -649,12 +657,12 @@
   <div class="bottom-nav-inner">
     <button class="bni active" data-panel="dashboard" onclick="navigate('dashboard')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 13L8 6L13 12L17 9L21 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="bn-label">Forme</span>
+      <span class="bn-label">Dashboard</span>
       <div class="bn-dot"></div>
     </button>
     <button class="bni" data-panel="strategie" onclick="navigate('strategie')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10H21M8 3V7M16 3V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <span class="bn-label">Courses</span>
+      <span class="bn-label">Calendrier</span>
       <div class="bn-dot"></div>
     </button>
     <button class="bni" data-panel="renfo" onclick="navigate('renfo')">
@@ -821,6 +829,13 @@
   <button class="save-btn" onclick="saveNutritionProducts()">💾 Sauvegarder mes produits</button>
   <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
 </div>
+
+  <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line)">
+    <button onclick="logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      DÉCONNEXION
+    </button>
+  </div>
 
   </div>
 </div>

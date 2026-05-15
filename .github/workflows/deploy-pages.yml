@@ -30,6 +30,7 @@ jobs:
           [ -f style.css ] && cp style.css .pages/style.css || true
           [ -f app.js ] && cp app.js .pages/app.js || true
           [ -f og.svg ] && cp og.svg .pages/og.svg || true
+          [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
           [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png || true
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3

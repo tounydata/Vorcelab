@@ -24,6 +24,7 @@ let allActivities = []; // from Strava API — runs only
 let historyActivities = []; // from ZIP
 let races = [];
 let annualChartInst = null;
+let annualChartMode = 'km';
 let isLight = false;
 let themeMode = localStorage.getItem('vl-theme') || 'auto'; // 'dark' | 'light' | 'auto'
 
@@ -890,17 +891,33 @@ async function loadAerobicStat(weekActs, fcMax) {
 // ════════════════════════════════════════════════════
 // ANNUAL CHART
 // ════════════════════════════════════════════════════
+function setAnnualMode(mode) {
+  annualChartMode = mode;
+  const btnKm = document.getElementById('annualBtnKm');
+  const btnDp = document.getElementById('annualBtnDp');
+  if (btnKm && btnDp) {
+    const on = 'background:var(--vl-ember);color:var(--vl-ink)';
+    const off = 'background:transparent;color:var(--vl-text-3)';
+    btnKm.style.cssText = btnKm.style.cssText.replace(/background:[^;]+;color:[^;]+/, mode==='km' ? on : off);
+    btnDp.style.cssText = btnDp.style.cssText.replace(/background:[^;]+;color:[^;]+/, mode==='dp' ? on : off);
+  }
+  renderAnnualChart();
+}
+
 function renderAnnualChart() {
   if (annualChartInst) { annualChartInst.destroy(); annualChartInst=null; }
+
+  const isDp = annualChartMode === 'dp';
 
   const allRuns = [
     ...allActivities,
     ...historyActivities.map(h=>({
       type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
       distance: parseFloat(h['Distance'])||0,
+      total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
       start_date: h['Activity Date'],
     }))
-  ].filter(a => isRun(a.type) && a.distance>0);
+  ].filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
 
   const years = {};
   allRuns.forEach(a => {
@@ -909,16 +926,25 @@ function renderAnnualChart() {
     const y = d.getFullYear();
     const m = d.getMonth();
     if (!years[y]) years[y] = Array(12).fill(0);
-    years[y][m] += a.distance/1000;
+    years[y][m] += isDp ? (a.total_elevation_gain||0) : a.distance/1000;
   });
 
   const sortedYears = Object.keys(years).sort().slice(-2);
   if (!sortedYears.length) return;
 
-  const colors = ['#5E5B52','#10B981']; // text-3 pour N-1, growth pour N
+  const colors = ['#5E5B52','#10B981'];
   const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
+
+  const totalsEl = document.getElementById('annualTotals');
+  if (totalsEl) {
+    totalsEl.innerHTML = sortedYears.map((y, i) => {
+      const total = years[y].reduce((s,v)=>s+v, 0);
+      const label = isDp ? Math.round(total).toLocaleString('fr-FR')+' m D+' : Math.round(total)+' km';
+      return `<span style="font-family:var(--vl-mono);font-size:9px;font-weight:600;color:${colors[i%colors.length]};letter-spacing:.05em">${y} · ${label}</span>`;
+    }).join('');
+  }
 
   const datasets = sortedYears.map((y,i) => {
     let cum = 0;
@@ -939,9 +965,10 @@ function renderAnnualChart() {
     };
   });
 
+  const yUnit = isDp ? 'm' : 'km';
   annualChartInst = new Chart(document.getElementById('annualChart'), {
     type:'line', data:{labels:months,datasets},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,font:{size:9,family:'JetBrains Mono, monospace'},color:'#9B978A',padding:10}}},scales:{x:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52'},grid:{color:'rgba(243,239,228,.04)'}},y:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52',callback:v=>v+'km'},grid:{color:'rgba(243,239,228,.04)'}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52'},grid:{color:'rgba(243,239,228,.04)'}},y:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52',callback:v=>v+yUnit},grid:{color:'rgba(243,239,228,.04)'}}}}
   });
 }
 
