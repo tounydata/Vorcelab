@@ -25,8 +25,9 @@ jobs:
       - name: Prepare stable frontend
         run: |
           mkdir -p .pages
-          cp index.html .pages/index.html
-          cp index.html .pages/404.html
+          V=$(date +%Y%m%d%H%M%S)
+          sed "s/app\.js?v=[0-9]*/app.js?v=$V/g; s/style\.css?v=[0-9]*/style.css?v=$V/g" index.html > .pages/index.html
+          cp .pages/index.html .pages/404.html
           [ -f style.css ] && cp style.css .pages/style.css || true
           [ -f app.js ] && cp app.js .pages/app.js || true
           [ -f og.svg ] && cp og.svg .pages/og.svg || true
