@@ -917,36 +917,33 @@ function renderAnnualChart() {
 
   const isDp = annualChartMode === 'dp';
 
-  // API activities: distance in meters → /1000 gives km
-  // CSV activities: distance in km → *1000 so /1000 below gives km again
-  // Deduplicate: if same day exists in API, skip the CSV entry (API is more accurate)
+  // API: distance in meters → /1000 = km. CSV: distance in meters → /1000 = km.
+  // Dedup: skip CSV entries whose date already exists in the last 100 API activities.
   const apiDayKeys = new Set(allActivities.map(a => {
     const d = new Date(a.start_date);
     return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }).filter(Boolean));
 
-  const allRuns = [
-    ...allActivities,
-    ...historyActivities
-      .filter(h => {
-        const d = parseCsvDate(h['Activity Date'] || h['Date']);
-        if (!d) return false;
-        return !apiDayKeys.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
-      })
-      .map(h=>({
-        type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
-        distance: parseFloat(h['Distance'])||0,
-        total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
-        start_date: h['Activity Date'] || h['Date'],
-      }))
-  ].filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
+  // Parse CSV dates once at map time → store as ISO so accumulation uses plain new Date()
+  const histRuns = historyActivities.map(h => {
+    const d = parseCsvDate(h['Activity Date'] || h['Date']);
+    if (!d || isNaN(d.getTime())) return null;
+    if (apiDayKeys.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)) return null;
+    return {
+      type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
+      distance: parseFloat(h['Distance'])||0,
+      total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
+      start_date: d.toISOString(),
+    };
+  }).filter(Boolean);
 
-  // monthly raw values (for tooltip)
+  const allRuns = [...allActivities, ...histRuns]
+    .filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
+
   const monthly = {};
-  // cumulative (for chart)
   const yearly = {};
   allRuns.forEach(a => {
-    const d = parseCsvDate(a.start_date) || new Date(a.start_date);
+    const d = new Date(a.start_date);
     if (isNaN(d.getTime())) return;
     const y = d.getFullYear().toString();
     const m = d.getMonth();
