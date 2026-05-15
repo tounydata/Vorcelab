@@ -36,6 +36,17 @@ const fmtP = s => s > 0 ? `${Math.floor(1000/s/60)}:${String(Math.round(1000/s%6
 const fmtD = s => { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`; };
 const tE = t => ({Run:'🏃',TrailRun:'⛰️'}[t]||'🏃');
 const tL = t => ({Run:'Route',TrailRun:'Trail'}[t]||'Run');
+// Robust CSV date parser — handles "Jan 5, 2025, 6:00:00 AM", ISO, and UTC variants
+function parseCsvDate(str) {
+  if (!str) return null;
+  let d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(str.replace(' UTC','').replace(/,(\s*\d{4}),/,', $1'));
+  if (!isNaN(d.getTime())) return d;
+  // "Jan 5 2025 6:00:00" style
+  d = new Date(str.replace(/,/g,''));
+  return isNaN(d.getTime()) ? null : d;
+}
 const bC = t => t==='TrailRun'?'linear-gradient(90deg,#ff6b35,#fbbf24)':'linear-gradient(90deg,#00d4ff,#a78bfa)';
 
 function deltaHTML(pct, label='mois dernier') {
@@ -918,15 +929,15 @@ function renderAnnualChart() {
     ...allActivities,
     ...historyActivities
       .filter(h => {
-        const d = new Date(h['Activity Date']);
-        if (isNaN(d.getTime())) return false;
+        const d = parseCsvDate(h['Activity Date'] || h['Date']);
+        if (!d) return false;
         return !apiDayKeys.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
       })
       .map(h=>({
         type: h['Activity Type']==='Trail Run'?'TrailRun':'Run',
-        distance: (parseFloat(h['Distance'])||0) * 1000, // CSV is km → convert to meters
+        distance: parseFloat(h['Distance'])||0,
         total_elevation_gain: parseFloat(h['Elevation Gain'])||0,
-        start_date: h['Activity Date'],
+        start_date: h['Activity Date'] || h['Date'],
       }))
   ].filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
 
@@ -935,7 +946,7 @@ function renderAnnualChart() {
   // cumulative (for chart)
   const yearly = {};
   allRuns.forEach(a => {
-    const d = new Date(a.start_date);
+    const d = parseCsvDate(a.start_date) || new Date(a.start_date);
     if (isNaN(d.getTime())) return;
     const y = d.getFullYear().toString();
     const m = d.getMonth();
