@@ -1677,23 +1677,22 @@ function renderRaces() {
         const pathD=`M${coords.join(' L')}`;
         miniAlti=`<svg viewBox="0 0 100 ${H}" preserveAspectRatio="none" width="100%" height="44" style="display:block"><defs><linearGradient id="maG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--vl-ember)" stop-opacity="0.35"/><stop offset="1" stop-color="var(--vl-ember)" stop-opacity="0"/></linearGradient></defs><path d="${pathD} L${W},${H} L0,${H} Z" fill="url(#maG)"/><path d="${pathD}" fill="none" stroke="var(--vl-ember)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/></svg>`;
 
-        // 2D route trace from lat/lon
+        // 2D route trace from lat/lon — rendered inline next to altimetry
         const trStep=Math.max(1,Math.floor(gpxPts.length/200));
         const pts=gpxPts.filter((_,i)=>i%trStep===0);
         const lats=pts.map(p=>p.lat),lons=pts.map(p=>p.lon);
         const minLat=Math.min(...lats),maxLat=Math.max(...lats),dLat=maxLat-minLat||0.001;
         const minLon=Math.min(...lons),maxLon=Math.max(...lons),dLon=maxLon-minLon||0.001;
-        const VW=120,VH=90;
-        const scale=Math.min(VW/dLon,VH/dLat)*0.88;
+        const VW=80,VH=52;
+        const scale=Math.min(VW/dLon,VH/dLat)*0.85;
         const ox=(VW-dLon*scale)/2,oy=(VH-dLat*scale)/2;
         const tracePts=pts.map(p=>`${(ox+(p.lon-minLon)*scale).toFixed(1)},${(oy+(maxLat-p.lat)*scale).toFixed(1)}`);
-        gpxTrace=`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" style="position:absolute;right:-10px;top:50%;transform:translateY(-50%);width:130px;height:100px;opacity:.18;pointer-events:none"><polyline points="${tracePts.join(' ')}" fill="none" stroke="var(--vl-ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        gpxTrace=`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:44px;display:block;opacity:.55"><polyline points="${tracePts.join(' ')}" fill="none" stroke="var(--vl-ember)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       }catch(e){}
     }
     nextWidget.innerHTML=`
     <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column">
       <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:linear-gradient(to left,rgba(229,86,42,.13) 0%,transparent 100%);pointer-events:none"></div>
-      ${gpxTrace}
       <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${next.type}</div>
@@ -1722,7 +1721,10 @@ function renderRaces() {
           </div>
         </div>
       </div>
-      ${miniAlti?`<div style="position:relative;overflow:hidden"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
+      ${(miniAlti||gpxTrace)?`<div style="display:flex;overflow:hidden;align-items:stretch">
+        ${miniAlti?`<div style="flex:1;position:relative;min-width:0"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
+        ${gpxTrace?`<div style="flex-shrink:0;width:72px;display:flex;align-items:center;padding:0 6px 0 4px;border-left:1px solid rgba(243,239,228,.05)">${gpxTrace}</div>`:''}
+      </div>`:''}
     </div>`;
   } else { if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>'; }
   if(!list) { renderCalendar(); return; }
