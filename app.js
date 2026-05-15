@@ -594,7 +594,7 @@ function openEventView(raceId) {
   }
 }
 
-function showEventSplash(race, onDone) {
+function showEventSplash(race) {
   if (navigator.vibrate) navigator.vibrate(20);
   let traceSvg = '';
   if (race.gpx_data) {
@@ -629,12 +629,7 @@ function showEventSplash(race, onDone) {
   const dismiss = () => {
     if (!splash.parentNode) return;
     splash.style.animation = 'splashOut .25s ease forwards';
-    setTimeout(() => {
-      splash.remove();
-      const pg = document.getElementById('strategie');
-      if (pg) { pg.style.animation='slideUpPage .35s ease'; setTimeout(()=>pg.style.animation='',400); }
-      onDone();
-    }, 230);
+    setTimeout(() => splash.remove(), 240);
   };
   splash.addEventListener('click', dismiss);
   setTimeout(dismiss, 750);
@@ -642,8 +637,10 @@ function showEventSplash(race, onDone) {
 
 function goToEvent(raceId) {
   const race = (races||[]).find(r=>String(r.id)===String(raceId));
-  if (!race) { navigate('strategie'); openEventView(raceId); return; }
-  showEventSplash(race, () => { navigate('strategie'); openEventView(raceId); });
+  // Navigate and load content immediately — splash covers while page renders
+  navigate('strategie');
+  openEventView(raceId);
+  if (race) showEventSplash(race);
 }
 
 function backToCalendar() {
