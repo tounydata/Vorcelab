@@ -893,16 +893,11 @@ async function loadAerobicStat(weekActs, fcMax) {
 // ════════════════════════════════════════════════════
 function setAnnualMode(mode) {
   annualChartMode = mode;
+  const base = "font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:6px 12px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;touch-action:manipulation";
   const btnKm = document.getElementById('annualBtnKm');
   const btnDp = document.getElementById('annualBtnDp');
-  if (btnKm) {
-    btnKm.style.background = mode === 'km' ? 'var(--vl-ember)' : 'transparent';
-    btnKm.style.color = mode === 'km' ? 'var(--vl-ink)' : 'var(--vl-text-3)';
-  }
-  if (btnDp) {
-    btnDp.style.background = mode === 'dp' ? 'var(--vl-ember)' : 'transparent';
-    btnDp.style.color = mode === 'dp' ? 'var(--vl-ink)' : 'var(--vl-text-3)';
-  }
+  if (btnKm) btnKm.setAttribute('style', base + (mode==='km' ? ';background:var(--vl-ember);color:var(--vl-ink)' : ';background:transparent;color:var(--vl-text-3)'));
+  if (btnDp) btnDp.setAttribute('style', base + (mode==='dp' ? ';background:var(--vl-ember);color:var(--vl-ink)' : ';background:transparent;color:var(--vl-text-3)'));
   renderAnnualChart();
 }
 
@@ -921,17 +916,23 @@ function renderAnnualChart() {
     }))
   ].filter(a => isRun(a.type) && (isDp ? true : a.distance>0));
 
-  const years = {};
+  // monthly raw values (for tooltip)
+  const monthly = {};
+  // cumulative (for chart)
+  const yearly = {};
   allRuns.forEach(a => {
     const d = new Date(a.start_date);
     if (isNaN(d.getTime())) return;
-    const y = d.getFullYear();
+    const y = d.getFullYear().toString();
     const m = d.getMonth();
-    if (!years[y]) years[y] = Array(12).fill(0);
-    years[y][m] += isDp ? (a.total_elevation_gain||0) : a.distance/1000;
+    if (!monthly[y]) monthly[y] = Array(12).fill(0);
+    if (!yearly[y])  yearly[y]  = Array(12).fill(0);
+    const val = isDp ? (a.total_elevation_gain||0) : a.distance/1000;
+    monthly[y][m] += val;
+    yearly[y][m]  += val;
   });
 
-  const sortedYears = Object.keys(years).sort().slice(-2);
+  const sortedYears = Object.keys(yearly).sort().slice(-2);
   if (!sortedYears.length) return;
 
   const colors = ['#5E5B52','#10B981'];
@@ -942,9 +943,9 @@ function renderAnnualChart() {
 
   const datasets = sortedYears.map((y,i) => {
     let cum = 0;
-    const data = years[y].map((v,m) => {
+    const data = yearly[y].map((v,m) => {
       if(parseInt(y)===currentYear && m>currentMonth) return null;
-      cum+=v;
+      cum += v;
       return Math.round(cum);
     });
     const isCurrent = parseInt(y)===currentYear;
@@ -963,9 +964,20 @@ function renderAnnualChart() {
     type:'line', data:{labels:months,datasets},
     options:{
       responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
       plugins:{
         legend:{position:'bottom',labels:{boxWidth:8,font:{size:9,family:'JetBrains Mono, monospace'},color:'#9B978A',padding:10}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label} · ${ctx.parsed.y}${yUnit}`}}
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              const y = ctx.dataset.label;
+              const m = ctx.dataIndex;
+              const mo = Math.round(monthly[y]?.[m] || 0);
+              const cum = ctx.parsed.y || 0;
+              return `${y}  ·  ${mo}${yUnit} ce mois  ·  ${cum}${yUnit} cumulé`;
+            }
+          }
+        }
       },
       scales:{
         x:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52'},grid:{color:'rgba(243,239,228,.04)'}},
