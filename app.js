@@ -1696,7 +1696,7 @@ function renderRaces() {
       <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${next.type}</div>
-          <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.95;margin-bottom:5px">${next.name}</div>
+          <div style="font-family:var(--vl-display);font-size:clamp(2rem,3.5vw,2.8rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.9;margin-bottom:6px">${next.name}</div>
           <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.78rem;color:var(--vl-text-2);line-height:1.4">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
         </div>
         <button onclick='goToEvent("${next.id}")' style="flex-shrink:0;background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:2px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(229,86,42,.4)">STRATÉGIE →</button>
