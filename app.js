@@ -388,7 +388,7 @@ function connectStrava() {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
-    approval_prompt: 'auto',
+    approval_prompt: 'force',
     scope: 'read,activity:read,activity:read_all',
     state,
   });
