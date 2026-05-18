@@ -57,10 +57,28 @@ Deno.serve(async (req: Request) => {
 
     const { access_token, refresh_token, expires_at, athlete } = tokenData
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+)
+
+// Security: one Strava athlete can be linked to only one Vorcelab account.
+// This blocks silent relinking caused by an already-authenticated Strava browser session.
+const { data: conflictingTokens, error: conflictError } = await supabase
+  .from('strava_tokens')
+  .select('user_id')
+  .eq('strava_athlete_id', athlete.id)
+  .neq('user_id', user.id)
+  .limit(1)
+
+if (conflictError) {
+  console.error('strava_tokens ownership check error:', conflictError.message)
+  return errorResponse('Failed to verify Strava connection ownership', 500)
+}
+
+if (conflictingTokens && conflictingTokens.length > 0) {
+  return errorResponse('Ce compte Strava est déjà lié à un autre compte Vorcelab.', 409)
+}
 
     // Upsert strava_tokens — keyed on user_id
     const { error: upsertError } = await supabase.from('strava_tokens').upsert(
