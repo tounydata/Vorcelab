@@ -520,6 +520,21 @@ function renderCalendar() {
   const raceByDate = {};
   (races||[]).forEach(r => { if(r.date) raceByDate[r.date.substring(0,10)] = r; });
 
+  // Build activity lookup: dateStr → [activities]
+  const actsByDate = {};
+  (allActivities||[]).forEach(a => {
+    const d = (a.start_date_local || a.start_date || '').slice(0, 10);
+    if (!d) return;
+    if (!actsByDate[d]) actsByDate[d] = [];
+    actsByDate[d].push(a);
+  });
+
+  // Build renfo log lookup: dateStr → log
+  const renfoByDate = {};
+  (typeof renfoSessionLogs !== 'undefined' ? renfoSessionLogs : []).forEach(l => {
+    if (l.session_date) renfoByDate[l.session_date] = l;
+  });
+
   let cells = '';
   const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
 
@@ -534,9 +549,26 @@ function renderCalendar() {
     const race = raceByDate[dateStr];
     const typeEmoji = race ? (race.type==='Trail'?'⛰️':race.type==='Ultra'?'🦅':'🏃') : '';
 
+    // Activity micro-chips (runs + renfo)
+    const dayActs = actsByDate[dateStr] || [];
+    const renfoLog = renfoByDate[dateStr];
+    let chipsHtml = '';
+    dayActs.forEach(a => {
+      const km = (a.distance / 1000).toFixed(1);
+      const isTrail = (a.sport_type||'').toLowerCase().includes('trail');
+      chipsHtml += `<div style="font-family:var(--vl-mono);font-size:9px;color:${isTrail?'var(--cyan)':'var(--green)'};line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${isTrail?'⛰':'🏃'} ${km}k</div>`;
+    });
+    if (renfoLog) {
+      const renfoSched = typeof renfoProgram !== 'undefined' ? renfoProgram?.week_schedule?.[renfoLog.day_key] : null;
+      const renfoFocusColors = typeof RENFO_FOCUS_COLORS !== 'undefined' ? RENFO_FOCUS_COLORS : {};
+      const dotCol = renfoFocusColors[renfoSched?.focus] || '#e5562a';
+      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:${dotCol};flex-shrink:0"></div><div style="font-family:var(--vl-mono);font-size:9px;color:${dotCol};line-height:1">💪</div></div>`;
+    }
+
     cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${race.id}')"`:''}>
       <div class="cal-day-num">${dayNum}</div>
       ${race ? `<div class="cal-event-dot">${typeEmoji} ${race.name}</div><div class="cal-event-type">${race.distance||'?'}km${race.elevation?` · ${race.elevation}m D+`:''}</div>` : ''}
+      ${chipsHtml ? `<div style="margin-top:${race?'2px':'1px'}">${chipsHtml}</div>` : ''}
     </div>`;
   }
   gridEl.innerHTML = cells;

@@ -272,7 +272,7 @@ main{padding:1.5rem 2rem;max-width:1400px;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:8px;}
 .cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;}
 .cal-day-label{font-family:var(--vl-mono);font-size:10px;text-transform:uppercase;color:var(--vl-text-3);text-align:center;padding:4px 0;letter-spacing:0.1em;font-weight:600;}
-.cal-cell{min-height:52px;background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:6px;padding:5px 6px;cursor:default;position:relative;transition:all .15s;}
+.cal-cell{min-height:58px;background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:6px;padding:5px 6px;cursor:default;position:relative;transition:all .15s;overflow:hidden;}
 .cal-cell.other-month{opacity:.3;}
 .cal-cell.today{border-color:var(--vl-text);box-shadow:0 0 0 1px var(--vl-text);}
 .cal-cell.has-event{background:var(--vl-surf-2);border-color:var(--vl-line-2);border-left:2px solid var(--vl-ember);cursor:pointer;}

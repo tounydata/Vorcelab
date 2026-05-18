@@ -1086,13 +1086,41 @@ const SESSION_EXERCISES = {
 };
 
 const FOCUS_META = {
-  force_lourde:           { label: 'Force lourde', duration_min: 55, location: 'salle_ou_maison' },
-  pliometrie:             { label: 'Pliométrie', duration_min: 35, location: 'exterieur_ou_maison' },
-  excentrique:            { label: 'Excentrique', duration_min: 40, location: 'maison' },
-  excentrique_pliometrie: { label: 'Excentrique + Pliométrie', duration_min: 45, location: 'maison' },
-  tronc:                  { label: 'Tronc & stabilité', duration_min: 30, location: 'maison' },
-  haut_corps:             { label: 'Haut du corps', duration_min: 40, location: 'maison' },
-  mobilite:               { label: 'Mobilité active', duration_min: 25, location: 'maison' }
+  force_lourde: {
+    label: 'Force lourde', duration_min: 55, duration_short: 40, location: 'salle_ou_maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: false,
+    timing_notes: ['✅ Après sortie facile ou repos', '⚠️ 48h avant une sortie longue', '❌ Pas le même jour qu\'une séance de qualité']
+  },
+  pliometrie: {
+    label: 'Pliométrie', duration_min: 35, duration_short: 25, location: 'extérieur ou maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: false,
+    timing_notes: ['✅ Après sortie facile ou repos', '⚠️ 24h avant sortie longue', '❌ Pas avant une séance de côtes ou VMA']
+  },
+  excentrique: {
+    label: 'Excentrique', duration_min: 40, duration_short: 30, location: 'maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: false,
+    timing_notes: ['✅ Après sortie facile ou repos', '⚠️ 24h avant descente technique', '❌ Pas le jour d\'une séance de qualité']
+  },
+  excentrique_pliometrie: {
+    label: 'Excentrique + Pliométrie', duration_min: 45, duration_short: 30, location: 'maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: false,
+    timing_notes: ['✅ Après sortie facile', '⚠️ 24h avant sortie longue', '❌ Pas avant qualité']
+  },
+  tronc: {
+    label: 'Tronc & stabilité', duration_min: 30, duration_short: 20, location: 'maison',
+    timing_after_easy: true, timing_before_long: true, timing_same_quality: true,
+    timing_notes: ['✅ Après n\'importe quelle sortie', '✅ Peut s\'intercaler partout', '✅ Le soir d\'un jour de qualité']
+  },
+  haut_corps: {
+    label: 'Haut du corps', duration_min: 40, duration_short: 25, location: 'maison ou salle',
+    timing_after_easy: true, timing_before_long: true, timing_same_quality: false,
+    timing_notes: ['✅ Après sortie facile', '✅ Avant sortie longue (peu d\'impact jambes)', '⚠️ Éviter avant séance côtes (fatigue générale)']
+  },
+  mobilite: {
+    label: 'Mobilité active', duration_min: 20, duration_short: 15, location: 'maison',
+    timing_after_easy: true, timing_before_long: true, timing_same_quality: true,
+    timing_notes: ['✅ Le soir après n\'importe quelle séance', '✅ Avant une sortie longue en activation', '✅ Partout — aucune fatigue systémique']
+  }
 };
 
 function buildSession(focus, profile) {
@@ -1113,10 +1141,13 @@ function buildSession(focus, profile) {
     };
   }).filter(Boolean);
 
+  const duration = (profile.sessions_per_week >= 5) ? meta.duration_short : meta.duration_min;
+
   return {
     focus,
     label: meta.label,
-    duration_min: meta.duration_min,
+    duration_min: duration,
+    timing_notes: meta.timing_notes || [],
     location: meta.location,
     exercises
   };
@@ -1450,10 +1481,18 @@ function renderRenfoHome() {
   if (!el || !renfoProgram) return;
 
   const today = new Date();
-  const todayKey = RENFO_DAY_NAMES[today.getDay()];
   const todayStr = today.toISOString().slice(0,10);
-  const todaySession = renfoProgram.week_schedule?.[todayKey];
   const todayLog = renfoSessionLogs.find(l => l.session_date === todayStr);
+
+  // Find next unfinished session this week (flexible — not day-bound)
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  const thisWeekLogs = renfoSessionLogs.filter(l => new Date(l.session_date) >= weekStart);
+  const doneFocuses = new Set(thisWeekLogs.map(l => renfoProgram.week_schedule?.[l.day_key]?.focus).filter(Boolean));
+  const sessionDays = DAYS.filter(d => { const s = renfoProgram.week_schedule?.[d]; return s && !s.rest; });
+  const nextDayKey = sessionDays.find(d => !doneFocuses.has(renfoProgram.week_schedule[d]?.focus));
+  const suggestedSession = nextDayKey ? renfoProgram.week_schedule[nextDayKey] : null;
 
   // Load gauge
   const last7 = renfoSessionLogs.filter(l => (today - new Date(l.session_date)) / 86400000 <= 7);
@@ -1479,36 +1518,38 @@ function renderRenfoHome() {
     const d = new Date(today); d.setDate(d.getDate() - (6-i));
     const dKey = RENFO_DAY_NAMES[d.getDay()];
     const dStr = d.toISOString().slice(0,10);
-    const ses = renfoProgram.week_schedule?.[dKey];
-    return { d, dKey, dStr, ses, logged: renfoSessionLogs.find(l => l.session_date === dStr), isToday: i===6 };
+    const logged = renfoSessionLogs.find(l => l.session_date === dStr);
+    const ses = logged ? renfoProgram.week_schedule?.[logged.day_key] : null;
+    return { d, dKey, dStr, ses, logged, isToday: i===6 };
   });
 
-  // Today card
+  // Today card — suggest next unfinished session
   let todayHTML = '';
   if (todayLog) {
     const n = Object.keys(todayLog.completed_exercises||{}).length;
+    const doneSession = renfoProgram.week_schedule?.[todayLog.day_key];
     todayHTML = `<div style="display:flex;align-items:center;gap:14px">
       <div style="font-size:2.2rem">✅</div>
       <div>
         <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:700">Séance complétée</div>
-        <div style="font-size:.75rem;color:var(--vl-text-2)">${n} exercice${n>1?'s':''} · ${todaySession?.label||''}</div>
+        <div style="font-size:.75rem;color:var(--vl-text-2)">${n} exercice${n>1?'s':''} · ${doneSession?.label||''}</div>
       </div>
     </div>`;
-  } else if (!todaySession || todaySession.rest) {
+  } else if (!suggestedSession) {
     todayHTML = `<div style="display:flex;align-items:center;gap:14px">
-      <div style="font-size:2.2rem">😴</div>
+      <div style="font-size:2.2rem">🎉</div>
       <div>
-        <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:700">Repos aujourd'hui</div>
-        <div style="font-size:.75rem;color:var(--vl-text-2)">Récupération · marche légère ou étirements</div>
+        <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:700">Semaine complète !</div>
+        <div style="font-size:.75rem;color:var(--vl-text-2)">Toutes les séances de la semaine sont faites · repos mérité</div>
       </div>
     </div>`;
   } else {
-    const col = RENFO_FOCUS_COLORS[todaySession.focus] || 'var(--vl-ember)';
+    const col = RENFO_FOCUS_COLORS[suggestedSession.focus] || 'var(--vl-ember)';
     todayHTML = `<div>
-      <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:${col};margin-bottom:4px">${(todaySession.focus||'').replace(/_/g,' ').toUpperCase()}</div>
-      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800;margin-bottom:4px">${todaySession.label}</div>
-      <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:14px">~${todaySession.duration_min} min · ${todaySession.exercises.length} exercice${todaySession.exercises.length>1?'s':''}</div>
-      <button onclick="startRenfoSession('${todayKey}')" style="width:100%;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent">▶ COMMENCER</button>
+      <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:${col};margin-bottom:4px">${(suggestedSession.focus||'').replace(/_/g,' ').toUpperCase()}</div>
+      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800;margin-bottom:4px">${suggestedSession.label}</div>
+      <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:14px">~${suggestedSession.duration_min} min · ${suggestedSession.exercises.length} exercice${suggestedSession.exercises.length>1?'s':''}</div>
+      <button onclick="startRenfoSession('${nextDayKey}')" style="width:100%;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent">▶ COMMENCER</button>
     </div>`;
   }
 
@@ -1791,38 +1832,68 @@ function showRenfoProgramView() {
   const el = document.getElementById('renfoApp');
   if (!el || !renfoProgram) return;
   const sched = renfoProgram.week_schedule || {};
-  const dayLabels = { monday:'Lundi', tuesday:'Mardi', wednesday:'Mercredi', thursday:'Jeudi', friday:'Vendredi', saturday:'Samedi', sunday:'Dimanche' };
 
-  const rows = RENFO_DAY_NAMES.map(d => {
-    const s = sched[d];
-    if (!s || s.rest) return `<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--vl-border)">
-      <div style="width:60px;font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-text-2)">${dayLabels[d]}</div>
-      <div style="font-size:.8rem;color:var(--vl-text-2)">Repos</div>
-    </div>`;
-    const col = RENFO_FOCUS_COLORS[s.focus] || 'var(--vl-ember)';
-    return `<div style="padding:12px 0;border-bottom:1px solid var(--vl-border)">
-      <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:6px">
-        <div style="width:60px;font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-text-2)">${dayLabels[d]}</div>
-        <div>
-          <span style="font-family:var(--vl-mono);font-size:.55rem;color:${col}">${(s.focus||'').replace(/_/g,' ').toUpperCase()}</span>
-          <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700">${s.label} <span style="font-family:var(--vl-mono);font-size:.6rem;font-weight:400;color:var(--vl-text-2)">~${s.duration_min}min</span></div>
+  // This week done focuses
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  const thisWeekDone = new Set(
+    renfoSessionLogs
+      .filter(l => new Date(l.session_date) >= weekStart)
+      .map(l => sched[l.day_key]?.focus)
+      .filter(Boolean)
+  );
+
+  // Unique non-rest sessions in program order
+  const sessions = DAYS
+    .map((d, i) => ({ dayKey: d, session: sched[d], letter: String.fromCharCode(65 + i) }))
+    .filter(({ session }) => session && !session.rest);
+
+  let letterIdx = 0;
+  const cards = sessions.map(({ dayKey, session }) => {
+    const col = RENFO_FOCUS_COLORS[session.focus] || 'var(--vl-ember)';
+    const done = thisWeekDone.has(session.focus);
+    const letter = String.fromCharCode(65 + letterIdx++);
+    const notes = session.timing_notes || FOCUS_META[session.focus]?.timing_notes || [];
+
+    const timingBadges = notes.map(note => {
+      const bg = note.startsWith('✅') ? 'rgba(34,197,94,.12)' : note.startsWith('⚠') ? 'rgba(234,179,8,.12)' : 'rgba(239,68,68,.12)';
+      const tc = note.startsWith('✅') ? '#22c55e' : note.startsWith('⚠') ? '#eab308' : '#ef4444';
+      return `<div style="font-size:.62rem;padding:4px 8px;background:${bg};border-radius:6px;color:${tc};font-family:var(--vl-mono);line-height:1.4">${note}</div>`;
+    }).join('');
+
+    const exoList = session.exercises.map(e => {
+      const def = RENFO_EXERCISES[e.exercise_id];
+      if (!def) return '';
+      const v = def.variants.find(vv => vv.id === e.variant_id) || def.variants[0];
+      return `<div style="font-size:.72rem;color:var(--vl-text-2);margin-bottom:2px">· ${def.name_fr} — ${v.name} · ${e.sets}×${e.reps}</div>`;
+    }).join('');
+
+    return `<div class="card" style="padding:14px 16px;margin-bottom:10px${done ? ';opacity:.65' : ''}">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+        <div style="width:30px;height:30px;border-radius:50%;background:${done ? col : 'transparent'};border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-family:var(--vl-mono);font-size:.65rem;font-weight:700;color:${done ? '#fff' : col};flex-shrink:0">${done ? '✓' : letter}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--vl-mono);font-size:.52rem;letter-spacing:.1em;color:${col};margin-bottom:2px">${(session.focus||'').replace(/_/g,' ').toUpperCase()}</div>
+          <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700">${session.label}</div>
+          <div style="font-size:.68rem;color:var(--vl-text-2)">~${session.duration_min} min · ${session.exercises.length} exercices · ${session.location}</div>
         </div>
       </div>
-      ${s.exercises.map(e => {
-        const def = RENFO_EXERCISES[e.exercise_id];
-        if (!def) return '';
-        const v = def.variants.find(vv => vv.id === e.variant_id) || def.variants[0];
-        return `<div style="font-size:.75rem;color:var(--vl-text-2);padding-left:72px;margin-bottom:2px">· ${def.name_fr} — ${v.name} · ${e.sets}×${e.reps}</div>`;
-      }).join('')}
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">${timingBadges}</div>
+      <div style="margin-bottom:${done ? '0' : '10px'}">${exoList}</div>
+      ${!done
+        ? `<button onclick="startRenfoSession('${dayKey}')" style="width:100%;padding:11px;background:${col};border:none;border-radius:10px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.9rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent">▶ COMMENCER</button>`
+        : `<div style="font-size:.65rem;color:var(--vl-text-2);font-family:var(--vl-mono);text-align:center;padding-top:4px">✓ Fait cette semaine</div>`}
     </div>`;
   }).join('');
 
   el.innerHTML = `<div style="padding-bottom:8px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
       <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:1.2rem;padding:4px;touch-action:manipulation">←</button>
-      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800">Programme complet</div>
+      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800">Programme</div>
     </div>
-    <div class="card" style="padding:14px 16px">${rows}</div>
+    <div style="font-size:.72rem;color:var(--vl-text-2);font-family:var(--vl-mono);margin-bottom:16px">Choisis ta séance selon ton planning — aucun jour n'est fixe.</div>
+    ${cards}
   </div>`;
 }
 
