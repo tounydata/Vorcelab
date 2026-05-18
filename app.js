@@ -234,7 +234,18 @@ async function disconnectStrava() {
 }
 async function logout() {
   await sb.auth.signOut();
-  currentUser = null; userProfile = { pain_zones: [] }; allActivities = [];
+
+  currentUser = null;
+  userProfile = { pain_zones: [] };
+  allActivities = [];
+  historyActivities = [];
+  races = [];
+
+  document.querySelectorAll('.modal, .overlay, .drawer, .profile-modal').forEach(el => {
+    el.classList.remove('show', 'active', 'open');
+    el.style.display = 'none';
+  });
+
   document.getElementById('appShell').classList.remove('show');
   document.getElementById('authScreen').classList.add('show');
 }
