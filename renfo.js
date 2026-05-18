@@ -1225,3 +1225,639 @@ function weeklyImpactZone(score, objectiveWeight) {
   if (score < 240) return { zone: 'optimal',    label: 'Optimal coureur',    color: '#27ae60' };
   return           { zone: 'surcharge',         label: 'Risque interférence',color: '#e67e22' };
 }
+
+
+// ── UI & STATE (renfo.js) ──────────────────────────────────────────────────
+
+// RENFO MODULE
+// ════════════════════════════════════════════════════
+
+let renfoProfile = null;
+let renfoProgram = null;
+let renfoSessionLogs = [];
+let _renfoOnboarding = {};
+
+async function loadRenfoApp() {
+  const el = document.getElementById('renfoApp');
+  if (!el || !currentUser) return;
+  el.innerHTML = `<div style="padding:48px 0;text-align:center;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem">Chargement…</div>`;
+
+  const { data: profile } = await sb.from('renfo_profile').select('*').eq('user_id', currentUser.id).maybeSingle();
+  renfoProfile = profile;
+
+  if (!profile || !profile.onboarding_completed) {
+    el.innerHTML = '';
+    renderOnboardingStep(1);
+    return;
+  }
+
+  const [{ data: program }, { data: logs }] = await Promise.all([
+    sb.from('renfo_program').select('*').eq('user_id', currentUser.id).maybeSingle(),
+    sb.from('renfo_session_log').select('*').eq('user_id', currentUser.id)
+      .gte('session_date', new Date(Date.now() - 14*86400000).toISOString().slice(0,10))
+      .order('session_date', { ascending: false })
+  ]);
+
+  renfoProgram = program;
+  renfoSessionLogs = logs || [];
+  renderRenfoHome();
+}
+
+function renderOnboardingStep(step) {
+  const el = document.getElementById('renfoApp');
+  if (!el) return;
+
+  const steps = [null,
+    {
+      title: 'Ton objectif principal',
+      sub: 'Le programme s\'adaptera à ta priorité.',
+      content: `<div style="display:flex;flex-direction:column;gap:10px">
+        ${[
+          [25,'Prévenir les blessures','Excentrique · Mobilité · Stabilité'],
+          [75,'Progresser en performance','Force lourde · Pliométrie · Économie de course'],
+          [50,'Les deux à parts égales','Programme équilibré']
+        ].map(([v,t,s])=>`<button class="vl-ob-btn" data-val="${v}" data-type="obj" onclick="renfoObSelect(this)" style="text-align:left;padding:16px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+          <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:4px">${t}</div>
+          <div style="font-size:.75rem;color:var(--vl-text-2)">${s}</div>
+        </button>`).join('')}
+      </div>`
+    },
+    {
+      title: 'Combien de séances par semaine ?',
+      sub: 'Sois réaliste — mieux vaut 2 séances tenues que 5 ratées.',
+      content: `<div style="display:flex;flex-direction:column;gap:10px">
+        ${[
+          [1,'1 séance','Minimum vital — uniquement force lourde'],
+          [3,'2–3 séances ⭐','Recommandé — Blagrove 2018 : +2 à 8% économie de course'],
+          [5,'4–5 séances','Intensif — inclut tronc, haut du corps, mobilité'],
+          [6,'Quotidien (format court)','6 séances max · 1 jour de repos obligatoire']
+        ].map(([v,t,s])=>`<button class="vl-ob-btn" data-val="${v}" data-type="spw" onclick="renfoObSelect(this)" style="text-align:left;padding:16px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+          <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:4px">${t}</div>
+          <div style="font-size:.75rem;color:var(--vl-text-2)">${s}</div>
+        </button>`).join('')}
+      </div>`
+    },
+    {
+      title: 'Ton matériel disponible',
+      sub: 'Le programme sélectionnera les variantes adaptées.',
+      content: `<div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            ['barbell','Barre + disques'],['leg_press','Presse à cuisses'],
+            ['bench','Banc'],['pullup_bar','Barre de traction'],
+            ['step','Step / marche'],['anchor_point','Point d\'ancrage']
+          ].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:10px;padding:10px 12px;cursor:pointer;touch-action:manipulation">
+            <input type="checkbox" data-eq="${k}" onchange="_renfoOnboarding.equipment[this.dataset.eq]=this.checked" style="accent-color:var(--vl-ember);width:16px;height:16px;flex-shrink:0">
+            <span style="font-size:.78rem;color:var(--vl-text)">${l}</span>
+          </label>`).join('')}
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:10px;padding:10px 12px;cursor:pointer;touch-action:manipulation">
+          <input type="checkbox" onchange="_renfoOnboarding.has_gym_access=this.checked" style="accent-color:var(--vl-ember);width:16px;height:16px;flex-shrink:0">
+          <span style="font-size:.78rem;color:var(--vl-text)">Accès à une salle régulièrement</span>
+        </label>
+        <div>
+          <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Haltères — charge max : <strong id="dbVal">0</strong> kg</div>
+          <input type="range" min="0" max="50" step="2.5" value="0" oninput="document.getElementById('dbVal').textContent=this.value;_renfoOnboarding.equipment.dumbbells_max_kg=+this.value" style="width:100%;accent-color:var(--vl-ember)">
+        </div>
+        <div>
+          <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Kettlebell — charge max : <strong id="kbVal">0</strong> kg</div>
+          <input type="range" min="0" max="40" step="4" value="0" oninput="document.getElementById('kbVal').textContent=this.value;_renfoOnboarding.equipment.kettlebell_max_kg=+this.value" style="width:100%;accent-color:var(--vl-ember)">
+        </div>
+        <div>
+          <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Élastiques disponibles</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${['light','medium','heavy','extra-heavy'].map(b=>`<button onclick="renfoToggleBand(this,'${b}')" style="padding:7px 13px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:8px;cursor:pointer;font-size:.75rem;color:var(--vl-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent">${b}</button>`).join('')}
+          </div>
+        </div>
+      </div>`
+    }
+  ];
+
+  const s = steps[step];
+  el.innerHTML = `<div style="padding:4px 0 24px">
+    <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.12em;color:var(--vl-ember);margin-bottom:8px">ÉTAPE ${step} / 3</div>
+    <div style="font-family:var(--vl-display);font-size:1.8rem;font-weight:800;line-height:1.1;margin-bottom:6px">${s.title}</div>
+    <div style="font-size:.8rem;color:var(--vl-text-2);margin-bottom:24px">${s.sub}</div>
+    ${s.content}
+    <div style="display:flex;gap:10px;margin-top:24px">
+      ${step > 1 ? `<button onclick="renderOnboardingStep(${step-1})" style="flex:1;padding:14px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);font-family:var(--vl-mono);touch-action:manipulation">← Retour</button>` : ''}
+      ${step < 3
+        ? `<button onclick="renderOnboardingStep(${step+1})" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Suivant →</button>`
+        : `<button onclick="finishRenfoOnboarding()" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Générer mon programme →</button>`}
+    </div>
+  </div>`;
+}
+
+function renfoObSelect(btn) {
+  const type = btn.dataset.type;
+  const val = +btn.dataset.val;
+  document.querySelectorAll(`.vl-ob-btn[data-type="${type}"]`).forEach(b => {
+    b.style.borderColor = 'var(--vl-border)';
+    b.style.background = 'var(--vl-bg2)';
+  });
+  btn.style.borderColor = 'var(--vl-ember)';
+  btn.style.background = 'rgba(229,86,42,.1)';
+  if (type === 'obj') _renfoOnboarding.objective_weight = val;
+  if (type === 'spw') _renfoOnboarding.sessions_per_week = val;
+}
+
+function renfoToggleBand(btn, band) {
+  if (!_renfoOnboarding.equipment.bands) _renfoOnboarding.equipment.bands = [];
+  const idx = _renfoOnboarding.equipment.bands.indexOf(band);
+  if (idx === -1) {
+    _renfoOnboarding.equipment.bands.push(band);
+    btn.style.borderColor = 'var(--vl-ember)';
+    btn.style.background = 'rgba(229,86,42,.1)';
+  } else {
+    _renfoOnboarding.equipment.bands.splice(idx, 1);
+    btn.style.borderColor = 'var(--vl-border)';
+    btn.style.background = 'var(--vl-bg2)';
+  }
+}
+
+async function finishRenfoOnboarding() {
+  const el = document.getElementById('renfoApp');
+  el.innerHTML = `<div style="padding:48px 0;text-align:center;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem">Génération du programme…</div>`;
+
+  const profile = {
+    user_id: currentUser.id,
+    objective_weight: _renfoOnboarding.objective_weight || 50,
+    sessions_per_week: _renfoOnboarding.sessions_per_week || 3,
+    equipment: _renfoOnboarding.equipment || {},
+    has_gym_access: _renfoOnboarding.has_gym_access || false,
+    onboarding_completed: true
+  };
+
+  const { error: pe } = await sb.from('renfo_profile').upsert(profile);
+  if (pe) { showToast('Erreur sauvegarde profil', 'error'); return; }
+  renfoProfile = profile;
+
+  const schedule = generateRenfoProgram(profile);
+  const { error: re } = await sb.from('renfo_program').upsert({
+    user_id: currentUser.id,
+    week_schedule: schedule,
+    generated_at: new Date().toISOString(),
+    generation_inputs: profile
+  });
+  if (re) { showToast('Erreur génération programme', 'error'); return; }
+
+  renfoProgram = { week_schedule: schedule };
+  renfoSessionLogs = [];
+  showToast('Programme généré 🎯', 'success');
+  renderRenfoHome();
+}
+
+const RENFO_FOCUS_COLORS = {
+  force_lourde:'#E5562A', pliometrie:'#f39c12', excentrique:'#3498db',
+  excentrique_pliometrie:'#e67e22', tronc:'#9b59b6', haut_corps:'#1abc9c', mobilite:'#2ecc71'
+};
+const RENFO_DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const RENFO_DAY_FR = ['D','L','M','M','J','V','S'];
+
+function renderRenfoHome() {
+  const el = document.getElementById('renfoApp');
+  if (!el || !renfoProgram) return;
+
+  const today = new Date();
+  const todayKey = RENFO_DAY_NAMES[today.getDay()];
+  const todayStr = today.toISOString().slice(0,10);
+  const todaySession = renfoProgram.week_schedule?.[todayKey];
+  const todayLog = renfoSessionLogs.find(l => l.session_date === todayStr);
+
+  // Load gauge
+  const last7 = renfoSessionLogs.filter(l => (today - new Date(l.session_date)) / 86400000 <= 7);
+  const last7WithFocus = last7.map(l => {
+    const s = renfoProgram.week_schedule?.[l.day_key];
+    return { focus: s?.focus || 'tronc', duration_min: s?.duration_min || 30 };
+  });
+  const loadScore = weeklyImpactScore(last7WithFocus);
+  const loadZone = weeklyImpactZone(loadScore, renfoProfile?.objective_weight || 50);
+
+  // Streak (consecutive days with a session log)
+  let streak = 0;
+  const sortedLogs = [...renfoSessionLogs].sort((a,b) => new Date(b.session_date) - new Date(a.session_date));
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dStr = d.toISOString().slice(0,10);
+    if (sortedLogs.find(l => l.session_date === dStr)) streak++;
+    else break;
+  }
+
+  // 7-day calendar (last 6 days + today)
+  const calDays = Array.from({length:7}, (_,i) => {
+    const d = new Date(today); d.setDate(d.getDate() - (6-i));
+    const dKey = RENFO_DAY_NAMES[d.getDay()];
+    const dStr = d.toISOString().slice(0,10);
+    const ses = renfoProgram.week_schedule?.[dKey];
+    return { d, dKey, dStr, ses, logged: renfoSessionLogs.find(l => l.session_date === dStr), isToday: i===6 };
+  });
+
+  // Today card
+  let todayHTML = '';
+  if (todayLog) {
+    const n = Object.keys(todayLog.completed_exercises||{}).length;
+    todayHTML = `<div style="display:flex;align-items:center;gap:14px">
+      <div style="font-size:2.2rem">✅</div>
+      <div>
+        <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:700">Séance complétée</div>
+        <div style="font-size:.75rem;color:var(--vl-text-2)">${n} exercice${n>1?'s':''} · ${todaySession?.label||''}</div>
+      </div>
+    </div>`;
+  } else if (!todaySession || todaySession.rest) {
+    todayHTML = `<div style="display:flex;align-items:center;gap:14px">
+      <div style="font-size:2.2rem">😴</div>
+      <div>
+        <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:700">Repos aujourd'hui</div>
+        <div style="font-size:.75rem;color:var(--vl-text-2)">Récupération · marche légère ou étirements</div>
+      </div>
+    </div>`;
+  } else {
+    const col = RENFO_FOCUS_COLORS[todaySession.focus] || 'var(--vl-ember)';
+    todayHTML = `<div>
+      <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:${col};margin-bottom:4px">${(todaySession.focus||'').replace(/_/g,' ').toUpperCase()}</div>
+      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800;margin-bottom:4px">${todaySession.label}</div>
+      <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:14px">~${todaySession.duration_min} min · ${todaySession.exercises.length} exercice${todaySession.exercises.length>1?'s':''}</div>
+      <button onclick="startRenfoSession('${todayKey}')" style="width:100%;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent">▶ COMMENCER</button>
+    </div>`;
+  }
+
+  el.innerHTML = `<div style="padding-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.25rem">
+      <div>
+        <div class="mlabel" style="margin-bottom:4px">Section 03</div>
+        <div style="font-family:var(--vl-display);font-size:2rem;font-weight:700;letter-spacing:0.01em;line-height:1">RENFO</div>
+      </div>
+      <button onclick="showRenfoSettings()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:1.3rem;padding:4px;touch-action:manipulation">⚙️</button>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;padding:16px">
+      <div class="clabel" style="margin-bottom:10px">AUJOURD'HUI</div>
+      ${todayHTML}
+    </div>
+
+    <div class="card" style="margin-bottom:12px;padding:14px">
+      <div class="clabel" style="margin-bottom:10px">CETTE SEMAINE</div>
+      <div style="display:flex;justify-content:space-between;gap:3px">
+        ${calDays.map(({d,ses,logged,isToday}) => {
+          const hasSes = ses && !ses.rest;
+          const col = hasSes ? (RENFO_FOCUS_COLORS[ses.focus]||'var(--vl-ember)') : 'var(--vl-border)';
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
+            <div style="font-family:var(--vl-mono);font-size:.55rem;color:${isToday?'var(--vl-ember)':'var(--vl-text-2)'}">${RENFO_DAY_FR[d.getDay()]}</div>
+            <div style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;
+              background:${logged?(hasSes?col:'var(--vl-ember)'):'transparent'};
+              border:1.5px solid ${isToday?'var(--vl-ember)':hasSes?col:'var(--vl-border)'};
+              color:${logged?'#fff':'var(--vl-text-2)'}">${logged?'✓':''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div class="clabel">CHARGE HEBDO</div>
+        <div style="font-size:.72rem;color:${loadZone.color};font-family:var(--vl-mono)">${loadZone.label}</div>
+      </div>
+      <div style="height:8px;background:var(--vl-bg2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,loadScore/240*100).toFixed(1)}%;background:${loadZone.color};border-radius:4px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);margin-top:4px">
+        <span>0</span><span>60</span><span>120</span><span>180</span><span>240+</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div class="card" style="flex:1;padding:14px;text-align:center">
+        <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;color:var(--vl-ember);line-height:1">${streak}</div>
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">JOURS STREAK</div>
+      </div>
+      <div class="card" style="flex:1;padding:14px;text-align:center">
+        <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;line-height:1">${last7.length}</div>
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">SÉANCES / 7J</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <button onclick="showRenfoProgramView()" style="width:100%;text-align:left;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--vl-border);cursor:pointer;color:var(--vl-text);display:flex;justify-content:space-between;align-items:center;touch-action:manipulation">
+        <span style="font-size:.85rem">Programme complet</span><span style="color:var(--vl-ember);font-size:.9rem">→</span>
+      </button>
+      <button onclick="showRenfoHistoryView()" style="width:100%;text-align:left;padding:14px 16px;background:none;border:none;cursor:pointer;color:var(--vl-text);display:flex;justify-content:space-between;align-items:center;touch-action:manipulation">
+        <span style="font-size:.85rem">Charges & historique</span><span style="color:var(--vl-ember);font-size:.9rem">→</span>
+      </button>
+    </div>
+  </div>`;
+}
+
+function startRenfoSession(dayKey) {
+  const el = document.getElementById('renfoApp');
+  if (!el || !renfoProgram) return;
+  const session = renfoProgram.week_schedule?.[dayKey];
+  if (!session || session.rest) return;
+
+  const completedExos = {};
+
+  const exoRows = session.exercises.map(exo => {
+    const def = RENFO_EXERCISES[exo.exercise_id];
+    if (!def) return '';
+    const variant = def.variants.find(v => v.id === exo.variant_id) || def.variants[0];
+    const loadLabel = exo.load_type === 'external_kg' ? 'kg à définir' : exo.load_type === 'band' ? 'élastique' : 'poids de corps';
+    return `<div id="exo-card-${exo.exercise_id}" class="card" style="margin-bottom:10px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--vl-display);font-size:1.05rem;font-weight:700;margin-bottom:2px">${def.name_fr}</div>
+          <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:6px">${def.name_tech} · ${variant.name}</div>
+          <div style="font-size:.8rem;color:var(--vl-ember)">${exo.sets}×${exo.reps} · RPE cible ${exo.target_rpe} · ${loadLabel}</div>
+        </div>
+        <button onclick="toggleExoCheck('${exo.exercise_id}','${exo.variant_id}','${exo.load_type}')" id="chk-${exo.exercise_id}"
+          style="width:32px;height:32px;border-radius:50%;border:2px solid var(--vl-border);background:transparent;cursor:pointer;font-size:1rem;flex-shrink:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center">
+        </button>
+      </div>
+      <button onclick="toggleExoDetail('${exo.exercise_id}')" style="margin-top:10px;background:none;border:none;cursor:pointer;font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);padding:0;touch-action:manipulation">
+        ▾ Comment faire
+      </button>
+      <div id="exo-detail-${exo.exercise_id}" style="display:none;margin-top:10px;border-top:1px solid var(--vl-border);padding-top:10px">
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px"><strong style="color:var(--vl-text)">Position</strong><br>${def.position}</div>
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px"><strong style="color:var(--vl-text)">Mouvement</strong><br>${def.movement}</div>
+        <div style="font-size:.75rem;color:var(--vl-ember);margin-bottom:8px"><strong>⚠ Erreurs</strong><br>${def.common_errors}</div>
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(def.youtube_search)}" target="_blank" rel="noopener"
+          style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.3);border-radius:7px;padding:6px 11px;font-family:var(--vl-mono);font-size:.6rem;color:#ff4444;text-decoration:none">▶ Rechercher sur YouTube</a>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div style="padding-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:1.2rem;padding:4px;touch-action:manipulation">←</button>
+      <div>
+        <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:${RENFO_FOCUS_COLORS[session.focus]||'var(--vl-ember)'}">
+          ${(session.focus||'').replace(/_/g,' ').toUpperCase()} · ~${session.duration_min} MIN
+        </div>
+        <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800;line-height:1.1">${session.label}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(229,86,42,.07);border-color:rgba(229,86,42,.2)">
+      <div style="font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-ember);margin-bottom:4px">ÉCHAUFFEMENT (5–8 min)</div>
+      <div style="font-size:.78rem;color:var(--vl-text-2)">Footing léger 3min → montées de genoux 30s → talons-fesses 30s → squat profond × 10 → rotation de buste × 10 de chaque côté</div>
+    </div>
+    ${exoRows}
+    <button onclick="completeRenfoSession('${dayKey}')" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;margin-top:6px;touch-action:manipulation">
+      ✓ TERMINER LA SÉANCE
+    </button>
+  </div>`;
+
+  window._renfoSessionCompleted = completedExos;
+  window._renfoSessionDayKey = dayKey;
+}
+
+function toggleExoDetail(exerciseId) {
+  const d = document.getElementById('exo-detail-' + exerciseId);
+  if (!d) return;
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleExoCheck(exerciseId, variantId, loadType) {
+  const btn = document.getElementById('chk-' + exerciseId);
+  if (!btn) return;
+  const isChecked = btn.dataset.checked === '1';
+  if (!isChecked) {
+    if (loadType === 'external_kg') {
+      showRenfoLogPopup(exerciseId, variantId, loadType);
+    } else {
+      markExoChecked(exerciseId, variantId, loadType, null, null, null);
+    }
+  } else {
+    btn.dataset.checked = '0';
+    btn.style.borderColor = 'var(--vl-border)';
+    btn.style.background = 'transparent';
+    btn.style.color = 'transparent';
+    if (window._renfoSessionCompleted) delete window._renfoSessionCompleted[exerciseId];
+  }
+}
+
+function markExoChecked(exerciseId, variantId, loadType, loadKg, reps, rpe) {
+  const btn = document.getElementById('chk-' + exerciseId);
+  if (btn) {
+    btn.dataset.checked = '1';
+    btn.style.borderColor = 'var(--vl-ember)';
+    btn.style.background = 'var(--vl-ember)';
+    btn.style.color = '#fff';
+    btn.textContent = '✓';
+  }
+  if (window._renfoSessionCompleted) {
+    window._renfoSessionCompleted[exerciseId] = { variantId, loadType, loadKg, reps, rpe, logged_at: new Date().toISOString() };
+  }
+  // Show e1RM toast if applicable
+  if (loadKg && reps) {
+    const e1rm = epley1RM(loadKg, reps);
+    if (e1rm) showToast(`e1RM estimé : ${e1rm} kg`, 'success', 3000);
+  }
+}
+
+function showRenfoLogPopup(exerciseId, variantId, loadType) {
+  const def = RENFO_EXERCISES[exerciseId];
+  if (!def) { markExoChecked(exerciseId, variantId, loadType, null, null, null); return; }
+
+  const existing = document.getElementById('renfoLogPopup');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'renfoLogPopup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:flex;align-items:flex-end;touch-action:none';
+
+  overlay.innerHTML = `<div style="width:100%;background:var(--vl-bg2);border-radius:20px 20px 0 0;padding:20px 20px 32px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div style="width:36px;height:4px;background:var(--vl-border);border-radius:2px;margin:0 auto 18px"></div>
+    <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:4px">${def.name_fr}</div>
+    <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:18px">${def.name_tech}</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Charge (kg)</div>
+        <input id="rlLoad" type="number" inputmode="decimal" min="0" step="2.5" placeholder="60" style="width:100%;padding:10px 12px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:8px;color:var(--vl-text);font-size:1rem;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Répétitions effectuées</div>
+        <input id="rlReps" type="number" inputmode="numeric" min="1" max="30" placeholder="5" style="width:100%;padding:10px 12px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:8px;color:var(--vl-text);font-size:1rem;box-sizing:border-box">
+      </div>
+      <div>
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Difficulté (RPE) — <span id="rpeLabel">8</span>/10</div>
+        <input id="rlRpe" type="range" min="6" max="10" step="1" value="8" oninput="document.getElementById('rpeLabel').textContent=this.value" style="width:100%;accent-color:var(--vl-ember)">
+        <div style="display:flex;justify-content:space-between;font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">
+          <span>6 (facile)</span><span>8 (cible)</span><span>10 (max)</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="document.getElementById('renfoLogPopup').remove();markExoChecked('${exerciseId}','${variantId}','${loadType}',null,null,null)" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Passer</button>
+      <button onclick="submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
+    </div>
+  </div>`;
+
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+
+function submitRenfoLog(exerciseId, variantId, loadType) {
+  const loadKg = parseFloat(document.getElementById('rlLoad')?.value) || null;
+  const reps = parseInt(document.getElementById('rlReps')?.value) || null;
+  const rpe = parseInt(document.getElementById('rlRpe')?.value) || 8;
+  document.getElementById('renfoLogPopup')?.remove();
+
+  markExoChecked(exerciseId, variantId, loadType, loadKg, reps, rpe);
+
+  // Save to DB async (don't block UI)
+  const todayStr = new Date().toISOString().slice(0,10);
+  const e1rm = (loadKg && reps) ? epley1RM(loadKg, reps) : null;
+  sb.from('renfo_exercise_log').insert({
+    user_id: currentUser.id,
+    session_date: todayStr,
+    exercise_id: exerciseId,
+    variant_id: variantId,
+    load_kg: loadKg,
+    reps_completed: reps,
+    reps_target: RENFO_EXERCISES[exerciseId]?.variants?.find(v=>v.id===variantId)?.default_reps || null,
+    rpe,
+    e1rm,
+    completed_all_reps: reps >= (RENFO_EXERCISES[exerciseId]?.variants?.find(v=>v.id===variantId)?.default_reps || reps),
+    load_type: loadType
+  }).then(({ error }) => {
+    if (error) showToast('Erreur log exercice', 'error');
+  });
+
+  if (e1rm) {
+    sb.from('renfo_max_lifts').upsert({
+      user_id: currentUser.id,
+      exercise_id: exerciseId,
+      one_rm: e1rm,
+      is_estimated: true,
+      recorded_at: new Date().toISOString()
+    }, { onConflict: 'user_id,exercise_id', ignoreDuplicates: false }).then(({ error, data }) => {
+      if (!error) showToast(`e1RM estimé : ${e1rm} kg`, 'success', 3000);
+    });
+  }
+}
+
+async function completeRenfoSession(dayKey) {
+  const completed = window._renfoSessionCompleted || {};
+  const n = Object.keys(completed).length;
+  if (n === 0) { showToast('Coche au moins un exercice', 'info'); return; }
+
+  const todayStr = new Date().toISOString().slice(0,10);
+  const { error } = await sb.from('renfo_session_log').upsert({
+    user_id: currentUser.id,
+    session_date: todayStr,
+    day_key: dayKey,
+    completed_exercises: completed
+  }, { onConflict: 'user_id,session_date' });
+
+  if (error) { showToast('Erreur sauvegarde séance', 'error'); return; }
+
+  showToast(`Séance complétée · ${n} exercice${n>1?'s':''} 💪`, 'success');
+  // Refresh logs and go back to home
+  renfoSessionLogs = renfoSessionLogs.filter(l => l.session_date !== todayStr);
+  renfoSessionLogs.unshift({ session_date: todayStr, day_key: dayKey, completed_exercises: completed });
+  renderRenfoHome();
+}
+
+function showRenfoProgramView() {
+  const el = document.getElementById('renfoApp');
+  if (!el || !renfoProgram) return;
+  const sched = renfoProgram.week_schedule || {};
+  const dayLabels = { monday:'Lundi', tuesday:'Mardi', wednesday:'Mercredi', thursday:'Jeudi', friday:'Vendredi', saturday:'Samedi', sunday:'Dimanche' };
+
+  const rows = RENFO_DAY_NAMES.map(d => {
+    const s = sched[d];
+    if (!s || s.rest) return `<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--vl-border)">
+      <div style="width:60px;font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-text-2)">${dayLabels[d]}</div>
+      <div style="font-size:.8rem;color:var(--vl-text-2)">Repos</div>
+    </div>`;
+    const col = RENFO_FOCUS_COLORS[s.focus] || 'var(--vl-ember)';
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--vl-border)">
+      <div style="display:flex;gap:12px;align-items:baseline;margin-bottom:6px">
+        <div style="width:60px;font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-text-2)">${dayLabels[d]}</div>
+        <div>
+          <span style="font-family:var(--vl-mono);font-size:.55rem;color:${col}">${(s.focus||'').replace(/_/g,' ').toUpperCase()}</span>
+          <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700">${s.label} <span style="font-family:var(--vl-mono);font-size:.6rem;font-weight:400;color:var(--vl-text-2)">~${s.duration_min}min</span></div>
+        </div>
+      </div>
+      ${s.exercises.map(e => {
+        const def = RENFO_EXERCISES[e.exercise_id];
+        if (!def) return '';
+        const v = def.variants.find(vv => vv.id === e.variant_id) || def.variants[0];
+        return `<div style="font-size:.75rem;color:var(--vl-text-2);padding-left:72px;margin-bottom:2px">· ${def.name_fr} — ${v.name} · ${e.sets}×${e.reps}</div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div style="padding-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:1.2rem;padding:4px;touch-action:manipulation">←</button>
+      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800">Programme complet</div>
+    </div>
+    <div class="card" style="padding:14px 16px">${rows}</div>
+  </div>`;
+}
+
+function showRenfoHistoryView() {
+  showToast('Historique — disponible dans la prochaine version', 'info');
+}
+
+async function showRenfoSettings() {
+  if (!renfoProfile) return;
+  const el = document.getElementById('renfoApp');
+
+  el.innerHTML = `<div style="padding-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:1.2rem;padding:4px;touch-action:manipulation">←</button>
+      <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800">Réglages Renfo</div>
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:12px">
+      <div class="clabel" style="margin-bottom:12px">OBJECTIF</div>
+      ${[
+        [25,'Prévenir les blessures'],[50,'Équilibré'],[75,'Performance']
+      ].map(([v,t])=>`<button class="vl-ob-btn" data-val="${v}" data-type="obj" onclick="renfoObSelect(this)" style="display:block;width:100%;text-align:left;padding:12px;background:${renfoProfile.objective_weight===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.objective_weight===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);margin-bottom:8px;touch-action:manipulation">
+        <span style="font-size:.85rem">${t}</span>
+      </button>`).join('')}
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:12px">
+      <div class="clabel" style="margin-bottom:12px">SÉANCES / SEMAINE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${[1,3,5,6].map(v=>`<button class="vl-ob-btn" data-val="${v}" data-type="spw" onclick="renfoObSelect(this)" style="padding:12px;background:${renfoProfile.sessions_per_week===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.sessions_per_week===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);touch-action:manipulation">
+          <span style="font-family:var(--vl-display);font-size:1.2rem;font-weight:700">${v}</span>
+          <div style="font-size:.65rem;color:var(--vl-text-2)">séance${v>1?'s':''}/sem</div>
+        </button>`).join('')}
+      </div>
+    </div>
+    <button onclick="saveRenfoSettings()" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;touch-action:manipulation">Sauvegarder & Régénérer</button>
+    <button onclick="resetRenfoOnboarding()" style="width:100%;padding:12px;background:none;border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;margin-top:10px;touch-action:manipulation">Recommencer l'onboarding</button>
+  </div>`;
+
+  _renfoOnboarding = { ...renfoProfile };
+}
+
+async function saveRenfoSettings() {
+  const updated = {
+    ...renfoProfile,
+    objective_weight: _renfoOnboarding.objective_weight ?? renfoProfile.objective_weight,
+    sessions_per_week: _renfoOnboarding.sessions_per_week ?? renfoProfile.sessions_per_week
+  };
+  const { error } = await sb.from('renfo_profile').upsert(updated);
+  if (error) { showToast('Erreur sauvegarde', 'error'); return; }
+  renfoProfile = updated;
+
+  const schedule = generateRenfoProgram(updated);
+  await sb.from('renfo_program').upsert({
+    user_id: currentUser.id,
+    week_schedule: schedule,
+    generated_at: new Date().toISOString(),
+    generation_inputs: updated
+  });
+  renfoProgram = { week_schedule: schedule };
+  showToast('Programme ajusté à ton nouveau profil', 'success');
+  renderRenfoHome();
+}
+
+async function resetRenfoOnboarding() {
+  await sb.from('renfo_profile').upsert({ user_id: currentUser.id, onboarding_completed: false });
+  renfoProfile = null;
+  _renfoOnboarding = {};
+  renderOnboardingStep(1);
+}
+
