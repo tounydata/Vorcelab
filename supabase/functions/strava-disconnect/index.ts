@@ -1,11 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { errorResponse } from '../_shared/error.ts'
 import { requireAuth } from '../_shared/auth.ts'
 import { deauthorizeStrava, getValidStravaAccessToken } from '../_shared/strava.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req)
+
+  const origin = req.headers.get('origin')
+  const cors = getCorsHeaders(origin)
 
   try {
     const user = await requireAuth(req)
@@ -27,7 +30,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({ disconnected: true }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
