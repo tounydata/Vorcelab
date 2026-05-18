@@ -627,12 +627,16 @@
   <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
 </div>
 
-  <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line)">
-    <button onclick="logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      DÉCONNEXION
-    </button>
-  </div>
+ <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line);display:flex;flex-direction:column;gap:10px">
+  <button onclick="logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    DÉCONNEXION
+  </button>
+
+  <button onclick="deleteAccount()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(244,63,94,.45);border-radius:8px;color:var(--red);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    SUPPRIMER MON COMPTE
+  </button>
+</div>
 
   </div>
 </div>
