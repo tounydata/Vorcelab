@@ -1946,7 +1946,7 @@ export async function startRenfoSession(dayKey) {
       <div style="font-size:.78rem;color:var(--vl-text-2)">Footing léger 3min → montées de genoux 30s → talons-fesses 30s → squat profond × 10 → rotation de buste × 10 de chaque côté</div>
     </div>
     ${exoRows}
-    <button onclick="completeRenfoSession('${dayKey}')" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;margin-top:6px;touch-action:manipulation">
+    <button onclick="openCompletionPicker('${dayKey}')" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;margin-top:6px;touch-action:manipulation">
       TERMINER LA SÉANCE
     </button>
   </div>`;
@@ -1982,6 +1982,12 @@ export function validateExoWithLoad(exerciseId, variantId, loadType) {
   showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad);
 }
 
+function fmtCountdown(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${s}s`;
+}
+
+
 export function startRestTimer(secs) {
   clearInterval(window._renfoRestTimer);
   const existing = document.getElementById('renfoRestBar');
@@ -1989,15 +1995,17 @@ export function startRestTimer(secs) {
 
   const bar = document.createElement('div');
   bar.id = 'renfoRestBar';
-  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9000;background:var(--vl-bg2);border-top:1.5px solid var(--vl-border);padding:12px 16px 20px;display:flex;flex-direction:column;gap:8px';
+  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9000;background:var(--vl-bg2);border-top:2px solid var(--vl-ember);padding:14px 20px;padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))';
   bar.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);letter-spacing:.08em">REPOS</div>
-      <button id="renfoRestSkip" style="padding:5px 12px;background:transparent;border:1px solid var(--vl-border);border-radius:6px;cursor:pointer;font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);touch-action:manipulation">Passer</button>
-    </div>
-    <div id="renfoRestCountdown" style="font-family:var(--vl-display);font-size:1.6rem;font-weight:800;color:var(--vl-ember);text-align:center;line-height:1">${fmtRest(secs)}</div>
-    <div style="height:6px;background:var(--vl-bg);border-radius:3px;overflow:hidden">
-      <div id="renfoRestProgress" style="height:100%;width:100%;background:var(--vl-ember);border-radius:3px;transition:width .9s linear"></div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div id="renfoRestCountdown" style="font-family:var(--vl-display);font-size:2.8rem;font-weight:800;color:var(--vl-ember);line-height:1;min-width:90px;flex-shrink:0">${fmtCountdown(secs)}</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);letter-spacing:.1em">REPOS</div>
+        <div style="height:8px;background:var(--vl-bg);border-radius:4px;overflow:hidden">
+          <div id="renfoRestProgress" style="height:100%;width:100%;background:var(--vl-ember);border-radius:4px;transition:width .9s linear"></div>
+        </div>
+      </div>
+      <button id="renfoRestSkip" style="padding:10px 16px;background:transparent;border:1.5px solid var(--vl-border);border-radius:8px;cursor:pointer;font-family:var(--vl-mono);font-size:.7rem;color:var(--vl-text-2);touch-action:manipulation;flex-shrink:0">Passer</button>
     </div>`;
   document.body.appendChild(bar);
 
@@ -2011,7 +2019,7 @@ export function startRestTimer(secs) {
     remaining--;
     const countdown = bar.querySelector('#renfoRestCountdown');
     const progress = bar.querySelector('#renfoRestProgress');
-    if (countdown) countdown.textContent = fmtRest(remaining);
+    if (countdown) countdown.textContent = fmtCountdown(remaining);
     if (progress) progress.style.width = Math.max(0, (remaining / secs * 100)).toFixed(1) + '%';
     if (remaining <= 0) {
       clearInterval(window._renfoRestTimer);
@@ -2059,11 +2067,20 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:flex;align-items:flex-end;touch-action:none';
 
   const isWeighted = loadType === 'external_kg';
+  const RPE_LABELS = ['','Repos','Très léger','Léger','Assez léger','Modéré','Difficile','Assez dur','Dur ✓','Très dur','Max'];
+  const rpeRows = [1,2,3,4,5,6,7,8,9,10].map(r =>
+    `<button type="button" data-rpe="${r}" style="padding:10px 2px;border-radius:8px;border:1.5px solid;cursor:pointer;touch-action:manipulation;text-align:center;outline:none;border-color:${r===8?'var(--vl-ember)':'var(--vl-border)'};background:${r===8?'var(--vl-ember)':'transparent'};color:${r===8?'#fff':'var(--vl-text-2)'}">
+      <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:800;line-height:1">${r}</div>
+      <div style="font-family:var(--vl-mono);font-size:.4rem;margin-top:3px;line-height:1.2">${RPE_LABELS[r]}</div>
+    </button>`
+  ).join('');
+
+
   overlay.innerHTML = `<div style="width:100%;background:var(--vl-bg2);border-radius:20px 20px 0 0;padding:20px 20px 32px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div style="width:36px;height:4px;background:var(--vl-border);border-radius:2px;margin:0 auto 18px"></div>
     <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:4px">${def.name_fr}</div>
     <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:18px">${def.name_tech}</div>
-    <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:16px">
       ${isWeighted ? `<div>
         <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Charge (kg)</div>
         <input id="rlLoad" type="number" inputmode="decimal" min="0" step="2.5"
@@ -2073,22 +2090,32 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
       <div>
         <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Répétitions effectuées</div>
         <input id="rlReps" type="number" inputmode="numeric" min="1" max="30" placeholder="5" style="width:100%;padding:10px 12px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:8px;color:var(--vl-text);font-size:1rem;box-sizing:border-box">
-      </div>` : `<div style="font-family:var(--vl-mono);font-size:.8rem;color:var(--vl-text-2);padding:8px 0">Terminé ✓</div>`}
+      </div>` : ''}
       <div>
-        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Difficulté (RPE) — <span id="rpeLabel">8</span>/10</div>
-        <input id="rlRpe" type="range" min="6" max="10" step="1" value="8" oninput="document.getElementById('rpeLabel').textContent=this.value" style="width:100%;accent-color:var(--vl-ember)">
-        <div style="display:flex;justify-content:space-between;font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">
-          <span>6 (facile)</span><span>8 (cible)</span><span>10 (max)</span>
-        </div>
+        <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:10px">Difficulté ressentie (RPE)</div>
+        <input type="hidden" id="rlRpe" value="8">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${rpeRows}</div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:20px">
+    <div style="display:flex;gap:10px;margin-top:22px">
       <button onclick="document.getElementById('renfoLogPopup').remove();markExoChecked('${exerciseId}','${variantId}','${loadType}',null,null,null)" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Passer</button>
       <button onclick="submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
     </div>
   </div>`;
 
   overlay.addEventListener('click', () => overlay.remove());
+  overlay.querySelectorAll('[data-rpe]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = parseInt(btn.dataset.rpe);
+      document.getElementById('rlRpe').value = val;
+      overlay.querySelectorAll('[data-rpe]').forEach(b => {
+        const on = parseInt(b.dataset.rpe) === val;
+        b.style.background = on ? 'var(--vl-ember)' : 'transparent';
+        b.style.borderColor = on ? 'var(--vl-ember)' : 'var(--vl-border)';
+        b.style.color = on ? '#fff' : 'var(--vl-text-2)';
+      });
+    });
+  });
   document.body.appendChild(overlay);
 }
 
@@ -2114,7 +2141,6 @@ export function submitRenfoLog(exerciseId, variantId, loadType) {
     rpe,
     e1rm,
     completed_all_reps: reps >= (RENFO_EXERCISES[exerciseId]?.variants?.find(v=>v.id===variantId)?.default_reps || reps),
-    load_type: loadType
   }).then(({ error }) => {
     if (error) showToast('Erreur log exercice', 'error');
   });
@@ -2202,25 +2228,72 @@ export function applyVariant(exerciseId, newVariantId) {
   showToast('Variante mise à jour', 'success');
 }
 
-export async function completeRenfoSession(dayKey) {
-  const completed = window._renfoSessionCompleted || {};
-  const n = Object.keys(completed).length;
-  if (n === 0) { showToast('Coche au moins un exercice', 'info'); return; }
+export function openCompletionPicker(dayKey) {
+  const existing = document.getElementById('renfoCompletionPicker');
+  if (existing) existing.remove();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const overlay = document.createElement('div');
+  overlay.id = 'renfoCompletionPicker';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:flex;align-items:flex-end;touch-action:none';
+  overlay.innerHTML = `<div style="width:100%;background:var(--vl-bg2);border-radius:20px 20px 0 0;padding:20px 20px calc(32px + env(safe-area-inset-bottom,0px))" onclick="event.stopPropagation()">
+    <div style="width:36px;height:4px;background:var(--vl-border);border-radius:2px;margin:0 auto 18px"></div>
+    <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:6px">Terminer la séance</div>
+    <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:18px">Les exercices non cochés seront automatiquement validés.</div>
+    <div style="margin-bottom:20px">
+      <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px">Date de la séance</div>
+      <input id="sessionDatePicker" type="date" value="${todayStr}" max="${todayStr}"
+        style="width:100%;padding:10px 12px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:8px;color:var(--vl-text);font-size:1rem;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('renfoCompletionPicker').remove()" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler</button>
+      <button onclick="completeRenfoSession('${dayKey}',document.getElementById('sessionDatePicker').value)" style="flex:2;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">CONFIRMER</button>
+    </div>
+  </div>`;
+  overlay.addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
 
-  const todayStr = new Date().toISOString().slice(0,10);
+export async function completeRenfoSession(dayKey, sessionDate) {
+  const dateStr = sessionDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('renfoCompletionPicker')?.remove();
+
+  // Auto-complete all unchecked exercises (Problem 3)
+  const completed = { ...(window._renfoSessionCompleted || {}) };
+  const session = renfoProgram?.week_schedule?.[dayKey];
+  if (session) {
+    session.exercises.forEach(exo => {
+      if (!completed[exo.exercise_id]) {
+        completed[exo.exercise_id] = {
+          variantId: exo.variant_id, loadType: exo.load_type,
+          loadKg: null, reps: null, rpe: null,
+          logged_at: new Date().toISOString(), auto_completed: true
+        };
+      }
+    });
+  }
+
+  // Merge with existing session on same date (Problem 2 — no overwrite)
+  const { data: prev } = await sb.from('renfo_session_log')
+    .select('completed_exercises')
+    .eq('user_id', VLState.currentUser.id)
+    .eq('session_date', dateStr)
+    .maybeSingle();
+  const merged = prev ? { ...(prev.completed_exercises || {}), ...completed } : completed;
+
+  const n = Object.keys(merged).length;
   const { error } = await sb.from('renfo_session_log').upsert({
     user_id: VLState.currentUser.id,
-    session_date: todayStr,
+    session_date: dateStr,
     day_key: dayKey,
-    completed_exercises: completed
+    completed_exercises: merged
   }, { onConflict: 'user_id,session_date' });
 
   if (error) { showToast('Erreur sauvegarde séance', 'error'); return; }
 
-  showToast(`Séance complétée · ${n} exercice${n>1?'s':''}`, 'success');
-  // Refresh logs and go back to home
-  renfoSessionLogs = renfoSessionLogs.filter(l => l.session_date !== todayStr);
-  renfoSessionLogs.unshift({ session_date: todayStr, day_key: dayKey, completed_exercises: completed });
+  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  showToast(`${label} — ${n} exercice${n > 1 ? 's' : ''} enregistré${n > 1 ? 's' : ''}`, 'success');
+  renfoSessionLogs = renfoSessionLogs.filter(l => l.session_date !== dateStr);
+  renfoSessionLogs.unshift({ session_date: dateStr, day_key: dayKey, completed_exercises: merged });
   VLState.renfoSessionLogs = renfoSessionLogs;
   renderRenfoHome();
 }

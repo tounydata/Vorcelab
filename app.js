@@ -744,7 +744,7 @@ function renderDashboard() {
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    <div class="s-stat" id="aerobicStatCard"><div class="s-sv tc" id="aerobicStatVal" style="font-size:1rem;color:var(--text3)">…</div><div class="s-sl">% aérobie sem.</div></div>
+    <div class="s-stat" id="aerobicStatCard"><div class="s-sv tc" id="aerobicStatVal" style="font-size:1rem;color:var(--vl-text-3)">…</div><div class="s-sl">% EF · 7j glissants</div></div>
   `;
 
   // Annual chart
@@ -761,8 +761,10 @@ function renderDashboard() {
     loadEl.style.display = '';
   }
 
-  // Async: fetch HR streams for this week and compute real aerobic %
-  loadAerobicStat(thisWeek, fcMax);
+  // % EF glissant 7 jours — streams complets
+  const sevenDaysAgo = new Date(now - 7 * 86400000);
+  const last7Days = VLState.allActivities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
+  loadAerobicStat(last7Days, fcMax);
 }
 
 function renderLastActivity() {
@@ -813,12 +815,16 @@ function renderLastActivity() {
 }
 
 async function loadAerobicStat(weekActs, fcMax) {
+  const el = document.getElementById('aerobicStatVal');
+  if (!el) return;
+  el.textContent = '…';
+
   const threshold = fcMax * 0.75;
-  const actsWithHR = weekActs.filter(a => isRun(a.type));
-  if (!actsWithHR.length) { document.getElementById('aerobicStatVal').textContent = '—'; return; }
+  if (!weekActs.length) { el.textContent = '—'; return; }
+  const candidates = weekActs;
 
   let totalPts = 0, aerobicPts = 0;
-  await Promise.all(actsWithHR.map(async a => {
+  await Promise.all(candidates.map(async a => {
     try {
       const streams = await fetchStreams(a.id);
       const hr = streams.heartrate?.data;
@@ -828,13 +834,15 @@ async function loadAerobicStat(weekActs, fcMax) {
     } catch {}
   }));
 
-  const el = document.getElementById('aerobicStatVal');
-  if (!el) return;
-  if (totalPts === 0) { el.textContent = '—'; return; }
+  // Re-chercher l'élément : le DOM peut avoir été reconstruit pendant le fetch async
+  const elNow = document.getElementById('aerobicStatVal');
+  if (!elNow) return;
+
+  if (totalPts === 0) { elNow.textContent = '—'; return; }
   const pct = Math.round(aerobicPts / totalPts * 100);
-  el.style.color = '';
-  el.style.fontSize = '';
-  el.textContent = pct + '%';
+  elNow.style.color = pct >= 75 ? 'var(--vl-growth)' : pct < 50 ? 'var(--vl-ember)' : '';
+  elNow.style.fontSize = '';
+  elNow.textContent = pct + '%';
 }
 
 // ════════════════════════════════════════════════════

@@ -23,7 +23,7 @@ import { loadRenfoApp, preloadRenfoState,
   renderOnboardingStep, renfoNextStep, renfoObSelect, renfoToggleBand,
   finishRenfoOnboarding, renderRenfoHome, startRenfoSession,
   toggleExoDetail, toggleExoCheck, validateExoWithLoad,
-  submitRenfoLog, completeRenfoSession, showRenfoHistoryView,
+  submitRenfoLog, openCompletionPicker, completeRenfoSession, showRenfoHistoryView,
   showRenfoSettings, saveRenfoSettings, resetRenfoOnboarding,
   showVariantPicker, applyVariant,
 } from './renfo.js';
@@ -50,7 +50,7 @@ window.Vorcelab = {
   renderOnboardingStep, renfoNextStep, renfoObSelect, renfoToggleBand,
   finishRenfoOnboarding, renderRenfoHome, startRenfoSession,
   toggleExoDetail, toggleExoCheck, validateExoWithLoad,
-  submitRenfoLog, completeRenfoSession, showRenfoHistoryView,
+  submitRenfoLog, openCompletionPicker, completeRenfoSession, showRenfoHistoryView,
   showRenfoSettings, saveRenfoSettings, resetRenfoOnboarding,
   showVariantPicker, applyVariant,
 };
