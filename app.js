@@ -1543,6 +1543,7 @@ if (summaryBox) {
     <div class="summary-text">${escapeHTML(summaryText)}</div>
   `;
 }
+} // ferme openAnalyse()
 
 function showLinkActivityPanel(actId) {
   const panel = document.getElementById('linkActivityPanel');
