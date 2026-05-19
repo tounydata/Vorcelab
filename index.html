@@ -264,7 +264,7 @@
     <div id="loadBlock" class="card" style="display:none"></div>
 
     <!-- ANNUAL CHART -->
-    <div class="card" style="flex:1;display:flex;flex-direction:column">
+    <div class="card" style="display:flex;flex-direction:column">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
         <div class="clabel" style="margin:0">Volume annuel comparatif</div>
         <div style="display:flex;gap:3px">
@@ -272,7 +272,7 @@
           <button id="annualBtnDp" onclick="Vorcelab.setAnnualMode('dp')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:6px 12px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;touch-action:manipulation;background:transparent;color:var(--vl-text-3)">D+</button>
         </div>
       </div>
-<div class="chart-wrap" style="flex:1;min-height:120px"><canvas id="annualChart"></canvas></div>
+<div class="chart-wrap" style="height:160px"><canvas id="annualChart"></canvas></div>
       <div class="clabel mt2">Stats du mois</div>
       <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
     </div>
@@ -304,15 +304,15 @@
   </div><!-- end left column -->
 
   <!-- ── RIGHT COLUMN ── -->
-  <div style="display:flex;flex-direction:column;gap:10px;height:100%">
+  <div style="display:flex;flex-direction:column;gap:10px">
 
     <!-- PROCHAINE COURSE -->
-    <div class="card" style="padding:0;overflow:hidden;flex:1;display:flex;flex-direction:column">
-      <div id="nextRaceWidget" style="flex:1;display:flex;flex-direction:column"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
+    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div id="nextRaceWidget" style="display:flex;flex-direction:column"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
     </div>
 
     <!-- DERNIÈRES SORTIES (4 max) -->
-    <div class="card" style="padding:0 16px;flex:1">
+    <div class="card" style="padding:0 16px">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0">
         <div class="clabel" style="margin:0">Dernières sorties</div>
         <button onclick="Vorcelab.navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
