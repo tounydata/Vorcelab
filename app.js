@@ -36,6 +36,21 @@ const fmtP = s => s > 0 ? `${Math.floor(1000/s/60)}:${String(Math.round(1000/s%6
 const fmtD = s => { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`; };
 const tE = t => ({Run:'🏃',TrailRun:'⛰️'}[t]||'🏃');
 const tL = t => ({Run:'Route',TrailRun:'Trail'}[t]||'Run');
+
+// ── XSS helpers ──────────────────────────────────────────────────────────────
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escapeAttr(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function safeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const t = url.trim();
+  return /^javascript:/i.test(t) ? '' : t;
+}
 // Robust CSV date parser — handles "Jan 5, 2025, 6:00:00 AM", ISO, and UTC variants
 function parseCsvDate(str) {
   if (!str) return null;
@@ -736,9 +751,9 @@ function renderCalendar() {
       chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:${dotCol};flex-shrink:0"></div><div style="font-family:var(--vl-mono);font-size:9px;color:${dotCol};line-height:1">💪</div></div>`;
     }
 
-    cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${race.id}')"`:''}>
+    cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${escapeAttr(race.id)}')"`:''}>
       <div class="cal-day-num">${dayNum}</div>
-      ${race ? `<div class="cal-event-dot">${typeEmoji} ${race.name}</div><div class="cal-event-type">${race.distance||'?'}km${race.elevation?` · ${race.elevation}m D+`:''}</div>` : ''}
+      ${race ? `<div class="cal-event-dot">${typeEmoji} ${escapeHTML(race.name)}</div><div class="cal-event-type">${race.distance||'?'}km${race.elevation?` · ${race.elevation}m D+`:''}</div>` : ''}
       ${chipsHtml ? `<div style="margin-top:${race?'2px':'1px'}">${chipsHtml}</div>` : ''}
     </div>`;
   }
@@ -750,10 +765,10 @@ function renderCalendar() {
   if(upEl){
     upEl.innerHTML = upcoming.length ? `
       <div class="clabel" style="margin-bottom:8px">Prochaines courses</div>
-      ${upcoming.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="openEventView('${r.id}')">
+      ${upcoming.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="openEventView('${escapeAttr(r.id)}')">
         <div style="font-size:1.2rem">${r.type==='Trail'?'⛰️':r.type==='Ultra'?'🦅':'🏃'}</div>
         <div style="flex:1">
-          <div style="font-weight:600;font-size:.85rem">${r.name}</div>
+          <div style="font-weight:600;font-size:.85rem">${escapeHTML(r.name)}</div>
           <div class="mono t3" style="font-size:.6rem">${new Date(r.date).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})} · ${r.distance||'?'}km${r.elevation?` · ${r.elevation}m D+`:''}</div>
         </div>
         <div class="mono" style="font-size:.7rem;color:var(--cyan)">${Math.ceil((new Date(r.date)-new Date())/(1000*60*60*24))}j →</div>
@@ -821,8 +836,8 @@ function showEventSplash(race) {
   splash.id = 'eventSplash';
   splash.style.cssText = 'position:fixed;inset:0;background:var(--vl-bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:4px;cursor:pointer';
   splash.innerHTML = `
-    <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;animation:fadeEl .3s ease forwards;opacity:0">${race.type||'Trail'}</div>
-    <div style="font-family:var(--vl-display);font-size:clamp(2rem,7vw,3.5rem);font-weight:800;text-transform:uppercase;text-align:center;line-height:.88;animation:fadeEl .35s ease .05s forwards;opacity:0">${race.name}</div>
+    <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;animation:fadeEl .3s ease forwards;opacity:0">${escapeHTML(race.type||'Trail')}</div>
+    <div style="font-family:var(--vl-display);font-size:clamp(2rem,7vw,3.5rem);font-weight:800;text-transform:uppercase;text-align:center;line-height:.88;animation:fadeEl .35s ease .05s forwards;opacity:0">${escapeHTML(race.name)}</div>
     <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.8rem;color:var(--vl-text-2);margin-top:6px;animation:fadeEl .35s ease .1s forwards;opacity:0">${dateStr}${race.distance?' · '+race.distance+' km':''}${race.elevation?' · D+ '+race.elevation+' m':''}</div>
     <div style="margin-top:16px;animation:fadeEl .35s ease .2s forwards;opacity:0">${traceSvg}</div>
     <div style="font-family:var(--vl-display);font-size:3.5rem;font-weight:800;color:var(--vl-ember);line-height:1;margin-top:8px;animation:fadeEl .4s ease .55s forwards;opacity:0">${diff<0?'PASSÉE':diff}</div>
@@ -1091,7 +1106,7 @@ function renderLastActivity() {
   w.innerHTML = `
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px">
     <div style="min-width:0">
-      <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.01em;text-transform:uppercase;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${act.name}</div>
+      <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.01em;text-transform:uppercase;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(act.name)}</div>
       <div class="mlabel" style="margin-top:3px;color:var(--vl-text-3)">${relDate} · ${new Date(act.start_date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
     </div>
     <span class="act-badge" style="flex-shrink:0">${tL(act.sport_type||act.type)}</span>
@@ -1280,7 +1295,7 @@ function renderActivities() {
       card.onclick = () => openAnalyse(act);
       card.innerHTML = `
         <div style="flex:1;min-width:0">
-          <div class="act-name">${act.name}</div>
+          <div class="act-name">${escapeHTML(act.name)}</div>
           <div class="act-meta">${meta}</div>
         </div>
         <div style="flex-shrink:0;text-align:right">
@@ -1429,7 +1444,7 @@ async function openAnalyse(act) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
       <button class="hbtn" onclick="closeAnalyse()">← Fermer</button>
       <div style="flex:1">
-        <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${act.name}</div>
+        <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${escapeHTML(act.name)}</div>
         <div class="mono t2">${dateStr} · ${act.type==='TrailRun'?'⛰️ Trail':'🏃 Route'}</div>
       </div>
       <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Lier à un événement</button>
@@ -1942,8 +1957,8 @@ function renderRaces() {
       <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:linear-gradient(to left,rgba(229,86,42,.13) 0%,transparent 100%);pointer-events:none"></div>
       <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
-          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${next.type}</div>
-          <div style="font-family:var(--vl-display);font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:8px">${next.name}</div>
+          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${escapeHTML(next.type)}</div>
+          <div style="font-family:var(--vl-display);font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:8px">${escapeHTML(next.name)}</div>
           <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.78rem;color:var(--vl-text-2);line-height:1.4">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
         </div>
         <span style="flex-shrink:0;color:var(--vl-ember);font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:2px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(229,86,42,.4)">STRATÉGIE →</span>
@@ -1963,7 +1978,7 @@ function renderRaces() {
             <span style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">${totalWeeks} sem.</span>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
-            ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${next.goal_time}</span>`:''}
+            ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
             ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
           </div>
         </div>
@@ -2005,11 +2020,11 @@ function renderRaces() {
       onclick="if(event.target.tagName!=='BUTTON'){${onCardClick}}">
       <div><div class="race-cd" style="color:${color}">${past?'✓':diff}</div><div class="race-cd-lbl">${past?'passée':'jours'}</div></div>
       <div class="race-info">
-        <div class="race-name">${r.name}</div>
+        <div class="race-name">${escapeHTML(r.name)}</div>
         <div class="race-meta">${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})} · ${r.distance||'?'}km · D+${r.elevation||'?'}m</div>
         <div class="race-tags">
-          <span class="race-tag" style="border-color:${color}40;color:${color}">${r.type}</span>
-          ${r.goal_time?`<span class="race-tag" style="border-color:var(--text3)40;color:var(--text2)">🎯 ${r.goal_time}</span>`:''}
+          <span class="race-tag" style="border-color:${color}40;color:${color}">${escapeHTML(r.type)}</span>
+          ${r.goal_time?`<span class="race-tag" style="border-color:var(--text3)40;color:var(--text2)">🎯 ${escapeHTML(r.goal_time)}</span>`:''}
           ${hasGpx?`<span class="race-tag" style="border-color:var(--green)40;color:var(--green)">✓ GPX</span>`:''}
           ${hasActivity?`<span class="race-tag" style="border-color:var(--purple)40;color:var(--purple)">✓ Activité</span>`:''}
         </div>
@@ -2210,7 +2225,7 @@ function showGpxUploadPrompt(race) {
   drop.style.display = 'block';
   drop.innerHTML = `
     <div style="font-size:2rem;margin-bottom:.5rem">🗺️</div>
-    <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;margin-bottom:.25rem">${race.name}</div>
+    <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;margin-bottom:.25rem">${escapeHTML(race.name)}</div>
     <div class="mono t2" style="margin-bottom:.75rem">Upload le GPX pour générer la stratégie</div>
     <div class="mono t3">Compatible OpenRunner · Strava · Garmin Connect</div>`;
   drop.onclick = ()=>document.getElementById('gpxFile').click();
@@ -2233,7 +2248,7 @@ async function processZip(file) {
     if(!csvFile){stats.innerHTML='<div class="mono tr">activities.csv introuvable dans le ZIP</div>';return;}
     const text=await csvFile.async('string');
     await parseAndSaveCSV(text, stats);
-  } catch(e){stats.innerHTML=`<div class="mono tr">Erreur : ${e.message}</div>`;}
+  } catch(e){stats.innerHTML=`<div class="mono tr">Erreur : ${escapeHTML(e.message)}</div>`;}
 }
 
 async function parseAndSaveCSV(text, statsEl) {
@@ -3586,8 +3601,8 @@ function updateAvatar(url) {
   const mark=document.getElementById('avatarMark');
   const preview=document.getElementById('avatarPreview');
   if(url){
-    if(mark) mark.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
-    if(preview)preview.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    if(mark) mark.innerHTML=`<img src="${escapeAttr(safeUrl(url))}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    if(preview)preview.innerHTML=`<img src="${escapeAttr(safeUrl(url))}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   }
 }
 
@@ -3600,7 +3615,7 @@ function showToast(msg, type='info', duration=4000) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span style="color:${colors[type]};font-weight:700;font-size:1rem">${icons[type]}</span><span>${msg}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;margin-left:auto;font-size:1rem">×</button>`;
+  toast.innerHTML = `<span style="color:${colors[type]};font-weight:700;font-size:1rem">${icons[type]}</span><span>${escapeHTML(msg)}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;margin-left:auto;font-size:1rem">×</button>`;
   container.appendChild(toast);
   setTimeout(()=>{
     toast.style.animation='slideOut .25s ease forwards';
