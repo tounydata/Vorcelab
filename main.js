@@ -7,6 +7,7 @@ import {
   closeCropModal, confirmCrop, savePRs, deleteAccount,
   handleZipDrop, handleZipFile,
   onbNav, closeOnboarding, openCGU, closeCGU,
+  switchProfilTab,
 } from './app.js';
 import {
   showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar,
@@ -28,6 +29,7 @@ window.Vorcelab = {
   closeCropModal, confirmCrop, savePRs, deleteAccount,
   handleZipDrop, handleZipFile,
   onbNav, closeOnboarding, openCGU, closeCGU,
+  switchProfilTab,
   showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar,
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,

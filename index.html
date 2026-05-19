@@ -117,11 +117,11 @@
   </div>
 
   <div class="sidebar-section-label">Navigation</div>
-  <button class="sidebar-item active" data-panel="dashboard">Dashboard</button>
-  <button class="sidebar-item" data-panel="strategie">Calendrier</button>
-  <button class="sidebar-item" data-panel="renfo">Renfo musculaire</button>
-  <button class="sidebar-item" data-panel="activites">Activités</button>
-  <button class="sidebar-item" onclick="Vorcelab.openProfil()">Profil</button>
+  <button class="sidebar-item active" data-panel="dashboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Dashboard</button>
+  <button class="sidebar-item" data-panel="strategie"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendrier</button>
+  <button class="sidebar-item" data-panel="renfo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 4v16M18 4v16M3 8h4m10 0h4M3 16h4m10 0h4M7 8h10M7 16h10"/></svg> Renfo</button>
+  <button class="sidebar-item" data-panel="activites"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Activités</button>
+  <button class="sidebar-item" data-panel="profil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil</button>
 
   <div class="sidebar-bottom">
     <div class="theme-row">
@@ -440,6 +440,171 @@
   </div>
 </div>
 
+<!-- ══ PROFIL PANEL ══ -->
+
+<div class="panel" id="panel-profil">
+  <!-- En-tête fixe avec titre + onglets -->
+  <div class="vl-page-header">
+    <div>
+      <div class="mlabel">Section 04</div>
+      <div style="font-family:var(--vl-display);font-size:2rem;font-weight:700;letter-spacing:0.01em;line-height:1">MON PROFIL</div>
+    </div>
+    <div class="vl-profil-tabs" id="profilTabs">
+      <button class="vl-tab active" onclick="Vorcelab.switchProfilTab('compte')" data-tab="compte">Compte</button>
+      <button class="vl-tab" onclick="Vorcelab.switchProfilTab('records')" data-tab="records">Records</button>
+      <button class="vl-tab" onclick="Vorcelab.switchProfilTab('nutrition')" data-tab="nutrition">Nutrition</button>
+    </div>
+  </div>
+
+  <!-- Onglet Compte -->
+  <div class="vl-profil-tab-content" id="tab-compte">
+
+<!-- AVATAR + COMPTE -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Compte</div>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+    <div style="position:relative;cursor:pointer" onclick="document.getElementById('avatarInput').click()">
+      <div id="avatarPreview" style="width:56px;height:56px;border-radius:50%;background:var(--vl-ember);display:flex;align-items:center;justify-content:center;font-family:var(--vl-display);font-size:1.4rem;font-weight:800;color:var(--vl-ink);overflow:hidden;letter-spacing:0.02em">AB</div>
+      <div style="position:absolute;bottom:-2px;right:-2px;background:var(--vl-surf-2);border:1px solid var(--vl-line-2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M21 15V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+    <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="Vorcelab.uploadAvatar(event)">
+    <div style="flex:1">
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="p-email" readonly style="opacity:.6"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="hbtn" onclick="Vorcelab.changePassword()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Changer le mot de passe</button>
+        <div class="mono t3" id="pwMsg" style="align-self:center"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DONNÉES PHYSIO -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Données physiologiques</div>
+  <div class="fg"><label class="fl">Prénom / Nom</label><input class="fi" id="p-name" placeholder=""></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+    <div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="p-birthdate"></div>
+    <div class="fg"><label class="fl">Sexe</label><select class="fi" id="p-sex"><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
+    <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="p-weight" placeholder="" step="0.1"></div>
+    <div class="fg"><label class="fl">Taille (cm)</label><input class="fi" type="number" id="p-height" placeholder=""></div>
+    <div class="fg"><label class="fl">VO2max</label><input class="fi" type="number" id="p-vo2max" placeholder="" step="0.1"></div>
+    <div class="fg"><label class="fl">FC max (bpm)</label><input class="fi" type="number" id="p-fcmax" placeholder=""></div>
+    <div class="fg"><label class="fl">Seuil lactique (bpm)</label><input class="fi" type="number" id="p-lactate" placeholder=""></div>
+    <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
+  </div>
+  <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
+  <div class="fg mt2"><label class="fl">Zones douloureuses</label><div class="pain-grid" id="painGrid"></div></div>
+  <button class="save-btn" onclick="Vorcelab.saveProfile()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Sauvegarder</button>
+  <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
+</div>
+
+<!-- ZIP IMPORT -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Historique complet — Archive Strava</div>
+  <div class="mono t2" style="margin-bottom:.75rem">Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.</div>
+  <div class="upload-hist" id="zipDropZone"
+    onclick="document.getElementById('zipFile').click()"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="Vorcelab.handleZipDrop(event)">
+    <div style="margin-bottom:.5rem"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+    <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem">Glisser le ZIP Strava ici</div>
+    <div class="mono">ou cliquer · export_XXXXXX.zip</div>
+  </div>
+  <input type="file" id="zipFile" accept=".zip" style="display:none" onchange="Vorcelab.handleZipFile(event)">
+  <div id="histStats" style="display:none" class="hist-stats mt2"></div>
+</div>
+
+<div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line);display:flex;flex-direction:column;gap:10px">
+  <button onclick="Vorcelab.logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    DÉCONNEXION
+  </button>
+  <button onclick="Vorcelab.deleteAccount()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(244,63,94,.45);border-radius:8px;color:var(--red);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    SUPPRIMER MON COMPTE
+  </button>
+</div>
+
+  </div><!-- /tab-compte -->
+
+  <!-- Onglet Records -->
+  <div class="vl-profil-tab-content" id="tab-records" style="display:none">
+<div class="card">
+  <div class="clabel">Records personnels</div>
+  <div style="display:flex;flex-direction:column;gap:0">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">5 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-5k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-5k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">10 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-10k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-10k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">15 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-15k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-15k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Semi</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-semi" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-semi-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Marathon</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-marathon" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-marathon-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="padding:10px 0">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;margin-bottom:8px">Ultra</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg" style="margin:0"><label class="fl">Distance (km)</label><input class="fi" type="number" id="pr-ultra-dist" placeholder=""></div>
+        <div class="fg" style="margin:0"><label class="fl">D+ (m)</label><input class="fi" type="number" id="pr-ultra-dplus" placeholder=""></div>
+        <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-ultra" placeholder="" style="font-family:var(--vl-display);color:var(--vl-amber)"></div>
+        <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-ultra-date"></div>
+      </div>
+    </div>
+  </div>
+  <button class="save-btn" style="margin-top:.75rem" onclick="Vorcelab.savePRs()">Sauvegarder les PR</button>
+  <div class="mono t3" id="prSaveMsg" style="margin-top:6px"></div>
+</div>
+  </div><!-- /tab-records -->
+
+  <!-- Onglet Nutrition -->
+  <div class="vl-profil-tab-content" id="tab-nutrition" style="display:none">
+<div class="card">
+  <div class="clabel">Mes produits nutrition</div>
+  <div class="mono t2" style="margin-bottom:1rem">Sélectionne tes marques puis coche tes produits.</div>
+
+  <div class="clabel" style="color:var(--cyan);margin-bottom:.5rem">Gels &amp; Barres</div>
+  <div id="nutrGelBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrGelList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem"></div>
+
+  <div class="clabel" style="color:var(--purple);margin-bottom:.5rem">Boissons isotoniques</div>
+  <div id="nutrDrinkBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrDrinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1rem"></div>
+
+  <button class="save-btn" onclick="Vorcelab.saveNutritionProducts()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Sauvegarder mes produits</button>
+  <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
+</div>
+  </div><!-- /tab-nutrition -->
+
+</div><!-- /panel-profil -->
+
 <div class="app-footer">
   VORCELAB · Données sécurisées ·
   <a onclick="Vorcelab.openCGU()">CGU & Confidentialité</a> ·
@@ -467,7 +632,7 @@
       <span class="bn-label">Renfo</span>
       <div class="bn-dot"></div>
     </button>
-    <button class="bni" onclick="Vorcelab.openProfil()">
+    <button class="bni" data-panel="profil">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21C4 16.58 7.58 13 12 13C16.42 13 20 16.58 20 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span class="bn-label">Profil</span>
       <div class="bn-dot"></div>
@@ -481,164 +646,6 @@
 
 <div class="overlay" id="analyseOverlay" onclick="if(event.target===this)closeAnalyse()">
   <div class="overlay-inner" id="analyseInner"></div>
-</div>
-
-<!-- ══ PROFIL OVERLAY ══ -->
-
-<div class="overlay" id="profilOverlay" onclick="if(event.target===this)closeProfil()" style="align-items:flex-start;padding:0">
-  <div style="width:100%;max-width:900px;margin:0 auto;background:var(--vl-bg);min-height:100vh;padding:2rem;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;border-bottom:1px solid var(--vl-line);padding-bottom:1rem">
-      <div>
-        <div class="mlabel" style="margin-bottom:4px">Section 04</div>
-        <div style="font-family:var(--vl-display);font-size:2rem;font-weight:700;letter-spacing:0.01em;line-height:1">MON PROFIL</div>
-      </div>
-      <button onclick="Vorcelab.closeProfil()" class="hbtn" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-
-<!-- AVATAR + COMPTE -->
-<div class="card" style="margin-bottom:1rem">
-  <div class="clabel">Compte</div>
-  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
-    <div style="position:relative;cursor:pointer" onclick="document.getElementById('avatarInput').click()">
-      <div id="avatarPreview" style="width:56px;height:56px;border-radius:50%;background:var(--vl-ember);display:flex;align-items:center;justify-content:center;font-family:var(--vl-display);font-size:1.4rem;font-weight:800;color:var(--vl-ink);overflow:hidden;letter-spacing:0.02em">AB</div>
-      <div style="position:absolute;bottom:-2px;right:-2px;background:var(--vl-surf-2);border:1px solid var(--vl-line-2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M21 15V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-      </div>
-    </div>
-    <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="Vorcelab.uploadAvatar(event)">
-    <div style="flex:1">
-      <div class="fg"><label class="fl">Email</label><input class="fi" id="p-email" readonly style="opacity:.6"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="hbtn" onclick="Vorcelab.changePassword()">🔑 Changer le mot de passe</button>
-        <div class="mono t3" id="pwMsg" style="align-self:center"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- DONNÉES PHYSIO -->
-<div class="profile-grid" style="margin-bottom:1rem">
-  <div class="card">
-    <div class="clabel">Données physiologiques</div>
-    <div class="fg"><label class="fl">Prénom / Nom</label><input class="fi" id="p-name" placeholder=""></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
-      <div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="p-birthdate"></div>
-      <div class="fg"><label class="fl">Sexe</label><select class="fi" id="p-sex"><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
-      <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="p-weight" placeholder="" step="0.1"></div>
-      <div class="fg"><label class="fl">Taille (cm)</label><input class="fi" type="number" id="p-height" placeholder=""></div>
-      <div class="fg"><label class="fl">VO2max</label><input class="fi" type="number" id="p-vo2max" placeholder="" step="0.1"></div>
-      <div class="fg"><label class="fl">FC max (bpm)</label><input class="fi" type="number" id="p-fcmax" placeholder=""></div>
-      <div class="fg"><label class="fl">Seuil lactique (bpm)</label><input class="fi" type="number" id="p-lactate" placeholder=""></div>
-      <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
-    </div>
-    <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
-    <div class="fg mt2"><label class="fl">Zones douloureuses</label><div class="pain-grid" id="painGrid"></div></div>
-    <button class="save-btn" onclick="Vorcelab.saveProfile()">💾 Sauvegarder</button>
-    <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
-  </div>
-
-  <!-- PR -->
-  <div class="card">
-    <div class="clabel">Records personnels</div>
-    <div style="display:flex;flex-direction:column;gap:0">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">5 km</div>
-        <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-          <input class="fi" id="pr-5k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
-          <input class="fi" type="date" id="pr-5k-date" style="max-width:130px;font-size:.78rem">
-        </div>
-      </div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">10 km</div>
-        <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-          <input class="fi" id="pr-10k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
-          <input class="fi" type="date" id="pr-10k-date" style="max-width:130px;font-size:.78rem">
-        </div>
-      </div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">15 km</div>
-        <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-          <input class="fi" id="pr-15k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
-          <input class="fi" type="date" id="pr-15k-date" style="max-width:130px;font-size:.78rem">
-        </div>
-      </div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Semi</div>
-        <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-          <input class="fi" id="pr-semi" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
-          <input class="fi" type="date" id="pr-semi-date" style="max-width:130px;font-size:.78rem">
-        </div>
-      </div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Marathon</div>
-        <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-          <input class="fi" id="pr-marathon" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
-          <input class="fi" type="date" id="pr-marathon-date" style="max-width:130px;font-size:.78rem">
-        </div>
-      </div>
-      <div style="padding:10px 0">
-        <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;margin-bottom:8px">Ultra</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="fg" style="margin:0"><label class="fl">Distance (km)</label><input class="fi" type="number" id="pr-ultra-dist" placeholder=""></div>
-          <div class="fg" style="margin:0"><label class="fl">D+ (m)</label><input class="fi" type="number" id="pr-ultra-dplus" placeholder=""></div>
-          <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-ultra" placeholder="" style="font-family:var(--vl-display);color:var(--vl-amber)"></div>
-          <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-ultra-date"></div>
-        </div>
-      </div>
-    </div>
-    <button class="save-btn" style="margin-top:.75rem" onclick="Vorcelab.savePRs()">Sauvegarder les PR</button>
-    <div class="mono t3" id="prSaveMsg" style="margin-top:6px"></div>
-  </div>
-</div>
-
-<!-- ZIP IMPORT -->
-<div class="card">
-  <div class="clabel">Historique complet — Archive Strava</div>
-  <div class="mono t2" style="margin-bottom:.75rem">Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.</div>
-  <div class="upload-hist" id="zipDropZone"
-    onclick="document.getElementById('zipFile').click()"
-    ondragover="event.preventDefault();this.classList.add('drag-over')"
-    ondragleave="this.classList.remove('drag-over')"
-    ondrop="Vorcelab.handleZipDrop(event)">
-    <div style="font-size:1.8rem;margin-bottom:.5rem">📦</div>
-    <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem">Glisser le ZIP Strava ici</div>
-    <div class="mono">ou cliquer · export_XXXXXX.zip</div>
-  </div>
-  <input type="file" id="zipFile" accept=".zip" style="display:none" onchange="Vorcelab.handleZipFile(event)">
-  <div id="histStats" style="display:none" class="hist-stats mt2"></div>
-</div>
-
-<!-- NUTRITION PRODUCTS -->
-<div class="card" style="margin-top:1rem">
-  <div class="clabel">Mes produits nutrition</div>
-  <div class="mono t2" style="margin-bottom:1rem">Sélectionne tes marques puis coche tes produits.</div>
-
-  <div class="clabel" style="color:var(--cyan);margin-bottom:.5rem">Gels & Barres</div>
-  <div id="nutrGelBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
-  <div id="nutrGelList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem"></div>
-
-  <div class="clabel" style="color:var(--purple);margin-bottom:.5rem">Boissons isotoniques</div>
-  <div id="nutrDrinkBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
-  <div id="nutrDrinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1rem"></div>
-
-  <button class="save-btn" onclick="Vorcelab.saveNutritionProducts()">💾 Sauvegarder mes produits</button>
-  <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
-</div>
-
- <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line);display:flex;flex-direction:column;gap:10px">
-  <button onclick="Vorcelab.logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    DÉCONNEXION
-  </button>
-
-  <button onclick="Vorcelab.deleteAccount()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(244,63,94,.45);border-radius:8px;color:var(--red);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
-    SUPPRIMER MON COMPTE
-  </button>
-</div>
-
-  </div>
 </div>
 
 <!-- ══ SECTION POPUP ══ -->
@@ -696,7 +703,7 @@
   <div class="onb-icon">👤</div>
   <div class="onb-title">Ton profil</div>
   <div class="onb-desc">Renseigne ta FC max, ton seuil lactique et tes PR — le dashboard et les stratégies de course s'adaptent à tes vraies données physiologiques.</div>
-  <button class="btn-primary" style="margin-top:.5rem" onclick="closeProfil();openProfil();closeOnboarding();">Remplir mon profil →</button>
+  <button class="btn-primary" style="margin-top:.5rem" onclick="navigate('profil');closeOnboarding();">Remplir mon profil →</button>
 </div>
 
 <div class="onb-step" id="onb-2">

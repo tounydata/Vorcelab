@@ -5,6 +5,7 @@ import { loadRenfoApp, preloadRenfoState } from './renfo.js';
 import { isRun, fmtP, fmtD, fmtT, bC, deltaHTML, tE, tL, parseCsvDate } from './formatters.js';
 import { escapeHTML, escapeAttr, safeUrl } from './security.js';
 import { renderNutritionProducts } from './nutrition.js';
+import { icon } from './icons.js';
 
 const REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/`;
 let historyActivities = [];
@@ -60,12 +61,13 @@ export function showPanel(name) {
   document.querySelector(`.bni[data-panel="${name}"]`)?.classList.add('active');
   if(name==='strategie') { renderCalendar(); }
   if(name==='renfo') { loadRenfoApp(); }
+  if(name==='profil') { populateProfilPanel(); }
   if(name==='strategie' && !VLState.currentRaceContext) {
     const drop=document.getElementById('gpxDrop');
     if(drop){
       drop.style.display='block';
       drop.onclick=()=>document.getElementById('gpxFile').click();
-      drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
+      drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">${icon('map',28)}</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
     }
   }
 }
@@ -1023,22 +1025,30 @@ function updateOnboardingSteps() {
 // ════════════════════════════════════════════════════
 // GPX STRATEGY
 // ════════════════════════════════════════════════════
-export function openProfil() {
-  document.getElementById('profilOverlay').classList.add('open');
-  document.body.style.overflow='hidden';
-  if(VLState.currentUser?.email) document.getElementById('p-email').value=VLState.currentUser.email;
-  const preview=document.getElementById('avatarPreview');
+export function openProfil() { navigate('profil'); }
+export function closeProfil() { navigate('dashboard'); }
+
+function populateProfilPanel() {
+  if(VLState.currentUser?.email) {
+    const el = document.getElementById('p-email');
+    if(el) el.value = VLState.currentUser.email;
+  }
+  const preview = document.getElementById('avatarPreview');
   if(preview && !preview.querySelector('img')) {
-    const name=(VLState.userProfile?.name||'').trim();
-    const parts=name.split(/\s+/).filter(Boolean);
-    const initials=parts.length>=2?(parts[0][0]+parts[parts.length-1][0]).toUpperCase():parts[0]?parts[0].slice(0,2).toUpperCase():'AB';
-    preview.textContent=initials;
+    const name = (VLState.userProfile?.name || '').trim();
+    const parts = name.split(/\s+/).filter(Boolean);
+    const initials = parts.length >= 2 ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase() : parts[0] ? parts[0].slice(0,2).toUpperCase() : 'AB';
+    preview.textContent = initials;
   }
   renderNutritionProducts();
 }
-export function closeProfil() {
-  document.getElementById('profilOverlay').classList.remove('open');
-  document.body.style.overflow='';
+
+export function switchProfilTab(tab) {
+  document.querySelectorAll('.vl-profil-tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.vl-tab').forEach(b => b.classList.remove('active'));
+  const content = document.getElementById('tab-' + tab);
+  if(content) content.style.display = 'block';
+  document.querySelector(`.vl-tab[data-tab="${tab}"]`)?.classList.add('active');
 }
 export async function changePassword() {
   const msg=document.getElementById('pwMsg');

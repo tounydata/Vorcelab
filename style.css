@@ -467,3 +467,11 @@ main{padding:1.5rem 2rem;max-width:1400px;}
 @keyframes slideUpPage{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 #eventSplash{animation:splashIn .2s ease forwards}
 
+/* ── PROFIL PANEL — header + tabs ── */
+.vl-page-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;border-bottom:1px solid var(--vl-line);padding-bottom:1rem;}
+.vl-profil-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.vl-tab{background:none;border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);color:var(--vl-text-3);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.07em;padding:6px 14px;cursor:pointer;text-transform:uppercase;transition:color .15s,border-color .15s;}
+.vl-tab:hover{color:var(--vl-text);border-color:var(--vl-line-2);}
+.vl-tab.active{color:var(--vl-ember);border-color:var(--vl-ember);}
+.vl-profil-tab-content{padding-top:0.5rem;}
+

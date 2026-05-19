@@ -4,6 +4,7 @@ import { escapeHTML } from './security.js';
 import { fmtT, fmtP, fmtD, bC, isRun } from './formatters.js';
 import { VLState, sb, SUPA_URL, FC_MAX_DEFAULT } from './app-state.js';
 import { genNutrition } from './nutrition.js';
+import { icon } from './icons.js';
 
 // leafletMap est dans VLState.leafletMap
 
@@ -143,10 +144,10 @@ export async function analyzeGPX(points, fname) {
         const paceS=weightedPace/progressionFactor;
         const recentCount=trailRuns.filter(a=>new Date(a.start_date).getTime()>=cutoff60).length;
         const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
-        const source=`⛰️ ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · D+ pondéré · ×2 récent (${recentCount}/60j) · progression ${prog}`;
+        const source=`${icon('trail',14)} ${trailRuns.length} sortie${trailRuns.length>1?'s':''} trail · D+ pondéré · ×2 récent (${recentCount}/60j) · progression ${prog}`;
         return {paceS,source,dataQuality:{trailCount:trailRuns.length,recentCount,hasHR:trailRuns.some(a=>a.average_heartrate)}};
       }
-      return {paceS:420,source:'⚠️ Aucune sortie trail — sync tes activités trail Strava pour une projection fiable',dataQuality:{trailCount:0,recentCount:0,hasHR:false}};
+      return {paceS:420,source:`${icon('warning',14)} Aucune sortie trail — sync tes activités trail Strava pour une projection fiable`,dataQuality:{trailCount:0,recentCount:0,hasHR:false}};
     }
     if(VLState.userProfile.prs) {
       const prs=VLState.userProfile.prs;
@@ -157,10 +158,10 @@ export async function analyzeGPX(points, fname) {
         const prog=progressionFactor>1?`+${((progressionFactor-1)*100).toFixed(1)}%`:progressionFactor<0.98?`${((progressionFactor-1)*100).toFixed(1)}%`:'stable';
         const roadRuns=VLState.allActivities.filter(a=>isRun(a.type)&&a.distance>3000);
         const recentCount=roadRuns.filter(a=>new Date(a.start_date).getTime()>=cutoff60).length;
-        return {paceS,source:`📊 PR ${candidates[0].toUpperCase()} · progression ${prog}`,dataQuality:{trailCount:0,recentCount,hasHR:roadRuns.some(a=>a.average_heartrate)}};
+        return {paceS,source:`${icon('chart',14)} PR ${candidates[0].toUpperCase()} · progression ${prog}`,dataQuality:{trailCount:0,recentCount,hasHR:roadRuns.some(a=>a.average_heartrate)}};
       }
     }
-    return {paceS:isTrail?420:320,source:isTrail?'⚙️ Estimation défaut trail — sync Strava':'⚙️ Estimation par défaut — renseigne tes PR',dataQuality:{trailCount:0,recentCount:0,hasHR:false}};
+    return {paceS:isTrail?420:320,source:isTrail?`${icon('settings',14)} Estimation défaut trail — sync Strava`:`${icon('settings',14)} Estimation par défaut — renseigne tes PR`,dataQuality:{trailCount:0,recentCount:0,hasHR:false}};
   }
   const {paceS:basePaceS,source:projSource,dataQuality}=computeBasePace();
 
@@ -610,7 +611,7 @@ export function renderDetailedSection(s, secTimeS, idx=0){
         {l:'Récupération active',c:'var(--vl-growth)'}
       ];
       if(surf) tags.push({l:`${surf.emoji} ${surf.fr}${slip?' · '+slip:''}`,c:surf.col});
-      const terrainNote=slip?`<br><span class="mono t3" style="font-size:.6rem;color:var(--vl-ember)">⚠️ Sol ${slip} — réduis l'amplitude, priorise la sécurité sur le chrono.</span>`
+      const terrainNote=slip?`<br><span class="mono t3" style="font-size:.6rem;color:var(--vl-ember)">${icon('warning',14)} Sol ${slip} — réduis l'amplitude, priorise la sécurité sur le chrono.</span>`
         :(surf&&surf.risk!=='none'?`<br><span class="mono t3" style="font-size:.6rem">Revêtement : ${surf.fr} — adapte l'amplitude à l'adhérence.</span>`:'');
       advice=(technical||highRiskTerrain)
         ? `<strong>Descente technique (${Math.abs(s.grade).toFixed(1)}%${surf?` · ${surf.fr}`:''})</strong> — foulées très courtes et rapides, regard 2-3m devant, léger penché avant. Ne jamais freiner avec les talons (impact 3-4× ton poids). RPE 4 max.${terrainNote}<br><span class="mono t3" style="font-size:.6rem">FC : elle va naturellement redescendre ici, profite-en.</span>`
@@ -810,7 +811,7 @@ export function resetStrategy(){
   const drop=document.getElementById('gpxDrop');
   drop.style.display='block';
   drop.onclick=()=>document.getElementById('gpxFile').click();
-  drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
+  drop.innerHTML=`<div style="font-size:2.5rem;margin-bottom:.75rem">${icon('map',28)}</div><div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div><div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>`;
   document.getElementById('gpxFile').value='';
   VLState.currentRaceContext=null;
   window._activeSection=-1;

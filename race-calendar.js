@@ -3,6 +3,7 @@ import { analyzeGPX, populateRaceSelector } from './race-strategy.js';
 import { fetchStreams, renderRaceComparison } from './activity-analysis.js';
 import { escapeHTML, escapeAttr } from './security.js';
 import { fmtD } from './formatters.js';
+import { icon } from './icons.js';
 
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
@@ -409,10 +410,10 @@ export function renderRaces() {
     // Smart buttons based on state
     let buttons='';
     if(!past){
-      buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare">${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer'}</button>`;
+      buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare">${hasGpx?icon('map',14)+' Voir stratégie':icon('map',14)+' Préparer'}</button>`;
     } else {
       if(hasGpx){
-        buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📊 Voir stratégie</button>`;
+        buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">${icon('chart',14)} Voir stratégie</button>`;
       } else {
         buttons+=`<button onclick="importOrgGpx(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
       }
@@ -636,7 +637,7 @@ function showGpxUploadPrompt(race) {
   const drop = document.getElementById('gpxDrop');
   drop.style.display = 'block';
   drop.innerHTML = `
-    <div style="font-size:2rem;margin-bottom:.5rem">🗺️</div>
+    <div style="font-size:2rem;margin-bottom:.5rem">${icon('map',28)}</div>
     <div style="font-family:var(--display);font-size:1.3rem;letter-spacing:.03em;margin-bottom:.25rem">${escapeHTML(race.name)}</div>
     <div class="mono t2" style="margin-bottom:.75rem">Upload le GPX pour générer la stratégie</div>
     <div class="mono t3">Compatible OpenRunner · Strava · Garmin Connect</div>`;
