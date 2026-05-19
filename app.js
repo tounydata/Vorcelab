@@ -18,6 +18,8 @@ const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
 const { createClient } = supabase;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 
+// GLOBAL STATE — temporary until ES modules migration (Passe 3)
+// These vars are read by all modules. Passe 3 will move them into a structured store.
 let currentUser = null;
 let userProfile = { pain_zones: [] };
 let allActivities = []; // from Strava API — runs only

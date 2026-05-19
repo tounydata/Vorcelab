@@ -1,3 +1,14 @@
+// Future ES module exports:
+// - isRun
+// - fmtP
+// - fmtD
+// - fmtT
+// - tE
+// - tL
+// - parseCsvDate
+// - bC
+// - deltaHTML
+
 const isRun = t => ['Run','TrailRun','Trail Run','Running'].includes(t);
 const fmtP = s => s > 0 ? `${Math.floor(1000/s/60)}:${String(Math.round(1000/s%60)).padStart(2,'0')}` : '--';
 const fmtD = s => { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`; };

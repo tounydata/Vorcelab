@@ -1,3 +1,11 @@
+// Future ES module exports:
+// - TERRAIN_TIME_FACTORS
+// - SURFACE_MAP
+// - terrainTimePenalty
+// - surfaceInfo
+// - fetchTerrainSurfaces
+// - slipRisk
+
 // Applique un coefficient de difficulté terrain au temps estimé par section.
 // Paramètres : clé de surface OSM, météo courante, pente en %, type de section (optionnel).
 // Retourne un multiplicateur ≥ 1. Plafond à 1.35 pour rester prudent.

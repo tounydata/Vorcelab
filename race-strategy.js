@@ -1,3 +1,17 @@
+// Future ES module exports:
+// - handleGpxDrop
+// - handleGpxFile
+// - parseGPX
+// - analyzeGPX
+// - renderDetailedSection
+// - buildSplitsTable
+// - navigateSection
+// - closeSectionPopup
+// - resetStrategy
+// - linkGpxToRaceById
+// - populateRaceSelector
+// - selectRaceForStrategy
+
 let leafletMap = null;
 
 function handleGpxDrop(e){e.preventDefault();document.getElementById('gpxDrop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.gpx'))parseGPX(f);}

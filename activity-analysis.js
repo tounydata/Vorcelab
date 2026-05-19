@@ -1,3 +1,16 @@
+// Future ES module exports:
+// - fetchStreams
+// - fetchWeather
+// - computePAF
+// - generateLocalActivitySummary
+// - openAnalyse
+// - closeAnalyse
+// - showLinkActivityPanel
+// - linkActivityToRace
+// - renderAthleteProfile
+// - renderRaceComparison
+// - raceMenuLinkActivity
+
 async function fetchStreams(activityId) {
   // Proxy via edge function — never exposes Strava token to browser
   const { data: { session } } = await sb.auth.getSession();

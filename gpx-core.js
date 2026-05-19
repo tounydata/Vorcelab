@@ -1,3 +1,10 @@
+// Future ES module exports:
+// - hav
+// - minettiGradePenalty
+// - buildDetailedSections
+// - isTrailRace
+// - RPE_SCALE
+
 function hav(p1,p2){const R=6371000,r=Math.PI/180,dLat=(p2.lat-p1.lat)*r,dLon=(p2.lon-p1.lon)*r,a=Math.sin(dLat/2)**2+Math.cos(p1.lat*r)*Math.cos(p2.lat*r)*Math.sin(dLon/2)**2;return R*2*Math.asin(Math.sqrt(a));}
 
 // Minetti (2002) gradient penalty — uphill validated, downhill empirical trail model

@@ -1,3 +1,26 @@
+// Future ES module exports:
+// - calYear, calMonth (state — will move to store)
+// - showAddRaceForm
+// - renderCalendar
+// - calNavMonth
+// - openEventView
+// - showEventSplash
+// - goToEvent
+// - backToCalendar
+// - deleteRace
+// - toggleEditRaceForm
+// - saveEditRace
+// - toggleRaceMenu
+// - raceMenuChangeGpx
+// - loadRaces
+// - saveRace
+// - saveGpxToRace
+// - deleteGpxFromRace
+// - importOrgGpx
+// - linkActivityFromRace
+// - confirmLinkActivity
+// - prepareRace
+
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
 

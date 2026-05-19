@@ -1,3 +1,8 @@
+// Future ES module exports:
+// - escapeHTML
+// - escapeAttr
+// - safeUrl
+
 // ── XSS helpers ──────────────────────────────────────────────────────────────
 function escapeHTML(s) {
   if (s == null) return '';

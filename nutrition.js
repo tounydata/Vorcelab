@@ -1,3 +1,12 @@
+// Future ES module exports:
+// - NUTRITION_DB
+// - getUserGels
+// - getUserBoissons
+// - genNutrition
+// - renderNutritionProducts
+// - filterNutrBrand
+// - saveNutritionProducts
+
 const NUTRITION_DB = {
   gels:[
     {id:'naak-ultra',brand:'Näak',name:'Ultra Energy Gel',carbs:27,caffeine:35,water:false,note:'Semi-liquide, sans eau requis'},
