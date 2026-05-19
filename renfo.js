@@ -1338,7 +1338,7 @@ function renderOnboardingStep(step) {
 
   const contents = [null,
     `<div style="display:flex;flex-direction:column;gap:10px">
-      ${obBtn(25,'obj','Prévenir les blessures','Excentrique · Mobilité · Stabilité')}
+      ${obBtn(25,'obj','Renforcement préventif','Excentrique · Mobilité · Stabilité')}
       ${obBtn(75,'obj','Progresser en performance','Force lourde · Pliométrie · Économie de course')}
       ${obBtn(50,'obj','Les deux à parts égales','Programme équilibré')}
     </div>`,
@@ -1966,7 +1966,7 @@ async function showRenfoSettings() {
     <div class="card" style="padding:16px;margin-bottom:12px">
       <div class="clabel" style="margin-bottom:12px">OBJECTIF</div>
       ${[
-        [25,'Prévenir les blessures'],[50,'Équilibré'],[75,'Performance']
+        [25,'Renforcement préventif'],[50,'Équilibré'],[75,'Performance']
       ].map(([v,t])=>`<button class="vl-ob-btn" data-val="${v}" data-type="obj" onclick="renfoObSelect(this)" style="display:block;width:100%;text-align:left;padding:12px;background:${renfoProfile.objective_weight===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.objective_weight===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);margin-bottom:8px;touch-action:manipulation">
         <span style="font-size:.85rem">${t}</span>
       </button>`).join('')}
