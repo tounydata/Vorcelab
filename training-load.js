@@ -125,7 +125,7 @@ export function getLoadStatus(ratio) {
 // ─── RENDU DASHBOARD ──────────────────────────────────────────────────────────
 
 export function renderLoadBlock(loadData) {
-  const { acuteLoad, chronicLoad, ratio, trend, count7, count42, hasHR } = loadData;
+  const { acuteLoad, chronicLoad, ratio, trend, count7, count42 } = loadData;
 
   // Données insuffisantes
   if (count42 < 2) {
@@ -142,10 +142,6 @@ export function renderLoadBlock(loadData) {
   const trendColor = trend === 'increasing'
     ? (ratio !== null && ratio > 1.20 ? 'var(--vl-ember)' : '#f59e0b')
     : trend === 'decreasing' ? 'var(--vl-growth)' : 'var(--vl-text-2)';
-
-  const noHRNote = !hasHR
-    ? `<div class="mlabel" style="margin-top:5px;font-style:italic">FC non disponible — estimation durée/type uniquement.</div>`
-    : '';
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -165,11 +161,6 @@ export function renderLoadBlock(loadData) {
         <div class="s-sv" style="color:${trendColor}">${trendArrow}</div>
         <div class="s-sl">Tendance</div>
       </div>
-    </div>
-    ${noHRNote}
-    <div class="mlabel" style="margin-top:8px;color:var(--vl-text-3)">
-      Estimation indicative · durée, D+ et FC quand disponible ·
-      ${count7} sortie${count7 > 1 ? 's' : ''} cette semaine · ${count42} sur 42j
     </div>
   `;
 }
