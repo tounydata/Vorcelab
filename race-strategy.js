@@ -60,14 +60,14 @@ export async function analyzeGPX(points, fname) {
       if(d.hourly?.temperature_2m?.[h]!=null){
         weather={temp:d.hourly.temperature_2m[h],precip_prob:d.hourly?.precipitation_probability?.[h]??0,precip:d.hourly?.precipitation?.[h]??0,precip_recent:precip6h,wind:d.hourly?.windspeed_10m?.[h]};
         if(daysToRace&&daysToRace>0&&!(raceDtm&&raceDtm.getHours()>0)){
-          weatherNote=`Météo J+${daysToRace} — heure estimée à 9h (heure réelle non renseignée dans l'événement)`;
+          weatherNote=`Météo J+${daysToRace}`;
         }
       } else {
-        weatherNote='Météo non disponible pour la fenêtre de course';
+        weatherNote='Météo non disponible';
       }
     }catch{weatherNote='Météo indisponible';}
   } else {
-    weatherNote=`Météo non intégrée — prévision trop lointaine (J+${daysToRace})`;
+    weatherNote=`Météo J+${daysToRace} non intégrée`;
   }
 
   // Lancer le calcul profil coureur en parallèle avec terrain (résultat attendu plus tard)
@@ -217,7 +217,7 @@ export async function analyzeGPX(points, fname) {
       const adj = Math.min(0.05, heat.pacePenaltyPer10C * (Math.max(0, weather.temp - 18) / 10));
       if (adj > 0.005) {
         personalMultiplier *= (1 + adj);
-        personalAdjustments.push({ label: `Chaleur ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(heat)}`, color: 'var(--vl-amber)' });
+        personalAdjustments.push({ label: `Chaleur ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}%`, color: 'var(--vl-amber)' });
       }
     }
     // Vent : route uniquement (trail en forêt = exposition réduite)
@@ -225,7 +225,7 @@ export async function analyzeGPX(points, fname) {
       const adj = Math.min(0.03, wind.pacePenaltyPer20Kmh * (weather.wind / 20));
       if (adj > 0.005) {
         personalMultiplier *= (1 + adj);
-        personalAdjustments.push({ label: `Vent ${Math.round(weather.wind)} km/h`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(wind)}`, color: 'var(--vl-amber)' });
+        personalAdjustments.push({ label: `Vent ${Math.round(weather.wind)} km/h`, detail: `+${(adj*100).toFixed(1)}%`, color: 'var(--vl-amber)' });
       }
     }
     // Sol humide
@@ -233,7 +233,7 @@ export async function analyzeGPX(points, fname) {
       const adj = Math.min(0.04, rain.terrainPenaltySignal * 0.5);
       if (adj > 0.005) {
         personalMultiplier *= (1 + adj);
-        personalAdjustments.push({ label: 'Sol humide', detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(rain)}`, color: 'var(--vl-ember)' });
+        personalAdjustments.push({ label: 'Sol humide', detail: `+${(adj*100).toFixed(1)}%`, color: 'var(--vl-ember)' });
       }
     }
     // Froid
@@ -241,7 +241,7 @@ export async function analyzeGPX(points, fname) {
       const adj = Math.min(0.03, cold.pacePenalty * 0.5);
       if (adj > 0.005) {
         personalMultiplier *= (1 + adj);
-        personalAdjustments.push({ label: `Froid ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(cold)}`, color: 'var(--vl-text-3)' });
+        personalAdjustments.push({ label: `Froid ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}%`, color: 'var(--vl-text-3)' });
       }
     }
   }
@@ -401,18 +401,15 @@ export async function analyzeGPX(points, fname) {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <span class="mlabel" style="color:${adj.color};flex-shrink:0">${adj.label}</span>
           <span class="mlabel" style="color:var(--vl-text-3);text-align:right">${adj.detail}</span>
-        </div>`).join('') + `
-        <div class="mlabel" style="color:var(--vl-text-3);font-style:italic;margin-top:3px">Ajustement appliqué au temps total — les temps de section ne sont pas recalculés proportionnellement.</div>` : `
-        <div class="mlabel" style="color:var(--vl-text-3)">Conditions extérieures : ${weather?'pénalités génériques (données personnelles insuffisantes)':'météo non intégrée'}</div>`}
+        </div>`).join('') : ''}
         ${(rp.enduranceProfile.alerts||[]).map(a=>`<div class="mlabel" style="color:var(--vl-amber)">${icon('warning',11)} ${escapeHTML(a)}</div>`).join('')}
         <div class="mlabel" style="color:var(--vl-text-3);border-top:1px solid var(--vl-line);padding-top:5px;margin-top:2px">
-          Projection basée sur GPX, terrain, météo et historique récent. Résultats indicatifs.
-          <br>${rp.dataQuality.totalRuns} sorties · ${rp.dataQuality.totalTrails} trails · ${rp.dataQuality.activitiesWithWeather} avec météo · fraîcheur ${rp.dataQuality.freshness==='good'?'bonne':rp.dataQuality.freshness==='medium'?'correcte':'faible'}
+          ${rp.dataQuality.totalRuns} sorties · ${rp.dataQuality.totalTrails} trails · ${rp.dataQuality.activitiesWithWeather} avec météo · fraîcheur ${rp.dataQuality.freshness==='good'?'bonne':rp.dataQuality.freshness==='medium'?'correcte':'faible'}
         </div>
       </div>
     </div>` : `
     <div class="card" style="padding:10px 14px;margin-top:0;border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);background:var(--vl-surf)">
-      <div class="mlabel" style="color:var(--vl-text-3)">Projection basée sur GPX, terrain et météo disponible. Connecte Strava pour une projection personnalisée.</div>
+      <div class="mlabel" style="color:var(--vl-text-3)">Connecte Strava pour une projection personnalisée.</div>
     </div>`}
 
     <!-- Sections -->

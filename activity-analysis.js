@@ -198,7 +198,7 @@ export async function openAnalyse(act) {
       <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin-bottom:10px">Performance Adjustment Factor</div>
       <div class="paf-factors">${paf.factors.map(f=>`<div class="paf-factor"><span style="display:flex;align-items:center;flex-shrink:0">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
       <div class="paf-result">
-        <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
+        <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
         <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Pénalité conditions : <strong>+${(paf.totalAdj*100).toFixed(0)}%</strong></div>
       </div>
       <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">Minetti et al., 2002 · Ely et al., 2007 · Lejeune et al., 1998</div>
@@ -278,7 +278,6 @@ if (summaryBox) {
       <div class="summary-title">Lecture de séance</div>
     </div>
     <div class="summary-text">${escapeHTML(summaryText)}</div>
-    <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">Analyse basée sur les données Strava disponibles. Résultats indicatifs — à interpréter avec ton ressenti.</div>
   `;
 }
 } // ferme openAnalyse()
@@ -648,13 +647,12 @@ if(validDiffs.length >= 2) {
       <div class="summary-title">Comparaison course vs projection</div>
     </div>
     <div class="summary-text">
-      Écart global : ${avgDiff > 0 ? '+' : ''}${avgDiff}% vs projection indicative.<br>
+      Écart global : ${avgDiff > 0 ? '+' : ''}${avgDiff}% vs projection.<br>
       ${upText ? upText + '<br>' : ''}
       ${downText ? downText + '<br>' : ''}
       ${flatText ? flatText + '<br>' : ''}
       ${worstText}
     </div>
-    <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">Comparaison indicative basée sur la projection Vorcelab. Les écarts reflètent les conditions réelles, le terrain et ton exécution.</div>
   `;
 
   section.appendChild(summaryBox);

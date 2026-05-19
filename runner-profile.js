@@ -115,7 +115,7 @@ function _downhillProfile(activities, userProfile) {
     coeffDownhill:   userProfile.coeff_downhill || null,
     samples:         mountain.length,
     confidence:      confLevel(mountain.length),
-    note:            mountain.length < MIN_SIGNAL ? 'données insuffisantes — coefficients génériques appliqués' : null,
+    note:            null,
   };
 }
 
@@ -160,7 +160,7 @@ function _enduranceProfile(runs, raceCtx) {
 
   const alerts = [];
   if (distRatio && distRatio > 1.5)
-    alerts.push(`Distance course ${(distRatio * 100 - 100).toFixed(0)}% supérieure à ta sortie max récente — estimation prudente conseillée.`);
+    alerts.push(`Distance course ${(distRatio * 100 - 100).toFixed(0)}% supérieure à ta sortie max récente.`);
   if (dpRatio && dpRatio > 1.5)
     alerts.push(`D+ course ${(dpRatio * 100 - 100).toFixed(0)}% supérieur à ton D+ max récent.`);
 
@@ -368,19 +368,15 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
 
 // ─── HELPER UI ─────────────────────────────────────────────────────────────────
 export function sensitivityLabel(factor) {
-  if (!factor || factor.sensitivity === 'unknown') return 'données insuffisantes';
-  return {
-    low:    'signal faible',
-    medium: 'tendance observée — à confirmer',
-    high:   'sensibilité probable',
-  }[factor.sensitivity] || 'données insuffisantes';
+  if (!factor || factor.sensitivity === 'unknown') return '';
+  return { low: 'faible', medium: 'moyen', high: 'élevé' }[factor.sensitivity] || '';
 }
 
 // Libellé source montée
 export function climbSourceLabel(rp) {
-  if (!rp?.climbProfile) return 'générique (Minetti)';
+  if (!rp?.climbProfile) return 'Minetti';
   const cp = rp.climbProfile;
-  if (cp.source === 'streams_calibrated') return `VAM calibrée ${cp.vamAvg} m/h`;
-  if (cp.source === 'activity_estimated') return `VAM estimée ${cp.vamAvg} m/h`;
-  return 'générique (Minetti)';
+  if (cp.source === 'streams_calibrated') return `VAM ${cp.vamAvg} m/h`;
+  if (cp.source === 'activity_estimated') return `VAM ~${cp.vamAvg} m/h`;
+  return 'Minetti';
 }
