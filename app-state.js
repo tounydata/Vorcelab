@@ -19,6 +19,11 @@ export const VLState = {
   historyActivities: [],
   races: [],
   currentRaceContext: null,
+  stravaConnected: null,
+  stravaStreamsAvailable: null,
+  runnerProfile: null,
+  leafletMap: null,
+  _prevPanel: null,
   // renfo state — updated by renfo.js after loadRenfoApp()
   renfoProgram: null,
   renfoSessionLogs: [],

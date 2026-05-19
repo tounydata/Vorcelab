@@ -10,7 +10,7 @@ import { isRun } from './formatters.js';
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
 const MIN_SIGNAL  = 5;   // sorties min pour émettre un signal
 const GOOD_CONF   = 10;  // sorties min pour confiance 'good'
-const MAX_WEATHER = 20;  // max appels archive météo par session
+const MAX_WEATHER = 10;  // max appels archive météo par session (MVP)
 
 // Cache météo en mémoire (session uniquement, pas persisté)
 const _weatherCache = new Map();
@@ -316,9 +316,16 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
   const runs   = all.filter(a => isRun(a.type || a.sport_type || ''));
   const trails = runs.filter(isTrailAct);
 
-  // Fetch météo archive sur les N sorties récentes avec GPS (parallèle, concurrency=4)
+  // Fetch météo archive sur les N sorties récentes avec GPS (parallèle, concurrency=4, timeout 8s)
   const candidates = runs.filter(a => a.start_latlng?.[0] != null).slice(0, maxW);
-  const actsW = await batchWeather(candidates);
+  const timeoutMs = opts.timeoutMs ?? 8000;
+  const actsW = await Promise.race([
+    batchWeather(candidates),
+    new Promise(resolve => setTimeout(() => resolve([]), timeoutMs)),
+  ]);
+  if (actsW.length === 0 && candidates.length > 0) {
+    console.warn(`[VL] RunnerProfile: fetch météo ignoré (timeout ${timeoutMs}ms) — sensibilités non calculées`);
+  }
 
   const rp = {
     climbProfile:    _climbProfile(trails.length >= 3 ? trails : runs, userProfile),
@@ -339,6 +346,7 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
   console.info(`[VL] RunnerProfile calculé : ${rp.dataQuality.totalRuns} sorties, ${rp.dataQuality.activitiesWithWeather} avec météo`);
 
   // Persistance Supabase (fire and forget — ne bloque pas le prédicteur)
+  // Fallback silencieux si colonnes absentes : profil reste disponible en mémoire
   if (VLState.currentUser?.id) {
     const rpAt = new Date().toISOString();
     const rpSave = { ...rp, _computedAt: rpAt };
@@ -347,7 +355,9 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
       runner_profile: rpSave,
       runner_profile_at: rpAt,
     }).then(({ error }) => {
-      if (error) console.warn('[VL] runner_profile save error', error.message);
+      if (error) console.warn('[VL] runner_profile persist failed (profil en mémoire seulement):', error.message);
+    }).catch(e => {
+      console.warn('[VL] runner_profile persist exception (profil en mémoire seulement):', e?.message);
     });
     rp._computedAt = rpAt;
   }

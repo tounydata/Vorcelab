@@ -331,10 +331,10 @@ async function initApp(user) {
 // PROFILE
 // ════════════════════════════════════════════════════
 const PAIN_ZONES = [
-  {key:'knee',label:'Genou',icon:'🦵'},{key:'achilles',label:"Tendon d'Achille",icon:'🦶'},
-  {key:'hip',label:'Hanche / ITB',icon:'🏃'},{key:'plantar',label:'Fascia plantaire',icon:'👣'},
-  {key:'shin',label:'Périostite tibiale',icon:'🦴'},{key:'lower_back',label:'Bas du dos',icon:'💪'},
-  {key:'hamstring',label:'Ischio-jambiers',icon:'🦵'},{key:'calf',label:'Mollet',icon:'⚡'},
+  {key:'knee',label:'Genou'},{key:'achilles',label:"Tendon d'Achille"},
+  {key:'hip',label:'Hanche / ITB'},{key:'plantar',label:'Fascia plantaire'},
+  {key:'shin',label:'Périostite tibiale'},{key:'lower_back',label:'Bas du dos'},
+  {key:'hamstring',label:'Ischio-jambiers'},{key:'calf',label:'Mollet'},
 ];
 
 function renderPainGrid() {
@@ -346,7 +346,7 @@ function renderPainGrid() {
     const div = document.createElement('div');
     div.className = 'pain-zone' + (active ? ' active' : '');
     div.onclick = () => { togglePainZone(z.key, div); };
-    div.innerHTML = `<input type="checkbox" ${active?'checked':''}><span style="font-size:.8rem;font-weight:500">${z.icon} ${z.label}</span>`;
+    div.innerHTML = `<input type="checkbox" ${active?'checked':''}><span style="font-size:.8rem;font-weight:500">${z.label}</span>`;
     grid.appendChild(div);
   });
 }
@@ -765,7 +765,6 @@ function renderLastActivity() {
   const now = new Date();
   const diffDays = Math.floor((now - new Date(act.start_date)) / 86400000);
   const relDate = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? 'Hier' : `Il y a ${diffDays} j`;
-  const typeEmoji = (act.sport_type||act.type||'').toLowerCase().includes('trail') ? '🏔️' : '🏃';
   const distKm = (act.distance / 1000).toFixed(1);
   const hasEle = act.total_elevation_gain > 0;
   const hasHR = !!act.average_heartrate;

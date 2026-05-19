@@ -172,7 +172,7 @@ export async function openAnalyse(act) {
         <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${escapeHTML(act.name)}</div>
         <div class="mono t2" style="display:flex;align-items:center;gap:5px">${dateStr} · ${act.type==='TrailRun'?icon('trail',13):icon('run',13)} ${act.type==='TrailRun'?'Trail':'Route'}</div>
       </div>
-      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Lier à un événement</button>
+      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">Lier à un événement</button>
     </div>
     <div id="linkActivityPanel" style="display:none;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px;margin-bottom:1rem">
       <div class="clabel" style="margin-bottom:8px">Associer à une course du calendrier</div>
@@ -189,7 +189,7 @@ export async function openAnalyse(act) {
     </div>
 
     <div class="stat-summary" id="summaryBox">
-      <div class="summary-header"><div class="summary-icon">📊</div><div class="summary-title">Lecture de séance</div></div>
+      <div class="summary-header"><div class="summary-icon">${icon('chart',18)}</div><div class="summary-title">Lecture de séance</div></div>
       <div class="summary-loading"><div class="spinner"></div><div>Calcul en cours...</div></div>
     </div>
 
@@ -201,7 +201,7 @@ export async function openAnalyse(act) {
         <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
         <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Pénalité conditions : <strong>+${(paf.totalAdj*100).toFixed(0)}%</strong></div>
       </div>
-      <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">📖 Minetti et al., 2002 · Ely et al., 2007 · Lejeune et al., 1998</div>
+      <div class="mono t3" style="margin-top:8px;font-size:.56rem;font-style:italic">Minetti et al., 2002 · Ely et al., 2007 · Lejeune et al., 1998</div>
     </div>
 
     <div class="grid-2 mt2">
@@ -254,7 +254,7 @@ export async function openAnalyse(act) {
   renderAthleteProfile(streams, act);
 
   // Check if this activity is linked to a race — reload fresh from DB first
-  await loadRaces();
+  await window.Vorcelab?.loadRaces?.();
   const linkedRace = VLState.races.find(r => String(r.strava_activity_id) === String(act.id));
   if(linkedRace?.gpx_data) {
     renderRaceComparison(act, streams, linkedRace);
@@ -264,7 +264,7 @@ export async function openAnalyse(act) {
   if(linkList) {
     const sorted = [...VLState.races].sort((a,b)=>new Date(b.date)-new Date(a.date));
     linkList.innerHTML = sorted.length
-      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${escapeAttr(r.name)}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">📅 ${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
+      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${escapeAttr(r.name)}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">${icon('calendar',13)} ${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
       : '<span class="mono t3">Aucune course dans le calendrier — ajoutes-en une depuis l\'onglet Calendrier</span>';
   }
 
@@ -274,7 +274,7 @@ const summaryBox = document.getElementById('summaryBox');
 if (summaryBox) {
   summaryBox.innerHTML = `
     <div class="summary-header">
-      <div class="summary-icon">📊</div>
+      <div class="summary-icon">${icon('chart',18)}</div>
       <div class="summary-title">Lecture de séance</div>
     </div>
     <div class="summary-text">${escapeHTML(summaryText)}</div>
@@ -298,7 +298,7 @@ export async function linkActivityToRace(raceId, raceName, actId) {
   if(panel) panel.style.display='none';
   if(!error){
     // Reload VLState.races from DB to ensure persistence
-    await loadRaces();
+    await window.Vorcelab?.loadRaces?.();
     if(btn){
       btn.textContent=`✓ Lié à ${raceName}`;
       btn.style.background='var(--green)';btn.style.color='#000';btn.style.borderColor='var(--green)';
@@ -320,7 +320,12 @@ export async function linkActivityToRace(raceId, raceName, actId) {
 export function computeVAMFromStreams(streams) {
   const altD=streams.altitude?.data||[], hrD=streams.heartrate?.data||[];
   const velD=streams.velocity_smooth?.data||[], distD=streams.distance?.data||[];
+  const timeD=streams.time?.data||[];
   if(!altD.length || !velD.length) return null;
+  if(!timeD.length || timeD.length !== altD.length) {
+    console.warn('[VL] computeVAMFromStreams: stream temps absent ou taille incompatible — VAM non calculée');
+    return null;
+  }
 
   let uphillSections=[], downhillSections=[], recoveries=[];
   let inUphill=false, uphillStart=null;
@@ -330,10 +335,10 @@ export function computeVAMFromStreams(streams) {
     const elevN=altD[i+WIN]-altD[i], distN=distD[i+WIN]-distD[i];
     const grade=distN>0 ? elevN/distN*100 : 0;
     if(grade>4 && !inUphill){
-      inUphill=true; uphillStart={idx:i, alt:altD[i], dist:distD[i], time:i};
+      inUphill=true; uphillStart={idx:i, alt:altD[i], dist:distD[i], time:timeD[i]};
     } else if(grade<=1.5 && inUphill){
       inUphill=false;
-      const dAlt=altD[i]-uphillStart.alt, dTime=i-uphillStart.time;
+      const dAlt=altD[i]-uphillStart.alt, dTime=timeD[i]-uphillStart.time;
       if(dAlt>10 && dTime>0){
         const vam=Math.round(dAlt/(dTime/3600));
         const avgHR=hrD.length ? Math.round(hrD.slice(uphillStart.idx,i).reduce((a,b)=>a+b,0)/(i-uphillStart.idx)) : null;
@@ -422,13 +427,6 @@ export function renderAthleteProfile(streams, act) {
   const vamLevel = maxVAM > 1000 ? {l:'Excellent', c:'var(--green)'} : maxVAM > 700 ? {l:'Bon', c:'var(--cyan)'} : maxVAM > 400 ? {l:'Moyen', c:'var(--yellow)'} : {l:'À développer', c:'var(--orange)'};
   const recovLevel = avgRecovery > 30 ? {l:'Rapide', c:'var(--green)'} : avgRecovery > 20 ? {l:'Correct', c:'var(--cyan)'} : avgRecovery > 10 ? {l:'Lent', c:'var(--yellow)'} : {l:'Très lent', c:'var(--orange)'};
 
-  // Persist single-activity VAM to profile
-  if(avgVAM && VLState.currentUser?.id) {
-    Object.assign(VLState.userProfile, {vam_avg:avgVAM, vam_max:maxVAM, ...(avgRecovery!=null?{recovery_drop_avg:avgRecovery}:{})});
-    sb.from('profiles').upsert({id:VLState.currentUser.id, vam_avg:avgVAM, vam_max:maxVAM, ...(avgRecovery!=null?{recovery_drop_avg:avgRecovery}:{})})
-      .then(({error})=>{ if(error) console.warn('[VL] save VAM',error); });
-  }
-
   section.innerHTML = `
     <div class="card">
       <div class="clabel">Profil athlète — extrait de cette sortie</div>
@@ -496,12 +494,14 @@ export async function renderRaceComparison(act, streams, race, targetId) {
   });
 
   const distD=streams.distance?.data||[];
+  const timeD=streams.time?.data||[];
+  const useTimeStream = timeD.length > 0 && timeD.length === distD.length;
   const actual=sections.map(s=>{
     if(!distD.length) return null;
     const startIdx=distD.findIndex(d=>d>=s.startKm*1000);
     const endIdx=distD.findIndex(d=>d>=s.endKm*1000);
     if(startIdx<0||endIdx<0||endIdx<=startIdx) return null;
-    return endIdx-startIdx;
+    return useTimeStream ? timeD[endIdx]-timeD[startIdx] : endIdx-startIdx;
   });
 
   const hrD=streams.heartrate?.data||[];
@@ -529,13 +529,13 @@ export async function renderRaceComparison(act, streams, race, targetId) {
   }
 
   const cols={up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'};
-  const icons={up:'⛰️',down:'🎿',flat:'➡️'};
+  const icons={up:icon('elevation',13),down:icon('back',13),flat:icon('run',13)};
 
   const rows = sections.map((s,i) => {
     const pred=predicted[i], real=actual[i];
     const diff=real&&pred ? Math.round((real-pred)/pred*100) : null;
     const diffColor=diff===null?'var(--text3)':Math.abs(diff)<=10?'var(--green)':Math.abs(diff)<=25?'var(--yellow)':'var(--red)';
-    const diffIcon=diff===null?'—':diff>25?'⚠️':diff>10?'~':'✓';
+    const diffIcon=diff===null?'—':diff>25?icon('warning',11):diff>10?'~':'✓';
     return `<tr>
       <td style="color:${cols[s.type]}">${icons[s.type]} ${s.startKm.toFixed(1)}→${s.endKm.toFixed(1)} km</td>
       <td class="mono">${s.type==='up'?`+${s.dplus}m`:s.type==='down'?`-${s.dminus}m`:'—'}</td>
@@ -556,32 +556,32 @@ export async function renderRaceComparison(act, streams, race, targetId) {
 
   const sportType=(VLState.currentRaceContext||window._openEventRace)?.type||race.type||'Trail';
   const calibChips=[
-    avgUpDiff!==null?`⛰️ Montées ${avgUpDiff>0?'+':''}${avgUpDiff}% (×${(1+avgUpDiff/100).toFixed(2)})`:'',
-    avgDownDiff!==null?`🎿 Descentes ${avgDownDiff>0?'+':''}${avgDownDiff}% (×${(1+avgDownDiff/100).toFixed(2)})`:'',
-    avgFlatDiff!==null?`➡️ Plat ${avgFlatDiff>0?'+':''}${avgFlatDiff}% (×${(1+avgFlatDiff/100).toFixed(2)})`:'',
+    avgUpDiff!==null?`${icon('elevation',12)} Montées ${avgUpDiff>0?'+':''}${avgUpDiff}% (×${(1+avgUpDiff/100).toFixed(2)})`:'',
+    avgDownDiff!==null?`${icon('back',12)} Descentes ${avgDownDiff>0?'+':''}${avgDownDiff}% (×${(1+avgDownDiff/100).toFixed(2)})`:'',
+    avgFlatDiff!==null?`${icon('run',12)} Plat ${avgFlatDiff>0?'+':''}${avgFlatDiff}% (×${(1+avgFlatDiff/100).toFixed(2)})`:'',
   ].filter(Boolean);
 
   const weatherAlerts=weather?[
-    weather.temp>=28?'⚠️ Chaleur importante — impact direct sur la FC et le chrono':'',
-    weather.temp<=3?'❄️ Froid extrême — rigidité musculaire, économie de course dégradée':'',
-    weather.wind>=30?'💨 Vent fort — pénalise les sections exposées':'',
-    weather.precip>=3?'🌧️ Pluie significative — sol glissant, freinage en descente':'',
+    weather.temp>=28?`${icon('warning',13)} Chaleur importante — impact direct sur la FC et le chrono`:'',
+    weather.temp<=3?`${icon('weather',13)} Froid extrême — rigidité musculaire, économie de course dégradée`:'',
+    weather.wind>=30?`${icon('wind',13)} Vent fort — pénalise les sections exposées`:'',
+    weather.precip>=3?`${icon('rain',13)} Pluie significative — sol glissant, freinage en descente`:'',
   ].filter(Boolean):[];
 
   const weatherHTML=weather?`
     <div class="card" style="background:var(--bg3);margin-top:12px">
-      <div class="clabel" style="margin-bottom:.5rem">🌤️ Conditions le jour de course</div>
+      <div class="clabel" style="margin-bottom:.5rem;display:flex;align-items:center;gap:5px">${icon('weather',14)} Conditions le jour de course</div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:${weatherAlerts.length?'8px':'0'}">
-        ${weather.temp!==null?`<span class="mono" style="font-size:.78rem">🌡️ ${weather.temp}°C</span>`:''}
-        ${weather.wind!==null?`<span class="mono" style="font-size:.78rem">💨 ${weather.wind} km/h</span>`:''}
-        ${weather.precip!==null?`<span class="mono" style="font-size:.78rem">🌧️ ${weather.precip} mm</span>`:''}
+        ${weather.temp!==null?`<span class="mono" style="font-size:.78rem;display:flex;align-items:center;gap:3px">${icon('weather',12)} ${weather.temp}°C</span>`:''}
+        ${weather.wind!==null?`<span class="mono" style="font-size:.78rem;display:flex;align-items:center;gap:3px">${icon('wind',12)} ${weather.wind} km/h</span>`:''}
+        ${weather.precip!==null?`<span class="mono" style="font-size:.78rem;display:flex;align-items:center;gap:3px">${icon('rain',12)} ${weather.precip} mm</span>`:''}
       </div>
       ${weatherAlerts.map(a=>`<div class="mono t3" style="font-size:.6rem;margin-top:4px;color:var(--yellow)">${a}</div>`).join('')}
     </div>`:'';
 
   const calHTML=`
     <div class="card" style="background:var(--bg3);margin-top:12px">
-      <div class="clabel" style="margin-bottom:.5rem">🔥 Dépense énergétique</div>
+      <div class="clabel" style="margin-bottom:.5rem;display:flex;align-items:center;gap:5px">${icon('activity',14)} Dépense énergétique</div>
       <div style="display:grid;grid-template-columns:${actCal?'1fr 1fr 1fr':'1fr'};gap:8px">
         <div class="s-stat"><div class="s-sv">${predCal}</div><div class="s-sl">Prévu (kcal)</div><div style="font-size:.55rem;color:var(--text3)">Modèle Minetti · ${weight}kg</div></div>
         ${actCal?`<div class="s-stat"><div class="s-sv">${actCal}</div><div class="s-sl">Réel Strava (kcal)</div></div>`:''}
@@ -601,7 +601,7 @@ export async function renderRaceComparison(act, streams, race, targetId) {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div class="mono t3" style="font-size:.56rem;margin-top:8px">✓ = ±10% · ~ = ±25% · ⚠️ = &gt;25% d'écart</div>
+      <div class="mono t3" style="font-size:.56rem;margin-top:8px;display:flex;align-items:center;gap:4px">✓ = ±10% · ~ = ±25% · ${icon('warning',11)} = &gt;25% d'écart</div>
     </div>
     ${weatherHTML}`;
 
@@ -644,7 +644,7 @@ if(validDiffs.length >= 2) {
 
   summaryBox.innerHTML = `
     <div class="summary-header">
-      <div class="summary-icon">📊</div>
+      <div class="summary-icon">${icon('chart',18)}</div>
       <div class="summary-title">Comparaison course vs projection</div>
     </div>
     <div class="summary-text">
@@ -664,7 +664,7 @@ if(validDiffs.length >= 2) {
 export function raceMenuLinkActivity() {
   const race = VLState.currentRaceContext || window._openEventRace;
   if (!race) return;
-  linkActivityFromRace(race);
+  window.Vorcelab?.linkActivityFromRace?.(race);
 }
 
 export function closeAnalyse() {

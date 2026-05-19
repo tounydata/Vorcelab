@@ -1,7 +1,8 @@
+import { icon } from './icons.js';
 export const isRun = t => ['Run','TrailRun','Trail Run','Running'].includes(t);
 export const fmtP = s => s > 0 ? `${Math.floor(1000/s/60)}:${String(Math.round(1000/s%60)).padStart(2,'0')}` : '--';
 export const fmtD = s => { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h${String(m).padStart(2,'0')}`:`${m}min`; };
-export const tE = t => ({Run:'🏃',TrailRun:'⛰️'}[t]||'🏃');
+export const tE = t => (t === 'TrailRun' ? icon('trail', 13) : icon('run', 13));
 export const tL = t => ({Run:'Route',TrailRun:'Trail'}[t]||'Run');
 
 export function parseCsvDate(str) {

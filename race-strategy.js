@@ -401,7 +401,8 @@ export async function analyzeGPX(points, fname) {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <span class="mlabel" style="color:${adj.color};flex-shrink:0">${adj.label}</span>
           <span class="mlabel" style="color:var(--vl-text-3);text-align:right">${adj.detail}</span>
-        </div>`).join('') : `
+        </div>`).join('') + `
+        <div class="mlabel" style="color:var(--vl-text-3);font-style:italic;margin-top:3px">Ajustement appliqué au temps total — les temps de section ne sont pas recalculés proportionnellement.</div>` : `
         <div class="mlabel" style="color:var(--vl-text-3)">Conditions extérieures : ${weather?'pénalités génériques (données personnelles insuffisantes)':'météo non intégrée'}</div>`}
         ${(rp.enduranceProfile.alerts||[]).map(a=>`<div class="mlabel" style="color:var(--vl-amber)">${icon('warning',11)} ${escapeHTML(a)}</div>`).join('')}
         <div class="mlabel" style="color:var(--vl-text-3);border-top:1px solid var(--vl-line);padding-top:5px;margin-top:2px">
@@ -774,7 +775,7 @@ export function buildSplitsTable(kmSecs, basePaceS){
     cumTime+=secTime;
     const fc={up:`< ${Math.abs(s.grade)>10?pct84:pct88} bpm`,down:'Libre',flat:`< ${pct79} bpm`}[type];
     const conseil={up:Math.abs(s.grade)>10?'Marche active':'Courir régulier',down:'Foulées courtes',flat:'Récup'}[type];
-    rows+=`<tr class="section-${type}"><td class="mono">${(s.startKm??0).toFixed(1)}→${s.km.toFixed(1)}</td><td>${{up:'⛰️',down:'🎿',flat:'➡️'}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
+    rows+=`<tr class="section-${type}"><td class="mono">${(s.startKm??0).toFixed(1)}→${s.km.toFixed(1)}</td><td>${{up:icon('elevation',13),down:icon('back',13),flat:icon('run',13)}[type]}</td><td class="mono" style="color:${{up:'var(--orange)',down:'var(--purple)',flat:'var(--cyan)'}[type]}">${s.grade>0?'+':''}${s.grade.toFixed(1)}%</td><td class="mono ${s.dplus>0?'to':''}">${s.dplus>0?`+${s.dplus}m`:'—'}</td><td class="mono ${s.dminus>0?'tp':''}">${s.dminus>0?`-${s.dminus}m`:'—'}</td><td class="mono t2">${s.altEnd||'—'}m</td><td class="mono">${fmtT(secTime)}</td><td class="mono tc">${fmtT(cumTime)}</td><td style="font-size:.68rem;color:var(--text2)">${conseil} · FC ${fc}</td></tr>`;
   });
   return rows;
 }

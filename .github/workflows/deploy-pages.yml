@@ -41,6 +41,7 @@ jobs:
           [ -f race-calendar.js ]       && cp race-calendar.js       .pages/race-calendar.js       || true
           [ -f activity-analysis.js ]   && cp activity-analysis.js   .pages/activity-analysis.js   || true
           [ -f race-strategy.js ]       && cp race-strategy.js       .pages/race-strategy.js       || true
+          [ -f runner-profile.js ]      && cp runner-profile.js      .pages/runner-profile.js      || true
           [ -f icons.js ]               && cp icons.js               .pages/icons.js               || true
           [ -f og.svg ]                 && cp og.svg                 .pages/og.svg                 || true
           [ -f favicon.svg ]            && cp favicon.svg            .pages/favicon.svg            || true
