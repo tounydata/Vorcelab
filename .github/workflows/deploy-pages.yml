@@ -26,14 +26,22 @@ jobs:
         run: |
           mkdir -p .pages
           V=$(date +%Y%m%d%H%M%S)
-          sed "s/app\.js?v=[0-9]*/app.js?v=$V/g; s/style\.css?v=[0-9]*/style.css?v=$V/g; s/renfo\.js?v=[0-9]*/renfo.js?v=$V/g" index.html > .pages/index.html
+          sed -E "s/([a-zA-Z0-9_-]+\.(js|css))\?v=[0-9]+/\1?v=$V/g" index.html > .pages/index.html
           cp .pages/index.html .pages/404.html
-          [ -f style.css ] && cp style.css .pages/style.css || true
-          [ -f app.js ] && cp app.js .pages/app.js || true
-          [ -f renfo.js ] && cp renfo.js .pages/renfo.js || true
-          [ -f og.svg ] && cp og.svg .pages/og.svg || true
-          [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
-          [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png || true
+          [ -f style.css ]              && cp style.css              .pages/style.css              || true
+          [ -f app.js ]                 && cp app.js                 .pages/app.js                 || true
+          [ -f renfo.js ]               && cp renfo.js               .pages/renfo.js               || true
+          [ -f security.js ]            && cp security.js            .pages/security.js            || true
+          [ -f formatters.js ]          && cp formatters.js          .pages/formatters.js          || true
+          [ -f terrain.js ]             && cp terrain.js             .pages/terrain.js             || true
+          [ -f gpx-core.js ]            && cp gpx-core.js            .pages/gpx-core.js            || true
+          [ -f nutrition.js ]           && cp nutrition.js           .pages/nutrition.js           || true
+          [ -f race-calendar.js ]       && cp race-calendar.js       .pages/race-calendar.js       || true
+          [ -f activity-analysis.js ]   && cp activity-analysis.js   .pages/activity-analysis.js   || true
+          [ -f race-strategy.js ]       && cp race-strategy.js       .pages/race-strategy.js       || true
+          [ -f og.svg ]                 && cp og.svg                 .pages/og.svg                 || true
+          [ -f favicon.svg ]            && cp favicon.svg            .pages/favicon.svg            || true
+          [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png           || true
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
