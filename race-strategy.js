@@ -268,6 +268,7 @@ export async function analyzeGPX(points, fname) {
     for (let i = 0; i < sectionTimes.length; i++) sectionTimes[i] = Math.round(sectionTimes[i] * sf);
   }
 
+
   // Confidence scoring
   const terrainKnown=(window._gpxSectionSurfaces||[]).filter(s=>s!==null).length;
   const terrainRatio=sections.length>0?terrainKnown/sections.length:0;
