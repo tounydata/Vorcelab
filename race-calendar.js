@@ -76,7 +76,7 @@ export function renderCalendar() {
       const renfoSched = VLState.renfoProgram?.week_schedule?.[renfoLog.day_key];
       const renfoFocusColors = VLState.RENFO_FOCUS_COLORS;
       const dotCol = renfoFocusColors[renfoSched?.focus] || '#e5562a';
-      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:${dotCol};flex-shrink:0"></div><div style="color:${dotCol};line-height:1;display:flex">${icon('renfo',12)}</div></div>`;
+      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:${dotCol};flex-shrink:0"></div><div style="color:${dotCol};line-height:1;display:flex;align-items:center;gap:2px">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div></div>`;
     }
 
     cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${escapeAttr(race.id)}')"`:''}>

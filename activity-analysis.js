@@ -189,7 +189,7 @@ export async function openAnalyse(act) {
     </div>
 
     <div class="stat-summary" id="summaryBox">
-      <div class="summary-header"><div class="summary-icon">📊</div><div class="summary-title">Résumé des stats</div></div>
+      <div class="summary-header"><div class="summary-icon">📊</div><div class="summary-title">Lecture de séance</div></div>
       <div class="summary-loading"><div class="spinner"></div><div>Calcul en cours...</div></div>
     </div>
 
@@ -275,9 +275,10 @@ if (summaryBox) {
   summaryBox.innerHTML = `
     <div class="summary-header">
       <div class="summary-icon">📊</div>
-      <div class="summary-title">Résumé statistiques</div>
+      <div class="summary-title">Lecture de séance</div>
     </div>
     <div class="summary-text">${escapeHTML(summaryText)}</div>
+    <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">Analyse basée sur les données Strava disponibles. Résultats indicatifs — à interpréter avec ton ressenti.</div>
   `;
 }
 } // ferme openAnalyse()
@@ -644,16 +645,16 @@ if(validDiffs.length >= 2) {
   summaryBox.innerHTML = `
     <div class="summary-header">
       <div class="summary-icon">📊</div>
-      <div class="summary-title">Bilan de course</div>
+      <div class="summary-title">Comparaison course vs projection</div>
     </div>
     <div class="summary-text">
-      Écart global : ${avgDiff > 0 ? '+' : ''}${avgDiff}% vs algorithme.<br>
+      Écart global : ${avgDiff > 0 ? '+' : ''}${avgDiff}% vs projection indicative.<br>
       ${upText ? upText + '<br>' : ''}
       ${downText ? downText + '<br>' : ''}
       ${flatText ? flatText + '<br>' : ''}
-      ${worstText}<br>
-      
+      ${worstText}
     </div>
+    <div class="mlabel" style="color:var(--vl-text-3);margin-top:6px">Comparaison indicative basée sur la projection Vorcelab. Les écarts reflètent les conditions réelles, le terrain et ton exécution.</div>
   `;
 
   section.appendChild(summaryBox);

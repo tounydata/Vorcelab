@@ -5,6 +5,7 @@ import { fmtT, fmtP, fmtD, bC, isRun } from './formatters.js';
 import { VLState, sb, SUPA_URL, FC_MAX_DEFAULT } from './app-state.js';
 import { genNutrition } from './nutrition.js';
 import { icon } from './icons.js';
+import { computeRunnerProfile, sensitivityLabel, climbSourceLabel } from './runner-profile.js';
 
 // leafletMap est dans VLState.leafletMap
 
@@ -68,6 +69,19 @@ export async function analyzeGPX(points, fname) {
   } else {
     weatherNote=`Météo non intégrée — prévision trop lointaine (J+${daysToRace})`;
   }
+
+  // Lancer le calcul profil coureur en parallèle avec terrain (résultat attendu plus tard)
+  // Cache invalidé si : nouvelles activités OU profil > 7 jours
+  const _rpCached   = VLState.runnerProfile;
+  const _rpAge      = _rpCached?._computedAt ? Date.now() - new Date(_rpCached._computedAt).getTime() : Infinity;
+  const _rpStale    = !_rpCached
+    || _rpCached._actCount !== (VLState.allActivities?.length || 0)
+    || _rpAge > 7 * 86_400_000;
+  const _rpPromise = (_rpStale && VLState.allActivities?.length && VLState.stravaConnected)
+    ? computeRunnerProfile(VLState.allActivities, VLState.userProfile, VLState.currentRaceContext)
+        .then(rp => { VLState.runnerProfile = rp; return rp; })
+        .catch(() => _rpCached || null)
+    : Promise.resolve(_rpCached || null);
 
   // 500m sections with detailed grade
   const kmSecs=[];let segTarget=500,prevIdx=0,segNum=0;
@@ -167,10 +181,12 @@ export async function analyzeGPX(points, fname) {
 
   // Build sections
   const sections=buildDetailedSections(kmSecs);
-  // Fetch terrain surfaces — awaited before section time calc so terrain penalty is included
+  // Fetch terrain surfaces — awaité avant le calcul des sections (pénalité terrain incluse)
   const surfacePromise=fetchTerrainSurfaces(points, sections);
   window._gpxSectionSurfaces = await surfacePromise;
   window._gpxWeather = weather;
+  // Attente profil coureur (lancé en parallèle du terrain)
+  const rp = await _rpPromise;
 
   const sectionTimes=[];
   let estTimeS=0;
@@ -190,6 +206,46 @@ export async function analyzeGPX(points, fname) {
     const t=basePaceS*pentePenalty*terPenalty*s.dist/1000;
     sectionTimes.push(Math.round(t));estTimeS+=t;
   });
+
+  // Ajustements personnels conditions extérieures (prudents, plafonnés)
+  const personalAdjustments = [];
+  let personalMultiplier = 1;
+  if (rp && weather) {
+    const { heat, cold, wind, rain } = rp.externalSensitivity;
+    // Chaleur : appliqué si météo > 20°C et sensibilité confirmée
+    if (heat.sensitivity !== 'unknown' && heat.confidence !== 'low' && heat.pacePenaltyPer10C && weather.temp > 20) {
+      const adj = Math.min(0.05, heat.pacePenaltyPer10C * (Math.max(0, weather.temp - 18) / 10));
+      if (adj > 0.005) {
+        personalMultiplier *= (1 + adj);
+        personalAdjustments.push({ label: `Chaleur ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(heat)}`, color: 'var(--vl-amber)' });
+      }
+    }
+    // Vent : route uniquement (trail en forêt = exposition réduite)
+    if (!isTrail && wind.sensitivity !== 'unknown' && wind.confidence !== 'low' && wind.pacePenaltyPer20Kmh && (weather.wind || 0) > 20) {
+      const adj = Math.min(0.03, wind.pacePenaltyPer20Kmh * (weather.wind / 20));
+      if (adj > 0.005) {
+        personalMultiplier *= (1 + adj);
+        personalAdjustments.push({ label: `Vent ${Math.round(weather.wind)} km/h`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(wind)}`, color: 'var(--vl-amber)' });
+      }
+    }
+    // Sol humide
+    if (rain.sensitivity !== 'unknown' && rain.confidence !== 'low' && rain.terrainPenaltySignal && (weather.precip > 1 || (weather.precip_recent || 0) > 2)) {
+      const adj = Math.min(0.04, rain.terrainPenaltySignal * 0.5);
+      if (adj > 0.005) {
+        personalMultiplier *= (1 + adj);
+        personalAdjustments.push({ label: 'Sol humide', detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(rain)}`, color: 'var(--vl-ember)' });
+      }
+    }
+    // Froid
+    if (cold.sensitivity !== 'unknown' && cold.confidence !== 'low' && cold.pacePenalty && weather.temp < 5) {
+      const adj = Math.min(0.03, cold.pacePenalty * 0.5);
+      if (adj > 0.005) {
+        personalMultiplier *= (1 + adj);
+        personalAdjustments.push({ label: `Froid ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}% — ${sensitivityLabel(cold)}`, color: 'var(--vl-text-3)' });
+      }
+    }
+  }
+  if (personalMultiplier > 1) estTimeS *= personalMultiplier;
 
   // Confidence scoring
   const terrainKnown=(window._gpxSectionSurfaces||[]).filter(s=>s!==null).length;
@@ -221,6 +277,15 @@ export async function analyzeGPX(points, fname) {
   else if(distRatio>1.8)confScore-=1; // race much longer than any recent run
   if(isTrail&&dpRatio>1.6)confScore-=1; // D+/km much bigger than recent trail sessions
   if(similarCount>=3)confScore+=1; // enough similar-distance sessions in history
+  // Pénalités endurance depuis runner profile (plus précis que les ratios bruts)
+  if(rp?.enduranceProfile) {
+    const ep=rp.enduranceProfile;
+    if(ep.distanceRatioToRace>2.0) confScore-=2;
+    else if(ep.distanceRatioToRace>1.5) confScore-=1;
+    if(ep.elevationRatioToRace>2.0) confScore-=1;
+    if(rp.dataQuality.freshness==='low') confScore-=1;
+    if(rp.dataQuality.activitiesWithWeather>=10) confScore+=1;
+  }
   confScore=Math.max(0,confScore);
   const confidence=confScore>=7?'good':confScore>=4?'medium':'low';
   const confidenceLabel={good:'Fiable',medium:'Indicative',low:'Estimation'}[confidence];
@@ -320,6 +385,34 @@ export async function analyzeGPX(points, fname) {
         </div>
       </div>`}
     </div>
+
+    <!-- Facteurs personnels -->
+    ${rp ? `
+    <div class="card" style="padding:12px 14px;margin-top:0;border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);background:var(--vl-surf)">
+      <div class="clabel" style="margin-bottom:8px">Facteurs personnels utilisés</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span class="mlabel">Montée</span>
+          <span class="mlabel" style="color:${rp.climbProfile.source==='streams_calibrated'?'var(--vl-growth)':rp.climbProfile.source==='activity_estimated'?'var(--vl-amber)':'var(--vl-text-3)'}">
+            ${climbSourceLabel(rp)}
+          </span>
+        </div>
+        ${personalAdjustments.length>0 ? personalAdjustments.map(adj=>`
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <span class="mlabel" style="color:${adj.color};flex-shrink:0">${adj.label}</span>
+          <span class="mlabel" style="color:var(--vl-text-3);text-align:right">${adj.detail}</span>
+        </div>`).join('') : `
+        <div class="mlabel" style="color:var(--vl-text-3)">Conditions extérieures : ${weather?'pénalités génériques (données personnelles insuffisantes)':'météo non intégrée'}</div>`}
+        ${(rp.enduranceProfile.alerts||[]).map(a=>`<div class="mlabel" style="color:var(--vl-amber)">${icon('warning',11)} ${escapeHTML(a)}</div>`).join('')}
+        <div class="mlabel" style="color:var(--vl-text-3);border-top:1px solid var(--vl-line);padding-top:5px;margin-top:2px">
+          Projection basée sur GPX, terrain, météo et historique récent. Résultats indicatifs.
+          <br>${rp.dataQuality.totalRuns} sorties · ${rp.dataQuality.totalTrails} trails · ${rp.dataQuality.activitiesWithWeather} avec météo · fraîcheur ${rp.dataQuality.freshness==='good'?'bonne':rp.dataQuality.freshness==='medium'?'correcte':'faible'}
+        </div>
+      </div>
+    </div>` : `
+    <div class="card" style="padding:10px 14px;margin-top:0;border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);background:var(--vl-surf)">
+      <div class="mlabel" style="color:var(--vl-text-3)">Projection basée sur GPX, terrain et météo disponible. Connecte Strava pour une projection personnalisée.</div>
+    </div>`}
 
     <!-- Sections -->
     <details open>

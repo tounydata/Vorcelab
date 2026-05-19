@@ -391,6 +391,10 @@ async function loadProfile() {
       if(p['ultra']){sp('pr-ultra',p['ultra'].time);sp('pr-ultra-date',p['ultra'].date);sp('pr-ultra-dist',p['ultra'].dist);sp('pr-ultra-dplus',p['ultra'].dplus);}
     }
     updateSilhouetteSex();
+    // Restaure le runner profile depuis Supabase (cache persistant entre sessions)
+    if (data.runner_profile) {
+      VLState.runnerProfile = data.runner_profile;
+    }
   }
 }
 
@@ -514,6 +518,8 @@ export async function manualSync() {
       (a.total_elevation_gain||0) > 100
     );
     if(hasNewTrail) autoCalibrate(VLState.allActivities);
+    // Invalide le cache profil coureur (nouvelles activités = rp potentiellement obsolète)
+    VLState.runnerProfile = null;
   } catch(e) {
     showToast('Erreur de synchronisation', 'error');
   } finally {
