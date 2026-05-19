@@ -101,6 +101,7 @@ export async function analyzeGPX(points, fname) {
   }
 
   // ── ALGO PROGRESSION ──
+  // TODO: migrer vers computeProgressionFactor() de race-predictor.js lors d'une prochaine passe de refacto
   // Compute performance index from recent quality sessions (>20% time in Z3+)
   function computeProgressionFactor(trailOnly=false) {
     if(!VLState.allActivities.length) return 1;
@@ -205,7 +206,7 @@ export async function analyzeGPX(points, fname) {
     const pentePenalty=1+pente;
     const terPenalty=terrainTimePenalty(surfKey,weather,s.grade,s.type);
     const t=basePaceS*pentePenalty*terPenalty*s.dist/1000;
-    sectionTimes.push(Math.round(t));estTimeS+=t;
+    sectionTimes.push(t);estTimeS+=t;
   });
 
   // Ajustements personnels conditions extérieures (prudents, plafonnés)
@@ -253,11 +254,18 @@ export async function analyzeGPX(points, fname) {
   const freshness = computeFreshnessAdjustment(VLState.allActivities || [], fcMaxRp);
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier;
-    if (rp) personalAdjustments.push({
+    personalAdjustments.push({
       label: `Charge : ${freshness.label}`,
       detail: `${freshness.multiplier > 1 ? '+' : ''}${((freshness.multiplier - 1) * 100).toFixed(0)}%`,
       color: freshness.multiplier > 1 ? 'var(--vl-ember)' : 'var(--vl-growth)',
     });
+  }
+
+  // Scale section times to match final estTimeS (after personalMultiplier + freshness)
+  {
+    const rawSum = sectionTimes.reduce((s, t) => s + t, 0);
+    const sf = rawSum > 0 ? estTimeS / rawSum : 1;
+    for (let i = 0; i < sectionTimes.length; i++) sectionTimes[i] = Math.round(sectionTimes[i] * sf);
   }
 
   // Confidence scoring
@@ -400,25 +408,25 @@ export async function analyzeGPX(points, fname) {
     </div>
 
     <!-- Facteurs personnels -->
-    ${rp ? `
+    ${(rp || personalAdjustments.length > 0) ? `
     <div class="card" style="padding:12px 14px;margin-top:0;border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);background:var(--vl-surf)">
       <div class="clabel" style="margin-bottom:8px">Facteurs personnels utilisés</div>
       <div style="display:flex;flex-direction:column;gap:5px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        ${rp ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <span class="mlabel">Montée</span>
           <span class="mlabel" style="color:${rp.climbProfile.source==='streams_calibrated'?'var(--vl-growth)':rp.climbProfile.source==='activity_estimated'?'var(--vl-amber)':'var(--vl-text-3)'}">
             ${climbSourceLabel(rp)}
           </span>
-        </div>
+        </div>` : ''}
         ${personalAdjustments.length>0 ? personalAdjustments.map(adj=>`
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <span class="mlabel" style="color:${adj.color};flex-shrink:0">${adj.label}</span>
           <span class="mlabel" style="color:var(--vl-text-3);text-align:right">${adj.detail}</span>
         </div>`).join('') : ''}
-        ${(rp.enduranceProfile.alerts||[]).map(a=>`<div class="mlabel" style="color:var(--vl-amber)">${icon('warning',11)} ${escapeHTML(a)}</div>`).join('')}
-        <div class="mlabel" style="color:var(--vl-text-3);border-top:1px solid var(--vl-line);padding-top:5px;margin-top:2px">
+        ${rp ? (rp.enduranceProfile.alerts||[]).map(a=>`<div class="mlabel" style="color:var(--vl-amber)">${icon('warning',11)} ${escapeHTML(a)}</div>`).join('') : ''}
+        ${rp ? `<div class="mlabel" style="color:var(--vl-text-3);border-top:1px solid var(--vl-line);padding-top:5px;margin-top:2px">
           ${rp.dataQuality.totalRuns} sorties · ${rp.dataQuality.totalTrails} trails · ${rp.dataQuality.activitiesWithWeather} avec météo · fraîcheur ${rp.dataQuality.freshness==='good'?'bonne':rp.dataQuality.freshness==='medium'?'correcte':'faible'}
-        </div>
+        </div>` : ''}
       </div>
     </div>` : `
     <div class="card" style="padding:10px 14px;margin-top:0;border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);background:var(--vl-surf)">

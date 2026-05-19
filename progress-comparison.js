@@ -24,7 +24,9 @@ export function findSimilarActivities(activity, activities) {
       if (a.id === activity.id) return false;
       if (!isRun(a.sport_type || a.type)) return false;
       if (isTrailAct(a) !== isTrail) return false;
-      if (Math.abs(new Date(a.start_date).getTime() - actTime) < 2 * 86_400_000) return false;
+      const aTime = new Date(a.start_date).getTime();
+      if (aTime >= actTime) return false;
+      if (actTime - aTime < 2 * 86_400_000) return false;
       const dRatio = dist > 0 ? a.distance / dist : 1;
       if (dRatio < 0.75 || dRatio > 1.30) return false;
       if (dp > 5) {
