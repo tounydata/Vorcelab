@@ -54,3 +54,6 @@ stores/
 tsconfig.json
 utils/
 README.md
+
+# Claude Code internal
+.claude/
