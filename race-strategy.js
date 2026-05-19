@@ -47,14 +47,25 @@ export async function analyzeGPX(points, fname) {
   const weatherReliable=daysToRace===null||daysToRace<=10;
   if(weatherReliable){
     try{
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=2`);
+      const forecastDays=daysToRace===null?2:Math.min(10,Math.max(2,daysToRace+1));
+      // Race hour: use event datetime if non-midnight, else assume 9:00
+      const raceDtm=VLState.currentRaceContext?.date?new Date(VLState.currentRaceContext.date):null;
+      const raceHour=raceDtm&&raceDtm.getHours()>0?raceDtm.getHours():9;
+      const h=(daysToRace!==null&&daysToRace>0?daysToRace:0)*24+raceHour;
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=${forecastDays}`);
       const d=await r.json();
-      const h=9;
       const precip6h=(d.hourly?.precipitation||[]).slice(Math.max(0,h-6),h+1).reduce((a,v)=>a+(v||0),0);
-      weather={temp:d.hourly?.temperature_2m?.[h],precip_prob:d.hourly?.precipitation_probability?.[h]??0,precip:d.hourly?.precipitation?.[h]??0,precip_recent:precip6h,wind:d.hourly?.windspeed_10m?.[h]};
-    }catch{}
+      if(d.hourly?.temperature_2m?.[h]!=null){
+        weather={temp:d.hourly.temperature_2m[h],precip_prob:d.hourly?.precipitation_probability?.[h]??0,precip:d.hourly?.precipitation?.[h]??0,precip_recent:precip6h,wind:d.hourly?.windspeed_10m?.[h]};
+        if(daysToRace&&daysToRace>0&&!(raceDtm&&raceDtm.getHours()>0)){
+          weatherNote=`Météo J+${daysToRace} — heure estimée à 9h (heure réelle non renseignée dans l'événement)`;
+        }
+      } else {
+        weatherNote='Météo non disponible pour la fenêtre de course';
+      }
+    }catch{weatherNote='Météo indisponible';}
   } else {
-    weatherNote=`Météo non intégrée : prévision trop lointaine (J−${daysToRace})`;
+    weatherNote=`Météo non intégrée — prévision trop lointaine (J+${daysToRace})`;
   }
 
   // 500m sections with detailed grade
@@ -97,7 +108,16 @@ export async function analyzeGPX(points, fname) {
     return Math.min(1.10, Math.max(0.90, avgPaceRecent/avgPaceEarly));
   }
 
-  const isTrail=isTrailRace();
+  // Use event type as priority; fall back to D+/km from parsed points
+  // (window._gpxPoints not yet set at this point in analyzeGPX)
+  const isTrail=(()=>{
+    const t=VLState.currentRaceContext?.type;
+    if(t){
+      if(['Trail','TrailRun','trail'].includes(t)) return true;
+      if(['Run','Road','road','Route','route','Running'].includes(t)) return false;
+    }
+    return totalDist>0&&(dplus/(totalDist/1000))>20;
+  })();
   const progressionFactor = computeProgressionFactor(isTrail);
   const qualityCount = VLState.allActivities.filter(a=>isRun(a.type)&&a.average_heartrate>(VLState.userProfile.fc_max||205)*.80&&a.distance>3000).length;
 
@@ -164,21 +184,42 @@ export async function analyzeGPX(points, fname) {
   // Confidence scoring
   const terrainKnown=(window._gpxSectionSurfaces||[]).filter(s=>s!==null).length;
   const terrainRatio=sections.length>0?terrainKnown/sections.length:0;
+
+  // Historical similarity signals (90-day window)
+  const distKmRace=totalDist/1000;
+  const dpKmRace=distKmRace>0?dplus/distKmRace:0;
+  const cutoff90=Date.now()-90*24*3600*1000;
+  const recentRuns=VLState.allActivities.filter(a=>isRun(a.type)&&new Date(a.start_date).getTime()>=cutoff90&&a.distance>0);
+  const longestRecentKm=recentRuns.length?Math.max(...recentRuns.map(a=>a.distance/1000)):0;
+  const biggestDpKm=recentRuns.length?Math.max(...recentRuns.map(a=>(a.total_elevation_gain||0)/(a.distance/1000))):0;
+  const distRatio=longestRecentKm>0?distKmRace/longestRecentKm:99;
+  const dpRatio=dpKmRace>5&&biggestDpKm>0?dpKmRace/biggestDpKm:1;
+  const similarCount=recentRuns.filter(a=>{
+    const aKm=a.distance/1000;
+    return aKm>=distKmRace*0.5&&aKm<=distKmRace*1.5;
+  }).length;
+
   let confScore=0;
   if(isTrail){if(dataQuality.trailCount>=5)confScore+=2;else if(dataQuality.trailCount>=2)confScore+=1;}
   else{if(dataQuality.recentCount>=3)confScore+=2;else if(dataQuality.recentCount>=1)confScore+=1;}
   if(dataQuality.recentCount>=3)confScore+=1;
   if(dataQuality.hasHR)confScore+=1;
   if(terrainRatio>=0.6)confScore+=1;
-  if(weatherReliable&&weather)confScore+=1;
+  if(weather&&weatherReliable)confScore+=1;
   if(totalDist>5000&&sections.length>=5)confScore+=1;
-  const confidence=confScore>=5?'good':confScore>=3?'medium':'low';
+  if(distRatio<=1.2)confScore+=1; // race distance covered by recent training
+  else if(distRatio>1.8)confScore-=1; // race much longer than any recent run
+  if(isTrail&&dpRatio>1.6)confScore-=1; // D+/km much bigger than recent trail sessions
+  if(similarCount>=3)confScore+=1; // enough similar-distance sessions in history
+  confScore=Math.max(0,confScore);
+  const confidence=confScore>=7?'good':confScore>=4?'medium':'low';
   const confidenceLabel={good:'Fiable',medium:'Indicative',low:'Estimation'}[confidence];
   const confidenceColor={good:'var(--vl-growth)',medium:'var(--vl-amber)',low:'var(--vl-ember)'}[confidence];
   const confDots=[0,1,2,3,4].map(i=>i<(confidence==='good'?5:confidence==='medium'?3:1)?`<span style="color:${confidenceColor}">&#9679;</span>`:'<span style="color:var(--vl-text-3)">&#9675;</span>').join('');
 
   // Range: prudent / probable / agressif
-  const rf=confidence==='good'?{min:0.94,max:1.08}:confidence==='medium'?{min:0.90,max:1.14}:{min:0.85,max:1.20};
+  // En faible confiance : incertitude surtout vers le haut (ne pas promettre un scénario rapide)
+  const rf=confidence==='good'?{min:0.96,max:1.08}:confidence==='medium'?{min:0.95,max:1.15}:{min:0.97,max:1.25};
   const timeMin=estTimeS*rf.min;
   const timeMax=estTimeS*rf.max;
 
@@ -188,17 +229,15 @@ export async function analyzeGPX(points, fname) {
     const gParts=VLState.currentRaceContext.goal_time.match(/(\d+)[hH](\d*)/);
     if(gParts){
       const goalSec=parseInt(gParts[1])*3600+(parseInt(gParts[2])||0)*60;
-      const diff=goalSec-Math.round(estTimeS);
-      const absDiff=Math.abs(diff);
-      const gmh=Math.floor(absDiff/3600),gmm=Math.floor(absDiff%3600/60),gms=absDiff%60;
-      const sign=diff>=0?'+':'−';
-      goalCompareStr=`${sign} ${gmh>0?gmh+'h':''}${gmm>0?String(gmm).padStart(gmh>0?2:1,'0')+'min':''}${gms>0&&gmh===0?String(gms).padStart(gmm>0?2:1,'0')+'s':''} vs objectif`;
+      const absDiff=Math.abs(goalSec-Math.round(estTimeS));
+      const gmh=Math.floor(absDiff/3600),gmm=Math.floor(absDiff%3600/60);
+      const diffStr=`${gmh>0?gmh+'h':''}${String(gmm).padStart(gmh>0?2:1,'0')}min`;
       const ratio=Math.round(estTimeS)/goalSec;
-      if(ratio<0.90){goalLabel='Très conservateur';goalCompareColor='var(--vl-text-3)';}
-      else if(ratio<0.97){goalLabel='Conservateur';goalCompareColor='var(--vl-growth)';}
-      else if(ratio<=1.03){goalLabel='Réaliste';goalCompareColor='var(--vl-growth)';}
-      else if(ratio<=1.10){goalLabel='Ambitieux';goalCompareColor='var(--vl-amber)';}
-      else{goalLabel='Très ambitieux';goalCompareColor='var(--vl-ember)';}
+      if(ratio<0.94){goalLabel='Très conservateur';goalCompareColor='var(--vl-text-3)';goalCompareStr=`Projection ${diffStr} plus rapide que ton objectif`;}
+      else if(ratio<0.97){goalLabel='Conservateur';goalCompareColor='var(--vl-growth)';goalCompareStr=`Projection ${diffStr} plus rapide que ton objectif`;}
+      else if(ratio<=1.03){goalLabel='Réaliste';goalCompareColor='var(--vl-growth)';goalCompareStr='Objectif aligné avec la projection Vorcelab';}
+      else if(ratio<=1.10){goalLabel='Ambitieux';goalCompareColor='var(--vl-amber)';goalCompareStr=`Objectif ${diffStr} plus rapide que la projection Vorcelab`;}
+      else{goalLabel='Très ambitieux';goalCompareColor='var(--vl-ember)';goalCompareStr=`Objectif ${diffStr} plus rapide que la projection Vorcelab`;}
     }
   }
 
