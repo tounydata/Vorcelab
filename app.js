@@ -1528,7 +1528,7 @@ async function openAnalyse(act) {
   if(linkList) {
     const sorted = [...races].sort((a,b)=>new Date(b.date)-new Date(a.date));
     linkList.innerHTML = sorted.length
-      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${r.name.replace(/"/g,'&quot;')}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">📅 ${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
+      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${escapeAttr(r.name)}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">📅 ${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
       : '<span class="mono t3">Aucune course dans le calendrier — ajoutes-en une depuis l\'onglet Calendrier</span>';
   }
 
@@ -1998,22 +1998,23 @@ function renderRaces() {
     // Smart buttons based on state
     let buttons='';
     if(!past){
-      buttons+=`<button onclick='prepareRace(${JSON.stringify(r)})' class="btn-prepare">${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer'}</button>`;
+      buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare">${hasGpx?'🗺️ Voir stratégie':'🗺️ Préparer'}</button>`;
     } else {
       if(hasGpx){
-        buttons+=`<button onclick='prepareRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📊 Voir stratégie</button>`;
+        buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📊 Voir stratégie</button>`;
       } else {
-        buttons+=`<button onclick='importOrgGpx(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
+        buttons+=`<button onclick="importOrgGpx(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
       }
       if(hasActivity){
-        buttons+=`<button onclick='linkActivityFromRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
+        buttons+=`<button onclick="linkActivityFromRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
       } else {
-        buttons+=`<button onclick='linkActivityFromRace(${JSON.stringify(r)})' class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
+        buttons+=`<button onclick="linkActivityFromRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
       }
     }
 
     const linkedAct=hasActivity?allActivities.find(a=>String(a.id)===String(r.strava_activity_id)):null;
-    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace(${JSON.stringify(r)})`:'';
+    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})`:'';
+
 
     return `<div class="race-item" style="cursor:${onCardClick?'pointer':'default'};transition:background .15s"
       onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''"
@@ -3409,7 +3410,7 @@ function populateRaceSelector(){
   // Only show if not in event view
   if(document.getElementById('eventView')?.style.display!=='none') return;
   sel.style.display='block';
-  container.innerHTML=races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${r.name} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
+  container.innerHTML=races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
 }
 
 function selectRaceForStrategy(race){
