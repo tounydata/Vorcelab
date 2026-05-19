@@ -391,6 +391,10 @@ async function loadProfile() {
       if(p['ultra']){sp('pr-ultra',p['ultra'].time);sp('pr-ultra-date',p['ultra'].date);sp('pr-ultra-dist',p['ultra'].dist);sp('pr-ultra-dplus',p['ultra'].dplus);}
     }
     updateSilhouetteSex();
+    // Restaure le runner profile depuis Supabase (cache persistant entre sessions)
+    if (data.runner_profile) {
+      VLState.runnerProfile = data.runner_profile;
+    }
   }
 }
 

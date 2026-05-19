@@ -3,7 +3,7 @@
 // Algorithmes from scratch. Pas d'IA. Logique explicable.
 // Données insuffisantes → signaux prudents uniquement.
 
-import { VLState } from './app-state.js';
+import { VLState, sb } from './app-state.js';
 import { fetchWeather } from './activity-analysis.js';
 import { isRun } from './formatters.js';
 
@@ -337,6 +337,21 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
   };
 
   console.info(`[VL] RunnerProfile calculé : ${rp.dataQuality.totalRuns} sorties, ${rp.dataQuality.activitiesWithWeather} avec météo`);
+
+  // Persistance Supabase (fire and forget — ne bloque pas le prédicteur)
+  if (VLState.currentUser?.id) {
+    const rpAt = new Date().toISOString();
+    const rpSave = { ...rp, _computedAt: rpAt };
+    sb.from('profiles').upsert({
+      id: VLState.currentUser.id,
+      runner_profile: rpSave,
+      runner_profile_at: rpAt,
+    }).then(({ error }) => {
+      if (error) console.warn('[VL] runner_profile save error', error.message);
+    });
+    rp._computedAt = rpAt;
+  }
+
   return rp;
 }
 

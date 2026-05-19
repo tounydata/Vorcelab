@@ -71,9 +71,12 @@ export async function analyzeGPX(points, fname) {
   }
 
   // Lancer le calcul profil coureur en parallèle avec terrain (résultat attendu plus tard)
-  // Cache invalidé si nouvelles activités depuis la dernière computation
-  const _rpCached = VLState.runnerProfile;
-  const _rpStale  = !_rpCached || _rpCached._actCount !== (VLState.allActivities?.length || 0);
+  // Cache invalidé si : nouvelles activités OU profil > 7 jours
+  const _rpCached   = VLState.runnerProfile;
+  const _rpAge      = _rpCached?._computedAt ? Date.now() - new Date(_rpCached._computedAt).getTime() : Infinity;
+  const _rpStale    = !_rpCached
+    || _rpCached._actCount !== (VLState.allActivities?.length || 0)
+    || _rpAge > 7 * 86_400_000;
   const _rpPromise = (_rpStale && VLState.allActivities?.length && VLState.stravaConnected)
     ? computeRunnerProfile(VLState.allActivities, VLState.userProfile, VLState.currentRaceContext)
         .then(rp => { VLState.runnerProfile = rp; return rp; })
