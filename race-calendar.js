@@ -405,27 +405,26 @@ export function renderRaces() {
     const color=past?'var(--text3)':diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
     let hasGpx=false;try{if(r.gpx_data){const _p=JSON.parse(r.gpx_data);hasGpx=Array.isArray(_p)&&_p.length>0;}}catch{}
     const hasActivity=!!r.strava_activity_id;
-    const rJson=JSON.stringify(r).replace(/'/g,"\\'");
 
     // Smart buttons based on state
     let buttons='';
     if(!past){
-      buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare">${hasGpx?icon('map',14)+' Voir stratégie':icon('map',14)+' Préparer'}</button>`;
+      buttons+=`<button onclick="prepareRace('${r.id}')" class="btn-prepare">${hasGpx?icon('map',14)+' Voir stratégie':icon('map',14)+' Préparer'}</button>`;
     } else {
       if(hasGpx){
-        buttons+=`<button onclick="prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">${icon('chart',14)} Voir stratégie</button>`;
+        buttons+=`<button onclick="prepareRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">${icon('chart',14)} Voir stratégie</button>`;
       } else {
-        buttons+=`<button onclick="importOrgGpx(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
+        buttons+=`<button onclick="importOrgGpx('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
       }
       if(hasActivity){
-        buttons+=`<button onclick="linkActivityFromRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
+        buttons+=`<button onclick="linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
       } else {
-        buttons+=`<button onclick="linkActivityFromRace(${JSON.stringify(r).replace(/"/g,'&quot;')})" class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
+        buttons+=`<button onclick="linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
       }
     }
 
     const linkedAct=hasActivity?VLState.allActivities.find(a=>String(a.id)===String(r.strava_activity_id)):null;
-    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace(${JSON.stringify(r).replace(/"/g,'&quot;')})`:'';
+    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace('${r.id}')`:'';
 
 
     return `<div class="race-item" style="cursor:${onCardClick?'pointer':'default'};transition:background .15s"
@@ -518,7 +517,11 @@ export async function deleteGpxFromRace() {
   showToast('GPX supprimé ✓', 'success');
 }
 
-export function importOrgGpx(race) {
+export function importOrgGpx(raceOrId) {
+  const race = (typeof raceOrId === 'string' || typeof raceOrId === 'number')
+    ? (VLState.races||[]).find(r => String(r.id) === String(raceOrId))
+    : raceOrId;
+  if (!race) return;
   // Create hidden file input and trigger click
   const input = document.createElement('input');
   input.type = 'file';
@@ -549,7 +552,11 @@ export function importOrgGpx(race) {
   input.click();
 }
 
-export async function linkActivityFromRace(race) {
+export async function linkActivityFromRace(raceOrId) {
+  const race = (typeof raceOrId === 'string' || typeof raceOrId === 'number')
+    ? (VLState.races||[]).find(r => String(r.id) === String(raceOrId))
+    : raceOrId;
+  if (!race) return;
   // Find activities close to race date (±3 days)
   const raceDate = new Date(race.date);
   const nearby = VLState.allActivities.filter(a => {
@@ -608,7 +615,11 @@ export async function confirmLinkActivity(raceId, raceName, actId, modal) {
   }
 }
 
-export function prepareRace(race) {
+export function prepareRace(raceOrId) {
+  const race = (typeof raceOrId === 'string' || typeof raceOrId === 'number')
+    ? (VLState.races||[]).find(r => String(r.id) === String(raceOrId))
+    : raceOrId;
+  if (!race) return;
   // Reset UI state, then restore context AFTER reset (resetStrategy clears it)
   resetStrategy();
   VLState.currentRaceContext = race;
