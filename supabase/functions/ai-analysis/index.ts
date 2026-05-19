@@ -2,8 +2,6 @@ Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin') || 'https://tounydata.github.io'
   const allowed = new Set([
     'https://tounydata.github.io',
-    'https://runner-os.com',
-    'https://www.runner-os.com',
     'http://localhost:5173',
     'http://localhost:4173',
   ])

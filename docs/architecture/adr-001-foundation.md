@@ -10,7 +10,7 @@
 
 Vorcelab is a personal running and trail analytics application. The current production baseline is still a static frontend built around `index.html`, `app.js`, `style.css`, `renfo.js`, Supabase Auth/Postgres/Edge Functions, and Strava OAuth.
 
-This document describes the current safe baseline after the multi-user and Strava security audit. It replaces older references to the temporary name “Runner OS”.
+This document describes the current safe baseline after the multi-user and Strava security audit.
 
 ---
 
