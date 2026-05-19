@@ -4,7 +4,6 @@ import { openAnalyse } from './activity-analysis.js';
 import { loadRenfoApp } from './renfo.js';
 import { isRun, fmtP, fmtD, fmtT, bC, deltaHTML, tE, tL, parseCsvDate } from './formatters.js';
 import { escapeHTML, escapeAttr, safeUrl } from './security.js';
-import { populateRaceSelector } from './race-strategy.js';
 import { renderNutritionProducts } from './nutrition.js';
 
 const REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/`;
