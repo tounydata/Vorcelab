@@ -1329,7 +1329,7 @@ function computePAF(act, weather) {
 // ════════════════════════════════════════════════════
 // LOCAL ACTIVITY ANALYSIS — NO EXTERNAL AI
 // ════════════════════════════════════════════════════
-async function generateAIAnalysis(act, streams, paf) {
+async function generateLocalActivitySummary(act, streams, paf) {
   const fcMax = userProfile.fc_max || FC_MAX_DEFAULT;
 
   const zones = [0, 0, 0, 0, 0];
@@ -1463,10 +1463,9 @@ async function openAnalyse(act) {
       ${act.kilojoules?`<div class="a-stat"><div class="a-sv">${Math.round(act.kilojoules*.239)}</div><div class="a-sl">kcal</div></div>`:''}
     </div>
 
-    <!-- AI ANALYSIS -->
-    <div class="ai-analysis" id="aiBox">
-      <div class="ai-header"><div class="ai-icon">📊</div><div class="ai-title"> Résumé des stat</div></div>
-      <div class="ai-loading"><div class="spinner"></div><div>Analyse en cours...</div></div>
+    <div class="stat-summary" id="summaryBox">
+      <div class="summary-header"><div class="summary-icon">📊</div><div class="summary-title">Résumé des stats</div></div>
+      <div class="summary-loading"><div class="spinner"></div><div>Calcul en cours...</div></div>
     </div>
 
     <!-- PAF -->
@@ -1533,10 +1532,10 @@ async function openAnalyse(act) {
   }
 
   // AI analysis async
-  const aiText = await generateAIAnalysis(act, streams, paf);
-  const aiBox = document.getElementById('aiBox');
-  if (aiBox) {
-    aiBox.innerHTML = `<div class="ai-header"><div class="ai-icon">📊</div><div class="ai-title">résumé Statistiques</div></div><div class="ai-text">${aiText}</div>`;
+  const aiText = await generateLocalActivitySummary(act, streams, paf);
+  const summaryBox = document.getElementById('summaryBox');
+  if (summaryBox) {
+    summaryBox.innerHTML = `<div class="summary-header"><div class="summary-icon">📊</div><div class="summary-title">résumé Statistiques</div></div><div class="summary-text">${aiText}</div>`;
   }
 }
 
@@ -1796,7 +1795,7 @@ async function renderRaceComparison(act, streams, race, targetId) {
   section.innerHTML=`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
-        <div class="clabel" style="margin:0">Comparaison prévu / réel — ${race.name}</div>
+        <div class="clabel" style="margin:0">Comparaison prévu / réel — ${escapeHTML(race.name)}</div>
         ${avgUpDiff!==null?`<div class="mono" style="font-size:.6rem;color:${Math.abs(avgUpDiff)<=10?'var(--green)':Math.abs(avgUpDiff)<=25?'var(--yellow)':'var(--red)'}">Montées : ${avgUpDiff>0?'+':''}${avgUpDiff}% vs prédictions</div>`:''}
       </div>
       <div style="overflow-x:auto">
@@ -1818,10 +1817,10 @@ async function renderRaceComparison(act, streams, race, targetId) {
     sb.from('profiles').upsert({id:currentUser.id,coeff_uphill:userProfile.coeff_uphill}).then(()=>{});
   }
 
- // Local race summary — no external AI
+
 if(validDiffs.length >= 2) {
-  const aiBox = document.createElement('div');
-  aiBox.className = 'ai-analysis mt2';
+  const summaryBox = document.createElement('div');
+  summaryBox.className = 'stat-summary mt2';
 
   const avgDiff = validDiffs.length
     ? Math.round(validDiffs.reduce((a, b) => a + b, 0) / validDiffs.length)
@@ -1846,22 +1845,22 @@ if(validDiffs.length >= 2) {
     ? `Plus gros écart : section ${worstSection.index + 1}, ${worstSection.diff > 0 ? '+' : ''}${worstSection.diff}% vs prévision.`
     : `Aucune section dominante détectée.`;
 
-  aiBox.innerHTML = `
-    <div class="ai-header">
-      <div class="ai-icon">📊</div>
-      <div class="ai-title">Analyse locale — Bilan de course</div>
+  summaryBox.innerHTML = `
+    <div class="summary-header">
+      <div class="summary-icon">📊</div>
+      <div class="summary-title">Bilan de course</div>
     </div>
-    <div class="ai-text">
+    <div class="summary-text">
       Écart global : ${avgDiff > 0 ? '+' : ''}${avgDiff}% vs algorithme.<br>
       ${upText ? upText + '<br>' : ''}
       ${downText ? downText + '<br>' : ''}
       ${flatText ? flatText + '<br>' : ''}
       ${worstText}<br>
-      Analyse générée localement dans Vorcelab, sans transmission à Groq ni à aucun service d'intelligence artificielle externe.
+      
     </div>
   `;
 
-  section.appendChild(aiBox);
+  section.appendChild(summaryBox);
 }
   }
 
@@ -2155,7 +2154,7 @@ async function linkActivityFromRace(race) {
   inner.style.cssText='background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:1.5rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto';
   inner.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-      <div style="font-family:var(--display);font-size:1.2rem">Lier à ${race.name}</div>
+      <div style="font-family:var(--display);font-size:1.2rem">Lier à ${escapeHTML(race.name)}</div>
       <button onclick="this.closest('[style*=fixed]').remove()" class="hbtn">✕</button>
     </div>
     <div class="mono t2" style="margin-bottom:1rem;font-size:.62rem">Activités Strava dans les 3 jours autour du ${new Date(race.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long'})}</div>
@@ -2163,8 +2162,8 @@ async function linkActivityFromRace(race) {
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .2s"
         onmouseover="this.style.borderColor='var(--purple)'"
         onmouseout="this.style.borderColor='var(--border)'"
-        onclick="confirmLinkActivity('${race.id}','${race.name}',${a.id},this.closest('[style*=fixed]'))">
-        <div style="font-weight:600;font-size:.85rem">${a.name}</div>
+        onclick="confirmLinkActivity('${escapeAttr(race.id)}','${escapeAttr(race.name)}',${Number(a.id)},this.closest('[style*=fixed]'))">
+        <div style="font-weight:600;font-size:.85rem">${escapeHTML(a.name)}</div>
         <div class="mono t2" style="font-size:.62rem;margin-top:3px">${new Date(a.start_date_local).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'})} · ${(a.distance/1000).toFixed(1)}km · ${fmtD(a.moving_time)} · +${a.total_elevation_gain||0}m</div>
       </div>`).join('')
     : `<div class="mono t3">Aucune activité trouvée dans les 3 jours autour de la course.<br><br>Vérifie que Strava est connecté et que l'activité est bien synchronisée.</div>`}`;
@@ -2277,7 +2276,7 @@ async function parseAndSaveCSV(text, statsEl) {
     <div class="hsr"><span class="t2">Distance totale</span><span class="mono">${totalKm.toFixed(0)} km</span></div>
     <div class="hsr"><span class="t2">D+ total</span><span class="mono">${totalDplus.toFixed(0)} m</span></div>
     <div class="hsr"><span class="t2">Période</span><span class="mono">${dates[0]?.split(' ')[0]||'?'} → ${dates[dates.length-1]?.split(' ')[0]||'?'}</span></div>
-    ${error?`<div style="color:var(--red);font-size:.7rem;margin-top:6px">Erreur sauvegarde : ${error.message}</div>`:`<div style="color:var(--green);font-family:var(--mono);font-size:.6rem;margin-top:6px">✓ Historique sauvegardé</div>`}`;
+    ${error?`<div style="color:var(--red);font-size:.7rem;margin-top:6px">Erreur sauvegarde : ${escapeHTML(String(error.message||error))}</div>`:`<div style="color:var(--green);font-family:var(--mono);font-size:.6rem;margin-top:6px">✓ Historique sauvegardé</div>`}`;
 
   // Update annual chart with history
   renderAnnualChart();
@@ -2501,7 +2500,7 @@ async function analyzeGPX(points, fname) {
   }
 
   res.innerHTML=`
-    ${!currentRaceContext?`<div style="font-family:var(--vl-display);font-size:2rem;letter-spacing:0.02em;line-height:0.9;text-transform:uppercase;margin-bottom:.25rem">${raceName}</div><div class="mlabel" style="color:var(--vl-text-3);margin-bottom:1.25rem">${raceDate}</div>`:''}
+    ${!currentRaceContext?`<div style="font-family:var(--vl-display);font-size:2rem;letter-spacing:0.02em;line-height:0.9;text-transform:uppercase;margin-bottom:.25rem">${escapeHTML(raceName)}</div><div class="mlabel" style="color:var(--vl-text-3);margin-bottom:1.25rem">${raceDate}</div>`:''}
 
     <!-- Stats strip -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:1px;background:var(--vl-line);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);overflow:hidden;margin-bottom:1rem">
@@ -2811,7 +2810,7 @@ const SURFACE_MAP={
   footway:{fr:'Sentier',emoji:'🥾',risk:'medium',col:'var(--yellow)'},
   bridleway:{fr:'Piste',emoji:'🥾',risk:'medium',col:'var(--yellow)'},
 };
-function surfaceInfo(k){return SURFACE_MAP[k]||{fr:k,emoji:'🌍',risk:'medium',col:'var(--text2)'};}
+function surfaceInfo(k){return SURFACE_MAP[k]||{fr:escapeHTML(k),emoji:'🌍',risk:'medium',col:'var(--text2)'};}
 
 function _ptSegDist(px,py,ax,ay,bx,by){
   const dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy;

@@ -111,7 +111,7 @@ input[type="date"],input[type="time"]{color-scheme:dark;-webkit-appearance:none;
 .mobile-header{display:none;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--vl-line);background:rgba(14,13,10,.94);backdrop-filter:blur(20px);position:sticky;top:0;z-index:200;}
 [data-light] .mobile-header{background:rgba(243,239,228,.95);}
 [data-light] .overlay{background:rgba(239,234,217,.95);}
-[data-light] .ai-analysis{background:rgba(229,86,42,.04);border-color:rgba(229,86,42,.2);}
+[data-light] .stat-summary{background:rgba(229,86,42,.04);border-color:rgba(229,86,42,.2);}
 [data-light] .dl{stroke:rgba(0,0,0,.15);}
 
 /* ── APP MAIN ── */
@@ -223,12 +223,12 @@ main{padding:1.5rem 2rem;max-width:1400px;}
 @media(max-width:768px){#analyseOverlay{left:0;}}
 
 /* ── AI ANALYSIS ── */
-.ai-analysis{background:color-mix(in oklab, var(--vl-ember) 5%, transparent);border:1px solid color-mix(in oklab, var(--vl-ember) 25%, transparent);border-radius:var(--vl-r);padding:1.25rem;margin-bottom:1.25rem;}
-.ai-header{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;}
-.ai-icon{font-size:1.2rem;}
-.ai-title{font-family:var(--vl-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.14em;color:var(--vl-ember);font-weight:600;}
-.ai-text{font-size:.82rem;line-height:1.7;color:var(--vl-text-2);}
-.ai-loading{display:flex;align-items:center;gap:8px;font-family:var(--vl-mono);font-size:10.5px;color:var(--vl-text-2);}
+.stat-summary{background:color-mix(in oklab, var(--vl-ember) 5%, transparent);border:1px solid color-mix(in oklab, var(--vl-ember) 25%, transparent);border-radius:var(--vl-r);padding:1.25rem;margin-bottom:1.25rem;}
+.summary-header{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;}
+.summary-icon{font-size:1.2rem;}
+.summary-title{font-family:var(--vl-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.14em;color:var(--vl-ember);font-weight:600;}
+.summary-text{font-size:.82rem;line-height:1.7;color:var(--vl-text-2);}
+.summary-loading{display:flex;align-items:center;gap:8px;font-family:var(--vl-mono);font-size:10.5px;color:var(--vl-text-2);}
 
 /* ── AUTOPSY STATS ── */
 .a-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:9px;margin-bottom:1.25rem;}
