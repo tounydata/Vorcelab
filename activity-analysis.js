@@ -14,9 +14,20 @@ export async function fetchStreams(activityId) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ activityId, keys: 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng' }),
     });
-    if (!r.ok) return {};
-    return r.json();
-  } catch { return {}; }
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      console.warn('[VL] fetchStreams HTTP', r.status, r.statusText, body);
+      return {};
+    }
+    const data = await r.json();
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+      console.warn('[VL] fetchStreams: réponse vide pour activité', activityId);
+    }
+    return data;
+  } catch(e) {
+    console.warn('[VL] fetchStreams exception:', e);
+    return {};
+  }
 }
 
 export async function fetchWeather(lat, lon, date) {
@@ -195,8 +206,20 @@ export async function openAnalyse(act) {
     </div>
 
     <div class="grid-2 mt2">
-      <div class="card"><div class="clabel">Profil altimétrique & FC</div><div class="chart-wrap" style="height:190px"><canvas id="apChart"></canvas></div></div>
-      <div class="card"><div class="clabel">Répartition zones FC</div><div class="chart-wrap" style="height:190px"><canvas id="azChart"></canvas></div></div>
+      <div class="card">
+        <div class="clabel">Profil altimétrique & FC</div>
+        ${cA.length
+          ? `<div class="chart-wrap" style="height:190px"><canvas id="apChart"></canvas></div>`
+          : `<div class="mono t3" style="font-size:.72rem;padding:.75rem 0">Profil altimétrique non disponible — données de stream Strava absentes pour cette activité.<br>Vérifier la connexion Strava ou consulter la console.</div>`
+        }
+      </div>
+      <div class="card">
+        <div class="clabel">Répartition zones FC</div>
+        ${hrD.length
+          ? `<div class="chart-wrap" style="height:190px"><canvas id="azChart"></canvas></div>`
+          : `<div class="mono t3" style="font-size:.72rem;padding:.75rem 0">Données FC non disponibles — cardiofréquencemètre absent ou stream Strava inaccessible.</div>`
+        }
+      </div>
     </div>
 
     ${(Array.isArray(llStream) && llStream.length>1) ? `<div class="card mt2"><div class="clabel">Carte du parcours</div><div id="actMap" style="height:300px;border-radius:8px;overflow:hidden;margin-top:8px"></div></div>` : ''}
