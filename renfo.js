@@ -1893,7 +1893,10 @@ export async function startRenfoSession(dayKey) {
         </div>
         ${def.variants.length > 1 ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="padding:4px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:6px;cursor:pointer;font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);touch-action:manipulation;flex-shrink:0">Variante</button>` : ''}
       </div>
-      <div data-sets-rpe style="font-size:.8rem;color:var(--vl-ember);font-weight:600">${exo.sets}×${exo.reps} · RPE cible ${exo.target_rpe} · Repos ${fmtRest(variant.rest_seconds||60)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div data-sets-rpe style="font-size:.8rem;color:var(--vl-ember);font-weight:600">${exo.sets}×${exo.reps} · RPE cible ${exo.target_rpe} · Repos ${fmtRest(variant.rest_seconds||60)}</div>
+        <button onclick="startRestTimer(${variant.rest_seconds||60})" style="padding:4px 10px;background:transparent;border:1px solid var(--vl-ember);border-radius:6px;cursor:pointer;font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-ember);touch-action:manipulation;flex-shrink:0">⏱ Repos</button>
+      </div>
       ${actionHtml}
       <button onclick="toggleExoDetail('${exo.exercise_id}')" style="margin-top:10px;background:none;border:none;cursor:pointer;font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">
         ${_ICON_CHEVRON} Comment faire
@@ -1959,7 +1962,7 @@ export function validateExoWithLoad(exerciseId, variantId, loadType) {
   showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad);
 }
 
-function startRestTimer(secs) {
+export function startRestTimer(secs) {
   clearInterval(window._renfoRestTimer);
   const existing = document.getElementById('renfoRestBar');
   if (existing) existing.remove();
