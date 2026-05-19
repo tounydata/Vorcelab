@@ -4,6 +4,7 @@ import { fetchStreams, renderRaceComparison } from './activity-analysis.js';
 import { escapeHTML, escapeAttr } from './security.js';
 import { fmtD } from './formatters.js';
 import { icon } from './icons.js';
+import { hav } from './gpx-core.js';
 
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
