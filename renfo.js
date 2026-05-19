@@ -20,7 +20,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Back squat',
     category: 'force_lourde',
     primary_muscles: ['quadriceps', 'fessiers'],
-    benefits: ['force_max', 'economie_course', 'prevention_blessure'],
+    benefits: ['force_max', 'economie_course', 'resilience'],
     variants: [
       {
         id: 'squat_barbell',
@@ -72,7 +72,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Romanian Deadlift (RDL)',
     category: 'force_lourde',
     primary_muscles: ['ischio-jambiers', 'fessiers', 'bas du dos'],
-    benefits: ['force_max', 'prevention_blessure', 'descente_trail'],
+    benefits: ['force_max', 'resilience', 'descente_trail'],
     variants: [
       {
         id: 'rdl_barbell',
@@ -134,7 +134,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Bulgarian Split Squat',
     category: 'force_lourde',
     primary_muscles: ['quadriceps', 'fessiers', 'ischio-jambiers'],
-    benefits: ['force_max', 'prevention_blessure', 'stabilite'],
+    benefits: ['force_max', 'resilience', 'stabilite'],
     variants: [
       {
         id: 'bulgare_barbell',
@@ -186,7 +186,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Calf raise (loaded)',
     category: 'force_lourde',
     primary_muscles: ['gastrocnémien', 'soléaire'],
-    benefits: ['force_max', 'prevention_blessure', 'economie_course'],
+    benefits: ['force_max', 'resilience', 'economie_course'],
     variants: [
       {
         id: 'mollets_smith',
@@ -241,7 +241,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Pogo jumps',
     category: 'pliometrie',
     primary_muscles: ['mollets', 'tendons d\'Achille'],
-    benefits: ['economie_course', 'prevention_blessure'],
+    benefits: ['economie_course', 'resilience'],
     variants: [
       {
         id: 'pogo_bilatéral',
@@ -383,7 +383,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Eccentric step down',
     category: 'excentrique',
     primary_muscles: ['quadriceps', 'genou'],
-    benefits: ['prevention_blessure', 'descente_trail', 'stabilite'],
+    benefits: ['resilience', 'descente_trail', 'stabilite'],
     variants: [
       {
         id: 'step_down_step',
@@ -418,7 +418,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Nordic hamstring curl',
     category: 'excentrique',
     primary_muscles: ['ischio-jambiers'],
-    benefits: ['prevention_blessure', 'descente_trail'],
+    benefits: ['resilience', 'descente_trail'],
     variants: [
       {
         id: 'nordic_ancre',
@@ -444,7 +444,7 @@ const RENFO_EXERCISES = {
     position: 'À genoux, chevilles bloquées sous une barre fixe, un banc ou tenues par un partenaire. Corps droit des genoux à la tête.',
     movement: 'Descendre le corps vers le sol le plus lentement possible (objectif 5-8s) en contractant les ischio-jambiers au maximum. Se laisser tomber quand impossible de tenir, amortir avec les mains. Remonter avec les mains en aidant.',
     common_errors: 'Trop de flexion de hanche (fesses qui partent en arrière). Descente trop rapide. Ne pas contracte activement les ischio.',
-    youtube_search: 'nordic curl ischio prévention blessure'
+    youtube_search: 'nordic curl ischio excentrique trail'
   },
 
   mollet_excentrique: {
@@ -453,7 +453,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Eccentric calf raise',
     category: 'excentrique',
     primary_muscles: ['gastrocnémien', 'soléaire', 'tendon d\'Achille'],
-    benefits: ['prevention_blessure', 'economie_course'],
+    benefits: ['resilience', 'economie_course'],
     variants: [
       {
         id: 'mollet_exc_step',
@@ -497,7 +497,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Single-leg RDL',
     category: 'excentrique',
     primary_muscles: ['ischio-jambiers', 'fessiers', 'stabilisateurs cheville'],
-    benefits: ['prevention_blessure', 'stabilite', 'descente_trail'],
+    benefits: ['resilience', 'stabilite', 'descente_trail'],
     variants: [
       {
         id: 'slrdl_haltere',
@@ -542,7 +542,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Pallof press (anti-rotation)',
     category: 'tronc',
     primary_muscles: ['obliques', 'transverse', 'fessiers'],
-    benefits: ['stabilite', 'prevention_blessure', 'economie_course'],
+    benefits: ['stabilite', 'resilience', 'economie_course'],
     variants: [
       {
         id: 'pallof_cable',
@@ -576,7 +576,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Side plank with hip drop',
     category: 'tronc',
     primary_muscles: ['obliques', 'abducteurs', 'fessier moyen'],
-    benefits: ['stabilite', 'prevention_blessure'],
+    benefits: ['stabilite', 'resilience'],
     variants: [
       {
         id: 'side_plank_genou',
@@ -645,7 +645,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Bird dog',
     category: 'tronc',
     primary_muscles: ['érecteurs spinaux', 'fessiers', 'épaules'],
-    benefits: ['stabilite', 'posture', 'prevention_blessure'],
+    benefits: ['stabilite', 'posture', 'resilience'],
     variants: [
       {
         id: 'bird_dog_standard',
@@ -670,7 +670,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Suitcase carry',
     category: 'tronc',
     primary_muscles: ['obliques', 'quadratus lumborum', 'trapèzes'],
-    benefits: ['stabilite', 'prevention_blessure', 'posture'],
+    benefits: ['stabilite', 'resilience', 'posture'],
     variants: [
       {
         id: 'suitcase_kb',
@@ -705,7 +705,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Pull-up / Bent-over row',
     category: 'haut_corps',
     primary_muscles: ['grand dorsal', 'biceps', 'rhomboïdes'],
-    benefits: ['posture', 'prevention_blessure'],
+    benefits: ['posture', 'resilience'],
     variants: [
       {
         id: 'tractions',
@@ -793,7 +793,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Face pull',
     category: 'haut_corps',
     primary_muscles: ['deltoïdes postérieurs', 'rhomboïdes', 'coiffe des rotateurs'],
-    benefits: ['posture', 'prevention_blessure'],
+    benefits: ['posture', 'resilience'],
     variants: [
       {
         id: 'face_pull_cable',
@@ -827,7 +827,7 @@ const RENFO_EXERCISES = {
     name_tech: 'YTW prone (scapular)',
     category: 'haut_corps',
     primary_muscles: ['trapèzes inférieurs', 'rhomboïdes', 'deltoïdes postérieurs'],
-    benefits: ['posture', 'prevention_blessure'],
+    benefits: ['posture', 'resilience'],
     variants: [
       {
         id: 'ytw_bw',
@@ -863,7 +863,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Hip 90/90 stretch',
     category: 'mobilite',
     primary_muscles: ['rotateurs de hanche', 'fléchisseurs de hanche'],
-    benefits: ['stabilite', 'prevention_blessure'],
+    benefits: ['stabilite', 'resilience'],
     variants: [
       {
         id: 'hip_9090_statique',
@@ -888,7 +888,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Active pigeon / Running pigeon',
     category: 'mobilite',
     primary_muscles: ['piriforme', 'fessiers', 'fléchisseurs de hanche'],
-    benefits: ['prevention_blessure', 'stabilite'],
+    benefits: ['resilience', 'stabilite'],
     variants: [
       {
         id: 'pigeon_sol',
@@ -903,7 +903,7 @@ const RENFO_EXERCISES = {
     ],
     position: 'Au sol. Jambe avant pliée devant vous (cuisse à 90°, tibia à 45°). Jambe arrière tendue derrière. Mains de chaque côté de la jambe avant.',
     movement: 'Contracte le fessier de la jambe avant (activation active). Chercher à redresser le buste sur la jambe avant. Alterner contraction/relâchement toutes les 5s.',
-    common_errors: 'Position passive sans activation musculaire. Tibia avant trop vertical (risque genou). Ne pas s\'écraser vers l\'avant.',
+    common_errors: 'Position passive sans activation musculaire. Tibia avant trop vertical (contrainte genou augmentée). Ne pas s\'écraser vers l\'avant.',
     youtube_search: 'pigeon actif mobilité hanche trail'
   },
 
@@ -913,7 +913,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Knee to wall',
     category: 'mobilite',
     primary_muscles: ['cheville', 'mollet', 'tendon Achille'],
-    benefits: ['prevention_blessure', 'economie_course'],
+    benefits: ['resilience', 'economie_course'],
     variants: [
       {
         id: 'ktw_mur',
@@ -938,7 +938,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Open book',
     category: 'mobilite',
     primary_muscles: ['thoracique', 'pectoraux', 'épaules'],
-    benefits: ['posture', 'prevention_blessure'],
+    benefits: ['posture', 'resilience'],
     variants: [
       {
         id: 'open_book_sol',
@@ -963,7 +963,7 @@ const RENFO_EXERCISES = {
     name_tech: 'Monster walk',
     category: 'mobilite',
     primary_muscles: ['fessier moyen', 'abducteurs', 'stabilisateurs genou'],
-    benefits: ['prevention_blessure', 'stabilite'],
+    benefits: ['resilience', 'stabilite'],
     variants: [
       {
         id: 'monster_bande',
