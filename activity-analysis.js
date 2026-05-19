@@ -1,7 +1,8 @@
 import { VLState, sb, SUPA_URL, FC_MAX_DEFAULT } from './app-state.js';
 import { isRun, fmtD, fmtP, fmtT } from './formatters.js';
-import { escapeHTML } from './security.js';
+import { escapeHTML, escapeAttr } from './security.js';
 import { hav, buildDetailedSections, minettiGradePenalty } from './gpx-core.js';
+import { icon } from './icons.js';
 
 export async function fetchStreams(activityId) {
   // Proxy via edge function — never exposes Strava token to browser
@@ -30,12 +31,12 @@ export async function fetchWeather(lat, lon, date) {
 export function computePAF(act, weather) {
   const fcMax=VLState.userProfile.fc_max||FC_MAX_DEFAULT;
   let factors=[],totalAdj=0;
-  if(weather?.temp!=null){const a=Math.max(0,(weather.temp-10)*0.008);totalAdj+=a;factors.push({icon:weather.temp>25?'🌡️':weather.temp<5?'❄️':'🌤️',label:'Température',value:`${weather.temp.toFixed(1)}°C`,adj:a>0.005?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.02?'var(--red)':a>0.01?'var(--orange)':'var(--green)'});}
-  if(weather?.precip!=null){const a=weather.precip>5?0.03:weather.precip>1?0.02:weather.precip>0.1?0.01:0;totalAdj+=a;factors.push({icon:weather.precip>1?'🌧️':'☀️',label:'Pluie',value:`${weather.precip.toFixed(1)}mm`,adj:a>0?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.01?'var(--orange)':'var(--green)'});}
-  if(weather?.wind!=null){const a=weather.wind>30?0.04:weather.wind>20?0.03:weather.wind>10?0.015:0.003;totalAdj+=a;factors.push({icon:weather.wind>20?'💨':'🌬️',label:'Vent',value:`${weather.wind.toFixed(0)}km/h`,adj:`+${(a*100).toFixed(1)}%`,color:a>0.02?'var(--orange)':'var(--green)'});}
-  const dp=act.total_elevation_gain||0,dk=(act.distance||1)/1000,ga=Math.min(0.45,dp/(dk*1000)*5.5);totalAdj+=ga;factors.push({icon:'⛰️',label:'Dénivelé',value:`+${dp}m`,adj:`+${(ga*100).toFixed(1)}%`,color:ga>0.15?'var(--orange)':'var(--yellow)'});
-  const h=parseInt(act.start_date_local?.split('T')[1]?.split(':')[0]||12);if(h<6||h>20){totalAdj+=0.02;factors.push({icon:'🌙',label:'Nuit',value:`${h}h`,adj:'+2%',color:'var(--purple)'});}
-  if(act.type==='TrailRun'){totalAdj+=0.08;factors.push({icon:'🥾',label:'Trail',value:'Terrain',adj:'+8%',color:'var(--orange)'});}
+  if(weather?.temp!=null){const a=Math.max(0,(weather.temp-10)*0.008);totalAdj+=a;factors.push({icon:icon('weather',14),label:'Température',value:`${weather.temp.toFixed(1)}°C`,adj:a>0.005?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.02?'var(--red)':a>0.01?'var(--orange)':'var(--green)'});}
+  if(weather?.precip!=null){const a=weather.precip>5?0.03:weather.precip>1?0.02:weather.precip>0.1?0.01:0;totalAdj+=a;factors.push({icon:icon('rain',14),label:'Pluie',value:`${weather.precip.toFixed(1)}mm`,adj:a>0?`+${(a*100).toFixed(1)}%`:'~0%',color:a>0.01?'var(--orange)':'var(--green)'});}
+  if(weather?.wind!=null){const a=weather.wind>30?0.04:weather.wind>20?0.03:weather.wind>10?0.015:0.003;totalAdj+=a;factors.push({icon:icon('wind',14),label:'Vent',value:`${weather.wind.toFixed(0)}km/h`,adj:`+${(a*100).toFixed(1)}%`,color:a>0.02?'var(--orange)':'var(--green)'});}
+  const dp=act.total_elevation_gain||0,dk=(act.distance||1)/1000,ga=Math.min(0.45,dp/(dk*1000)*5.5);totalAdj+=ga;factors.push({icon:icon('elevation',14),label:'Dénivelé',value:`+${dp}m`,adj:`+${(ga*100).toFixed(1)}%`,color:ga>0.15?'var(--orange)':'var(--yellow)'});
+  const h=parseInt(act.start_date_local?.split('T')[1]?.split(':')[0]||12);if(h<6||h>20){totalAdj+=0.02;factors.push({icon:icon('moon',14),label:'Nuit',value:`${h}h`,adj:'+2%',color:'var(--purple)'});}
+  if(act.type==='TrailRun'){totalAdj+=0.08;factors.push({icon:icon('terrain',14),label:'Trail',value:'Terrain',adj:'+8%',color:'var(--orange)'});}
   const raw=act.average_speed>0?1000/act.average_speed:0,norm=raw/(1+totalAdj),nm=Math.floor(norm/60),ns=Math.round(norm%60);
   return {factors,totalAdj,paceNorm:`${nm}:${String(ns).padStart(2,'0')}`};
 }
@@ -159,7 +160,7 @@ export async function openAnalyse(act) {
       <button class="hbtn" onclick="closeAnalyse()">← Fermer</button>
       <div style="flex:1">
         <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${escapeHTML(act.name)}</div>
-        <div class="mono t2">${dateStr} · ${act.type==='TrailRun'?'⛰️ Trail':'🏃 Route'}</div>
+        <div class="mono t2" style="display:flex;align-items:center;gap:5px">${dateStr} · ${act.type==='TrailRun'?icon('trail',13):icon('run',13)} ${act.type==='TrailRun'?'Trail':'Route'}</div>
       </div>
       <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Lier à un événement</button>
     </div>
@@ -185,7 +186,7 @@ export async function openAnalyse(act) {
     <!-- PAF -->
     <div class="paf-widget">
       <div style="font-family:var(--display);font-size:1.05rem;letter-spacing:.03em;margin-bottom:10px">Performance Adjustment Factor</div>
-      <div class="paf-factors">${paf.factors.map(f=>`<div class="paf-factor"><span style="font-size:.95rem">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
+      <div class="paf-factors">${paf.factors.map(f=>`<div class="paf-factor"><span style="display:flex;align-items:center;flex-shrink:0">${f.icon}</span><div><div style="font-size:.7rem;font-weight:600">${f.label}</div><div style="font-size:.62rem;color:var(--text2)">${f.value}</div></div><div style="font-family:var(--mono);font-size:.7rem;font-weight:500;color:${f.color}">${f.adj}</div></div>`).join('')}</div>
       <div class="paf-result">
         <div><div class="mono" style="font-size:.56rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Allure normalisée (indicatif)</div><div style="font-family:var(--display);font-size:1.4rem;color:var(--text2)">${paf.paceNorm}/km</div></div>
         <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Pénalité conditions : <strong>+${(paf.totalAdj*100).toFixed(0)}%</strong></div>

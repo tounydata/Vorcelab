@@ -14,6 +14,7 @@ import {
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
+  loadRaces,
 } from './race-calendar.js';
 import { openAnalyse, closeAnalyse, raceMenuLinkActivity } from './activity-analysis.js';
 import { handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy } from './race-strategy.js';
@@ -34,6 +35,7 @@ window.Vorcelab = {
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
+  loadRaces,
   openAnalyse, closeAnalyse, raceMenuLinkActivity,
   handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy,
   saveNutritionProducts, filterNutrBrand,
