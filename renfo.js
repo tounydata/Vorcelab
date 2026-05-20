@@ -3,7 +3,11 @@
 // ============================================================
 
 import { VLState, sb } from './app-state.js';
-import { getExerciseGifUrl } from './exercise-media.js';
+
+// URL canonique définie dans exercise-media.js — dupliquée ici pour éviter
+// une dépendance de module qui casse le rendu sur certains navigateurs mobiles.
+const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
+function getExerciseGifUrl(id) { return `${_SUPA_EXO}/${id}/demo.gif`; }
 
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
 
