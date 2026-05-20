@@ -1,6 +1,6 @@
 import { VLState, sb, SUPA_URL, CLIENT_ID, FC_MAX_DEFAULT, RUNNING_TYPES } from './app-state.js';
 import { renderCalendar, loadRaces } from './race-calendar.js';
-import { openAnalyse, autoCalibrate } from './activity-analysis.js';
+import { openAnalyse, autoCalibrate, fetchStreams } from './activity-analysis.js';
 import { loadRenfoApp, preloadRenfoState } from './renfo.js';
 import { isRun, fmtP, fmtD, fmtT, bC, deltaHTML, tE, tL, parseCsvDate } from './formatters.js';
 import { escapeHTML, escapeAttr, safeUrl } from './security.js';
