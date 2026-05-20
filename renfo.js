@@ -3,6 +3,7 @@
 // ============================================================
 
 import { VLState, sb } from './app-state.js';
+import { getExerciseGifUrl } from './exercise-media.js';
 
 // URL canonique définie dans exercise-media.js — dupliquée ici pour éviter
 // une dépendance de module qui casse le rendu sur certains navigateurs mobiles.
