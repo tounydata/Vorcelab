@@ -5,7 +5,8 @@
 import { VLState, sb } from './app-state.js';
 
 const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-function getExerciseGifUrl(id) { return `${_SUPA_EXO}/${id}/demo.gif`; }
+const _GIF_REMOVED = new Set(['box_jump','rdl','bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','suitcase_carry','core_rotation']);
+function getExerciseGifUrl(id) { return _GIF_REMOVED.has(id) ? null : `${_SUPA_EXO}/${id}/demo.gif`; }
 
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
 
@@ -2156,7 +2157,7 @@ function _renderSessionExo() {
           ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
-      <div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exo.exercise_id)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+      ${(g=>g?`<div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${g}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>`:``)(getExerciseGifUrl(exo.exercise_id))}
     </div>
 
     <div style="display:flex;gap:24px;margin-bottom:18px">
@@ -2945,7 +2946,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>
+    ${(g=>g?`<div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${g}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>`:``)(getExerciseGifUrl(exoId))}
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
