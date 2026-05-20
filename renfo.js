@@ -5,6 +5,11 @@
 import { VLState, sb } from './app-state.js';
 import { getExerciseGifUrl } from './exercise-media.js';
 
+// URL canonique définie dans exercise-media.js — dupliquée ici pour éviter
+// une dépendance de module qui casse le rendu sur certains navigateurs mobiles.
+const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
+function getExerciseGifUrl(id) { return `${_SUPA_EXO}/${id}/demo.gif`; }
+
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
 
 const RENFO_FOCUS_COLORS = {
@@ -2943,7 +2948,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);height:160px;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
