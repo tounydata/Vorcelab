@@ -1871,7 +1871,7 @@ export function renderRenfoHome() {
           </div>
           <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);margin-top:3px">CHARGE 30J · ${count30}/4</div>
         </div>
-        <div style="padding:8px 0;text-align:center;border:1.5px solid #7c3aed;border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:#7c3aed;margin-top:2px">▶ LANCER</div>
+        <div style="padding:8px 0;text-align:center;border:1.5px solid #7c3aed;border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:#7c3aed;margin-top:2px">LANCER</div>
       </div>`;
   }).join('');
 
@@ -1897,7 +1897,7 @@ export function renderRenfoHome() {
 
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--vl-bg2);border:1px solid #7c3aed30;border-radius:10px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <button onclick="showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:.8rem;font-weight:600;padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">📚 Bibliothèque d'exos →</button>
+        <button onclick="showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:.8rem;font-weight:600;padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">BIBLIOTHÈQUE D'EXOS →</button>
         <button onclick="showRenfoSettings()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:.8rem;padding:0;touch-action:manipulation">Réglages →</button>
       </div>
       <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);text-align:right">FICHES · CHARGES · HISTORIQUE PAR EXO</div>
@@ -1937,12 +1937,31 @@ export async function startRenfoSession(dayKey) {
     completedExos: {},
     suggestions,
   };
+  // Prevent same focus twice in same calendar week (except mobilité)
+  if (session.focus !== 'mobilite') {
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+    weekStart.setHours(0, 0, 0, 0);
+    const alreadyDone = renfoSessionLogs.some(l => {
+      const logFocus = renfoProgram?.week_schedule?.[l.day_key]?.focus || l.day_key;
+      return new Date(l.session_date) >= weekStart && logFocus === session.focus;
+    });
+    if (alreadyDone) {
+      showToast(`Séance ${session.label} déjà faite cette semaine — repose-toi.`, 'warning', 5000);
+      return;
+    }
+  }
+
   window._renfoSessionState = state;
   window._renfoSessionCompleted = state.completedExos;
   window._renfoSessionDayKey = dayKey;
 
-  // Show warmup screen before first exercise
-  _renderSessionWarmup();
+  // Mobilité : pas d'échauffement
+  if (session.focus === 'mobilite') {
+    _renderSessionExo();
+  } else {
+    _renderSessionWarmup();
+  }
 }
 
 function _renderSessionWarmup() {
@@ -2129,6 +2148,12 @@ function _serieComplete() {
   const exo = state.session.exercises[state.exoIdx];
   if (!exo) return;
 
+  // Pre-warm AudioContext within user gesture (required on iOS)
+  if (!window._renfoAudioCtx) {
+    try { window._renfoAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  window._renfoAudioCtx?.resume?.();
+
   const isLastSerie = state.serieIdx >= exo.sets - 1;
   const isLastExo = state.exoIdx >= state.session.exercises.length - 1;
   const def = RENFO_EXERCISES[exo.exercise_id];
@@ -2209,15 +2234,20 @@ export function startRestTimer(secs, type = 'set', nextLabel = null) {
   const existing = document.getElementById('renfoRestOverlay');
   if (existing) existing.remove();
 
-  // WebAudio bip
-  function playBip(freq = 880, dur = 0.08) {
+  // WebAudio bip — shared context (iOS requires user-gesture to unlock)
+  function playBip(freq = 880, dur = 0.18) {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!window._renfoAudioCtx) {
+        window._renfoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = window._renfoAudioCtx;
+      if (ctx.state === 'suspended') ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
       osc.start(); osc.stop(ctx.currentTime + dur);
     } catch(e) {}
@@ -2808,7 +2838,7 @@ export function showRenfoLibraryExo(exoId) {
           <div style="font-size:.78rem;color:var(--vl-text-2);line-height:1.5">${def.common_errors}</div>
         </div>` : ''}
         <div class="card" style="padding:10px;text-align:center">
-          <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);font-style:italic">ⓘ fiche consultable · pour lancer cet exo, démarre une séance qui le contient</div>
+          <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);font-style:italic">Fiche consultable uniquement — lance une séance pour faire cet exercice</div>
         </div>
       </div>
     </div>
