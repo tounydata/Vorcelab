@@ -23,7 +23,9 @@ GITHUB_RAW = 'https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/as
 
 # ── Mapping Vorcelab ID → exercises-gifs ID ────────────────────────────────
 # Source : github.com/omercotkd/exercises-gifs (open source)
-# 28 exercices matchés / 38 ; 10 sans équivalent dans ce dataset (None)
+# 30 exercices matchés / 38 ; 8 sans équivalent dans ce dataset (None)
+# Absents : tibialis_raise, pogo_jumps, pigeon_actif, knee_to_wall,
+#           bird_dog, copenhagen_plank, open_book, ytw_prone
 MAPPING = {
     # ── FORCE LOURDE ──────────────────────────────────────────────────────
     "squat_lourd":              "0043",   # barbell full squat
@@ -47,9 +49,9 @@ MAPPING = {
     "mollet_excentrique":       "0727",   # single leg calf raise (on a dumbbell)
     "single_leg_rdl":           "1757",   # dumbbell single leg deadlift
     "tibialis_raise":           None,     # absent du dataset
-    "reverse_nordic":           None,     # absent du dataset
+    "reverse_nordic":           "1489",   # sissy squat (même travail excentrique quad)
     "single_leg_glute_bridge":  "3561",   # glute bridge march
-    "wall_sit":                 None,     # absent du dataset
+    "wall_sit":                 "0624",   # march sit (wall)
 
     # ── TRONC ─────────────────────────────────────────────────────────────
     "pallof_press":             "0979",   # band horizontal pallof press
