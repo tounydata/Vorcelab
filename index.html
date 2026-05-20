@@ -39,6 +39,13 @@
   <div class="splash-wordmark">VORCELAB</div>
   <div class="splash-tagline">Le laboratoire du coureur</div>
 </div>
+<script>
+  // Failsafe : supprime le splash même si un module JS échoue à charger
+  setTimeout(function(){
+    var s = document.getElementById('splashScreen');
+    if(s){ s.style.transition='opacity .4s'; s.style.opacity='0'; setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 420); }
+  }, 4000);
+</script>
 
 <!-- ══ AUTH ══ -->
 
