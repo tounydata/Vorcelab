@@ -23,9 +23,16 @@ GITHUB_RAW = 'https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/as
 
 # ── Mapping Vorcelab ID → exercises-gifs ID ────────────────────────────────
 # Source : github.com/omercotkd/exercises-gifs (open source)
-# 30 exercices matchés / 38 ; 8 sans équivalent dans ce dataset (None)
-# Absents : tibialis_raise, pogo_jumps, pigeon_actif, knee_to_wall,
-#           bird_dog, copenhagen_plank, open_book, ytw_prone
+# 34 exercices matchés / 38 ; 4 placeholder (pas de bon équivalent)
+# Placeholder : tibialis_raise, pogo_jumps, bird_dog, ytw_prone
+#
+# Confidence des matchs approximatifs :
+#   high   : copenhagen_plank → side plank hip adduction
+#   medium : reverse_nordic → sissy squat
+#   medium : wall_sit → march sit (wall)
+#   medium : pigeon_actif → seated piriformis stretch
+#   medium : knee_to_wall → calf push stretch with hands against wall
+#   medium : open_book → spine twist
 MAPPING = {
     # ── FORCE LOURDE ──────────────────────────────────────────────────────
     "squat_lourd":              "0043",   # barbell full squat
@@ -36,7 +43,7 @@ MAPPING = {
     "lunge_marcheur":           "1460",   # walking lunge ✓
 
     # ── PLIOMÉTRIE ────────────────────────────────────────────────────────
-    "pogo_jumps":               None,     # absent du dataset
+    "pogo_jumps":               None,     # placeholder — pas de vrai pogo dans le dataset
     "bondissements":            "1472",   # forward jump
     "drop_jumps":               "3543",   # bodyweight drop jump squat
     "skips":                    "3636",   # high knee against wall
@@ -48,31 +55,31 @@ MAPPING = {
     "nordic":                   "0496",   # inverse leg curl (bench support)
     "mollet_excentrique":       "0727",   # single leg calf raise (on a dumbbell)
     "single_leg_rdl":           "1757",   # dumbbell single leg deadlift
-    "tibialis_raise":           None,     # absent du dataset
-    "reverse_nordic":           "1489",   # sissy squat (même travail excentrique quad)
+    "tibialis_raise":           None,     # placeholder — pas de tibialis raise dans le dataset
+    "reverse_nordic":           "1489",   # [medium] sissy squat
     "single_leg_glute_bridge":  "3561",   # glute bridge march
-    "wall_sit":                 "0624",   # march sit (wall)
+    "wall_sit":                 "0624",   # [medium] march sit (wall)
 
     # ── TRONC ─────────────────────────────────────────────────────────────
     "pallof_press":             "0979",   # band horizontal pallof press
     "side_plank_hipdrop":       "1775",   # side plank hip adduction
     "dead_bug":                 "0276",   # dead bug ✓
-    "bird_dog":                 None,     # absent du dataset
+    "bird_dog":                 None,     # placeholder — pas de vrai bird dog dans le dataset
     "suitcase_carry":           "2133",   # farmers walk ✓
-    "copenhagen_plank":         None,     # absent du dataset
+    "copenhagen_plank":         "1775",   # [high] side plank hip adduction
     "core_rotation":            "0687",   # russian twist ✓
 
     # ── HAUT DU CORPS ─────────────────────────────────────────────────────
     "tractions_or_row":         "0652",   # pull-up ✓
     "pompes":                   "0662",   # push-up ✓
     "face_pull":                "0203",   # cable rear delt row (with rope)
-    "ytw_prone":                None,     # absent du dataset
+    "ytw_prone":                None,     # placeholder — raises dispo ne montrent pas le YTW complet
 
     # ── MOBILITÉ ──────────────────────────────────────────────────────────
     "hip_9090":                 "0996",   # band seated hip internal rotation
-    "pigeon_actif":             None,     # absent du dataset
-    "knee_to_wall":             None,     # absent du dataset
-    "open_book":                None,     # absent du dataset
+    "pigeon_actif":             "2567",   # [medium] seated piriformis stretch
+    "knee_to_wall":             "1407",   # [medium] calf push stretch with hands against wall
+    "open_book":                "2329",   # [medium] spine twist
     "monster_walk":             "0628",   # monster walk ✓
     "hip_abduction":            "0710",   # side hip abduction ✓
     "cossack_squat":            "3643",   # weighted cossack squats ✓
