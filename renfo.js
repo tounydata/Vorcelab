@@ -5,7 +5,7 @@
 import { VLState, sb } from './app-state.js';
 
 const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-const _GIF_REMOVED = new Set(['rdl','bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book']);
+const _GIF_REMOVED = new Set(['bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book']);
 function getExerciseGifUrl(id) { return _GIF_REMOVED.has(id) ? null : `${_SUPA_EXO}/${id}/demo.gif`; }
 
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
