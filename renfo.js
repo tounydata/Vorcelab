@@ -2943,7 +2943,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);height:160px;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
