@@ -397,6 +397,7 @@ async function loadProfile() {
     if (data.name) { document.getElementById('headerName').textContent = data.name; const hm=document.getElementById('headerNameMobile'); if(hm) hm.textContent=data.name; }
     if (data.avatar_url) updateAvatar(data.avatar_url);
     if (data.nutrition_products) VLState.userProfile.nutrition_products = data.nutrition_products;
+    if (data.nutrition_level) { VLState.userProfile.nutrition_level = data.nutrition_level; set('nutr-level', data.nutrition_level); }
     if (data.prs) {
       const p = data.prs; VLState.userProfile.prs = p;
       const sp = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };

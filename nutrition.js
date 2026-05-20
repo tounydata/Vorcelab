@@ -219,10 +219,12 @@ export function filterNutrBrand(type, brand) {
 
 export async function saveNutritionProducts() {
   const checked = [...document.querySelectorAll('input[data-nutr]:checked')].map(i=>i.dataset.nutr);
+  const level = document.getElementById('nutr-level')?.value || 'standard';
   VLState.userProfile.nutrition_products = checked;
+  VLState.userProfile.nutrition_level = level;
   const msg = document.getElementById('nutrSaveMsg');
-  const {error} = await sb.from('profiles').upsert({id:VLState.currentUser.id, nutrition_products: checked});
+  const {error} = await sb.from('profiles').upsert({id:VLState.currentUser.id, nutrition_products: checked, nutrition_level: level});
   if(error){msg.textContent='❌ Erreur';msg.style.color='var(--red)';}
-  else{msg.textContent=`✓ ${checked.length} produit(s) sauvegardé(s)`;msg.style.color='var(--green)';setTimeout(()=>msg.textContent='',3000);}
+  else{msg.textContent=`✓ Sauvegardé (${checked.length} produit(s) · profil ${level})`;msg.style.color='var(--green)';setTimeout(()=>msg.textContent='',3000);}
 }
 
