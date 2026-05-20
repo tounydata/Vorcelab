@@ -37,12 +37,12 @@ function vDensity(a) {
   return km > 0 ? (a.total_elevation_gain || 0) / km : 0;
 }
 
-// Allure normalisée — correction linéaire grossière du dénivelé
-// ~4 s/km per 10 m/km D+ pour rendre comparables sorties plates et vallonnées
+// Allure normalisée — correction dénivelé calibrée sur données trail réelles
+// ~6 s/km per 10 m/km D+ (0.004 sous-estimait de ~2× à partir de 30 m/km)
 function normPace(a) {
   const p = paceS(a);
   if (!p) return null;
-  return p / (1 + vDensity(a) * 0.004);
+  return p / (1 + vDensity(a) * 0.006);
 }
 
 // ─── MÉTÉO ARCHIVE AVEC CACHE ──────────────────────────────────────────────────
@@ -187,7 +187,7 @@ function _heatSensitivity(actsW, fcMax) {
   const avgOpt = optimal.reduce((s, a) => s + normPace(a), 0) / optimal.length;
   const avgHot = hotAll.reduce((s, a)  => s + normPace(a), 0) / hotAll.length;
   const avgT   = hotAll.reduce((s, a)  => s + a.w.temp,   0) / hotAll.length;
-  const dT     = Math.max(1, avgT - 16);
+  const dT     = Math.max(1, avgT - 15); // référence = borne haute de la zone optimale [8-15°C]
   const pDelta = (avgHot - avgOpt) / avgOpt;
   const pen10C = pDelta > 0 ? (pDelta / dT) * 10 : 0;
 

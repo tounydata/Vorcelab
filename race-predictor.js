@@ -8,7 +8,8 @@ import { FC_MAX_DEFAULT } from './app-state.js';
 
 // ─── FRAÎCHEUR ────────────────────────────────────────────────────────────────
 // Multiplicateur sur le temps de course basé sur la charge récente.
-// Prudent : plafonnés à ±4% max, appliqués uniquement si données suffisantes.
+// Seuils alignés sur Gabbett 2016 (cohérents avec getLoadStatus de training-load.js).
+// Plafonnés à ±4% — prudent, l'effet réel peut dépasser mais on ne surprédit pas.
 
 export function computeFreshnessAdjustment(activities, fcMax) {
   const load = computeTrainingLoad(activities, fcMax || FC_MAX_DEFAULT);
@@ -16,9 +17,9 @@ export function computeFreshnessAdjustment(activities, fcMax) {
     return { multiplier: 1, label: null };
 
   const r = load.ratio;
-  if (r > 1.40) return { multiplier: 1.04, label: 'surcharge', loadStatus: 'overload' };
-  if (r > 1.25) return { multiplier: 1.02, label: 'fatigue',   loadStatus: 'elevated' };
-  if (r < 0.60) return { multiplier: 0.99, label: 'fraîcheur', loadStatus: 'recovery' };
+  if (r > 1.50) return { multiplier: 1.04, label: 'surcharge', loadStatus: 'overload' };
+  if (r > 1.30) return { multiplier: 1.02, label: 'fatigue',   loadStatus: 'elevated' };
+  if (r < 0.80) return { multiplier: 0.99, label: 'fraîcheur', loadStatus: 'recovery' };
   return { multiplier: 1, label: null, loadStatus: 'stable' };
 }
 
