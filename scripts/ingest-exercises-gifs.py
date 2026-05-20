@@ -72,15 +72,15 @@ MAPPING = {
     # ── HAUT DU CORPS ─────────────────────────────────────────────────────
     "tractions_or_row":         "0652",   # pull-up ✓
     "pompes":                   "0662",   # push-up ✓
-    "face_pull":                "0203",   # cable rear delt row (with rope)
+    "face_pull":                None,     # retiré — GIF incorrect
     "ytw_prone":                None,     # placeholder — raises dispo ne montrent pas le YTW complet
 
     # ── MOBILITÉ ──────────────────────────────────────────────────────────
-    "hip_9090":                 "0996",   # band seated hip internal rotation
+    "hip_9090":                 None,     # retiré — GIF incorrect
     "pigeon_actif":             "2567",   # [medium] seated piriformis stretch
-    "knee_to_wall":             "1407",   # [medium] calf push stretch with hands against wall
-    "open_book":                "2329",   # [medium] spine twist
-    "monster_walk":             "0628",   # monster walk ✓
+    "knee_to_wall":             None,     # retiré — GIF incorrect
+    "open_book":                None,     # retiré — GIF incorrect
+    "monster_walk":             None,     # retiré — GIF incorrect
     "hip_abduction":            "0710",   # side hip abduction ✓
     "cossack_squat":            "3643",   # weighted cossack squats ✓
 }
