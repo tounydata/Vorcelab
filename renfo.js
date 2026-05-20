@@ -1750,7 +1750,7 @@ export function openRenfoSessionActions(dayKey) {
     <div style="font-family:var(--vl-display);font-size:1.1rem;font-weight:700;margin-bottom:4px">${session.label}</div>
     <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:20px">Déjà validée cette semaine</div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button onclick="startRenfoSession('${dayKey}');document.getElementById('renfoSessionActions')?.remove()" style="width:100%;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">Refaire cette séance</button>
+      <button onclick="startRenfoSession('${dayKey}');document.getElementById('renfoSessionActions')?.remove()" style="width:100%;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">Refaire cette séance</button>
       <button onclick="cancelRenfoSession('${dayKey}')" style="width:100%;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler la validation</button>
       <button onclick="document.getElementById('renfoSessionActions').remove()" style="width:100%;padding:11px;background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.7rem;touch-action:manipulation">Fermer</button>
     </div>
@@ -1854,9 +1854,8 @@ export function renderRenfoHome() {
     const dur = renfoProfile?.sessions_per_week >= 5 ? meta.duration_short : meta.duration_min;
     const count30 = focusCount30[f.key] || 0;
     const chargePct = Math.min(100, count30 / 4 * 100);
-    const col = VLState.RENFO_FOCUS_COLORS[f.key] || 'var(--vl-ember)';
     return `
-      <div onclick="startRenfoSession('${dayKey}')" style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid ${col}40;border-radius:12px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s" onmouseover="this.style.borderColor='${col}'" onmouseout="this.style.borderColor='${col}40'">
+      <div onclick="startRenfoSession('${dayKey}')" style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid #7c3aed40;border-radius:12px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#7c3aed40'">
         <div>
           <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700;line-height:1.1">${meta.label}</div>
           <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:3px">${f.sub}</div>
@@ -1868,11 +1867,11 @@ export function renderRenfoHome() {
         </div>
         <div>
           <div style="height:4px;background:var(--vl-bg);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${chargePct}%;background:${col};border-radius:2px;transition:width .4s"></div>
+            <div style="height:100%;width:${chargePct}%;background:#7c3aed;border-radius:2px;transition:width .4s"></div>
           </div>
           <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);margin-top:3px">CHARGE 30J · ${count30}/4</div>
         </div>
-        <div style="padding:8px 0;text-align:center;border:1.5px solid ${col};border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:${col};margin-top:2px">▶ LANCER</div>
+        <div style="padding:8px 0;text-align:center;border:1.5px solid #7c3aed;border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:#7c3aed;margin-top:2px">▶ LANCER</div>
       </div>`;
   }).join('');
 
@@ -1896,13 +1895,12 @@ export function renderRenfoHome() {
       ${cards}
     </div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--vl-bg2);border:1px solid var(--vl-border);border-radius:10px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--vl-bg2);border:1px solid #7c3aed30;border-radius:10px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <button onclick="showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:var(--vl-text);font-size:.8rem;font-weight:600;padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">📚 Bibliothèque d'exos →</button>
-        <button onclick="showRenfoHistoryView()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:.8rem;padding:0;touch-action:manipulation">Charges &amp; historique →</button>
+        <button onclick="showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:#7c3aed;font-size:.8rem;font-weight:600;padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">📚 Bibliothèque d'exos →</button>
         <button onclick="showRenfoSettings()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-size:.8rem;padding:0;touch-action:manipulation">Réglages →</button>
       </div>
-      <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);text-align:right">FICHES TECHNIQUES · DÉMOS · TON HISTORIQUE SUR CHAQUE EXO</div>
+      <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);text-align:right">FICHES · CHARGES · HISTORIQUE PAR EXO</div>
     </div>
   </div>`;
 }
@@ -1963,7 +1961,7 @@ export async function startRenfoSession(dayKey) {
       </button>`;
     }
 
-    return `<div id="exo-card-${exo.exercise_id}" class="card" style="margin-bottom:10px;padding:14px">
+    return `<div id="exo-card-${exo.exercise_id}" class="card" style="margin-bottom:10px;padding:14px;border-color:#7c3aed40">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
         <div style="min-width:0">
           <div style="font-family:var(--vl-display);font-size:1.05rem;font-weight:700;margin-bottom:2px">${def.name_fr}</div>
@@ -1972,7 +1970,7 @@ export async function startRenfoSession(dayKey) {
         </div>
         ${def.variants.length > 1 ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="padding:4px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:6px;cursor:pointer;font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);touch-action:manipulation;flex-shrink:0">Variante</button>` : ''}
       </div>
-      <div data-sets-rpe style="font-size:.8rem;color:var(--vl-ember);font-weight:600">${exo.sets}×${exo.reps} · RPE cible ${exo.target_rpe}</div>
+      <div data-sets-rpe style="font-size:.8rem;color:#7c3aed;font-weight:600">${exo.sets}×${exo.reps} · RPE cible ${exo.target_rpe}</div>
       <div data-rest-info style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-top:3px">Entre séries : ${fmtRest(INTER_SET_REST[exo.exercise_id]||90)} · Repos suivant : ${fmtRest(variant.rest_seconds||90)}</div>
       ${actionHtml}
       <button onclick="toggleExoDetail('${exo.exercise_id}')" style="margin-top:10px;background:none;border:none;cursor:pointer;font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);padding:0;touch-action:manipulation;display:flex;align-items:center;gap:5px">
@@ -1981,7 +1979,7 @@ export async function startRenfoSession(dayKey) {
       <div id="exo-detail-${exo.exercise_id}" style="display:none;margin-top:10px;border-top:1px solid var(--vl-border);padding-top:10px">
         <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px"><strong style="color:var(--vl-text)">Position</strong><br>${def.position}</div>
         <div style="font-size:.75rem;color:var(--vl-text-2);margin-bottom:6px"><strong style="color:var(--vl-text)">Mouvement</strong><br>${def.movement}</div>
-        <div style="font-size:.75rem;color:var(--vl-ember);margin-bottom:8px"><strong>Erreurs fréquentes</strong><br>${def.common_errors}</div>
+        <div style="font-size:.75rem;color:#7c3aed;margin-bottom:8px"><strong>Erreurs fréquentes</strong><br>${def.common_errors}</div>
         <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(def.youtube_search)}" target="_blank" rel="noopener"
           style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.3);border-radius:7px;padding:6px 11px;font-family:var(--vl-mono);font-size:.6rem;color:#ff4444;text-decoration:none">${_ICON_PLAY} Rechercher sur YouTube</a>
       </div>
@@ -1992,18 +1990,18 @@ export async function startRenfoSession(dayKey) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
       <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;display:flex;align-items:center">${_ICON_ARROW_LEFT}</button>
       <div>
-        <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:${RENFO_FOCUS_COLORS[session.focus]||'var(--vl-ember)'}">
+        <div style="font-family:var(--vl-mono);font-size:.6rem;letter-spacing:.1em;color:#7c3aed">
           ${(session.focus||'').replace(/_/g,' ').toUpperCase()} · ~${session.duration_min} MIN
         </div>
         <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800;line-height:1.1">${session.label}</div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(229,86,42,.07);border-color:rgba(229,86,42,.2)">
-      <div style="font-family:var(--vl-mono);font-size:.65rem;color:var(--vl-ember);margin-bottom:4px">ÉCHAUFFEMENT (5–8 min)</div>
+    <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(124,58,237,.05);border-color:rgba(124,58,237,.2)">
+      <div style="font-family:var(--vl-mono);font-size:.65rem;color:#7c3aed;margin-bottom:4px">ÉCHAUFFEMENT (5–8 min)</div>
       <div style="font-size:.78rem;color:var(--vl-text-2)">Footing léger 3min → montées de genoux 30s → talons-fesses 30s → squat profond × 10 → rotation de buste × 10 de chaque côté</div>
     </div>
     ${exoRows}
-    <button onclick="openCompletionPicker('${dayKey}')" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;margin-top:6px;touch-action:manipulation">
+    <button onclick="openCompletionPicker('${dayKey}')" style="width:100%;padding:14px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;letter-spacing:.04em;margin-top:6px;touch-action:manipulation">
       TERMINER LA SÉANCE
     </button>
   </div>`;
@@ -2146,8 +2144,8 @@ function markExoChecked(exerciseId, variantId, loadType, loadKg, reps, rpe) {
   const btn = document.getElementById('chk-' + exerciseId);
   if (btn) {
     btn.dataset.checked = '1';
-    btn.style.borderColor = 'var(--vl-ember)';
-    btn.style.background = 'var(--vl-ember)';
+    btn.style.borderColor = '#7c3aed';
+    btn.style.background = '#7c3aed';
     btn.style.color = '#fff';
     btn.innerHTML = _ICON_CHECK;
     btn.style.display = 'flex';
@@ -2182,7 +2180,7 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
   const isWeighted = loadType === 'external_kg';
   const RPE_LABELS = ['','Repos','Très léger','Léger','Assez léger','Modéré','Difficile','Assez dur','Dur ✓','Très dur','Max'];
   const rpeRows = [1,2,3,4,5,6,7,8,9,10].map(r =>
-    `<button type="button" data-rpe="${r}" style="padding:10px 2px;border-radius:8px;border:1.5px solid;cursor:pointer;touch-action:manipulation;text-align:center;outline:none;border-color:${r===8?'var(--vl-ember)':'var(--vl-border)'};background:${r===8?'var(--vl-ember)':'transparent'};color:${r===8?'#fff':'var(--vl-text-2)'}">
+    `<button type="button" data-rpe="${r}" style="padding:10px 2px;border-radius:8px;border:1.5px solid;cursor:pointer;touch-action:manipulation;text-align:center;outline:none;border-color:${r===8?'#7c3aed':'var(--vl-border)'};background:${r===8?'#7c3aed':'transparent'};color:${r===8?'#fff':'var(--vl-text-2)'}">
       <div style="font-family:var(--vl-display);font-size:1.3rem;font-weight:800;line-height:1">${r}</div>
       <div style="font-family:var(--vl-mono);font-size:.4rem;margin-top:3px;line-height:1.2">${RPE_LABELS[r]}</div>
     </button>`
@@ -2212,7 +2210,7 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
     </div>
     <div style="display:flex;gap:10px;margin-top:22px">
       <button onclick="document.getElementById('renfoLogPopup').remove();markExoChecked('${exerciseId}','${variantId}','${loadType}',null,null,null)" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Passer</button>
-      <button onclick="submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
+      <button onclick="submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
     </div>
   </div>`;
 
@@ -2223,8 +2221,8 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
       document.getElementById('rlRpe').value = val;
       overlay.querySelectorAll('[data-rpe]').forEach(b => {
         const on = parseInt(b.dataset.rpe) === val;
-        b.style.background = on ? 'var(--vl-ember)' : 'transparent';
-        b.style.borderColor = on ? 'var(--vl-ember)' : 'var(--vl-border)';
+        b.style.background = on ? '#7c3aed' : 'transparent';
+        b.style.borderColor = on ? '#7c3aed' : 'var(--vl-border)';
         b.style.color = on ? '#fff' : 'var(--vl-text-2)';
       });
     });
@@ -2359,7 +2357,7 @@ export function openCompletionPicker(dayKey) {
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('renfoCompletionPicker').remove()" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler</button>
-      <button onclick="completeRenfoSession('${dayKey}',document.getElementById('sessionDatePicker').value)" style="flex:2;padding:13px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">CONFIRMER</button>
+      <button onclick="completeRenfoSession('${dayKey}',document.getElementById('sessionDatePicker').value)" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">CONFIRMER</button>
     </div>
   </div>`;
   overlay.addEventListener('click', () => overlay.remove());
@@ -2489,6 +2487,52 @@ export function showRenfoLibraryIndex() {
   const el = document.getElementById('renfoApp');
   if (!el) return;
 
+  // Charge 7j
+  const _today = new Date();
+  const _todayMs = _today.getTime();
+  const _last7 = renfoSessionLogs.filter(l => (_todayMs - new Date(l.session_date).getTime()) / 86400000 <= 7);
+  const _last7wf = _last7.map(l => ({
+    focus: renfoProgram?.week_schedule?.[l.day_key]?.focus || l.day_key || 'tronc',
+    duration_min: renfoProgram?.week_schedule?.[l.day_key]?.duration_min || FOCUS_META[l.day_key]?.duration_min || 30,
+  }));
+  const _loadScore = weeklyImpactScore(_last7wf);
+  const _loadPct = Math.min(100, _loadScore / 240 * 100).toFixed(1);
+  const _loadZone = weeklyImpactZone(_loadScore, renfoProfile?.objective_weight || 50);
+
+  // 5 dernières séances
+  const _last5 = [...renfoSessionLogs]
+    .sort((a, b) => b.session_date.localeCompare(a.session_date))
+    .slice(0, 5);
+  const _histRows = _last5.length === 0
+    ? `<div style="font-size:.78rem;color:var(--vl-text-2);padding:6px 0">Aucune séance enregistrée</div>`
+    : _last5.map((l, i) => {
+        const focus = renfoProgram?.week_schedule?.[l.day_key]?.focus || l.day_key || '—';
+        const label = FOCUS_META[focus]?.label || focus.replace(/_/g,' ');
+        const n = Object.keys(l.completed_exercises || {}).length;
+        const d = new Date(l.session_date);
+        const dateStr = d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' });
+        return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;${i < _last5.length-1 ? 'border-bottom:1px dashed var(--vl-border)' : ''}">
+          <div style="font-size:.78rem">${label}</div>
+          <div style="display:flex;gap:12px">
+            <span style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${n} exos</span>
+            <span style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${dateStr}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+  const _chargeSection = `
+    <div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);letter-spacing:.1em">CHARGE 7J</div>
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:${_loadZone.color}">${_loadZone.label} · ${_loadScore} unités</div>
+      </div>
+      <div style="height:5px;background:var(--vl-bg);border-radius:2px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${_loadPct}%;background:#7c3aed;border-radius:2px"></div>
+      </div>
+      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);letter-spacing:.1em;margin-bottom:6px">5 DERNIÈRES SÉANCES</div>
+      ${_histRows}
+    </div>`;
+
   const groups = [
     { key: 'pliometrie',  label: 'Pliométrie',       col: VLState.RENFO_FOCUS_COLORS.pliometrie },
     { key: 'force_lourde', label: 'Force lourde',     col: VLState.RENFO_FOCUS_COLORS.force_lourde },
@@ -2503,7 +2547,7 @@ export function showRenfoLibraryIndex() {
     const rows = exoIds.map(id => {
       const def = RENFO_EXERCISES[id];
       if (!def) return '';
-      return `<div onclick="showRenfoLibraryExo('${id}')" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--vl-border);cursor:pointer;touch-action:manipulation" onmouseover="this.style.color='var(--vl-ember)'" onmouseout="this.style.color=''">
+      return `<div onclick="showRenfoLibraryExo('${id}')" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--vl-border);cursor:pointer;touch-action:manipulation" onmouseover="this.style.color='#7c3aed'" onmouseout="this.style.color=''">
         <span style="font-size:.8rem">${def.name_fr}</span>
         <span style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${exoIds.indexOf(id)+1}/${exoIds.length}</span>
       </div>`;
@@ -2522,9 +2566,10 @@ export function showRenfoLibraryIndex() {
       <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;font-size:1.2rem">←</button>
       <div>
         <div style="font-family:var(--vl-display);font-size:1.6rem;font-weight:800;line-height:1">BIBLIOTHÈQUE D'EXERCICES</div>
-        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);font-style:italic;margin-top:2px">fiches techniques · ton historique sur chaque exo</div>
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);font-style:italic;margin-top:2px">fiches · charges · historique par exo</div>
       </div>
     </div>
+    ${_chargeSection}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
       ${groupCards}
     </div>
@@ -2541,7 +2586,7 @@ export function showRenfoLibraryExo(exoId) {
     return `<div style="display:flex;align-items:center;gap:8px">
       <div style="width:100px;font-size:.75rem;color:var(--vl-text-2)">${m}</div>
       <div style="flex:1;height:5px;background:var(--vl-bg);border-radius:2px">
-        <div style="height:100%;width:${pct}%;background:var(--vl-ember);border-radius:2px"></div>
+        <div style="height:100%;width:${pct}%;background:#7c3aed;border-radius:2px"></div>
       </div>
       <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);width:30px;text-align:right">${pct}%</div>
     </div>`;
@@ -2587,7 +2632,7 @@ export function showRenfoLibraryExo(exoId) {
           <div style="display:flex;flex-direction:column;gap:6px">${muscleRows}</div>
         </div>` : ''}
         ${def.common_errors ? `<div class="card" style="padding:12px">
-          <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-ember);margin-bottom:6px;letter-spacing:.1em">ERREURS FRÉQUENTES</div>
+          <div style="font-family:var(--vl-mono);font-size:.55rem;color:#7c3aed;margin-bottom:6px;letter-spacing:.1em">ERREURS FRÉQUENTES</div>
           <div style="font-size:.78rem;color:var(--vl-text-2);line-height:1.5">${def.common_errors}</div>
         </div>` : ''}
         <div class="card" style="padding:10px;text-align:center">
