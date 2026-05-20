@@ -28,4 +28,8 @@ export const VLState = {
   renfoProgram: null,
   renfoSessionLogs: [],
   RENFO_FOCUS_COLORS: {},
+  // Calibration post-course : historique prédictions vs résultats réels
+  // Structure : { raceId, predictedTimeS, actualTimeS, errorPct, distanceKm,
+  //   elevationM, terrainSummary, weather, confidence, createdAt, ... }
+  predictionHistory: [],
 };

@@ -94,22 +94,48 @@ function _climbProfile(activities, userProfile) {
 
 // ─── 2. PROFIL DESCENTE ────────────────────────────────────────────────────────
 function _downhillProfile(activities, userProfile) {
-  const mountain = activities.filter(a => vDensity(a) > 30 && a.distance > 8000);
-  const gentle   = activities.filter(a => { const v = vDensity(a); return v >= 15 && v <= 30 && a.distance > 5000; });
-  const steep    = activities.filter(a => vDensity(a) > 50 && a.distance > 5000);
+  const steep  = activities.filter(a => vDensity(a) > 50 && a.distance > 5000);
+  const gentle = activities.filter(a => { const v = vDensity(a); return v >= 25 && v < 50 && a.distance > 5000; });
+  const mountain = [...steep, ...gentle];
 
-  const avgPace = mountain.length
-    ? mountain.reduce((s, a) => s + (paceS(a) || 0), 0) / mountain.length
+  const avgSteepPaceS  = steep.length
+    ? Math.round(steep.reduce((s, a) => s + (paceS(a) || 0), 0) / steep.length)
+    : null;
+  const avgGentlePaceS = gentle.length
+    ? Math.round(gentle.reduce((s, a) => s + (paceS(a) || 0), 0) / gentle.length)
     : null;
 
+  // Signal "downhillAbility" sans streams :
+  // normPace corrige le D+ mais pas le D- → un bon descendeur aura un normPace
+  // sur terrain montagneux proche de son normPace sur plat.
+  // Ratio normPace_montagne / normPace_plat > 1.08 : descente pénalisante → faible
+  // Ratio ≤ 0.97 : descente efficace (compense la correction D+) → fort
+  // Seuils empiriques prudents — signal agrégé, pas section par section.
+  let downhillAbility = 'average';
+  let abilityRatio    = null;
+  const flatActs = activities.filter(a => vDensity(a) < 15 && a.distance > 3000);
+
+  if (mountain.length >= MIN_SIGNAL && flatActs.length >= MIN_SIGNAL) {
+    const normMtn  = mountain.map(normPace).filter(Boolean);
+    const normFlat = flatActs.map(normPace).filter(Boolean);
+    if (normMtn.length >= MIN_SIGNAL && normFlat.length >= MIN_SIGNAL) {
+      const avgNormMtn  = normMtn.reduce((s, v) => s + v, 0)  / normMtn.length;
+      const avgNormFlat = normFlat.reduce((s, v) => s + v, 0) / normFlat.length;
+      abilityRatio = avgNormMtn / avgNormFlat;
+      if      (abilityRatio <= 0.97) downhillAbility = 'strong';
+      else if (abilityRatio >= 1.08) downhillAbility = 'weak';
+    }
+  }
+
   return {
-    avgDescentPaceS: avgPace,
-    gentleSamples:   gentle.length,
-    steepSamples:    steep.length,
-    coeffDownhill:   userProfile.coeff_downhill || null,
-    samples:         mountain.length,
-    confidence:      confLevel(mountain.length),
-    note:            null,
+    coeffDownhill:      userProfile.coeff_downhill || null,
+    downhillAbility:    mountain.length >= MIN_SIGNAL ? downhillAbility : 'average',
+    abilityRatio:       abilityRatio !== null ? +abilityRatio.toFixed(3) : null,
+    gentleDescentPaceS: avgGentlePaceS,
+    steepDescentPaceS:  avgSteepPaceS,
+    samples:            mountain.length,
+    confidence:         confLevel(mountain.length),
+    note:               'signal agrégé depuis historique trail — affinage par sections via streams prévu',
   };
 }
 
@@ -289,6 +315,31 @@ function _rainSensitivity(actsW) {
   };
 }
 
+// ─── 6. RELANCE APRÈS SECTION DIFFICILE ───────────────────────────────────────
+// Signal streams uniquement — non calculable depuis les résumés d'activité.
+// Prévu dans une prochaine passe avec fetchStreams sur activités trail.
+function _reaccelerationProfile() {
+  return {
+    ability: 'unknown',
+    speedRecoveryRatio: null,
+    samples: 0,
+    confidence: 'low',
+  };
+}
+
+// ─── 7. RÉCUPÉRATION FC APRÈS MONTÉE ──────────────────────────────────────────
+// Signal streams uniquement — non calculable depuis les résumés d'activité.
+// Prévu dans une prochaine passe avec fetchStreams sur activités trail.
+function _hrRecoveryProfile() {
+  return {
+    hrDrop60: null,
+    hrDrop120: null,
+    recoveryLevel: 'unknown',
+    samples: 0,
+    confidence: 'low',
+  };
+}
+
 // ─── 6. QUALITÉ DONNÉES ────────────────────────────────────────────────────────
 function _dataQuality(all, actsW, runs, trails) {
   const now = Date.now();
@@ -325,10 +376,12 @@ export async function computeRunnerProfile(activities, userProfile, raceCtx, opt
   }
 
   const rp = {
-    climbProfile:    _climbProfile(trails.length >= 3 ? trails : runs, userProfile),
-    downhillProfile: _downhillProfile(trails.length >= 3 ? trails : runs, userProfile),
-    flatProfile:     _flatProfile(runs, userProfile, fcMax),
-    enduranceProfile: _enduranceProfile(runs, raceCtx),
+    climbProfile:          _climbProfile(trails.length >= 3 ? trails : runs, userProfile),
+    downhillProfile:       _downhillProfile(trails.length >= 3 ? trails : runs, userProfile),
+    flatProfile:           _flatProfile(runs, userProfile, fcMax),
+    enduranceProfile:      _enduranceProfile(runs, raceCtx),
+    reaccelerationProfile: _reaccelerationProfile(),
+    hrRecoveryProfile:     _hrRecoveryProfile(),
     externalSensitivity: {
       heat:     _heatSensitivity(actsW, fcMax),
       cold:     _coldSensitivity(actsW),

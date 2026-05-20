@@ -6,7 +6,7 @@ import { VLState, sb, SUPA_URL, FC_MAX_DEFAULT } from './app-state.js';
 import { genNutrition } from './nutrition.js';
 import { icon } from './icons.js';
 import { computeRunnerProfile, sensitivityLabel, climbSourceLabel } from './runner-profile.js';
-import { computeFreshnessAdjustment } from './race-predictor.js';
+import { computeFreshnessAdjustment, computeProgressionFactor } from './race-predictor.js';
 
 // leafletMap est dans VLState.leafletMap
 
@@ -100,31 +100,6 @@ export async function analyzeGPX(points, fname) {
     }
   }
 
-  // ── ALGO PROGRESSION ──
-  // TODO: migrer vers computeProgressionFactor() de race-predictor.js lors d'une prochaine passe de refacto
-  // Compute performance index from recent quality sessions (>20% time in Z3+)
-  function computeProgressionFactor(trailOnly=false) {
-    if(!VLState.allActivities.length) return 1;
-    const fcMax=VLState.userProfile.fc_max||205;
-    const z3min=Math.round(fcMax*.80);
-    let sessions=VLState.allActivities.filter(a=>{
-      if(!isRun(a.type)) return false;
-      if(trailOnly && a.type!=='TrailRun') return false;
-      if(!a.average_heartrate) return false;
-      return a.average_heartrate > z3min && a.distance > 3000;
-    }).sort((a,b)=>new Date(a.start_date)-new Date(b.start_date));
-    // Fall back to all runs if not enough trail sessions
-    if(sessions.length<4 && trailOnly) return computeProgressionFactor(false);
-    if(sessions.length<4) return 1;
-    const half=Math.floor(sessions.length/2);
-    const early=sessions.slice(0,half);
-    const recent=sessions.slice(-half);
-    const avgPaceEarly=early.reduce((s,a)=>s+a.average_speed,0)/early.length;
-    const avgPaceRecent=recent.reduce((s,a)=>s+a.average_speed,0)/recent.length;
-    if(avgPaceEarly<=0) return 1;
-    return Math.min(1.10, Math.max(0.90, avgPaceRecent/avgPaceEarly));
-  }
-
   // Use event type as priority; fall back to D+/km from parsed points
   // (window._gpxPoints not yet set at this point in analyzeGPX)
   const isTrail=(()=>{
@@ -135,7 +110,13 @@ export async function analyzeGPX(points, fname) {
     }
     return totalDist>0&&(dplus/(totalDist/1000))>20;
   })();
-  const progressionFactor = computeProgressionFactor(isTrail);
+  // Progression pondérée par durée depuis race-predictor.js — source unique de vérité
+  // (moyenne pondérée moving_time, sessions Z3+, trail ou all runs si données insuffisantes)
+  const progressionFactor = computeProgressionFactor(
+    VLState.allActivities || [],
+    VLState.userProfile.fc_max || FC_MAX_DEFAULT,
+    isTrail
+  );
   const qualityCount = VLState.allActivities.filter(a=>isRun(a.type)&&a.average_heartrate>(VLState.userProfile.fc_max||205)*.80&&a.distance>3000).length;
 
   // Base pace from real performance data — goal_time never influences pace calculation
@@ -192,6 +173,9 @@ export async function analyzeGPX(points, fname) {
 
   const sectionTimes=[];
   let estTimeS=0;
+  // Stratégie GPX : temps par section calculé via buildDetailedSections + minettiGradePenalty + terrainTimePenalty.
+  // L'approximation globale dp/(dk×1000)×5.5 n'est utilisée que dans computeRaceContext (widget indicatif Strava),
+  // jamais ici pour la prédiction de temps.
   // Personal calibration: VAM > coeff_uphill > Minetti (fallback)
   const _vam=VLState.userProfile.vam_avg||0,_cu=VLState.userProfile.coeff_uphill||0,_cd=VLState.userProfile.coeff_downhill||0,_cf=VLState.userProfile.coeff_flat||0;
   sections.forEach((s,i)=>{
@@ -204,7 +188,7 @@ export async function analyzeGPX(points, fname) {
     else if(s.type==='flat'&&_cf>0){pente=minettiGradePenalty(g)*_cf;}
     else{pente=minettiGradePenalty(g);}
     const pentePenalty=1+pente;
-    const terPenalty=terrainTimePenalty(surfKey,weather,s.grade,s.type);
+    const terPenalty=terrainTimePenalty(surfKey,weather,s.grade,s.type,VLState.userProfile);
     const t=basePaceS*pentePenalty*terPenalty*s.dist/1000;
     sectionTimes.push(t);estTimeS+=t;
   });
@@ -214,9 +198,10 @@ export async function analyzeGPX(points, fname) {
   let personalMultiplier = 1;
   if (rp && weather) {
     const { heat, cold, wind, rain } = rp.externalSensitivity;
-    // Chaleur : appliqué si météo > 20°C et sensibilité confirmée
-    if (heat.sensitivity !== 'unknown' && heat.confidence !== 'low' && heat.pacePenaltyPer10C && weather.temp > 20) {
-      const adj = Math.min(0.05, heat.pacePenaltyPer10C * (Math.max(0, weather.temp - 18) / 10));
+    // Chaleur : seuil 15°C aligné avec runner-profile.js (Ely et al. 2007 : déclin dès 13-15°C)
+    // Appliqué uniquement si estTimeS > 5400s (> 1h30) pour ne pas sur-pénaliser les courses courtes
+    if (heat.sensitivity !== 'unknown' && heat.confidence !== 'low' && heat.pacePenaltyPer10C && weather.temp > 15 && estTimeS > 5400) {
+      const adj = Math.min(0.05, heat.pacePenaltyPer10C * (Math.max(0, weather.temp - 15) / 10));
       if (adj > 0.005) {
         personalMultiplier *= (1 + adj);
         personalAdjustments.push({ label: `Chaleur ${Math.round(weather.temp)}°C`, detail: `+${(adj*100).toFixed(1)}%${sensitivityLabel(heat) ? ' · ' + sensitivityLabel(heat) : ''}`, color: 'var(--vl-amber)' });
@@ -344,6 +329,13 @@ export async function analyzeGPX(points, fname) {
   const raceDate=VLState.currentRaceContext?.date?new Date(VLState.currentRaceContext.date).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
   const splits=buildSplitsTable(kmSecs,basePaceS);
 
+  // Nutrition stats strip — profile-based target (mirrors CARBS_PROFILES in nutrition.js)
+  const _nlvl = VLState.userProfile?.nutrition_level || 'standard';
+  const _nProfiles = {prudent:{short:30,long:45},standard:{short:40,long:60},trained:{short:50,long:70},gut_trained:{short:60,long:80},elite:{short:70,long:90}};
+  const _nPro = _nProfiles[_nlvl] || _nProfiles.standard;
+  const _nPerH = dh < 2.5 ? _nPro.short : _nPro.long;
+  const _nTotal = Math.round(_nPerH * dh);
+
   const res=document.getElementById('stratResult');
   res.style.display='block';
   document.getElementById('gpxDrop').style.display='none';
@@ -459,7 +451,7 @@ export async function analyzeGPX(points, fname) {
       </summary>
       <div style="border:1px solid var(--vl-line);border-top:none;border-radius:0 0 var(--vl-r-sm) var(--vl-r-sm);padding:14px">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin-bottom:1rem">
-          <div class="s-stat"><div class="s-sv tc">${dh<1.25?'Eau only':dh<2.5?Math.round(30*(dh-0.5))+'g':Math.round(60*(dh-0.5))+'g'}</div><div class="s-sl">Glucides cibles</div></div>
+          <div class="s-stat"><div class="s-sv tc">${dh<1.25?'Eau only':_nTotal+'g'}</div><div class="s-sl">${dh<1.25?'Glucides':_nPerH+' g/h · cible'}</div></div>
           <div class="s-stat"><div class="s-sv tg">${Math.round(dh*400)} ml</div><div class="s-sl">Eau estimée</div></div>
           <div class="s-stat"><div class="s-sv ${dh<1.25?'tg':dh<2.5?'ty':'to'}">${dh<1.25?'< 75min':dh<2.5?'75–150min':'> 150min'}</div><div class="s-sl">Protocole</div></div>
         </div>

@@ -4,10 +4,13 @@ import { hav } from './gpx-core.js';
 // Applique un coefficient de difficulté terrain au temps estimé par section.
 // Paramètres : clé de surface OSM, météo courante, pente en %, type de section (optionnel).
 // Retourne un multiplicateur ≥ 1. Plafond à 1.35 pour rester prudent.
-export function terrainTimePenalty(surfaceKey, weather, grade = 0, sectionType = null) {
+export function terrainTimePenalty(surfaceKey, weather, grade = 0, sectionType = null, userProfile = null) {
   if (!surfaceKey) return 1;
 
-  const base = TERRAIN_TIME_FACTORS[surfaceKey] ?? 1.04;
+  const globalBase = TERRAIN_TIME_FACTORS[surfaceKey] ?? 1.04;
+  // Facteur personnel si calibration disponible (terrainCalibration dans userProfile), sinon neutre
+  const personal = getPersonalTerrainFactor(surfaceKey, userProfile);
+  const base = globalBase * personal;
 
   const wet = weather && (
     (weather.precip_prob ?? 0) > 20 ||
@@ -82,6 +85,23 @@ export const TERRAIN_TIME_FACTORS = {
   rocks:       1.12,
   scree:       1.15,
 };
+
+// ─── CALIBRATION TERRAIN PERSONNELLE ─────────────────────────────────────────
+// Facteurs personnels par surface. 1.0 = pas de correction par rapport au global.
+// Prévus pour être recalibrés progressivement à partir des écarts prédiction/réel
+// par section (prévu : système calibration post-course).
+export const DEFAULT_TERRAIN_CALIBRATION = {
+  asphalt: 1.00, concrete: 1.00, paved: 1.00,
+  compacted: 1.00, track: 1.00, path: 1.00, footway: 1.00, bridleway: 1.00,
+  dirt: 1.00, ground: 1.00, grass: 1.00,
+  gravel: 1.00, fine_gravel: 1.00, pebblestone: 1.00, cobblestone: 1.00,
+  sand: 1.00, mud: 1.00, rock: 1.00, rocks: 1.00, scree: 1.00,
+};
+
+export function getPersonalTerrainFactor(surfaceKey, userProfile) {
+  const cal = userProfile?.terrainCalibration ?? {};
+  return cal[surfaceKey] ?? DEFAULT_TERRAIN_CALIBRATION[surfaceKey] ?? 1.00;
+}
 
 export const SURFACE_MAP={
   rock:{fr:'Rochers',emoji:'🪨',risk:'high',col:'var(--red)'},

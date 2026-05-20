@@ -57,6 +57,21 @@ export function genNutrition(distM, estTimeS){
   const hasProducts = userGels.length>0 || userBoissons.length>0;
   const rows = [];
 
+  // Profil glucidique selon niveau digestif — jamais 120g/h par défaut.
+  // 120g/h (certains élites) nécessite un entraînement digestif spécifique prolongé.
+  const nutritionLevel = VLState.userProfile?.nutrition_level || 'standard';
+  const CARBS_PROFILES = {
+    prudent:    { short: 30, long: 45 },   // débutant / intestin fragile
+    standard:   { short: 40, long: 60 },   // coureur régulier
+    trained:    { short: 50, long: 70 },   // habitué aux courses longues
+    gut_trained:{ short: 60, long: 80 },   // entraînement digestif confirmé
+    elite:      { short: 70, long: 90 },   // à n'activer que si testé à l'entraînement
+  };
+  const carbsPro = CARBS_PROFILES[nutritionLevel] || CARBS_PROFILES.standard;
+  // Limite caféine indicative : 3mg/kg (prudent, littérature : 3-6mg/kg performance)
+  const bodyWeight = VLState.userProfile?.body_weight || VLState.userProfile?.weight || 70;
+  const caffeineMaxMg = Math.round(bodyWeight * 3);
+
   // No pre-race food — chacun fait ce qui marche pour lui
 
   if(dh < 1.5){
@@ -67,15 +82,21 @@ export function genNutrition(distM, estTimeS){
       rows.push(`<tr><td class="mono">Option chaleur</td><td>${b.brand} ${b.name} dilué ×2</td><td>~${Math.round(b.carbs/2)}g</td><td>Si T° > 25°C uniquement. Diluer pour réduire l'apport sucré.</td></tr>`);
     }
   } else {
-    // ≥ 1h30 : protocole complet
-    const targetCarbsPerH = dh < 2.5 ? 40 : 60;
+    // ≥ 1h30 : protocole complet selon profil glucidique
+    const targetCarbsPerH = dh < 2.5 ? carbsPro.short : carbsPro.long;
+    const totalCarbsTarget = Math.round(targetCarbsPerH * dh);
+    let cumulCarbs = 0;
+    const levelLabel = {prudent:'Prudent',standard:'Standard',trained:'Entraîné',gut_trained:'Entr. digestif',elite:'Élite'}[nutritionLevel] || nutritionLevel;
+    rows.push(`<tr style="background:rgba(0,212,255,.05)"><td class="mono t2" colspan="4">🎯 <strong>Objectif glucidique</strong> — ${targetCarbsPerH} g/h · cible ~${totalCarbsTarget} g sur ${dh.toFixed(1)}h · profil ${levelLabel}</td></tr>`);
 
     // Premier ravitaillement ~30-35min
     const t1km = Math.round(dk*0.30);
     if(hasProducts && userGels.length){
       const gel1 = userGels.find(g=>g.caffeine===0) || userGels[0];
+      cumulCarbs += gel1.carbs;
       rows.push(`<tr><td class="mono">~${t1km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t1km/dk*estTimeS/60)}min</span></td><td><strong>${gel1.brand} ${gel1.name}</strong>${gel1.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''}</td><td>${gel1.carbs}g</td><td>Premier apport glucidique après 30min. Sans caféine — adrénaline déjà élevée au départ.</td></tr>`);
     } else {
+      cumulCarbs += 27;
       rows.push(`<tr><td class="mono">~${t1km} km</td><td>Gel sans caféine + eau</td><td>25-30g</td><td>Premier apport après 30min · Jeukendrup, 2004</td></tr>`);
     }
 
@@ -83,7 +104,9 @@ export function genNutrition(distM, estTimeS){
     if(userBoissons.length && dh >= 1.75){
       const b=userBoissons[0];
       const t2km=Math.round(dk*0.50);
-      rows.push(`<tr><td class="mono">~${t2km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t2km/dk*estTimeS/60)}min</span></td><td><strong>${b.brand} ${b.name}</strong> 200ml</td><td>${Math.round(b.carbs*0.4)}g</td><td>Hydratation + glucides. ${b.water?'Dilué dans eau froide.':'Prêt à boire.'}</td></tr>`);
+      const drinkCarbs=Math.round(b.carbs*0.4);
+      cumulCarbs += drinkCarbs;
+      rows.push(`<tr><td class="mono">~${t2km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t2km/dk*estTimeS/60)}min</span></td><td><strong>${b.brand} ${b.name}</strong> 200ml</td><td>${drinkCarbs}g</td><td>Hydratation + glucides. ${b.water?'Dilué dans eau froide.':'Prêt à boire.'}</td></tr>`);
     }
 
     // Deuxième gel — caféiné si dispo, après 60-70% de la course
@@ -91,8 +114,11 @@ export function genNutrition(distM, estTimeS){
     if(hasProducts && userGels.length){
       const gelCaf = userGels.find(g=>g.caffeine>0);
       const gel2 = gelCaf || (userGels.find(g=>g.caffeine===0) || userGels[0]);
-      rows.push(`<tr><td class="mono">~${t3km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t3km/dk*estTimeS/60)}min</span></td><td><strong>${gel2.brand} ${gel2.name}</strong>${gel2.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''} ${gelCaf?'<span style="color:var(--yellow)">☕ Caféine</span>':''}</td><td>${gel2.carbs}g</td><td>${gelCaf?`${gel2.caffeine}mg caféine — pic d'effet 30-45min après. Timing idéal pour la dernière ligne droite ou montée finale.`:'Maintien glycémie sur derniers km.'}</td></tr>`);
+      const cafWarning = gelCaf && gel2.caffeine > caffeineMaxMg ? ` · ⚠ dépasse limite indicative ${caffeineMaxMg}mg (~3mg/kg)` : '';
+      cumulCarbs += gel2.carbs;
+      rows.push(`<tr><td class="mono">~${t3km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t3km/dk*estTimeS/60)}min</span></td><td><strong>${gel2.brand} ${gel2.name}</strong>${gel2.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''} ${gelCaf?'<span style="color:var(--yellow)">☕ Caféine</span>':''}</td><td>${gel2.carbs}g</td><td>${gelCaf?`${gel2.caffeine}mg caféine — pic d'effet 30-45min après. Timing idéal fin de course${cafWarning}. À tester à l'entraînement, jamais le jour J pour la 1re fois.`:'Maintien glycémie sur derniers km.'}</td></tr>`);
     } else {
+      cumulCarbs += 27;
       rows.push(`<tr><td class="mono">~${t3km} km</td><td>Gel <strong>caféiné</strong> + eau</td><td>25-30g</td><td>Caféine : pic 30-45min après prise — timing pour fin de course.</td></tr>`);
     }
 
@@ -101,16 +127,31 @@ export function genNutrition(distM, estTimeS){
       const t4km=Math.round(dk*0.80);
       if(userGels.find(g=>g.id.includes('barre')||g.note?.includes('Bar'))){
         const bar=userGels.find(g=>g.note?.includes('Bar')||g.id.includes('bar')||g.id.includes('barre'));
+        cumulCarbs += bar.carbs;
         rows.push(`<tr><td class="mono">~${t4km} km</td><td><strong>${bar.brand} ${bar.name}</strong> (solide)</td><td>${bar.carbs}g</td><td>Après 2h+ : le solide est mieux toléré que les gels en continu. Mâcher = stimulation cognitive (Ebersole et al.).</td></tr>`);
       } else {
+        cumulCarbs += 30;
         rows.push(`<tr><td class="mono">~${t4km} km</td><td>Solide (barre, datte, banane) + eau</td><td>25-35g</td><td>Après 2h+ : diversifier les sources. Le solide est mieux toléré. Mâcher aide cognitivement.</td></tr>`);
       }
+    }
+
+    // Dose complémentaire si écart significatif et course ≤ 4h
+    const carbGap = totalCarbsTarget - cumulCarbs;
+    if(carbGap > Math.max(20, totalCarbsTarget * 0.20) && hasProducts && userGels.length && dh <= 4){
+      const t5km = Math.round(dk * 0.48);
+      const extraGel = userGels.find(g=>g.caffeine===0) || userGels[0];
+      cumulCarbs += extraGel.carbs;
+      rows.push(`<tr style="background:rgba(0,212,255,.04)"><td class="mono">~${t5km} km<br><span style="font-size:.55rem;opacity:.7">${Math.round(t5km/dk*estTimeS/60)}min</span></td><td><strong>${extraGel.brand} ${extraGel.name}</strong>${extraGel.water?' <span style="color:var(--cyan)">+ eau obligatoire</span>':''} <span class="mlabel" style="color:var(--cyan)">+ dose</span></td><td>${extraGel.carbs}g</td><td>Dose complémentaire — objectif glucidique non atteint (écart ${Math.round(carbGap)}g). Timing ~mi-course.</td></tr>`);
     }
 
     // Conseil eau général
     if(userGels.filter(g=>g.water).length > 0){
       rows.push(`<tr style="background:rgba(0,212,255,.04)"><td class="mono t2" colspan="4">💧 <strong>Rappel eau :</strong> tes gels nécessitent de l'eau. Toujours 150-200ml d'eau avec chaque prise. Ne jamais prendre gel + boisson sucrée en même temps.</td></tr>`);
     }
+
+    // Bilan plan
+    const bilanOk = cumulCarbs >= totalCarbsTarget * 0.85;
+    rows.push(`<tr style="background:rgba(${bilanOk?'46,204,113':'229,86,42'},.06)"><td class="mono"><strong>Bilan plan</strong></td><td colspan="2"><strong>${cumulCarbs}g</strong> glucides</td><td>${bilanOk?'✓ Cible atteinte':`Écart ${totalCarbsTarget-cumulCarbs}g · Objectif ${totalCarbsTarget}g (${targetCarbsPerH}g/h)`}</td></tr>`);
   }
 
   // Post-course

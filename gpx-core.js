@@ -3,8 +3,10 @@ import { VLState } from './app-state.js';
 export function hav(p1,p2){const R=6371000,r=Math.PI/180,dLat=(p2.lat-p1.lat)*r,dLon=(p2.lon-p1.lon)*r,a=Math.sin(dLat/2)**2+Math.cos(p1.lat*r)*Math.cos(p2.lat*r)*Math.sin(dLon/2)**2;return R*2*Math.asin(Math.sqrt(a));}
 
 // Minetti (2002) gradient penalty
-// Montée : polynôme exact Minetti 2002 J.Appl.Physiol 93(3), validé en labo
-// Descente : modèle trail calibré sur Vernillo et al. 2017 (trail running, pas tapis)
+// Montée : polynôme exact Minetti 2002 J.Appl.Physiol 93(3), validé en labo.
+// Descente : modèle empirique ajusté pour le trail ; coefficients prudents cohérents
+//   avec la littérature (dont Vernillo et al. 2017, trail running terrain naturel).
+//   Coefficients empiriques — pas une reproduction exacte des valeurs publiées.
 //   -10% → économie ~25% | -20% → ~5% | -25% → ≈ plat | -30%+ → coût positif
 export function minettiGradePenalty(grade) {
   if (grade >= 0) {
