@@ -3,6 +3,7 @@
 // ============================================================
 
 import { VLState, sb } from './app-state.js';
+import { getExerciseGifUrl } from './exercise-media.js';
 
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
 
@@ -1309,8 +1310,6 @@ const INTER_SET_REST = {
   cossack_squat: 45,
 };
 
-const _SUPA_STORAGE = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-function _supaExoGifUrl(exoId) { return `${_SUPA_STORAGE}/${exoId}/demo.gif`; }
 
 const SESSION_EXERCISES = {
   force_lourde:           ['squat_lourd','rdl','bulgare','hip_thrust','lunge_marcheur'],
@@ -2155,7 +2154,7 @@ function _renderSessionExo() {
           ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
-      <div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${_supaExoGifUrl(exo.exercise_id)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+      <div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exo.exercise_id)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
     </div>
 
     <div style="display:flex;gap:24px;margin-bottom:18px">
@@ -2944,7 +2943,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);height:160px;background:var(--vl-bg2)"><img src="${_supaExoGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);height:160px;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
