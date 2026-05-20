@@ -36,7 +36,7 @@ GITHUB_RAW = 'https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/as
 MAPPING = {
     # ── FORCE LOURDE ──────────────────────────────────────────────────────
     "squat_lourd":              "0043",   # barbell full squat
-    "rdl":                      None,     # retiré — GIF incorrect (soulevé de terre standard)
+    "rdl":                      "1459",   # dumbbell romanian deadlift ✓ (validé)
     "bulgare":                  None,     # retiré — GIF incorrect
     "mollets_lourds":           "1375",   # cable standing calf raise
     "hip_thrust":               None,     # retiré — GIF incorrect (résistance band on knees)
@@ -65,7 +65,7 @@ MAPPING = {
     "side_plank_hipdrop":       None,     # retiré — GIF incorrect
     "dead_bug":                 "0276",   # dead bug ✓
     "bird_dog":                 None,     # placeholder — pas de vrai bird dog dans le dataset
-    "suitcase_carry":           None,     # retiré — GIF incorrect
+    "suitcase_carry":           "2133",   # farmers walk ✓ (validé)
     "copenhagen_plank":         "1775",   # [high] side plank hip adduction
     "core_rotation":            None,     # retiré — GIF incorrect (russian twist ≠ rotation de tronc)
 
@@ -80,7 +80,7 @@ MAPPING = {
     "pigeon_actif":             "2567",   # [medium] seated piriformis stretch
     "knee_to_wall":             None,     # retiré — GIF incorrect
     "open_book":                None,     # retiré — GIF incorrect
-    "monster_walk":             None,     # retiré — GIF incorrect
+    "monster_walk":             "0628",   # monster walk ✓ (validé)
     "hip_abduction":            "0710",   # side hip abduction ✓
     "cossack_squat":            "3643",   # weighted cossack squats ✓
 }
