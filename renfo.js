@@ -1309,18 +1309,38 @@ const INTER_SET_REST = {
   cossack_squat: 45,
 };
 
-const WGER_IDS = {
-  squat_lourd: 1801,
-  hip_thrust: 294,
-  lunge_marcheur: 1903,
-  nordic: 910,
-  reverse_nordic: 909,
-  dead_bug: 178,
-  core_rotation: 1193,
-  tractions_or_row: 1696,
-  pompes: 1964,
-  face_pull: 1732,
-  bird_dog: 1910,
+const FREEEXDB_IDS = {
+  // Force lourde
+  squat_lourd:             'Barbell_Full_Squat',
+  rdl:                     'Romanian_Deadlift',
+  bulgare:                 'Barbell_Side_Split_Squat',
+  mollets_lourds:          'Barbell_Seated_Calf_Raise',
+  hip_thrust:              'Barbell_Hip_Thrust',
+  lunge_marcheur:          'Barbell_Walking_Lunge',
+  // Pliométrie
+  bondissements:           'Box_Jump_Multiple_Response',
+  drop_jumps:              'Depth_Jump_Leap',
+  lateral_bound:           'Lateral_Bound',
+  box_jump:                'Front_Box_Jump',
+  skips:                   'Fast_Skipping',
+  // Excentrique
+  step_down:               'Step-up_with_Knee_Raise',
+  mollet_excentrique:      'Calf_Raise_On_A_Dumbbell',
+  single_leg_rdl:          'Romanian_Deadlift',
+  tibialis_raise:          'Anterior_Tibialis-SMR',
+  single_leg_glute_bridge: 'Single_Leg_Glute_Bridge',
+  // Tronc
+  pallof_press:            'Pallof_Press',
+  dead_bug:                'Dead_Bug',
+  suitcase_carry:          'Farmers_Walk',
+  core_rotation:           'Russian_Twist',
+  // Haut du corps
+  tractions_or_row:        'Pullups',
+  pompes:                  'Pushups',
+  face_pull:               'Face_Pull',
+  // Mobilité
+  hip_9090:                '90_90_Hamstring',
+  monster_walk:            'Monster_Walk',
 };
 
 const SESSION_EXERCISES = {
@@ -2013,11 +2033,11 @@ function _renderSessionWarmup() {
     <div style="flex:1;min-height:16px"></div>
     <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-bottom:10px;letter-spacing:.05em;text-align:center">OÙ S'ENTRAÎNER ?</div>
     <div style="display:flex;gap:10px">
-      <button onclick="_chooseLocation('maison')" style="flex:1;padding:18px 10px;background:var(--vl-bg2);border:2px solid var(--vl-border);border-radius:14px;cursor:pointer;color:var(--vl-text);font-family:var(--vl-display);font-size:1rem;font-weight:800;touch-action:manipulation;text-align:center">
-        <div style="font-size:.55rem;font-family:var(--vl-mono);color:var(--vl-text-2);margin-bottom:4px;letter-spacing:.05em">DOMICILE</div>
+      <button onclick="_chooseLocation('maison')" style="flex:1;padding:18px 10px;background:rgba(124,58,237,.1);border:2px solid rgba(124,58,237,.4);border-radius:14px;cursor:pointer;color:#7c3aed;font-family:var(--vl-display);font-size:1rem;font-weight:800;touch-action:manipulation;text-align:center;-webkit-tap-highlight-color:transparent">
+        <div style="font-size:.55rem;font-family:var(--vl-mono);color:#7c3aed;opacity:.7;margin-bottom:4px;letter-spacing:.05em">DOMICILE</div>
         MAISON
       </button>
-      <button onclick="_chooseLocation('salle')" style="flex:1;padding:18px 10px;background:#7c3aed;border:2px solid #7c3aed;border-radius:14px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:800;touch-action:manipulation;text-align:center">
+      <button onclick="_chooseLocation('salle')" style="flex:1;padding:18px 10px;background:#7c3aed;border:2px solid #7c3aed;border-radius:14px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:800;touch-action:manipulation;text-align:center;-webkit-tap-highlight-color:transparent">
         <div style="font-size:.55rem;font-family:var(--vl-mono);color:rgba(255,255,255,.7);margin-bottom:4px;letter-spacing:.05em">AVEC ÉQUIPEMENT</div>
         SALLE
       </button>
@@ -2166,7 +2186,7 @@ function _renderSessionExo() {
           ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
-      ${WGER_IDS[exo.exercise_id] ? `<div id="sess-wger-img" style="width:66px;height:66px;border-radius:8px;background:var(--vl-bg2);border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden"></div>` : ''}
+      ${getFreeExDbImageUrl(exo.exercise_id) ? `<div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${getFreeExDbImageUrl(exo.exercise_id)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>` : ''}
     </div>
 
     <div style="display:flex;gap:24px;margin-bottom:18px">
@@ -2210,18 +2230,6 @@ function _renderSessionExo() {
     </div>
   </div>`;
 
-  const sessWgerId = WGER_IDS[exo.exercise_id];
-  if (sessWgerId) {
-    fetchWgerImage(sessWgerId).then(url => {
-      const imgZone = document.getElementById('sess-wger-img');
-      if (!imgZone) return;
-      if (url) {
-        imgZone.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover">`;
-      } else {
-        imgZone.style.display = 'none';
-      }
-    });
-  }
 }
 
 function _toggleSessDetail() {
@@ -2803,20 +2811,11 @@ export function showRenfoHistoryView() {
   showToast('Historique — disponible dans la prochaine version', 'info');
 }
 
-async function fetchWgerImage(wgerId) {
-  if (!window._wgerImageCache) window._wgerImageCache = {};
-  if (window._wgerImageCache[wgerId] !== undefined) return window._wgerImageCache[wgerId];
-  try {
-    const res = await fetch(`https://wger.de/api/v2/exerciseinfo/${wgerId}/?format=json`);
-    const data = await res.json();
-    const img = (data.images || []).find(i => i.is_main) || data.images?.[0];
-    const url = img ? 'https://wger.de' + img.image : null;
-    window._wgerImageCache[wgerId] = url;
-    return url;
-  } catch {
-    window._wgerImageCache[wgerId] = null;
-    return null;
-  }
+function getFreeExDbImageUrl(exoId) {
+  const dbId = FREEEXDB_IDS[exoId];
+  return dbId
+    ? `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${dbId}/0.jpg`
+    : null;
 }
 
 async function loadExoHistory(exoId, chartEl, histEl) {
@@ -2977,7 +2976,7 @@ export function showRenfoLibraryExo(exoId) {
     </div>`
   ).join('');
 
-  const wgerId = WGER_IDS[exoId];
+  const exDbUrl = getFreeExDbImageUrl(exoId);
 
   el.innerHTML = `<div style="padding-bottom:8px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem">
@@ -2985,9 +2984,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    ${wgerId ? `<div id="wger-img-zone" style="margin-bottom:14px;border-radius:10px;overflow:hidden;background:var(--vl-bg2);border:1px solid var(--vl-border);height:160px;display:flex;align-items:center;justify-content:center">
-      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">…</div>
-    </div>` : ''}
+    ${exDbUrl ? `<div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);height:160px;background:var(--vl-bg2)"><img src="${exDbUrl}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>` : ''}
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
@@ -3034,18 +3031,6 @@ export function showRenfoLibraryExo(exoId) {
       </div>
     </div>
   </div>`;
-
-  if (wgerId) {
-    fetchWgerImage(wgerId).then(url => {
-      const zone = document.getElementById('wger-img-zone');
-      if (!zone) return;
-      if (url) {
-        zone.innerHTML = `<img src="${url}" alt="${def.name_fr}" style="width:100%;height:160px;object-fit:cover">`;
-      } else {
-        zone.style.display = 'none';
-      }
-    });
-  }
 
   const chartEl = document.getElementById('exo-chart');
   const histEl = document.getElementById('exo-hist');
