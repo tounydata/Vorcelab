@@ -924,7 +924,6 @@ async function loadRenfoWeekBlocks(weekStart) {
   el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
     const done = catDone.has(cat);
     return `<div class="renfo-cat-block${done?' done':''}" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:#7c3aed55;background:rgba(124,58,237,.14);':''}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${done?'#7c3aed':'var(--vl-line)'};margin-bottom:6px"></div>
       <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?'#7c3aed':'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?'✓':'—'}</div>
     </div>`;
