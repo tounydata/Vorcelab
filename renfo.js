@@ -13,10 +13,6 @@ function gifPlaceholder(category, variant) {
   return `<div style="margin-bottom:14px;border-radius:10px;border:1px solid ${c}55;background:${c}0f;height:140px;display:flex;align-items:center;justify-content:center"><span style="font-family:var(--vl-mono);font-size:.55rem;color:${c};letter-spacing:.08em;opacity:.8">DÉMO À VENIR</span></div>`;
 }
 
-// URL canonique définie dans exercise-media.js — dupliquée ici pour éviter
-// une dépendance de module qui casse le rendu sur certains navigateurs mobiles.
-const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-function getExerciseGifUrl(id) { return `${_SUPA_EXO}/${id}/demo.gif`; }
 
 function fmtRest(s){ const m=Math.floor(s/60),r=s%60; return m>0?(r>0?m+'min'+r+'s':m+'min'):s+'s'; }
 
