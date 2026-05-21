@@ -32,6 +32,11 @@ jobs:
           [ -f main.js ]                && cp main.js                .pages/main.js                || true
           [ -f app-state.js ]           && cp app-state.js           .pages/app-state.js           || true
           [ -f app.js ]                 && cp app.js                 .pages/app.js                 || true
+          [ -f auth.js ]                && cp auth.js                .pages/auth.js                || true
+          [ -f strava-client.js ]       && cp strava-client.js       .pages/strava-client.js       || true
+          [ -f profile.js ]             && cp profile.js             .pages/profile.js             || true
+          [ -f dashboard.js ]           && cp dashboard.js           .pages/dashboard.js           || true
+          [ -f ui.js ]                  && cp ui.js                  .pages/ui.js                  || true
           [ -f renfo.js ]               && cp renfo.js               .pages/renfo.js               || true
           [ -f security.js ]            && cp security.js            .pages/security.js            || true
           [ -f formatters.js ]          && cp formatters.js          .pages/formatters.js          || true

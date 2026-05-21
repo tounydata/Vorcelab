@@ -8,7 +8,7 @@ import {
 import { setAnnualMode } from './dashboard.js';
 import { handleZipDrop, handleZipFile } from './dashboard.js';
 import {
-  login, signup, logout, switchTab, deleteAccount,
+  login, signup, logout, switchTab, deleteAccount, updatePasswordRules,
 } from './auth.js';
 import {
   connectStrava, disconnectStrava, manualSync,
@@ -41,7 +41,7 @@ import {
 
 window.Vorcelab = {
   navigate, showPanel,
-  login, signup, logout, switchTab,
+  login, signup, logout, switchTab, updatePasswordRules,
   connectStrava, disconnectStrava, manualSync,
   setTheme, setAnnualMode,
   openProfil, closeProfil, saveProfile, changePassword, uploadAvatar,

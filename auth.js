@@ -9,7 +9,7 @@ export function switchTab(tab, btn) {
   document.getElementById('authMsg').textContent = '';
 }
 
-function updatePasswordRules() {
+export function updatePasswordRules() {
   const pass = document.getElementById('signupPassword')?.value || '';
   const rules = [
     { id: 'ruleLength', ok: pass.length >= 8,    text: '8 caractères minimum' },
