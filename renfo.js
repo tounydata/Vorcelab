@@ -2093,10 +2093,10 @@ function _renderSessionWarmup() {
     </div>
     <div style="font-family:var(--vl-mono);font-size:.52rem;color:var(--vl-text-2);margin-bottom:8px;letter-spacing:.05em;text-align:center">OÙ S'ENTRAÎNER ?</div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
-      <button onclick="_chooseLocation('maison')" style="${btnBase} ${maisonSel ? '#5b21b6;background:linear-gradient(180deg,#5b21b6,#3b0764);color:#e9d5ff' : 'rgba(91,33,182,.3);background:transparent;color:var(--color-renfo,#a78bfa)'}">
+      <button onclick="_chooseLocation('maison')" style="${btnBase} ${maisonSel ? 'var(--color-renfo,#a78bfa);background:var(--color-renfo,#a78bfa);color:var(--vl-ink,#15161a)' : 'var(--vl-line-2);background:transparent;color:var(--vl-text-2)'}">
         <div style="font-size:.52rem;font-family:var(--vl-mono);opacity:.75;margin-bottom:3px;letter-spacing:.05em">DOMICILE</div>MAISON
       </button>
-      <button onclick="_chooseLocation('salle')" style="${btnBase} ${!maisonSel ? '#5b21b6;background:linear-gradient(180deg,#5b21b6,#3b0764);color:#e9d5ff' : 'rgba(91,33,182,.3);background:transparent;color:var(--color-renfo,#a78bfa)'}">
+      <button onclick="_chooseLocation('salle')" style="${btnBase} ${!maisonSel ? 'var(--color-renfo,#a78bfa);background:var(--color-renfo,#a78bfa);color:var(--vl-ink,#15161a)' : 'var(--vl-line-2);background:transparent;color:var(--vl-text-2)'}">
         <div style="font-size:.52rem;font-family:var(--vl-mono);opacity:.75;margin-bottom:3px;letter-spacing:.05em">AVEC ÉQUIPEMENT</div>SALLE
       </button>
     </div>
@@ -2117,7 +2117,7 @@ function _renderSessionWarmup() {
           <span>LANCER LA SÉANCE</span>
           <span style="font-family:var(--vl-mono);font-size:.52rem;font-weight:400;letter-spacing:.06em">DÉJÀ FAIT CETTE SEMAINE</span>
         </button>`
-      : `<button onclick="_launchSession()" style="width:100%;padding:18px;background:linear-gradient(180deg,#5b21b6,#3b0764);border:none;border-radius:14px;cursor:pointer;color:#e9d5ff;font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
+      : `<button onclick="_launchSession()" style="width:100%;padding:18px;background:var(--color-renfo,#a78bfa);border:none;border-radius:var(--vl-r-sm,10px);cursor:pointer;color:var(--vl-ink,#15161a);font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
           LANCER LA SÉANCE →
         </button>`
     }
@@ -2263,16 +2263,16 @@ function _renderSessionExo() {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${elapsedFmt}</div>
     </div>
 
-    <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--vl-mono);font-size:.55rem;color:#7c3aed;letter-spacing:.1em;margin-bottom:4px">EN COURS</div>
+    <div style="margin-bottom:18px">
+      <div style="margin-bottom:10px">
+        <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--color-renfo,#a78bfa);letter-spacing:.1em;margin-bottom:4px">EN COURS</div>
         <div style="font-family:var(--vl-display);font-size:clamp(1.8rem,7vw,2.6rem);font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
         ${def.primary_muscles?.length ? `<div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-top:6px">${def.primary_muscles.slice(0,3).join(' · ')}</div>` : ''}
         ${def.variants.length > 1
-          ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
+          ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-line-2);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
-      ${(g=>g?`<div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${g}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>`:gifPlaceholder(def.category,'thumb'))(getExerciseGifUrl(exo.exercise_id))}
+      ${(g=>g?`<div style="border-radius:10px;overflow:hidden;border:1px solid var(--vl-line);background:var(--vl-surf-2);line-height:0"><img src="${g}" alt="" style="width:100%;max-height:200px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>`:``)(getExerciseGifUrl(exo.exercise_id))}
     </div>
 
     <div style="display:flex;gap:24px;margin-bottom:18px">
