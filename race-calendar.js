@@ -370,7 +370,7 @@ export function renderRaces() {
     }
     const proj=next._projection||buildProjFromDB(next.last_projection);
     nextWidget.innerHTML=`
-    <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;max-height:clamp(280px,42vh,400px)">
+    <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
       <div style="position:relative;padding:10px 14px 0;flex-shrink:0">
         <span style="font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.16em;color:var(--vl-text-3);text-transform:uppercase">STRATÉGIE DE COURSE</span>
       </div>
