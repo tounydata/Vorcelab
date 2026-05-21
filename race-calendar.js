@@ -74,7 +74,7 @@ export function renderCalendar() {
       chipsHtml += `<div style="display:flex;align-items:center;gap:2px;font-family:var(--vl-mono);font-size:9px;color:${isTrail?'var(--cyan)':'var(--green)'};line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${isTrail?icon('trail',9):icon('run',9)} ${km}k</div>`;
     });
     if (renfoLog) {
-      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div><div style="color:#7c3aed;line-height:1;display:flex;align-items:center;gap:2px">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div></div>`;
+      chipsHtml += `<div style="display:flex;align-items:center;gap:2px;margin-top:1px;color:#7c3aed">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div>`;
     }
 
     cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${escapeAttr(race.id)}')"`:''}>
