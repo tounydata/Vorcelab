@@ -1,14 +1,22 @@
 import { VLState } from './app-state.js';
 import {
-  navigate, showPanel, login, signup, logout, switchTab,
-  connectStrava, disconnectStrava, manualSync,
-  setTheme, setAnnualMode,
-  openProfil, closeProfil, saveProfile, changePassword, uploadAvatar,
-  closeCropModal, confirmCrop, savePRs, deleteAccount,
-  handleZipDrop, handleZipFile,
+  navigate, showPanel,
+  setTheme,
   onbNav, closeOnboarding, openCGU, closeCGU,
-  switchProfilTab, showToast,
+  showToast,
 } from './app.js';
+import { setAnnualMode } from './dashboard.js';
+import { handleZipDrop, handleZipFile } from './dashboard.js';
+import {
+  login, signup, logout, switchTab, deleteAccount,
+} from './auth.js';
+import {
+  connectStrava, disconnectStrava, manualSync,
+} from './strava-client.js';
+import {
+  openProfil, closeProfil, saveProfile, changePassword, uploadAvatar,
+  closeCropModal, confirmCrop, savePRs, switchProfilTab,
+} from './profile.js';
 import {
   showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar,
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
@@ -19,7 +27,8 @@ import {
 import { openAnalyse, closeAnalyse, raceMenuLinkActivity } from './activity-analysis.js';
 import { handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy } from './race-strategy.js';
 import { saveNutritionProducts, filterNutrBrand } from './nutrition.js';
-import { loadRenfoApp, preloadRenfoState,
+import {
+  loadRenfoApp, preloadRenfoState,
   renderOnboardingStep, renfoNextStep, renfoObSelect, renfoToggleBand,
   finishRenfoOnboarding, renderRenfoHome, startRenfoSession,
   toggleExoDetail, toggleExoCheck, validateExoWithLoad,
@@ -60,7 +69,6 @@ window.Vorcelab = {
 };
 
 // Expose as direct globals for inline onclick compatibility
-// (some HTML onclicks use bare function names, not Vorcelab.xxx)
 Object.assign(window, window.Vorcelab);
 
 document.addEventListener('DOMContentLoaded', () => {
