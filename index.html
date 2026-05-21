@@ -274,31 +274,34 @@
 
 </div>
 
-<!-- ── CHARGE COMBINÉE (pleine largeur) ── -->
-<div class="card" style="padding:14px 16px;margin-bottom:14px;overflow:hidden">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div class="clabel" style="margin:0">Charge combinée — 4 semaines</div>
-    <div style="display:flex;gap:12px;font-family:var(--vl-mono);font-size:9px">
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--vl-ember);border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Course</span></span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#7c3aed;border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Renfo</span></span>
-    </div>
-  </div>
-  <div style="height:110px;position:relative;max-width:100%"><canvas id="chargeChart" style="max-width:100%"></canvas></div>
-</div>
-
-<!-- ── ROW 3 : RENFO (gauche) + CE MOIS + ACTIVITÉS (droite) ── -->
+<!-- ── ROW 2 : GAUCHE (Charge + Renfo empilés) + DROITE (CE MOIS + activités) ── -->
 <div class="dv2-row dv2-bot">
 
-  <!-- RENFO BLOCS -->
-  <div class="card" id="dash-renfo-wrap">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div class="mlabel" style="letter-spacing:.14em;color:var(--color-renfo,#a78bfa)">RENFO · LIBRE · <span id="renfo-week-count">—</span>/5 SEM.</div>
-      <button onclick="Vorcelab.navigate('renfo')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;color:var(--color-renfo,#a78bfa);background:none;border:none;cursor:pointer;letter-spacing:.1em;touch-action:manipulation">VOIR RENFO →</button>
+  <!-- LEFT: Charge 28j + Renfo empilés -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="card" style="padding:14px 16px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="clabel" style="margin:0">Charge combinée — 4 semaines</div>
+        <div style="display:flex;gap:12px;font-family:var(--vl-mono);font-size:9px">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--vl-ember);border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Course</span></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#7c3aed;border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Renfo</span></span>
+        </div>
+      </div>
+      <div style="height:110px;position:relative;max-width:100%"><canvas id="chargeChart" style="max-width:100%"></canvas></div>
     </div>
-    <div class="renfo-cat-grid" id="renfo-cat-blocks"></div>
+
+    <div class="card" id="dash-renfo-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="mlabel" style="letter-spacing:.14em;color:var(--color-renfo,#a78bfa)">RENFO · LIBRE · <span id="renfo-week-count">—</span>/5 SEM.</div>
+        <button onclick="Vorcelab.navigate('renfo')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;color:var(--color-renfo,#a78bfa);background:none;border:none;cursor:pointer;letter-spacing:.1em;touch-action:manipulation">VOIR RENFO →</button>
+      </div>
+      <div class="renfo-cat-grid" id="renfo-cat-blocks"></div>
+    </div>
+
   </div>
 
-  <!-- CE MOIS + DERNIÈRES SORTIES -->
+  <!-- RIGHT: CE MOIS + dernières sorties -->
   <div class="card" style="padding:0 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 12px">
       <div class="mlabel" style="margin:0;letter-spacing:.14em">CE MOIS</div>
