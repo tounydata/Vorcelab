@@ -1975,7 +1975,6 @@ export function renderRenfoHome() {
       <div>
         <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);letter-spacing:.1em">SEM. · ${thisWeekLogs.length} SÉANCE${thisWeekLogs.length!==1?'S':''} FAITE${thisWeekLogs.length!==1?'S':''}</div>
         <div style="font-family:var(--vl-display);font-size:1.8rem;font-weight:800;line-height:1;margin-top:2px">QU'EST-CE QU'ON FAIT ?</div>
-        <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);font-style:italic;margin-top:3px">libre · choisis selon tes envies du jour</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);letter-spacing:.05em">CHARGE 7J</div>
@@ -2094,10 +2093,10 @@ function _renderSessionWarmup() {
     </div>
     <div style="font-family:var(--vl-mono);font-size:.52rem;color:var(--vl-text-2);margin-bottom:8px;letter-spacing:.05em;text-align:center">OÙ S'ENTRAÎNER ?</div>
     <div style="display:flex;gap:10px;margin-bottom:16px">
-      <button onclick="_chooseLocation('maison')" style="${btnBase} ${maisonSel ? '#7c3aed;background:#7c3aed;color:#fff' : 'rgba(124,58,237,.4);background:rgba(124,58,237,.08);color:#7c3aed'}">
+      <button onclick="_chooseLocation('maison')" style="${btnBase} ${maisonSel ? '#5b21b6;background:linear-gradient(180deg,#5b21b6,#3b0764);color:#e9d5ff' : 'rgba(91,33,182,.3);background:transparent;color:var(--color-renfo,#a78bfa)'}">
         <div style="font-size:.52rem;font-family:var(--vl-mono);opacity:.75;margin-bottom:3px;letter-spacing:.05em">DOMICILE</div>MAISON
       </button>
-      <button onclick="_chooseLocation('salle')" style="${btnBase} ${!maisonSel ? '#7c3aed;background:#7c3aed;color:#fff' : 'rgba(124,58,237,.4);background:rgba(124,58,237,.08);color:#7c3aed'}">
+      <button onclick="_chooseLocation('salle')" style="${btnBase} ${!maisonSel ? '#5b21b6;background:linear-gradient(180deg,#5b21b6,#3b0764);color:#e9d5ff' : 'rgba(91,33,182,.3);background:transparent;color:var(--color-renfo,#a78bfa)'}">
         <div style="font-size:.52rem;font-family:var(--vl-mono);opacity:.75;margin-bottom:3px;letter-spacing:.05em">AVEC ÉQUIPEMENT</div>SALLE
       </button>
     </div>
