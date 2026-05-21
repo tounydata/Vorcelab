@@ -52,6 +52,14 @@ jobs:
           [ -f progress-comparison.js ] && cp progress-comparison.js .pages/progress-comparison.js || true
           [ -f race-predictor.js ]      && cp race-predictor.js      .pages/race-predictor.js      || true
           [ -f icons.js ]               && cp icons.js               .pages/icons.js               || true
+          [ -f weather.js ]             && cp weather.js             .pages/weather.js             || true
+          [ -f dashboard-kpis.js ]      && cp dashboard-kpis.js      .pages/dashboard-kpis.js      || true
+          [ -f dashboard-charts.js ]    && cp dashboard-charts.js    .pages/dashboard-charts.js    || true
+          [ -f dashboard-activities.js ] && cp dashboard-activities.js .pages/dashboard-activities.js || true
+          [ -f dashboard-renfo.js ]     && cp dashboard-renfo.js     .pages/dashboard-renfo.js     || true
+          [ -f history-import.js ]      && cp history-import.js      .pages/history-import.js      || true
+          [ -f renfo-data.js ]          && cp renfo-data.js          .pages/renfo-data.js          || true
+          [ -f renfo-program.js ]       && cp renfo-program.js       .pages/renfo-program.js       || true
           [ -f og.svg ]                 && cp og.svg                 .pages/og.svg                 || true
           [ -f favicon.svg ]            && cp favicon.svg            .pages/favicon.svg            || true
           [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png           || true
