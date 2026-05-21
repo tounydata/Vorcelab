@@ -956,7 +956,7 @@ async function loadRenfoWeekBlocks(weekStart) {
     const dur = _CAT_DUR[cat] || 30;
     const sub = since ? `${since} · ${dur} MIN` : `${dur} MIN`;
     const fresh = ds !== null && ds <= 7;
-    return `<div class="renfo-cat-block" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${fresh?'border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);':''}">
+    return `<div class="renfo-cat-block" onclick="window._pendingRenfoFocus='${cat}';Vorcelab.navigate('renfo')" style="cursor:pointer;${fresh?'border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);':''}">
       <div style="font-family:var(--vl-mono);font-size:.58rem;font-weight:700;color:${fresh?'var(--color-renfo,#a78bfa)':'var(--vl-text-2)'};line-height:1.2;margin-bottom:5px">${meta.label}</div>
       <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-3);letter-spacing:.04em">${sub}</div>
     </div>`;

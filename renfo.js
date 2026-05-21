@@ -1560,6 +1560,11 @@ export async function loadRenfoApp() {
   VLState.renfoProgram = renfoProgram;
   VLState.renfoSessionLogs = renfoSessionLogs;
   renderRenfoHome();
+  if (window._pendingRenfoFocus) {
+    const f = window._pendingRenfoFocus; window._pendingRenfoFocus = null;
+    const entry = Object.entries(renfoProgram?.week_schedule||{}).find(([,s])=>!s.rest&&s.focus===f);
+    startRenfoSession(entry?.[0] || f);
+  }
 }
 
 export function renderOnboardingStep(step) {
@@ -1940,7 +1945,7 @@ export function renderRenfoHome() {
     const chargePct = Math.min(100, count30 / 4 * 100);
     const done = weekDoneFocuses.has(f.key);
     return `
-      <div style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid ${done ? '#7c3aed60' : '#7c3aed40'};border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s;position:relative${done ? ';opacity:.65' : ';cursor:pointer'}"${!done ? ` onclick="startRenfoSession('${dayKey}')" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#7c3aed40'"` : ''}>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid ${done ? '#7c3aed60' : '#7c3aed40'};border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s;position:relative;cursor:pointer" onclick="startRenfoSession('${dayKey}')" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='${done ? '#7c3aed60' : '#7c3aed40'}'">
         ${done ? `<button onclick="event.stopPropagation();_openRenfoDoneMenu('${dayKey}')" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:1rem;color:var(--vl-text-2);padding:2px 6px;touch-action:manipulation;line-height:1">···</button>` : ''}
         <div>
           <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700;line-height:1.1">${meta.label}</div>
@@ -1957,7 +1962,10 @@ export function renderRenfoHome() {
           </div>
           <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);margin-top:3px">CHARGE 30J · ${count30}/4</div>
         </div>
-        ${!done ? `<div style="padding:8px 0;text-align:center;border:1.5px solid #7c3aed;border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:#7c3aed;margin-top:2px">VOIR LA SÉANCE</div>` : `<div style="display:flex;align-items:center;gap:5px;font-family:var(--vl-mono);font-size:.55rem;color:#7c3aed;margin-top:2px">${_ICON_CHECK} Fait cette semaine</div>`}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+          <div style="flex:1;padding:8px 0;text-align:center;border:1.5px solid #7c3aed;border-radius:8px;font-family:var(--vl-display);font-size:.82rem;font-weight:700;color:#7c3aed">VOIR LA SÉANCE</div>
+          ${done ? `<div style="padding:5px 8px;background:rgba(124,58,237,.15);border-radius:6px;font-family:var(--vl-mono);font-size:.48rem;font-weight:700;color:#7c3aed;letter-spacing:.06em;white-space:nowrap">FAIT</div>` : ''}
+        </div>
       </div>`;
   }).join('');
 
@@ -2026,10 +2034,7 @@ export async function startRenfoSession(dayKey) {
       const logFocus = renfoProgram?.week_schedule?.[l.day_key]?.focus || l.day_key;
       return new Date(l.session_date) >= weekStart && logFocus === session.focus;
     });
-    if (alreadyDone) {
-      showToast(`Séance ${session.label} déjà faite cette semaine — repose-toi.`, 'warning', 5000);
-      return;
-    }
+    state.alreadyDone = alreadyDone;
   }
 
   window._renfoSessionState = state;
@@ -2108,9 +2113,15 @@ function _renderSessionWarmup() {
       }).join('')}
     </div>
     <div style="flex:1;min-height:8px"></div>
-    <button onclick="_launchSession()" style="width:100%;padding:18px;background:#7c3aed;border:none;border-radius:14px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
-      LANCER LA SÉANCE →
-    </button>
+    ${state.alreadyDone
+      ? `<button disabled style="width:100%;padding:18px;background:var(--vl-surf-3,#2d2e35);border:none;border-radius:14px;color:var(--vl-text-3);font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;cursor:not-allowed;display:flex;flex-direction:column;align-items:center;gap:4px">
+          <span>LANCER LA SÉANCE</span>
+          <span style="font-family:var(--vl-mono);font-size:.52rem;font-weight:400;letter-spacing:.06em">DÉJÀ FAIT CETTE SEMAINE</span>
+        </button>`
+      : `<button onclick="_launchSession()" style="width:100%;padding:18px;background:#7c3aed;border:none;border-radius:14px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
+          LANCER LA SÉANCE →
+        </button>`
+    }
   </div>`;
 }
 
@@ -2857,7 +2868,7 @@ function showRenfoProgramView() {
       return `<div style="font-size:.72rem;color:var(--vl-text-2);margin-bottom:2px">· ${def.name_fr} — ${v.name} · ${e.sets}×${e.reps}</div>`;
     }).join('');
 
-    return `<div class="card" style="padding:14px 16px;margin-bottom:10px${done ? ';opacity:.65' : ''};position:relative">
+    return `<div class="card" style="padding:14px 16px;margin-bottom:10px;position:relative">
       ${done ? `<button onclick="_openRenfoDoneMenu('${dayKey}')" style="position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;font-size:1rem;color:var(--vl-text-2);padding:2px 6px;touch-action:manipulation;line-height:1;z-index:1">···</button>` : ''}
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
         <div style="width:30px;height:30px;border-radius:50%;background:${done ? col : 'transparent'};border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-family:var(--vl-mono);font-size:.65rem;font-weight:700;color:${done ? '#fff' : col};flex-shrink:0">${done ? _ICON_CHECK : letter}</div>
@@ -2868,10 +2879,11 @@ function showRenfoProgramView() {
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">${timingBadges}</div>
-      <div style="margin-bottom:${done ? '0' : '10px'}">${exoList}</div>
-      ${!done
-        ? `<button onclick="startRenfoSession('${dayKey}')" style="width:100%;padding:11px;background:${col};border:none;border-radius:10px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.85rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;gap:8px">${_ICON_PLAY} VOIR LA SÉANCE</button>`
-        : ''}
+      <div style="margin-bottom:10px">${exoList}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="startRenfoSession('${dayKey}')" style="flex:1;padding:11px;background:${col};border:none;border-radius:10px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.85rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;gap:8px">${_ICON_PLAY} VOIR LA SÉANCE</button>
+        ${done ? `<div style="padding:7px 10px;background:rgba(124,58,237,.15);border-radius:8px;font-family:var(--vl-mono);font-size:.5rem;font-weight:700;color:#7c3aed;letter-spacing:.06em;white-space:nowrap">FAIT</div>` : ''}
+      </div>
     </div>`;
   }).join('');
 
