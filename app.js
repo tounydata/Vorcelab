@@ -805,16 +805,15 @@ function renderDashboard() {
 function renderBar7j(activities, now) {
   const el = document.getElementById('dash-bar7j');
   if (!el) return;
-  const LABELS = ['L','M','M','J','V','S','D'];
+  const LABELS = ['Lu','Ma','Me','Je','Ve','Sa','Di'];
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
     const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const acts = activities.filter(a => a.start_date?.slice(0, 10) === ds);
-    return { label: LABELS[(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0), dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0) };
+    return { label: LABELS[(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0), dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0), ds, acts };
   });
   const maxKm = Math.max(...days.map(d => d.km), 0.1);
   const maxDp = Math.max(...days.map(d => d.dp), 1);
-  // SVG chart: D+ continuous area curve behind individual km bars
   const VW = 280, BH = 44, TH = 56, COL = 40;
   const dpPts = days.map((d, i) => ({ x: i*COL+COL/2, y: d.dp>0 ? BH-(d.dp/maxDp)*BH*0.88 : BH }));
   const _spline = (pts) => {
@@ -829,16 +828,50 @@ function renderBar7j(activities, now) {
   };
   const lineD = _spline(dpPts);
   const areaD = lineD + ` L${dpPts[dpPts.length-1].x},${BH} L${dpPts[0].x},${BH} Z`;
-  const bars   = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
-  const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" style="font-family:'JetBrains Mono','IBM Plex Mono',monospace;font-size:9px;fill:var(--vl-text-3);letter-spacing:.08em">${d.label}</text>`).join('');
+  const bars = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
+  const lbls = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" style="font-family:'JetBrains Mono','IBM Plex Mono',monospace;font-size:9px;fill:var(--vl-text-3);letter-spacing:.08em">${d.label}</text>`).join('');
+  const overlays = days.map((d,i)=>`<rect class="b7-col" data-idx="${i}" x="${i*COL}" y="0" width="${COL}" height="${BH}" fill="transparent" pointer-events="all" style="cursor:${d.acts.length?'pointer':'default'}"/>`).join('');
+  el.style.position = 'relative';
   el.innerHTML = `<svg viewBox="0 0 ${VW} ${TH}" preserveAspectRatio="none" width="100%" height="${TH}" style="display:block">
     <path d="${areaD}" fill="var(--vl-growth)" opacity="0.18"/>
     <path d="${lineD}" fill="none" stroke="var(--vl-growth)" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
-    ${bars}${lbls}
+    ${bars}${lbls}${overlays}
   </svg>`;
+
+  const tip = document.createElement('div');
+  tip.style.cssText = "position:absolute;top:2px;pointer-events:none;white-space:nowrap;display:none;background:var(--vl-surf-2,#1e1f24);border:1px solid var(--vl-line);border-radius:6px;padding:3px 8px;font-family:'JetBrains Mono','IBM Plex Mono',monospace;font-size:10px;color:var(--vl-text-1);z-index:10;transform:translateX(-50%)";
+  el.appendChild(tip);
+
   const dpTotal = days.reduce((s, d) => s + d.dp, 0);
   const dpTotalEl = document.getElementById('bar7jDpTotal');
   if (dpTotalEl) dpTotalEl.textContent = Math.round(dpTotal);
+
+  el.querySelectorAll('.b7-col').forEach(rect => {
+    const i = +rect.dataset.idx;
+    const day = days[i];
+    rect.addEventListener('mouseenter', () => {
+      if (!day.acts.length) return;
+      const parts = [];
+      if (day.km > 0) parts.push(`${day.km.toFixed(1)} km`);
+      if (day.dp > 0) parts.push(`${Math.round(day.dp)} m D+`);
+      if (!parts.length) return;
+      tip.textContent = parts.join(' · ');
+      const svgW = el.querySelector('svg').getBoundingClientRect().width;
+      tip.style.left = `${((i * COL + COL / 2) / VW) * svgW}px`;
+      tip.style.display = 'block';
+    });
+    rect.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    rect.addEventListener('click', () => {
+      if (!day.acts.length) return;
+      if (day.acts.length === 1) {
+        openAnalyse(day.acts[0]);
+      } else {
+        window._actDateFilter = day.ds;
+        renderActivities();
+        if (window.Vorcelab) Vorcelab.navigate('activites');
+      }
+    });
+  });
 }
 
 function renderChargeChart(activities, fcMax, renfoLoads) {
@@ -873,7 +906,20 @@ function renderChargeChart(activities, fcMax, renfoLoads) {
       },
       options: {
         responsive:true, maintainAspectRatio:false,
-        onClick: () => { if (window.Vorcelab) Vorcelab.navigate('activites'); },
+        onClick: (_, elements) => {
+          if (!elements?.length || !window.Vorcelab) return;
+          const idx = elements[0].index;
+          const ds = dates[idx];
+          const dayActs = activities.filter(a => a.start_date?.slice(0, 10) === ds);
+          if (!dayActs.length) return;
+          if (dayActs.length === 1) {
+            openAnalyse(dayActs[0]);
+          } else {
+            window._actDateFilter = ds;
+            renderActivities();
+            Vorcelab.navigate('activites');
+          }
+        },
         plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label} · ${c.raw}`}} },
         scales:{
           x:{display:true,ticks:{font:{family:'var(--vl-mono)',size:8},color:'var(--vl-text-3)',maxRotation:0,autoSkip:false},grid:{display:false},border:{display:false}},
@@ -1194,35 +1240,48 @@ function renderActivities() {
   const gridFull = document.getElementById('actsGridFull');
   const infoEl = document.getElementById('actsInfo');
   const infoFull = document.getElementById('actsInfoFull');
+
+  const dateFilter = window._actDateFilter;
+  window._actDateFilter = null;
+  const filteredActs = dateFilter
+    ? VLState.allActivities.filter(a => a.start_date?.slice(0, 10) === dateFilter)
+    : VLState.allActivities;
+
   if (infoEl) infoEl.textContent = `${VLState.allActivities.length} sorties`;
-  if (infoFull) infoFull.textContent = `${VLState.allActivities.length} sorties`;
-  if (grid) grid.innerHTML = '';
-  if (gridFull) gridFull.innerHTML = '';
-  VLState.allActivities.forEach((act, idx) => {
+  if (infoFull) infoFull.textContent = dateFilter
+    ? `${filteredActs.length} sortie${filteredActs.length !== 1 ? 's' : ''} · ${new Date(dateFilter + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`
+    : `${VLState.allActivities.length} sorties`;
+
+  const makeCard = (act) => {
     const d = new Date(act.start_date_local);
     const ds = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}).toUpperCase();
     const pace = fmtP(act.average_speed);
     const distKm = (act.distance/1000).toFixed(1);
     const meta = [distKm+' km', fmtD(act.moving_time), act.total_elevation_gain>0?`D+ ${act.total_elevation_gain}m`:null, act.average_heartrate?`${Math.round(act.average_heartrate)} bpm`:null].filter(Boolean).join(' · ');
-    const makeCard = () => {
-      const card = document.createElement('div');
-      card.className = 'act-card';
-      card.onclick = () => openAnalyse(act);
-      card.innerHTML = `
-        <div style="flex:1;min-width:0">
-          <div class="act-name">${escapeHTML(act.name)}</div>
-          <div class="act-meta">${meta}</div>
-        </div>
-        <div style="flex-shrink:0;text-align:right">
-          <div class="act-pace">${pace}</div>
-          <div class="act-date">/KM · ${ds}</div>
-          <div class="act-badge" style="margin-top:4px;display:inline-block">${tL(act.type)}</div>
-        </div>`;
-      return card;
-    };
-    if (grid && idx < 4) grid.appendChild(makeCard());
-    if (gridFull) gridFull.appendChild(makeCard());
-  });
+    const card = document.createElement('div');
+    card.className = 'act-card';
+    card.onclick = () => openAnalyse(act);
+    card.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <div class="act-name">${escapeHTML(act.name)}</div>
+        <div class="act-meta">${meta}</div>
+      </div>
+      <div style="flex-shrink:0;text-align:right">
+        <div class="act-pace">${pace}</div>
+        <div class="act-date">/KM · ${ds}</div>
+        <div class="act-badge" style="margin-top:4px;display:inline-block">${tL(act.type)}</div>
+      </div>`;
+    return card;
+  };
+
+  if (grid) {
+    grid.innerHTML = '';
+    VLState.allActivities.slice(0, 4).forEach(act => grid.appendChild(makeCard(act)));
+  }
+  if (gridFull) {
+    gridFull.innerHTML = '';
+    filteredActs.forEach(act => gridFull.appendChild(makeCard(act)));
+  }
 }
 
 // ════════════════════════════════════════════════════
