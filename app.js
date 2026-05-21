@@ -812,30 +812,27 @@ function renderDashboard() {
 function renderBar7j(activities, now) {
   const el = document.getElementById('dash-bar7j');
   if (!el) return;
+  const LABELS = ['L','M','M','J','V','S','D'];
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
-    const ds = d.toISOString().slice(0, 10);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const acts = activities.filter(a => a.start_date?.slice(0, 10) === ds);
-    return {
-      label: ['L','M','M','J','V','S','D'][(d.getDay()+6)%7],
-      km: acts.reduce((s,a)=>s+a.distance/1000,0),
-      dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0),
-    };
+    return { label: LABELS[(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0), dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0) };
   });
   const maxKm = Math.max(...days.map(d => d.km), 0.1);
   const maxDp = Math.max(...days.map(d => d.dp), 1);
-  el.innerHTML = days.map(d => {
-    const hKm = d.km > 0 ? Math.max(4, Math.round((d.km / maxKm) * 48)) : 2;
-    const hDp = d.dp > 0 ? Math.max(3, Math.round((d.dp / maxDp) * 48)) : 0;
-    const bgKm = d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
-      <div style="position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;height:48px">
-        ${hDp>0?`<div style="position:absolute;bottom:0;left:0;right:0;height:${hDp}px;background:#7c3aed;opacity:.2;border-radius:2px"></div>`:''}
-        <div style="width:55%;max-width:14px;height:${hKm}px;background:${bgKm};border-radius:2px;position:relative;z-index:1"></div>
-      </div>
-      <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">${d.label}</div>
-    </div>`;
-  }).join('');
+  // SVG chart: D+ continuous area curve behind individual km bars
+  const VW = 280, BH = 44, TH = 56, COL = 40;
+  const dpPts = days.map((d, i) => ({ x: i*COL+COL/2, y: d.dp>0 ? BH-(d.dp/maxDp)*BH*0.88 : BH }));
+  const areaD = `M0,${BH} ${dpPts.map(p=>`L${p.x},${p.y}`).join(' ')} L${VW},${BH} Z`;
+  const lineD  = dpPts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const bars   = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
+  const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" fill="var(--vl-text-3)" font-size="9" font-family="monospace">${d.label}</text>`).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${VW} ${TH}" preserveAspectRatio="none" width="100%" height="${TH}" style="display:block">
+    <path d="${areaD}" fill="#7c3aed" opacity="0.18"/>
+    <path d="${lineD}" fill="none" stroke="#7c3aed" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${bars}${lbls}
+  </svg>`;
 }
 
 function renderChargeChart(activities, fcMax, renfoLoads) {
@@ -843,7 +840,7 @@ function renderChargeChart(activities, fcMax, renfoLoads) {
   if (!canvas) return;
   if (chargeChartInst) { chargeChartInst.destroy(); chargeChartInst = null; }
   const now = new Date();
-  const DAYS = 38;
+  const DAYS = 28;
   const dates = Array.from({ length: DAYS }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (DAYS - 1 - i));
     return d.toISOString().slice(0, 10);
@@ -880,7 +877,8 @@ function renderChargeChart(activities, fcMax, renfoLoads) {
 
 async function loadRenfoChargeData() {
   if (!VLState.currentUser) return [];
-  const cutoff = new Date(Date.now() - 38 * 86400000).toISOString().slice(0, 10);
+  const _cd = new Date(Date.now() - 28 * 86400000);
+  const cutoff = `${_cd.getFullYear()}-${String(_cd.getMonth()+1).padStart(2,'0')}-${String(_cd.getDate()).padStart(2,'0')}`;
   const { data } = await sb.from('renfo_exercise_log')
     .select('session_date,rpe,created_at')
     .gte('session_date', cutoff)
@@ -904,7 +902,7 @@ async function loadRenfoWeekBlocks(weekStart) {
   const el = document.getElementById('renfo-cat-blocks');
   const countEl = document.getElementById('renfo-week-count');
   if (!el || !VLState.currentUser) return;
-  const cutoff = weekStart.toISOString().slice(0, 10);
+  const cutoff = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
   const { data } = await sb.from('renfo_exercise_log')
     .select('session_date,exercise_id,created_at')
     .gte('session_date', cutoff)
@@ -933,9 +931,9 @@ async function loadRenfoWeekBlocks(weekStart) {
   el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
     const done = catDone.has(cat);
     const mins = catMins[cat];
-    return `<div class="renfo-cat-block${done?' done':''}" style="${done?'border-color:'+meta.color+'55;':''}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${done?meta.color:'var(--vl-line)'};margin-bottom:6px"></div>
-      <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?meta.color:'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
+    return `<div class="renfo-cat-block${done?' done':''}" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:#7c3aed55;background:rgba(124,58,237,.14);':''}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${done?'#7c3aed':'var(--vl-line)'};margin-bottom:6px"></div>
+      <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?'#7c3aed':'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?(mins?mins+' min':'✓'):'—'}</div>
     </div>`;
   }).join('');
