@@ -314,7 +314,7 @@ export async function saveRace() {
 
 function buildProjFromDB(p) {
   if (!p) return null;
-  const cc = p.confidence==='good'?'var(--vl-growth)':p.confidence==='medium'?'var(--vl-amber)':'var(--vl-ember)';
+  const cc = p.confidence==='good'?'var(--color-victory,#34d399)':p.confidence==='medium'?'var(--vl-amber)':'var(--color-alert,#e07c5e)';
   const nd = p.confidence==='good'?5:p.confidence==='medium'?3:1;
   const confDots = [0,1,2,3,4].map(i=>i<nd?`<span style="color:${cc}">&#9679;</span>`:'<span style="color:var(--vl-text-3)">&#9675;</span>').join('');
   return {...p, confDots, confidenceColor: cc};
@@ -340,8 +340,6 @@ export function renderRaces() {
     try{ if(next.gpx_data){ const p=JSON.parse(next.gpx_data); if(Array.isArray(p)&&p.length>0) gpxPts=p; } }catch{}
     const hasGpx=!!gpxPts;
     const phase=diff<=7?{label:'SEMAINE DE COURSE',c:'var(--vl-ember)'}:diff<=21?{label:'AFFÛTAGE',c:'var(--vl-amber)'}:diff<=42?{label:'PRÉPARATION SPÉCIFIQUE',c:'var(--vl-growth)'}:{label:'CONSTRUCTION DE BASE',c:'var(--vl-text-2)'};
-    const totalWeeks=Math.ceil(diff/7);
-    const progressPct=Math.max(2,Math.min(98,100-(diff/84)*100));
     const raceDate=new Date(next.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
     // Mini altimetry SVG — parse from JSON points (gpx_data is [{lat,lon,ele}])
     let miniAlti='';
@@ -370,43 +368,41 @@ export function renderRaces() {
         gpxTrace=`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;opacity:.22;pointer-events:none"><polyline points="${tracePts.join(' ')}" fill="none" stroke="var(--vl-ember)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       }catch(e){}
     }
+    const proj=next._projection||buildProjFromDB(next.last_projection);
     nextWidget.innerHTML=`
     <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
-      <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:linear-gradient(to left,rgba(229,86,42,.13) 0%,transparent 100%);pointer-events:none"></div>
-      <div style="position:relative;padding:16px 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">${escapeHTML(next.type)}</div>
-          <div style="font-family:var(--vl-display);font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:8px">${escapeHTML(next.name)}</div>
-          <div style="font-family:var(--vl-serif,'Fraunces'),serif;font-style:italic;font-size:.78rem;color:var(--vl-text-2);line-height:1.4">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
-        </div>
-        <span style="flex-shrink:0;color:var(--vl-ember);font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:2px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(229,86,42,.4)">STRATÉGIE →</span>
+      <div style="position:relative;padding:10px 14px 0;flex-shrink:0">
+        <span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.14em;padding:3px 8px;border-radius:3px;background:rgba(214,128,62,.15);color:var(--vl-ember);border:1px solid rgba(214,128,62,.3);text-transform:uppercase">KILLER FEATURE · STRATÉGIE AVANCÉE</span>
       </div>
-      <div style="position:relative;display:flex;align-items:flex-end;gap:14px;padding:10px 16px 12px">
-        ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return `<div style="flex-shrink:0">
-          <div style="font-family:var(--vl-display);font-size:4.8rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
-          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:6px">jours</div>
-          ${proj?`<div style="margin-top:10px;border-top:1px solid rgba(229,86,42,.18);padding-top:8px">
-            <div style="font-family:var(--vl-display);font-size:2.4rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.03em;line-height:.88">${fmtD(proj.cible)}</div>
-            <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3);letter-spacing:.1em;margin-top:4px">PROJECTION</div>
+      <div style="position:relative;flex:1;display:flex;min-height:0">
+        <div style="flex:1.1;padding:10px 14px 14px;display:flex;flex-direction:column;min-width:0">
+          <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:4px">${escapeHTML(next.type)} · COURSE VISÉE</div>
+          <div style="font-family:var(--vl-display);font-size:clamp(2rem,3.8vw,2.8rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:6px">${escapeHTML(next.name)}</div>
+          <div style="font-family:var(--vl-mono);font-size:.7rem;color:var(--vl-text-2);margin-bottom:auto">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
+          <div style="margin-top:14px">
+            <div style="font-family:var(--vl-display);font-size:4rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
+            <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:5px">JOURS</div>
+            <div style="font-family:var(--vl-mono);font-size:8.5px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-top:5px">${phase.label}</div>
+          </div>
+          <button onclick="event.stopPropagation();prepareRace('${next.id}')" style="margin-top:14px;background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:10px 14px;font-family:var(--vl-display);font-size:.95rem;font-weight:700;letter-spacing:.08em;cursor:pointer;touch-action:manipulation;width:100%;text-align:center">OUVRIR LA STRATÉGIE →</button>
+        </div>
+        <div style="width:44%;border-left:1px solid rgba(214,128,62,.18);background:rgba(214,128,62,.04);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
+          ${proj?`<div style="padding:12px 12px 8px;flex-shrink:0">
+            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.14em;margin-bottom:5px;text-transform:uppercase">PROJECTION VORCELAB</div>
+            <div style="font-family:var(--vl-display);font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;color:var(--color-victory,#34d399);letter-spacing:-.03em;line-height:.82">${fmtD(proj.cible)}</div>
+            <div style="font-size:11px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:6px">${proj.confDots}</div>
+            ${proj.prudent&&proj.agressif?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">PRUDENT <span style="color:var(--vl-text-2)">${fmtD(proj.prudent)}</span></span>
+              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--color-victory,#34d399);font-weight:700">CIBLE ${fmtD(proj.cible)}</span>
+              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">AGRESSIF <span style="color:var(--vl-text-2)">${fmtD(proj.agressif)}</span></span>
+            </div>`:''}
+            ${hasGpx?`<div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.1em;margin-top:8px;text-transform:uppercase">TRACÉ GPX${next.distance?' · '+next.distance+'KM':''}${next.elevation?' · D+'+next.elevation:''}
+</div>`:''}
           </div>`:''}
-        </div>`})()}
-        <div style="flex:1;min-width:0;padding-bottom:4px">
-          <div style="font-family:var(--vl-mono);font-size:9px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:6px">${phase.label}</div>
-          <div style="background:var(--vl-surf-2);border-radius:3px;height:3px;overflow:hidden">
-            <div style="height:100%;border-radius:3px;background:var(--vl-ember);width:${progressPct}%;opacity:.9"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px;margin-bottom:8px">
-            <span style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">Début prépa</span>
-            <span style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">${totalWeeks} sem.</span>
-          </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">
-            ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
-            ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
-          </div>
+          ${gpxTrace?`<div style="flex:1;overflow:hidden;min-height:50px">${gpxTrace}</div>`:''}
+          ${miniAlti?`<div style="position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
         </div>
       </div>
-      ${gpxTrace?`<div style="height:110px;overflow:hidden;flex-shrink:0">${gpxTrace}</div>`:''}
-      ${miniAlti?`<div style="position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
     </div>`;
   } else { if(nextWidget) nextWidget.innerHTML='<div class="mono t3">Toutes les courses sont passées</div>'; }
   if(!list) { renderCalendar(); return; }

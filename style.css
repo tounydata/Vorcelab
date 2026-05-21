@@ -1,22 +1,28 @@
 /* ════ VORCELAB — DESIGN SYSTEM ════ */
 :root {
-  /* Surfaces */
-  --vl-bg:       #0E0D0A;
-  --vl-surf:     #16151F;
-  --vl-surf-2:   #1E1D26;
-  --vl-surf-3:   #252431;
-  --vl-line:     rgba(243,239,228,0.07);
-  --vl-line-2:   rgba(243,239,228,0.16);
+  /* Surfaces — anthracite chaud */
+  --vl-bg:       #15161a;
+  --vl-surf:     #1c1d22;
+  --vl-surf-2:   #23242a;
+  --vl-surf-3:   #2d2e35;
+  --vl-line:     rgba(240,237,229,0.06);
+  --vl-line-2:   rgba(240,237,229,0.14);
   /* Text */
-  --vl-text:     #F3EFE4;
-  --vl-text-2:   #9B978A;
-  --vl-text-3:   #5E5B52;
-  --vl-ink:      #0E0D0A;
-  /* Accents */
-  --vl-ember:    #E5562A;
-  --vl-growth:   #10B981;
-  --vl-growth-2: #34D399;
-  --vl-amber:    #E8A23A;
+  --vl-text:     #f0ede5;
+  --vl-text-2:   #a8a59c;
+  --vl-text-3:   #6a6963;
+  --vl-ink:      #15161a;
+  /* Semantic accents */
+  --vl-ember:    #d6803e;   /* distance / course */
+  --vl-growth:   #5da084;   /* élévation D+ */
+  --vl-growth-2: #34d399;   /* victoire / projection / stats positives */
+  --vl-amber:    #d4a843;
+  /* Named tokens (same values for dark) */
+  --color-distance:  #d6803e;
+  --color-elevation: #5da084;
+  --color-victory:   #34d399;
+  --color-renfo:     #a78bfa;
+  --color-alert:     #e07c5e;
   /* Type */
   --vl-display:  'Big Shoulders Display','Bebas Neue',sans-serif;
   --vl-body:     'Inter',system-ui,sans-serif;
@@ -28,22 +34,22 @@
   --vl-r-lg: 20px;
   --vl-r-xl: 24px;
 
-  /* ── Backward-compat aliases (keep old names → new values) ── */
-  --bg:      #0E0D0A;
-  --bg2:     #16151F;
-  --bg3:     #1E1D26;
-  --bg4:     #252431;
-  --border:  rgba(243,239,228,0.07);
-  --border2: rgba(243,239,228,0.16);
-  --text:    #F3EFE4;
-  --text2:   #9B978A;
-  --text3:   #5E5B52;
-  --cyan:    #E5562A;   /* primary → ember */
-  --orange:  #E5562A;   /* orange → ember */
-  --green:   #10B981;   /* positive → growth */
-  --purple:  #9B978A;   /* no purple → text-2 */
-  --yellow:  #E8A23A;   /* warm → amber */
-  --red:     #E5562A;   /* negative → ember */
+  /* ── Backward-compat aliases ── */
+  --bg:      #15161a;
+  --bg2:     #1c1d22;
+  --bg3:     #23242a;
+  --bg4:     #2d2e35;
+  --border:  rgba(240,237,229,0.06);
+  --border2: rgba(240,237,229,0.14);
+  --text:    #f0ede5;
+  --text2:   #a8a59c;
+  --text3:   #6a6963;
+  --cyan:    #d6803e;
+  --orange:  #d6803e;
+  --green:   #5da084;
+  --purple:  #a78bfa;
+  --yellow:  #d4a843;
+  --red:     #e07c5e;
   --mono:    'JetBrains Mono','IBM Plex Mono',monospace;
   --display: 'Big Shoulders Display','Bebas Neue',sans-serif;
   --body:    'Inter',system-ui,sans-serif;
@@ -51,12 +57,29 @@
 }
 
 [data-theme='light'], [data-light] {
-  --vl-bg:     #F3EFE4; --vl-surf: #FFFFFF; --vl-surf-2: #EFEAD9; --vl-surf-3: #DDD8C9;
-  --vl-line:   rgba(14,13,10,0.08); --vl-line-2: rgba(14,13,10,0.18);
-  --vl-text:   #0E0D0A; --vl-text-2: #5E5B52; --vl-text-3: #9B978A; --vl-ink: #F3EFE4;
-  --bg: #F3EFE4; --bg2: #FFFFFF; --bg3: #EFEAD9; --bg4: #DDD8C9;
-  --border: rgba(14,13,10,0.08); --border2: rgba(14,13,10,0.18);
-  --text: #0E0D0A; --text2: #5E5B52; --text3: #9B978A;
+  --vl-bg:     #f4f1e8;
+  --vl-surf:   #fafaf7;
+  --vl-surf-2: #efead9;
+  --vl-surf-3: #e4decc;
+  --vl-line:   rgba(28,28,26,0.08);
+  --vl-line-2: rgba(28,28,26,0.18);
+  --vl-text:   #1c1c1a;
+  --vl-text-2: #5e5b52;
+  --vl-text-3: #828079;
+  --vl-ink:    #f4f1e8;
+  --vl-ember:  #b96527;
+  --vl-growth: #2d6a4f;
+  --vl-growth-2: #1f9460;
+  --vl-amber:  #b8882a;
+  --color-distance:  #b96527;
+  --color-elevation: #2d6a4f;
+  --color-victory:   #1f9460;
+  --color-renfo:     #6b4d96;
+  --color-alert:     #ad4530;
+  --bg: #f4f1e8; --bg2: #fafaf7; --bg3: #efead9; --bg4: #e4decc;
+  --border: rgba(28,28,26,0.08); --border2: rgba(28,28,26,0.18);
+  --text: #1c1c1a; --text2: #5e5b52; --text3: #828079;
+  --purple: #6b4d96;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}

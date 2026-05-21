@@ -738,7 +738,7 @@ function renderDashboard() {
   // KPI values
   document.getElementById('s-km-month').textContent = kmM.toFixed(0);
   document.getElementById('s-km-week').textContent = kmW.toFixed(0);
-  document.getElementById('s-dplus-month').textContent = dpM.toFixed(0)+' m';
+  document.getElementById('s-dplus-month').textContent = dpM.toFixed(0);
   document.getElementById('s-dplus-week').textContent = dpW.toFixed(0)+' m D+';
   const runsWeekEl = document.getElementById('s-runs-week');
   if (runsWeekEl) runsWeekEl.textContent = runsW;
@@ -778,12 +778,6 @@ function renderDashboard() {
 
   // Simple stats cards
   const fcMax = VLState.userProfile.fc_max || FC_MAX_DEFAULT;
-  const withHR = thisMonth.filter(a=>a.average_heartrate);
-  const avgFC = withHR.length ? Math.round(withHR.reduce((s,a)=>s+a.average_heartrate,0)/withHR.length) : null;
-  document.getElementById('statsGrid').innerHTML = `
-    <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
-    ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-  `;
 
   // Annual chart (guarded — canvas may not exist in V2 layout)
   if (document.getElementById('annualChart')) renderAnnualChart();
@@ -832,6 +826,9 @@ function renderBar7j(activities, now) {
     <path d="${lineD}" fill="none" stroke="var(--vl-growth)" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${bars}${lbls}
   </svg>`;
+  const dpTotal = days.reduce((s, d) => s + d.dp, 0);
+  const dpTotalEl = document.getElementById('bar7jDpTotal');
+  if (dpTotalEl) dpTotalEl.textContent = Math.round(dpTotal);
 }
 
 function renderChargeChart(activities, fcMax, renfoLoads) {
@@ -903,28 +900,65 @@ async function loadRenfoWeekBlocks(weekStart) {
   const el = document.getElementById('renfo-cat-blocks');
   const countEl = document.getElementById('renfo-week-count');
   if (!el || !VLState.currentUser) return;
-  const cutoff = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
-  // Use renfo_session_log (validated sessions) — same source as the renfo module
+
+  const weekCutoff = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthCutoff = `${monthStart.getFullYear()}-${String(monthStart.getMonth()+1).padStart(2,'0')}-01`;
+  const ninetyAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90);
+  const histCutoff = `${ninetyAgo.getFullYear()}-${String(ninetyAgo.getMonth()+1).padStart(2,'0')}-${String(ninetyAgo.getDate()).padStart(2,'0')}`;
+
   const { data } = await sb.from('renfo_session_log')
     .select('session_date,completed_exercises')
-    .gte('session_date', cutoff)
-    .eq('user_id', VLState.currentUser.id);
+    .gte('session_date', histCutoff)
+    .eq('user_id', VLState.currentUser.id)
+    .order('session_date', { ascending: false });
+
   const rows = data || [];
-  const sessions = [...new Set(rows.map(r => r.session_date))];
-  if (countEl) countEl.textContent = sessions.length;
-  // Derive category from completed exercise IDs via _RENFO_EXO_CAT
-  const catDone = new Set();
+
+  // Week count
+  const weekRows = rows.filter(r => r.session_date >= weekCutoff);
+  const weekSessions = [...new Set(weekRows.map(r => r.session_date))];
+  if (countEl) countEl.textContent = weekSessions.length;
+
+  // Month count
+  const monthRows = rows.filter(r => r.session_date >= monthCutoff);
+  const monthSessions = [...new Set(monthRows.map(r => r.session_date))];
+  const monthCountEl = document.getElementById('renfo-month-count');
+  if (monthCountEl) monthCountEl.textContent = monthSessions.length;
+
+  // Last done date per category (rows are ordered DESC — first match = most recent)
+  const catLastDone = {};
   rows.forEach(r => {
     Object.keys(r.completed_exercises || {}).forEach(exoId => {
       const cat = _RENFO_EXO_CAT[exoId];
-      if (cat) catDone.add(cat);
+      if (cat && !catLastDone[cat]) catLastDone[cat] = r.session_date;
     });
   });
+
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  function daysSince(ds) {
+    if (!ds) return null;
+    return Math.round((new Date(todayStr + 'T12:00') - new Date(ds + 'T12:00')) / 86400000);
+  }
+  function fmtSince(d) {
+    if (d === null) return null;
+    if (d === 0) return "AUJOURD'HUI";
+    if (d === 1) return 'HIER';
+    return `${d}J SANS`;
+  }
+
+  const _CAT_DUR = { force_lourde:40, pliometrie:25, excentrique:30, tronc:20, haut_corps:25, mobilite:15 };
+
   el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
-    const done = catDone.has(cat);
-    return `<div class="renfo-cat-block${done?' done':''}" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:#7c3aed55;background:rgba(124,58,237,.14);':''}">
-      <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?'#7c3aed':'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
-      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?'✓':'—'}</div>
+    const ds = daysSince(catLastDone[cat] || null);
+    const since = fmtSince(ds);
+    const dur = _CAT_DUR[cat] || 30;
+    const sub = since ? `${since} · ${dur} MIN` : `${dur} MIN`;
+    const fresh = ds !== null && ds <= 7;
+    return `<div class="renfo-cat-block" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${fresh?'border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);':''}">
+      <div style="font-family:var(--vl-mono);font-size:.58rem;font-weight:700;color:${fresh?'var(--color-renfo,#a78bfa)':'var(--vl-text-2)'};line-height:1.2;margin-bottom:5px">${meta.label}</div>
+      <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-3);letter-spacing:.04em">${sub}</div>
     </div>`;
   }).join('');
 }
@@ -1015,6 +1049,13 @@ async function loadAerobicStat(weekActs, fcMax, fallback = false) {
   elNow.style.color = pct >= 75 ? 'var(--vl-growth)' : pct < 50 ? 'var(--vl-ember)' : '';
   elNow.style.fontSize = '';
   elNow.textContent = pct + '%';
+  const qualityEl = document.getElementById('aerobicStatQuality');
+  if (qualityEl) {
+    const q = pct >= 80 ? 'EXCELLENT' : pct >= 65 ? 'BON' : pct >= 50 ? 'MOYEN' : 'FAIBLE';
+    const qc = pct >= 80 ? 'var(--color-victory,#34d399)' : pct >= 65 ? 'var(--vl-text-2)' : pct >= 50 ? 'var(--vl-amber)' : 'var(--color-alert,#e07c5e)';
+    qualityEl.textContent = q;
+    qualityEl.style.color = qc;
+  }
 
   if (fallback) {
     const labelEl = document.querySelector('#aerobicStatCard .s-sl');
