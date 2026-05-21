@@ -306,11 +306,18 @@ export async function analyzeGPX(points, fname) {
   const timeMax=estTimeS*rf.max;
 
   // Cache projection to VLState.races for dashboard hero card (session-level cache)
+  // Also persists to DB so the projection is available after page reload
   {
     const _rid=VLState.currentRaceContext?.id;
     if(_rid&&VLState.races?.length){
       const _ri=VLState.races.findIndex(r=>String(r.id)===String(_rid));
       if(_ri>=0) VLState.races[_ri]._projection={cible:Math.round(estTimeS),prudent:Math.round(timeMax),agressif:Math.round(timeMin),confidence,confDots,confidenceColor};
+    }
+    if(_rid){
+      sb.from('race_calendar')
+        .update({last_projection:{cible:Math.round(estTimeS),prudent:Math.round(timeMax),agressif:Math.round(timeMin),confidence}})
+        .eq('id',_rid)
+        .then(()=>{});
     }
   }
 
@@ -391,7 +398,7 @@ export async function analyzeGPX(points, fname) {
           <span style="font-size:11px;font-family:var(--vl-mono);letter-spacing:2px">${confDots}</span>
           <span class="mlabel" style="color:${confidenceColor}">${confidenceLabel}</span>
         </div>
-        <div class="mlabel" style="color:var(--vl-text-3);margin-top:4px">${projSource||'Minetti 2002 · allure estimée'}</div>
+        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-top:4px;line-height:1.5;overflow-wrap:break-word">${projSource||'Minetti 2002 · allure estimée'}</div>
       </div>
       ${VLState.currentRaceContext?.goal_time?`
       <div class="vl-proj-obj" style="text-align:right;flex-shrink:0">
