@@ -382,10 +382,14 @@ export function renderRaces() {
         <span style="flex-shrink:0;color:var(--vl-ember);font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;padding:2px 0;white-space:nowrap;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(229,86,42,.4)">STRATÉGIE →</span>
       </div>
       <div style="position:relative;display:flex;align-items:flex-end;gap:14px;padding:10px 16px 12px">
-        <div style="flex-shrink:0">
+        ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return `<div style="flex-shrink:0">
           <div style="font-family:var(--vl-display);font-size:4.8rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
           <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:6px">jours</div>
-        </div>
+          ${proj?`<div style="margin-top:10px;border-top:1px solid rgba(229,86,42,.18);padding-top:8px">
+            <div style="font-family:var(--vl-display);font-size:2.4rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.03em;line-height:.88">${fmtD(proj.cible)}</div>
+            <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3);letter-spacing:.1em;margin-top:4px">PROJECTION</div>
+          </div>`:''}
+        </div>`})()}
         <div style="flex:1;min-width:0;padding-bottom:4px">
           <div style="font-family:var(--vl-mono);font-size:9px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:6px">${phase.label}</div>
           <div style="background:var(--vl-surf-2);border-radius:3px;height:3px;overflow:hidden">
@@ -399,11 +403,6 @@ export function renderRaces() {
             ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
             ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
           </div>
-          ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return proj?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(229,86,42,.18)">
-            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.12em;margin-bottom:5px">PROJECTION VORCELAB</div>
-            <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.02em;line-height:1">${fmtD(proj.cible)}</div>
-            <div style="font-size:10px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:5px;color:${proj.confidenceColor||'var(--vl-ember)'}">${proj.confDots}</div>
-          </div>`:'';})()}
         </div>
       </div>
       ${gpxTrace?`<div style="height:110px;overflow:hidden;flex-shrink:0">${gpxTrace}</div>`:''}
