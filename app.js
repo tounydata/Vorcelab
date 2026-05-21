@@ -783,7 +783,6 @@ function renderDashboard() {
   document.getElementById('statsGrid').innerHTML = `
     <div class="s-stat"><div class="s-sv">${fmtD(durM)}</div><div class="s-sl">Temps mois</div></div>
     ${avgFC?`<div class="s-stat"><div class="s-sv">${avgFC}</div><div class="s-sl">FC moy mois</div></div>`:''}
-    <div class="s-stat" id="aerobicStatCard"><div class="s-sv tc" id="aerobicStatVal" style="font-size:1rem;color:var(--vl-text-3)">…</div><div class="s-sl">% EF · 7j glissants</div></div>
   `;
 
   // Annual chart (guarded — canvas may not exist in V2 layout)
@@ -829,8 +828,8 @@ function renderBar7j(activities, now) {
   const bars   = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
   const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" fill="var(--vl-text-3)" font-size="9" font-family="monospace">${d.label}</text>`).join('');
   el.innerHTML = `<svg viewBox="0 0 ${VW} ${TH}" preserveAspectRatio="none" width="100%" height="${TH}" style="display:block">
-    <path d="${areaD}" fill="#7c3aed" opacity="0.18"/>
-    <path d="${lineD}" fill="none" stroke="#7c3aed" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${areaD}" fill="var(--vl-growth)" opacity="0.18"/>
+    <path d="${lineD}" fill="none" stroke="var(--vl-growth)" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${bars}${lbls}
   </svg>`;
 }
