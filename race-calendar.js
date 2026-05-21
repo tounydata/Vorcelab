@@ -399,13 +399,10 @@ export function renderRaces() {
             ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
             ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
           </div>
-          ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return proj?`<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(229,86,42,.18)">
-            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.1em;margin-bottom:3px">PROJECTION VORCELAB</div>
-            <div style="display:flex;align-items:baseline;gap:5px">
-              <span style="font-family:var(--vl-display);font-size:1.1rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.01em">${fmtD(proj.cible)}</span>
-              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">${fmtD(proj.prudent)} – ${fmtD(proj.agressif)}</span>
-            </div>
-            <div style="font-size:9px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:2px">${proj.confDots}</div>
+          ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return proj?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(229,86,42,.18)">
+            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.12em;margin-bottom:5px">PROJECTION VORCELAB</div>
+            <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.02em;line-height:1">${fmtD(proj.cible)}</div>
+            <div style="font-size:10px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:5px;color:${proj.confidenceColor||'var(--vl-ember)'}">${proj.confDots}</div>
           </div>`:'';})()}
         </div>
       </div>
