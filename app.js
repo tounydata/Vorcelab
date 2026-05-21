@@ -855,24 +855,26 @@ function renderChargeChart(activities, fcMax, renfoLoads) {
   const maxVal = Math.max(...allVals, 1);
   const norm = v => Math.round((v / maxVal) * 100);
   const labels = dates.map((ds, i) => i % 7 === 0 ? new Date(ds+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '');
-  chargeChartInst = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label:'Course', data:runLoads.map(norm), borderColor:'#E5562A', backgroundColor:'rgba(229,86,42,.12)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
-        { label:'Renfo',  data:renfoData.map(norm), borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.10)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
-      ],
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label}: ${c.raw} UA`}} },
-      scales:{
-        x:{display:true,ticks:{font:{family:'var(--vl-mono)',size:8},color:'var(--vl-text-3)',maxRotation:0,autoSkip:false},grid:{display:false},border:{display:false}},
-        y:{display:false,min:0,max:105},
+  try {
+    chargeChartInst = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label:'Course', data:runLoads.map(norm), borderColor:'#E5562A', backgroundColor:'rgba(229,86,42,.12)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
+          { label:'Renfo',  data:renfoData.map(norm), borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.10)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
+        ],
       },
-    },
-  });
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label}: ${c.raw} UA`}} },
+        scales:{
+          x:{display:true,ticks:{font:{family:'var(--vl-mono)',size:8},color:'var(--vl-text-3)',maxRotation:0,autoSkip:false},grid:{display:false},border:{display:false}},
+          y:{display:false,min:0,max:105},
+        },
+      },
+    });
+  } catch(e) { chargeChartInst = null; }
 }
 
 async function loadRenfoChargeData() {
@@ -903,38 +905,28 @@ async function loadRenfoWeekBlocks(weekStart) {
   const countEl = document.getElementById('renfo-week-count');
   if (!el || !VLState.currentUser) return;
   const cutoff = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
-  const { data } = await sb.from('renfo_exercise_log')
-    .select('session_date,exercise_id,created_at')
+  // Use renfo_session_log (validated sessions) — same source as the renfo module
+  const { data } = await sb.from('renfo_session_log')
+    .select('session_date,completed_exercises')
     .gte('session_date', cutoff)
-    .order('created_at', { ascending: true });
+    .eq('user_id', VLState.currentUser.id);
   const rows = data || [];
-  // unique sessions (dates)
   const sessions = [...new Set(rows.map(r => r.session_date))];
   if (countEl) countEl.textContent = sessions.length;
-  // categories done per session → set of categories touched this week
-  const catDone = new Set(rows.map(r => _RENFO_EXO_CAT[r.exercise_id]).filter(Boolean));
-  // minutes per category from created_at range per session per category
-  const catMins = {};
-  const byCatDate = {};
+  // Derive category from completed exercise IDs via _RENFO_EXO_CAT
+  const catDone = new Set();
   rows.forEach(r => {
-    const cat = _RENFO_EXO_CAT[r.exercise_id];
-    if (!cat || !r.created_at) return;
-    const key = cat + '|' + r.session_date;
-    if (!byCatDate[key]) byCatDate[key] = [];
-    byCatDate[key].push(new Date(r.created_at).getTime());
-  });
-  Object.entries(byCatDate).forEach(([key, times]) => {
-    const cat = key.split('|')[0];
-    const mins = times.length > 1 ? Math.min(90,Math.max(10,Math.round((Math.max(...times)-Math.min(...times))/60000))) : 20;
-    catMins[cat] = (catMins[cat]||0) + mins;
+    Object.keys(r.completed_exercises || {}).forEach(exoId => {
+      const cat = _RENFO_EXO_CAT[exoId];
+      if (cat) catDone.add(cat);
+    });
   });
   el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
     const done = catDone.has(cat);
-    const mins = catMins[cat];
     return `<div class="renfo-cat-block${done?' done':''}" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:#7c3aed55;background:rgba(124,58,237,.14);':''}">
       <div style="width:8px;height:8px;border-radius:50%;background:${done?'#7c3aed':'var(--vl-line)'};margin-bottom:6px"></div>
       <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?'#7c3aed':'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
-      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?(mins?mins+' min':'✓'):'—'}</div>
+      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?'✓':'—'}</div>
     </div>`;
   }).join('');
 }
@@ -1115,31 +1107,33 @@ function renderAnnualChart() {
     };
   });
 
-  annualChartInst = new Chart(document.getElementById('annualChart'), {
-    type:'line', data:{labels:months,datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      plugins:{
-        legend:{position:'bottom',labels:{boxWidth:8,font:{size:9,family:'JetBrains Mono, monospace'},color:'#9B978A',padding:10}},
-        tooltip:{
-          callbacks:{
-            label: ctx => {
-              const y = ctx.dataset.label;
-              const m = ctx.dataIndex;
-              const mo = Math.round(monthly[y]?.[m] || 0);
-              const cum = ctx.parsed.y || 0;
-              return `${y}  ·  ${mo}${yUnit} ce mois  ·  ${cum}${yUnit} cumulé`;
+  try {
+    annualChartInst = new Chart(document.getElementById('annualChart'), {
+      type:'line', data:{labels:months,datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{position:'bottom',labels:{boxWidth:8,font:{size:9,family:'JetBrains Mono, monospace'},color:'#9B978A',padding:10}},
+          tooltip:{
+            callbacks:{
+              label: ctx => {
+                const y = ctx.dataset.label;
+                const m = ctx.dataIndex;
+                const mo = Math.round(monthly[y]?.[m] || 0);
+                const cum = ctx.parsed.y || 0;
+                return `${y}  ·  ${mo}${yUnit} ce mois  ·  ${cum}${yUnit} cumulé`;
+              }
             }
           }
+        },
+        scales:{
+          x:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52'},grid:{color:'rgba(243,239,228,.04)'}},
+          y:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52',callback:v=>v+yUnit},grid:{color:'rgba(243,239,228,.04)'}}
         }
-      },
-      scales:{
-        x:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52'},grid:{color:'rgba(243,239,228,.04)'}},
-        y:{ticks:{font:{size:9,family:'JetBrains Mono, monospace'},color:'#5E5B52',callback:v=>v+yUnit},grid:{color:'rgba(243,239,228,.04)'}}
       }
-    }
-  });
+    });
+  } catch(e) { annualChartInst = null; }
 }
 
 // ════════════════════════════════════════════════════
