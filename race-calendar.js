@@ -74,10 +74,7 @@ export function renderCalendar() {
       chipsHtml += `<div style="display:flex;align-items:center;gap:2px;font-family:var(--vl-mono);font-size:9px;color:${isTrail?'var(--cyan)':'var(--green)'};line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${isTrail?icon('trail',9):icon('run',9)} ${km}k</div>`;
     });
     if (renfoLog) {
-      const renfoSched = VLState.renfoProgram?.week_schedule?.[renfoLog.day_key];
-      const renfoFocusColors = VLState.RENFO_FOCUS_COLORS;
-      const dotCol = renfoFocusColors[renfoSched?.focus] || '#e5562a';
-      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:${dotCol};flex-shrink:0"></div><div style="color:${dotCol};line-height:1;display:flex;align-items:center;gap:2px">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div></div>`;
+      chipsHtml += `<div style="display:flex;align-items:center;gap:3px;margin-top:1px"><div style="width:5px;height:5px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div><div style="color:#7c3aed;line-height:1;display:flex;align-items:center;gap:2px">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div></div>`;
     }
 
     cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${escapeAttr(race.id)}')"`:''}>
@@ -315,6 +312,14 @@ export async function saveRace() {
   if(!error){const rf=document.getElementById('raceForm');if(rf)rf.classList.remove('open');const arc=document.getElementById('addRaceCard');if(arc)arc.style.display='none';await loadRaces();}
 }
 
+function buildProjFromDB(p) {
+  if (!p) return null;
+  const cc = p.confidence==='good'?'var(--vl-growth)':p.confidence==='medium'?'var(--vl-amber)':'var(--vl-ember)';
+  const nd = p.confidence==='good'?5:p.confidence==='medium'?3:1;
+  const confDots = [0,1,2,3,4].map(i=>i<nd?`<span style="color:${cc}">&#9679;</span>`:'<span style="color:var(--vl-text-3)">&#9675;</span>').join('');
+  return {...p, confDots, confidenceColor: cc};
+}
+
 // deleteRace defined in MONTHLY CALENDAR section above
 
 export function renderRaces() {
@@ -394,6 +399,14 @@ export function renderRaces() {
             ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
             ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
           </div>
+          ${(()=>{const proj=next._projection||buildProjFromDB(next.last_projection);return proj?`<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(229,86,42,.18)">
+            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.1em;margin-bottom:3px">PROJECTION VORCELAB</div>
+            <div style="display:flex;align-items:baseline;gap:5px">
+              <span style="font-family:var(--vl-display);font-size:1.1rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.01em">${fmtD(proj.cible)}</span>
+              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">${fmtD(proj.prudent)} – ${fmtD(proj.agressif)}</span>
+            </div>
+            <div style="font-size:9px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:2px">${proj.confDots}</div>
+          </div>`:'';})()}
         </div>
       </div>
       ${gpxTrace?`<div style="height:110px;overflow:hidden;flex-shrink:0">${gpxTrace}</div>`:''}

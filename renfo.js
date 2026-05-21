@@ -3,7 +3,15 @@
 // ============================================================
 
 import { VLState, sb } from './app-state.js';
-import { getExerciseGifUrl } from './exercise-media.js';
+
+const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
+const _GIF_REMOVED = new Set(['bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book']);
+function getExerciseGifUrl(id) { return _GIF_REMOVED.has(id) ? null : `${_SUPA_EXO}/${id}/demo.gif`; }
+function gifPlaceholder(category, variant) {
+  const c = RENFO_FOCUS_COLORS[category] || '#7c3aed';
+  if (variant === 'thumb') return `<div style="width:66px;height:66px;border-radius:8px;border:1px solid ${c}55;flex-shrink:0;background:${c}18"></div>`;
+  return `<div style="margin-bottom:14px;border-radius:10px;border:1px solid ${c}55;background:${c}0f;height:140px;display:flex;align-items:center;justify-content:center"><span style="font-family:var(--vl-mono);font-size:.55rem;color:${c};letter-spacing:.08em;opacity:.8">DÉMO À VENIR</span></div>`;
+}
 
 // URL canonique définie dans exercise-media.js — dupliquée ici pour éviter
 // une dépendance de module qui casse le rendu sur certains navigateurs mobiles.
@@ -2159,7 +2167,7 @@ function _renderSessionExo() {
           ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-border);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
-      <div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${getExerciseGifUrl(exo.exercise_id)}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>
+      ${(g=>g?`<div style="width:66px;height:66px;border-radius:8px;border:1px solid var(--vl-border);flex-shrink:0;overflow:hidden;background:var(--vl-bg2)"><img src="${g}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'"></div>`:gifPlaceholder(def.category,'thumb'))(getExerciseGifUrl(exo.exercise_id))}
     </div>
 
     <div style="display:flex;gap:24px;margin-bottom:18px">
@@ -2948,7 +2956,7 @@ export function showRenfoLibraryExo(exoId) {
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
-    <div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${getExerciseGifUrl(exoId)}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>
+    ${(g=>g?`<div style="margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid var(--vl-border);background:var(--vl-bg2);line-height:0"><img src="${g}" alt="${def.name_fr}" style="width:100%;max-height:300px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>`:gifPlaceholder(def.category,'library'))(getExerciseGifUrl(exoId))}
 
     <div style="margin-bottom:1rem">
       <div style="font-family:var(--vl-display);font-size:2rem;font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>

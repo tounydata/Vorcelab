@@ -36,10 +36,10 @@ GITHUB_RAW = 'https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/as
 MAPPING = {
     # ── FORCE LOURDE ──────────────────────────────────────────────────────
     "squat_lourd":              "0043",   # barbell full squat
-    "rdl":                      "0085",   # barbell romanian deadlift
-    "bulgare":                  "0098",   # barbell side split squat
+    "rdl":                      "1459",   # dumbbell romanian deadlift ✓ (validé)
+    "bulgare":                  None,     # retiré — GIF incorrect
     "mollets_lourds":           "1375",   # cable standing calf raise
-    "hip_thrust":               "3236",   # resistance band hip thrusts on knees
+    "hip_thrust":               None,     # retiré — GIF incorrect (résistance band on knees)
     "lunge_marcheur":           "1460",   # walking lunge ✓
 
     # ── PLIOMÉTRIE ────────────────────────────────────────────────────────
@@ -48,39 +48,39 @@ MAPPING = {
     "drop_jumps":               "3543",   # bodyweight drop jump squat
     "skips":                    "3636",   # high knee against wall
     "lateral_bound":            "3361",   # skater hops
-    "box_jump":                 "1374",   # box jump down with one leg stabilization
+    "box_jump":                 None,     # retiré — GIF incorrect (single leg stabilization)
 
     # ── EXCENTRIQUE ───────────────────────────────────────────────────────
-    "step_down":                "3672",   # back and forth step
+    "step_down":                None,     # retiré — GIF incorrect (back and forth step)
     "nordic":                   "0496",   # inverse leg curl (bench support)
     "mollet_excentrique":       "0727",   # single leg calf raise (on a dumbbell)
     "single_leg_rdl":           "1757",   # dumbbell single leg deadlift
     "tibialis_raise":           None,     # placeholder — pas de tibialis raise dans le dataset
-    "reverse_nordic":           "1489",   # [medium] sissy squat
+    "reverse_nordic":           None,     # retiré — GIF incorrect (sissy squat ≠ reverse nordic)
     "single_leg_glute_bridge":  "3561",   # glute bridge march
     "wall_sit":                 "0624",   # [medium] march sit (wall)
 
     # ── TRONC ─────────────────────────────────────────────────────────────
     "pallof_press":             "0979",   # band horizontal pallof press
-    "side_plank_hipdrop":       "1775",   # side plank hip adduction
+    "side_plank_hipdrop":       None,     # retiré — GIF incorrect
     "dead_bug":                 "0276",   # dead bug ✓
     "bird_dog":                 None,     # placeholder — pas de vrai bird dog dans le dataset
-    "suitcase_carry":           "2133",   # farmers walk ✓
+    "suitcase_carry":           "2133",   # farmers walk ✓ (validé)
     "copenhagen_plank":         "1775",   # [high] side plank hip adduction
-    "core_rotation":            "0687",   # russian twist ✓
+    "core_rotation":            None,     # retiré — GIF incorrect (russian twist ≠ rotation de tronc)
 
     # ── HAUT DU CORPS ─────────────────────────────────────────────────────
     "tractions_or_row":         "0652",   # pull-up ✓
     "pompes":                   "0662",   # push-up ✓
-    "face_pull":                "0203",   # cable rear delt row (with rope)
+    "face_pull":                None,     # retiré — GIF incorrect
     "ytw_prone":                None,     # placeholder — raises dispo ne montrent pas le YTW complet
 
     # ── MOBILITÉ ──────────────────────────────────────────────────────────
-    "hip_9090":                 "0996",   # band seated hip internal rotation
+    "hip_9090":                 None,     # retiré — GIF incorrect
     "pigeon_actif":             "2567",   # [medium] seated piriformis stretch
-    "knee_to_wall":             "1407",   # [medium] calf push stretch with hands against wall
-    "open_book":                "2329",   # [medium] spine twist
-    "monster_walk":             "0628",   # monster walk ✓
+    "knee_to_wall":             None,     # retiré — GIF incorrect
+    "open_book":                None,     # retiré — GIF incorrect
+    "monster_walk":             "0628",   # monster walk ✓ (validé)
     "hip_abduction":            "0710",   # side hip abduction ✓
     "cossack_squat":            "3643",   # weighted cossack squats ✓
 }

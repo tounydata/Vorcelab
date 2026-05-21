@@ -235,101 +235,93 @@
   <div id="dashWeekLabel" class="mlabel" style="color:var(--vl-text-3)"></div>
 </div>
 
-<div class="dash-grid">
+<!-- ── ROW 1 : HERO (gauche) + STATS COURSE 7J (droite) ── -->
+<div class="dv2-row dv2-top">
 
-  <!-- ── LEFT COLUMN ── -->
-  <div style="display:flex;flex-direction:column;gap:10px">
+  <!-- PROCHAINE COURSE / KILLER FEATURE -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="nextRaceWidget" style="display:flex;flex-direction:column"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
+  </div>
 
-    <!-- HERO KPI CARDS -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-
-      <!-- KM / mois -->
-      <div class="vl-hero-kpi">
-        <div class="mlabel" style="font-size:9px;letter-spacing:.16em">CE MOIS</div>
-        <div class="vl-hk-val tg" id="s-km-month">—</div>
-        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:10px">kilomètres</div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end">
-          <div class="vl-hk-delta" id="s-km-month-delta"></div>
-          <svg id="spark-km" viewBox="0 0 100 28" width="80" height="24" preserveAspectRatio="none" style="display:block;flex-shrink:0"></svg>
-        </div>
-      </div>
-
-      <!-- D+ / mois -->
-      <div class="vl-hero-kpi">
-        <div class="mlabel" style="font-size:9px;letter-spacing:.16em">CE MOIS</div>
-        <div class="vl-hk-val" style="color:var(--vl-ember)" id="s-dplus-month">—</div>
-        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:10px">m D+</div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end">
-          <div class="vl-hk-delta" id="s-dplus-delta"></div>
-          <svg id="spark-dp" viewBox="0 0 100 28" width="80" height="24" preserveAspectRatio="none" style="display:block;flex-shrink:0"></svg>
-        </div>
-      </div>
-
+  <!-- STATS COURSE 7 DERNIERS JOURS -->
+  <div class="card" id="dash-stats-7j" style="display:flex;flex-direction:column;gap:0">
+    <div class="mlabel" style="margin-bottom:10px;letter-spacing:.14em">COURSE · 7 DERNIERS JOURS</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
+      <div class="vl-hk-val tg" id="s-km-week" style="font-size:2.8rem;line-height:1">—</div>
+      <div style="font-family:var(--vl-mono);font-size:.7rem;color:var(--vl-text-2)">km</div>
     </div>
-
-    <!-- CHARGE D'ENTRAÎNEMENT -->
-    <div id="loadBlock" class="card" style="display:none"></div>
-
-    <!-- ANNUAL CHART -->
-    <div class="card" style="display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-        <div class="clabel" style="margin:0">Volume annuel comparatif</div>
-        <div style="display:flex;gap:3px">
-          <button id="annualBtnKm" onclick="Vorcelab.setAnnualMode('km')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:6px 12px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;touch-action:manipulation;background:var(--vl-ember);color:var(--vl-ink)">KM</button>
-          <button id="annualBtnDp" onclick="Vorcelab.setAnnualMode('dp')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;padding:6px 12px;border-radius:4px;border:1px solid var(--vl-line-2);cursor:pointer;touch-action:manipulation;background:transparent;color:var(--vl-text-3)">D+</button>
-        </div>
-      </div>
-<div class="chart-wrap" style="height:160px"><canvas id="annualChart"></canvas></div>
-      <div class="clabel mt2">Stats du mois</div>
-      <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px"></div>
+    <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:14px">
+      <span id="s-runs-week">—</span> sorties · D+ <span id="s-dplus-week">—</span>
     </div>
-
-    <!-- SATELLITE KPIs -->
-    <div class="vl-sat-strip">
-      <div class="vl-sat-cell">
-        <div class="vl-sat-val" id="s-km-week">—</div>
-        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">km / sem.</div>
-        <div id="s-km-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-      </div>
-      <div class="vl-sat-cell">
-        <div class="vl-sat-val" id="s-dplus-week">—</div>
-        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">D+ / sem.</div>
-        <div id="s-dplus-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-      </div>
-      <div class="vl-sat-cell">
-        <div class="vl-sat-val" id="s-runs-month">—</div>
-        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / m.</div>
-        <div id="s-runs-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
-      </div>
-      <div class="vl-sat-cell">
-        <div class="vl-sat-val" id="s-runs-week">—</div>
-        <div class="mlabel" style="margin-top:4px;font-size:8.5px;color:var(--vl-text-3)">sorties / s.</div>
-        <div id="s-runs-week-delta" style="font-family:var(--vl-mono);font-size:9px;font-weight:600;margin-top:3px"></div>
+    <!-- Barchart SVG 7j -->
+    <div id="dash-bar7j" style="height:56px;margin-bottom:10px"></div>
+    <!-- EF indicator -->
+    <div id="aerobicStatCard" style="background:var(--vl-surf-2);border-radius:6px;padding:8px 10px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="mlabel" style="font-size:8px;margin:0;letter-spacing:.1em">% EF · 7j</div>
+        <div id="aerobicStatVal" class="tc" style="font-size:.85rem;font-weight:700;color:var(--vl-text-3)">…</div>
       </div>
     </div>
+  </div>
 
-  </div><!-- end left column -->
+</div>
 
-  <!-- ── RIGHT COLUMN ── -->
-  <div style="display:flex;flex-direction:column;gap:10px">
-
-    <!-- PROCHAINE COURSE -->
-    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
-      <div id="nextRaceWidget" style="display:flex;flex-direction:column"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
+<!-- ── CHARGE COMBINÉE 38 JOURS ── -->
+<div class="card" style="padding:14px 16px;margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="clabel" style="margin:0">Charge combinée — 4 semaines</div>
+    <div style="display:flex;gap:12px;font-family:var(--vl-mono);font-size:9px">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--vl-ember);border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Course</span></span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#7c3aed;border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Renfo</span></span>
     </div>
+  </div>
+  <div style="height:110px;position:relative"><canvas id="chargeChart"></canvas></div>
+</div>
 
-    <!-- DERNIÈRES SORTIES (4 max) -->
-    <div class="card" style="padding:0 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0">
-        <div class="clabel" style="margin:0">Dernières sorties</div>
-        <button onclick="Vorcelab.navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
+<!-- ── ROW 3 : RENFO BLOCS (gauche) + CE MOIS + ACTIVITÉS (droite) ── -->
+<div class="dv2-row dv2-bot">
+
+  <!-- RENFO BLOCS -->
+  <div class="card" id="dash-renfo-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div class="mlabel" style="letter-spacing:.14em;color:#7c3aed">RENFO</div>
+        <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-top:2px"><span id="renfo-week-count">—</span> séances cette semaine</div>
       </div>
-      <div class="acts-grid" id="actsGrid"></div>
+      <button onclick="Vorcelab.navigate('renfo')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;color:#7c3aed;background:none;border:none;cursor:pointer;letter-spacing:.1em;touch-action:manipulation">VOIR RENFO →</button>
     </div>
+    <div class="renfo-cat-grid" id="renfo-cat-blocks"></div>
+  </div>
 
-  </div><!-- end right column -->
+  <!-- CE MOIS + DERNIÈRES SORTIES (carte fusionnée) -->
+  <div class="card" style="padding:0 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 10px">
+      <div class="mlabel" style="margin:0;letter-spacing:.14em">CE MOIS</div>
+      <button onclick="Vorcelab.navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div class="vl-hk-val tg" id="s-km-month" style="font-size:1.7rem">—</div>
+        <div style="font-family:var(--vl-mono);font-size:8.5px;color:var(--vl-text-3)">km</div>
+        <div class="vl-hk-delta" id="s-km-month-delta" style="margin-top:4px"></div>
+        <svg id="spark-km" viewBox="0 0 100 28" width="100%" height="20" preserveAspectRatio="none" style="display:block;margin-top:6px"></svg>
+      </div>
+      <div>
+        <div class="vl-hk-val" style="color:var(--vl-ember);font-size:1.7rem" id="s-dplus-month">—</div>
+        <div style="font-family:var(--vl-mono);font-size:8.5px;color:var(--vl-text-3)">m D+</div>
+        <div class="vl-hk-delta" id="s-dplus-delta" style="margin-top:4px"></div>
+        <svg id="spark-dp" viewBox="0 0 100 28" width="100%" height="20" preserveAspectRatio="none" style="display:block;margin-top:6px"></svg>
+      </div>
+    </div>
+    <div id="statsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
+    <div style="border-top:1px solid var(--vl-line);margin:0 -16px"></div>
+    <div style="padding-top:12px;padding-bottom:4px">
+      <div class="clabel" style="margin:0">Dernières sorties</div>
+    </div>
+    <div class="acts-grid" id="actsGrid"></div>
+  </div>
 
-</div><!-- end dash-grid -->
+</div><!-- end dv2-bot -->
 
   </div><!-- end dashContent -->
 </div>

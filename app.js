@@ -1,17 +1,36 @@
 import { VLState, sb, SUPA_URL, CLIENT_ID, FC_MAX_DEFAULT, RUNNING_TYPES } from './app-state.js';
-import { renderCalendar, loadRaces } from './race-calendar.js';
+import { renderCalendar, loadRaces, renderRaces } from './race-calendar.js';
 import { openAnalyse, autoCalibrate, fetchStreams } from './activity-analysis.js';
 import { loadRenfoApp, preloadRenfoState } from './renfo.js';
 import { isRun, fmtP, fmtD, fmtT, bC, deltaHTML, tE, tL, parseCsvDate } from './formatters.js';
 import { escapeHTML, escapeAttr, safeUrl } from './security.js';
 import { renderNutritionProducts } from './nutrition.js';
 import { icon } from './icons.js';
-import { computeTrainingLoad, renderLoadBlock } from './training-load.js';
+import { computeTrainingLoad, renderLoadBlock, computeActivityLoad } from './training-load.js';
 
 const REDIRECT_URI = `${window.location.origin}${window.location.pathname.replace(/\/$/, '')}/`;
 let historyActivities = [];
 let annualChartInst = null;
 let annualChartMode = 'km';
+let chargeChartInst = null;
+
+// Compact exercice → catégorie pour les blocs renfo du dashboard
+const _RENFO_EXO_CAT = {
+  squat_lourd:'force_lourde',rdl:'force_lourde',bulgare:'force_lourde',mollets_lourds:'force_lourde',hip_thrust:'force_lourde',lunge_marcheur:'force_lourde',
+  pogo_jumps:'pliometrie',bondissements:'pliometrie',drop_jumps:'pliometrie',skips:'pliometrie',lateral_bound:'pliometrie',box_jump:'pliometrie',
+  step_down:'excentrique',nordic:'excentrique',mollet_excentrique:'excentrique',single_leg_rdl:'excentrique',tibialis_raise:'excentrique',reverse_nordic:'excentrique',single_leg_glute_bridge:'excentrique',wall_sit:'excentrique',
+  pallof_press:'tronc',side_plank_hipdrop:'tronc',dead_bug:'tronc',bird_dog:'tronc',suitcase_carry:'tronc',copenhagen_plank:'tronc',core_rotation:'tronc',
+  tractions_or_row:'haut_corps',pompes:'haut_corps',face_pull:'haut_corps',ytw_prone:'haut_corps',
+  hip_9090:'mobilite',pigeon_actif:'mobilite',knee_to_wall:'mobilite',open_book:'mobilite',monster_walk:'mobilite',hip_abduction:'mobilite',cossack_squat:'mobilite',
+};
+const _RENFO_CAT_META = {
+  force_lourde: { label:'Force lourde',  color:'#E5562A' },
+  pliometrie:   { label:'Pliométrie',    color:'#f39c12' },
+  excentrique:  { label:'Excentrique',   color:'#3498db' },
+  tronc:        { label:'Tronc & stab.', color:'#9b59b6' },
+  haut_corps:   { label:'Haut du corps', color:'#1abc9c' },
+  mobilite:     { label:'Mobilité',      color:'#2ecc71' },
+};
 let isLight = false;
 let themeMode = localStorage.getItem('vl-theme') || 'auto';
 
@@ -679,6 +698,7 @@ function renderSparkline(id, data, color) {
 function renderDashboard() {
   if (!VLState.allActivities.length) { showOnboarding(); return; }
   showDashContent();
+  renderRaces();
 
   const now = new Date();
 
@@ -715,13 +735,15 @@ function renderDashboard() {
   const runsM=thisMonth.length, runsML=lastMonth.length, runsW=thisWeek.length, runsPW=prevWeek.length;
   const durM=dur(thisMonth);
 
-  // Hero KPI values
-  document.getElementById('s-km-month').textContent = kmM.toFixed(0)+' km';
-  document.getElementById('s-km-week').textContent = kmW.toFixed(0)+' km';
+  // KPI values
+  document.getElementById('s-km-month').textContent = kmM.toFixed(0);
+  document.getElementById('s-km-week').textContent = kmW.toFixed(0);
   document.getElementById('s-dplus-month').textContent = dpM.toFixed(0)+' m';
-  document.getElementById('s-dplus-week').textContent = dpW.toFixed(0)+' m';
-  document.getElementById('s-runs-month').textContent = runsM;
-  document.getElementById('s-runs-week').textContent = runsW;
+  document.getElementById('s-dplus-week').textContent = dpW.toFixed(0)+' m D+';
+  const runsWeekEl = document.getElementById('s-runs-week');
+  if (runsWeekEl) runsWeekEl.textContent = runsW;
+  const runsMonthEl = document.getElementById('s-runs-month');
+  if (runsMonthEl) runsMonthEl.textContent = runsM;
 
   // Sparklines — daily cumulative within current month
   const sparkKmData=[], sparkDpData=[];
@@ -764,25 +786,157 @@ function renderDashboard() {
     <div class="s-stat" id="aerobicStatCard"><div class="s-sv tc" id="aerobicStatVal" style="font-size:1rem;color:var(--vl-text-3)">…</div><div class="s-sl">% EF · 7j glissants</div></div>
   `;
 
-  // Annual chart
-  renderAnnualChart();
+  // Annual chart (guarded — canvas may not exist in V2 layout)
+  if (document.getElementById('annualChart')) renderAnnualChart();
 
   // Activities grid
   renderActivities();
 
-  // Charge / Fatigue block
-  const loadEl = document.getElementById('loadBlock');
-  if (loadEl) {
-    const loadData = computeTrainingLoad(VLState.allActivities, fcMax);
-    loadEl.innerHTML = renderLoadBlock(loadData);
-    loadEl.style.display = '';
-  }
+  // 7-day bar chart
+  renderBar7j(VLState.allActivities, now);
+
+  // Charge combinée chart (running load + async renfo load)
+  renderChargeChart(VLState.allActivities, fcMax, []);
+  loadRenfoChargeData().then(renfoLoads => renderChargeChart(VLState.allActivities, fcMax, renfoLoads));
+
+  // Renfo weekly blocks (async)
+  loadRenfoWeekBlocks(weekStart);
 
   // % EF — 7 derniers jours, sinon 5 dernières sorties
   const sevenDaysAgo = new Date(now - 7 * 86400000);
   const last7Days = VLState.allActivities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
   const efActs = last7Days.length > 0 ? last7Days : VLState.allActivities.slice(0, 5);
   loadAerobicStat(efActs, fcMax, last7Days.length === 0);
+}
+
+function renderBar7j(activities, now) {
+  const el = document.getElementById('dash-bar7j');
+  if (!el) return;
+  const LABELS = ['L','M','M','J','V','S','D'];
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const acts = activities.filter(a => a.start_date?.slice(0, 10) === ds);
+    return { label: LABELS[(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0), dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0) };
+  });
+  const maxKm = Math.max(...days.map(d => d.km), 0.1);
+  const maxDp = Math.max(...days.map(d => d.dp), 1);
+  // SVG chart: D+ continuous area curve behind individual km bars
+  const VW = 280, BH = 44, TH = 56, COL = 40;
+  const dpPts = days.map((d, i) => ({ x: i*COL+COL/2, y: d.dp>0 ? BH-(d.dp/maxDp)*BH*0.88 : BH }));
+  const areaD = `M0,${BH} ${dpPts.map(p=>`L${p.x},${p.y}`).join(' ')} L${VW},${BH} Z`;
+  const lineD  = dpPts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const bars   = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
+  const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" fill="var(--vl-text-3)" font-size="9" font-family="monospace">${d.label}</text>`).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${VW} ${TH}" preserveAspectRatio="none" width="100%" height="${TH}" style="display:block">
+    <path d="${areaD}" fill="#7c3aed" opacity="0.18"/>
+    <path d="${lineD}" fill="none" stroke="#7c3aed" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${bars}${lbls}
+  </svg>`;
+}
+
+function renderChargeChart(activities, fcMax, renfoLoads) {
+  const canvas = document.getElementById('chargeChart');
+  if (!canvas) return;
+  if (chargeChartInst) { chargeChartInst.destroy(); chargeChartInst = null; }
+  const now = new Date();
+  const DAYS = 28;
+  const dates = Array.from({ length: DAYS }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (DAYS - 1 - i));
+    return d.toISOString().slice(0, 10);
+  });
+  const runLoads = dates.map(ds => {
+    const dayActs = activities.filter(a => a.start_date?.slice(0, 10) === ds);
+    return dayActs.reduce((s, a) => s + computeActivityLoad(a, fcMax), 0);
+  });
+  const renfoMap = Object.fromEntries((renfoLoads || []).map(r => [r.date, r.load]));
+  const renfoData = dates.map(ds => renfoMap[ds] || 0);
+  const allVals = [...runLoads, ...renfoData];
+  const maxVal = Math.max(...allVals, 1);
+  const norm = v => Math.round((v / maxVal) * 100);
+  const labels = dates.map((ds, i) => i % 7 === 0 ? new Date(ds+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : '');
+  chargeChartInst = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'Course', data:runLoads.map(norm), borderColor:'#E5562A', backgroundColor:'rgba(229,86,42,.12)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
+        { label:'Renfo',  data:renfoData.map(norm), borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.10)', fill:true, tension:.4, pointRadius:0, borderWidth:1.5 },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label}: ${c.raw} UA`}} },
+      scales:{
+        x:{display:true,ticks:{font:{family:'var(--vl-mono)',size:8},color:'var(--vl-text-3)',maxRotation:0,autoSkip:false},grid:{display:false},border:{display:false}},
+        y:{display:false,min:0,max:105},
+      },
+    },
+  });
+}
+
+async function loadRenfoChargeData() {
+  if (!VLState.currentUser) return [];
+  const _cd = new Date(Date.now() - 28 * 86400000);
+  const cutoff = `${_cd.getFullYear()}-${String(_cd.getMonth()+1).padStart(2,'0')}-${String(_cd.getDate()).padStart(2,'0')}`;
+  const { data } = await sb.from('renfo_exercise_log')
+    .select('session_date,rpe,created_at')
+    .gte('session_date', cutoff)
+    .order('created_at', { ascending: true });
+  if (!data?.length) return [];
+  const byDate = {};
+  data.forEach(r => {
+    const d = r.session_date;
+    if (!byDate[d]) byDate[d] = { rpes:[], times:[] };
+    if (r.rpe) byDate[d].rpes.push(r.rpe);
+    if (r.created_at) byDate[d].times.push(new Date(r.created_at).getTime());
+  });
+  return Object.entries(byDate).map(([date, s]) => {
+    const avgRpe = s.rpes.length ? s.rpes.reduce((a,b)=>a+b,0)/s.rpes.length : 5;
+    const mins = s.times.length > 1 ? Math.min(120,Math.max(20,(Math.max(...s.times)-Math.min(...s.times))/60000)) : 40;
+    return { date, load: Math.round(avgRpe * mins) };
+  });
+}
+
+async function loadRenfoWeekBlocks(weekStart) {
+  const el = document.getElementById('renfo-cat-blocks');
+  const countEl = document.getElementById('renfo-week-count');
+  if (!el || !VLState.currentUser) return;
+  const cutoff = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+  const { data } = await sb.from('renfo_exercise_log')
+    .select('session_date,exercise_id,created_at')
+    .gte('session_date', cutoff)
+    .order('created_at', { ascending: true });
+  const rows = data || [];
+  // unique sessions (dates)
+  const sessions = [...new Set(rows.map(r => r.session_date))];
+  if (countEl) countEl.textContent = sessions.length;
+  // categories done per session → set of categories touched this week
+  const catDone = new Set(rows.map(r => _RENFO_EXO_CAT[r.exercise_id]).filter(Boolean));
+  // minutes per category from created_at range per session per category
+  const catMins = {};
+  const byCatDate = {};
+  rows.forEach(r => {
+    const cat = _RENFO_EXO_CAT[r.exercise_id];
+    if (!cat || !r.created_at) return;
+    const key = cat + '|' + r.session_date;
+    if (!byCatDate[key]) byCatDate[key] = [];
+    byCatDate[key].push(new Date(r.created_at).getTime());
+  });
+  Object.entries(byCatDate).forEach(([key, times]) => {
+    const cat = key.split('|')[0];
+    const mins = times.length > 1 ? Math.min(90,Math.max(10,Math.round((Math.max(...times)-Math.min(...times))/60000))) : 20;
+    catMins[cat] = (catMins[cat]||0) + mins;
+  });
+  el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
+    const done = catDone.has(cat);
+    const mins = catMins[cat];
+    return `<div class="renfo-cat-block${done?' done':''}" onclick="Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:#7c3aed55;background:rgba(124,58,237,.14);':''}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${done?'#7c3aed':'var(--vl-line)'};margin-bottom:6px"></div>
+      <div style="font-family:var(--vl-mono);font-size:.6rem;font-weight:700;color:${done?'#7c3aed':'var(--vl-text-2)'};line-height:1.2;margin-bottom:4px">${meta.label}</div>
+      <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-3)">${done?(mins?mins+' min':'✓'):'—'}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderLastActivity() {
