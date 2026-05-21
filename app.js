@@ -873,7 +873,8 @@ function renderChargeChart(activities, fcMax, renfoLoads) {
       },
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label}: ${c.raw} UA`}} },
+        onClick: () => { if (window.Vorcelab) Vorcelab.navigate('activites'); },
+        plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label} · ${c.raw}`}} },
         scales:{
           x:{display:true,ticks:{font:{family:'var(--vl-mono)',size:8},color:'var(--vl-text-3)',maxRotation:0,autoSkip:false},grid:{display:false},border:{display:false}},
           y:{display:false,min:0,max:105},
