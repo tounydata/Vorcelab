@@ -2118,7 +2118,7 @@ function _renderSessionWarmup() {
           <span>LANCER LA SÉANCE</span>
           <span style="font-family:var(--vl-mono);font-size:.52rem;font-weight:400;letter-spacing:.06em">DÉJÀ FAIT CETTE SEMAINE</span>
         </button>`
-      : `<button onclick="_launchSession()" style="width:100%;padding:18px;background:#7c3aed;border:none;border-radius:14px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
+      : `<button onclick="_launchSession()" style="width:100%;padding:18px;background:linear-gradient(180deg,#5b21b6,#3b0764);border:none;border-radius:14px;cursor:pointer;color:#e9d5ff;font-family:var(--vl-display);font-size:1.1rem;font-weight:800;letter-spacing:.04em;touch-action:manipulation">
           LANCER LA SÉANCE →
         </button>`
     }

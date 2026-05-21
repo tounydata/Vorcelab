@@ -813,23 +813,24 @@ function renderBar7j(activities, now) {
     return { label: LABELS[(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0), dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0) };
   });
   const maxKm = Math.max(...days.map(d => d.km), 0.1);
-  const maxDp = Math.max(...days.map(d => d.dp), 1);
+  const maxDp = Math.max(...days.map(d => d.dp), 300);
   // SVG chart: D+ continuous area curve behind individual km bars
   const VW = 280, BH = 44, TH = 56, COL = 40;
   const dpPts = days.map((d, i) => ({ x: i*COL+COL/2, y: d.dp>0 ? BH-(d.dp/maxDp)*BH*0.88 : BH }));
-  const _spline = pts => {
+  const _spline = (pts) => {
+    const cl = v => Math.max(0, Math.min(BH, v));
     let d = `M${pts[0].x},${pts[0].y}`;
-    const t = 0.4;
+    const t = 0.3;
     for (let i=0; i<pts.length-1; i++) {
       const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
-      d+=` C${(p1.x+(p2.x-p0.x)*t).toFixed(1)},${(p1.y+(p2.y-p0.y)*t).toFixed(1)} ${(p2.x-(p3.x-p1.x)*t).toFixed(1)},${(p2.y-(p3.y-p1.y)*t).toFixed(1)} ${p2.x},${p2.y}`;
+      d+=` C${(p1.x+(p2.x-p0.x)*t).toFixed(1)},${cl(p1.y+(p2.y-p0.y)*t).toFixed(1)} ${(p2.x-(p3.x-p1.x)*t).toFixed(1)},${cl(p2.y-(p3.y-p1.y)*t).toFixed(1)} ${p2.x},${p2.y}`;
     }
     return d;
   };
   const lineD = _spline(dpPts);
   const areaD = lineD + ` L${dpPts[dpPts.length-1].x},${BH} L${dpPts[0].x},${BH} Z`;
   const bars   = days.map((d,i)=>{ const h=d.km>0?Math.max(4,(d.km/maxKm)*BH):2; const c=d.km>0?'var(--vl-ember)':'var(--vl-line)'; return `<rect x="${i*COL+COL/2-7}" y="${BH-h}" width="14" height="${h}" rx="2" fill="${c}"/>`; }).join('');
-  const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" fill="var(--vl-text-3)" font-size="9" font-family="monospace">${d.label}</text>`).join('');
+  const lbls   = days.map((d,i)=>`<text x="${i*COL+COL/2}" y="${TH-1}" text-anchor="middle" style="font-family:var(--vl-mono);font-size:9px;fill:var(--vl-text-3);letter-spacing:.06em">${d.label}</text>`).join('');
   el.innerHTML = `<svg viewBox="0 0 ${VW} ${TH}" preserveAspectRatio="none" width="100%" height="${TH}" style="display:block">
     <path d="${areaD}" fill="var(--vl-growth)" opacity="0.18"/>
     <path d="${lineD}" fill="none" stroke="var(--vl-growth)" stroke-width="1.5" opacity="0.5" stroke-linejoin="round" stroke-linecap="round"/>
