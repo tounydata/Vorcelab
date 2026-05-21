@@ -394,6 +394,14 @@ export function renderRaces() {
             ${next.goal_time?`<span class="race-tag" style="border-color:rgba(232,162,58,.35);color:var(--vl-amber);font-size:8px">${escapeHTML(next.goal_time)}</span>`:''}
             ${hasGpx?`<span class="race-tag" style="border-color:rgba(16,185,129,.35);color:var(--vl-growth);font-size:8px">GPX ✓</span>`:''}
           </div>
+          ${next._projection?`<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(229,86,42,.18)">
+            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.1em;margin-bottom:3px">PROJECTION VORCELAB</div>
+            <div style="display:flex;align-items:baseline;gap:5px">
+              <span style="font-family:var(--vl-display);font-size:1.1rem;font-weight:800;color:var(--vl-ember);letter-spacing:-.01em">${fmtD(next._projection.cible)}</span>
+              <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">${fmtD(next._projection.prudent)} – ${fmtD(next._projection.agressif)}</span>
+            </div>
+            <div style="font-size:9px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:2px">${next._projection.confDots}</div>
+          </div>`:''}
         </div>
       </div>
       ${gpxTrace?`<div style="height:110px;overflow:hidden;flex-shrink:0">${gpxTrace}</div>`:''}
