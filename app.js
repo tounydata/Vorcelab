@@ -1,5 +1,5 @@
 import { VLState, sb, SUPA_URL, CLIENT_ID, FC_MAX_DEFAULT, RUNNING_TYPES } from './app-state.js';
-import { renderCalendar, loadRaces } from './race-calendar.js';
+import { renderCalendar, loadRaces, renderRaces } from './race-calendar.js';
 import { openAnalyse, autoCalibrate, fetchStreams } from './activity-analysis.js';
 import { loadRenfoApp, preloadRenfoState } from './renfo.js';
 import { isRun, fmtP, fmtD, fmtT, bC, deltaHTML, tE, tL, parseCsvDate } from './formatters.js';
@@ -698,6 +698,7 @@ function renderSparkline(id, data, color) {
 function renderDashboard() {
   if (!VLState.allActivities.length) { showOnboarding(); return; }
   showDashContent();
+  renderRaces();
 
   const now = new Date();
 
@@ -815,14 +816,23 @@ function renderBar7j(activities, now) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
     const ds = d.toISOString().slice(0, 10);
     const acts = activities.filter(a => a.start_date?.slice(0, 10) === ds);
-    return { label: ['L','M','M','J','V','S','D'][(d.getDay()+6)%7], km: acts.reduce((s,a)=>s+a.distance/1000,0) };
+    return {
+      label: ['L','M','M','J','V','S','D'][(d.getDay()+6)%7],
+      km: acts.reduce((s,a)=>s+a.distance/1000,0),
+      dp: acts.reduce((s,a)=>s+(a.total_elevation_gain||0),0),
+    };
   });
   const maxKm = Math.max(...days.map(d => d.km), 0.1);
+  const maxDp = Math.max(...days.map(d => d.dp), 1);
   el.innerHTML = days.map(d => {
-    const h = d.km > 0 ? Math.max(4, Math.round((d.km / maxKm) * 48)) : 2;
-    const bg = d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)';
+    const hKm = d.km > 0 ? Math.max(4, Math.round((d.km / maxKm) * 48)) : 2;
+    const hDp = d.dp > 0 ? Math.max(3, Math.round((d.dp / maxDp) * 48)) : 0;
+    const bgKm = d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)';
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
-      <div style="width:100%;max-width:20px;height:${h}px;background:${bg};border-radius:2px;margin-top:auto"></div>
+      <div style="position:relative;width:100%;display:flex;align-items:flex-end;justify-content:center;height:48px">
+        ${hDp>0?`<div style="position:absolute;bottom:0;left:0;right:0;height:${hDp}px;background:#7c3aed;opacity:.2;border-radius:2px"></div>`:''}
+        <div style="width:55%;max-width:14px;height:${hKm}px;background:${bgKm};border-radius:2px;position:relative;z-index:1"></div>
+      </div>
       <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">${d.label}</div>
     </div>`;
   }).join('');

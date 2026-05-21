@@ -305,6 +305,15 @@ export async function analyzeGPX(points, fname) {
   const timeMin=estTimeS*rf.min;
   const timeMax=estTimeS*rf.max;
 
+  // Cache projection to VLState.races for dashboard hero card (session-level cache)
+  {
+    const _rid=VLState.currentRaceContext?.id;
+    if(_rid&&VLState.races?.length){
+      const _ri=VLState.races.findIndex(r=>String(r.id)===String(_rid));
+      if(_ri>=0) VLState.races[_ri]._projection={cible:Math.round(estTimeS),prudent:Math.round(timeMax),agressif:Math.round(timeMin),confidence,confDots,confidenceColor};
+    }
+  }
+
   // Goal comparison — display only, goal_time has zero effect on pace calc
   let goalCompareStr='',goalCompareColor='var(--vl-text-3)',goalLabel='';
   if(VLState.currentRaceContext?.goal_time){
