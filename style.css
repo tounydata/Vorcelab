@@ -197,6 +197,15 @@ main{padding:1.5rem 2rem;width:100%;}
 .vl-sat-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--vl-line);}
 .vl-sat-cell:last-child{border-right:none;}
 .vl-sat-val{font-family:var(--vl-display);font-size:1.4rem;font-weight:700;letter-spacing:0.01em;line-height:1;}
+/* ── DASHBOARD V2 ── */
+.dv2-row{display:grid;gap:14px;align-items:start;margin-bottom:14px;}
+.dv2-top{grid-template-columns:3fr 2fr;}
+.dv2-bot{grid-template-columns:3fr 2fr;}
+@media(max-width:900px){.dv2-top,.dv2-bot{grid-template-columns:1fr;}}
+.renfo-cat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+@media(max-width:500px){.renfo-cat-grid{grid-template-columns:1fr 1fr;}}
+.renfo-cat-block{background:var(--vl-surf-2);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:10px 11px;position:relative;overflow:hidden;}
+.renfo-cat-block.done{border-color:currentColor;}
 
 /* ── ACTIVITIES ── */
 .acts-grid{display:flex;flex-direction:column;gap:0;}
