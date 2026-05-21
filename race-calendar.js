@@ -370,36 +370,34 @@ export function renderRaces() {
     }
     const proj=next._projection||buildProjFromDB(next.last_projection);
     nextWidget.innerHTML=`
-    <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+    <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;max-height:clamp(280px,42vh,400px)">
       <div style="position:relative;padding:10px 14px 0;flex-shrink:0">
-        <span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.14em;padding:3px 8px;border-radius:3px;background:rgba(214,128,62,.15);color:var(--vl-ember);border:1px solid rgba(214,128,62,.3);text-transform:uppercase">KILLER FEATURE · STRATÉGIE AVANCÉE</span>
+        <span style="font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.16em;color:var(--vl-text-3);text-transform:uppercase">STRATÉGIE DE COURSE</span>
       </div>
-      <div style="position:relative;flex:1;display:flex;min-height:0">
-        <div style="flex:1.1;padding:10px 14px 14px;display:flex;flex-direction:column;min-width:0">
+      <div style="position:relative;flex:1;display:flex;min-height:0;overflow:hidden">
+        <div style="flex:1.1;padding:10px 14px 14px;display:flex;flex-direction:column;min-width:0;overflow:hidden">
           <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-ember);letter-spacing:.18em;text-transform:uppercase;margin-bottom:4px">${escapeHTML(next.type)} · COURSE VISÉE</div>
-          <div style="font-family:var(--vl-display);font-size:clamp(2rem,3.8vw,2.8rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:6px">${escapeHTML(next.name)}</div>
-          <div style="font-family:var(--vl-mono);font-size:.7rem;color:var(--vl-text-2);margin-bottom:auto">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
-          <div style="margin-top:14px">
-            <div style="font-family:var(--vl-display);font-size:4rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
-            <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:5px">JOURS</div>
-            <div style="font-family:var(--vl-mono);font-size:8.5px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-top:5px">${phase.label}</div>
+          <div style="font-family:var(--vl-display);font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:.88;margin-bottom:6px">${escapeHTML(next.name)}</div>
+          <div style="font-family:var(--vl-mono);font-size:.68rem;color:var(--vl-text-2);margin-bottom:10px">${raceDate}${next.distance?' · '+next.distance+' km':''}${next.elevation?' · D+ '+next.elevation+' m':''}</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end">
+            <div style="font-family:var(--vl-display);font-size:3.8rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
+            <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:4px">JOURS</div>
+            <div style="font-family:var(--vl-mono);font-size:8.5px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-top:4px;margin-bottom:12px">${phase.label}</div>
+            <button onclick="event.stopPropagation();prepareRace('${next.id}')" style="background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:9px 14px;font-family:var(--vl-display);font-size:.9rem;font-weight:700;letter-spacing:.08em;cursor:pointer;touch-action:manipulation;width:100%;text-align:center">OUVRIR LA STRATÉGIE →</button>
           </div>
-          <button onclick="event.stopPropagation();prepareRace('${next.id}')" style="margin-top:14px;background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:10px 14px;font-family:var(--vl-display);font-size:.95rem;font-weight:700;letter-spacing:.08em;cursor:pointer;touch-action:manipulation;width:100%;text-align:center">OUVRIR LA STRATÉGIE →</button>
         </div>
-        <div style="width:44%;border-left:1px solid rgba(214,128,62,.18);background:rgba(214,128,62,.04);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
+        <div style="width:44%;border-left:1px solid var(--vl-line-2);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
           ${proj?`<div style="padding:12px 12px 8px;flex-shrink:0">
-            <div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.14em;margin-bottom:5px;text-transform:uppercase">PROJECTION VORCELAB</div>
-            <div style="font-family:var(--vl-display);font-size:clamp(2.4rem,4vw,3.2rem);font-weight:800;color:var(--color-victory,#34d399);letter-spacing:-.03em;line-height:.82">${fmtD(proj.cible)}</div>
+            <div style="font-family:var(--vl-mono);font-size:9.5px;color:var(--vl-text-2);letter-spacing:.16em;margin-bottom:5px;text-transform:uppercase;font-weight:700">PROJECTION VORCELAB</div>
+            <div style="font-family:var(--vl-display);font-size:clamp(2.2rem,4vw,3rem);font-weight:800;color:var(--color-victory,#34d399);letter-spacing:-.03em;line-height:.82">${fmtD(proj.cible)}</div>
             <div style="font-size:11px;font-family:var(--vl-mono);letter-spacing:2px;margin-top:6px">${proj.confDots}</div>
             ${proj.prudent&&proj.agressif?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
               <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">PRUDENT <span style="color:var(--vl-text-2)">${fmtD(proj.prudent)}</span></span>
               <span style="font-family:var(--vl-mono);font-size:7px;color:var(--color-victory,#34d399);font-weight:700">CIBLE ${fmtD(proj.cible)}</span>
               <span style="font-family:var(--vl-mono);font-size:7px;color:var(--vl-text-3)">AGRESSIF <span style="color:var(--vl-text-2)">${fmtD(proj.agressif)}</span></span>
             </div>`:''}
-            ${hasGpx?`<div style="font-family:var(--vl-mono);font-size:7.5px;color:var(--vl-text-3);letter-spacing:.1em;margin-top:8px;text-transform:uppercase">TRACÉ GPX${next.distance?' · '+next.distance+'KM':''}${next.elevation?' · D+'+next.elevation:''}
-</div>`:''}
           </div>`:''}
-          ${gpxTrace?`<div style="flex:1;overflow:hidden;min-height:50px">${gpxTrace}</div>`:''}
+          ${gpxTrace?`<div style="flex:1;overflow:hidden;min-height:40px">${gpxTrace}</div>`:''}
           ${miniAlti?`<div style="position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(to top,var(--vl-surf),transparent);z-index:1;pointer-events:none"></div>${miniAlti}</div>`:''}
         </div>
       </div>
