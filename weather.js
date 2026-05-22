@@ -7,7 +7,10 @@
 export async function fetchWeather(lat, lon, date) {
   const d = date.split('T')[0], h = parseInt(date.split('T')[1]?.split(':')[0] || 10);
   try {
-    const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${d}&end_date=${d}&hourly=temperature_2m,precipitation,windspeed_10m&timezone=Europe%2FParis`);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${d}&end_date=${d}&hourly=temperature_2m,precipitation,windspeed_10m&timezone=Europe%2FParis`, { signal: ctrl.signal });
+    clearTimeout(t);
     const data = await r.json();
     return { temp: data.hourly?.temperature_2m?.[h] ?? null, precip: data.hourly?.precipitation?.[h] ?? null, wind: data.hourly?.windspeed_10m?.[h] ?? null };
   } catch { return null; }
@@ -26,7 +29,10 @@ export async function fetchForecastWeather(startPoint, currentRaceContext) {
     const raceDtm = currentRaceContext?.date ? new Date(currentRaceContext.date) : null;
     const raceHour = raceDtm && raceDtm.getHours() > 0 ? raceDtm.getHours() : 9;
     const h = (daysToRace !== null && daysToRace > 0 ? daysToRace : 0) * 24 + raceHour;
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${startPoint.lat}&longitude=${startPoint.lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=${forecastDays}`);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${startPoint.lat}&longitude=${startPoint.lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=${forecastDays}`, { signal: ctrl.signal });
+    clearTimeout(t);
     const d = await r.json();
     const precip6h = (d.hourly?.precipitation || []).slice(Math.max(0, h - 6), h + 1).reduce((a, v) => a + (v || 0), 0);
     if (d.hourly?.temperature_2m?.[h] != null) {

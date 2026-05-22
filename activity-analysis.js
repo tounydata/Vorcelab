@@ -25,11 +25,15 @@ export async function fetchStreams(activityId) {
 
   // Fallback: fetch from Strava via edge function
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 20000);
     const r = await fetch(`${SUPA_URL}/functions/v1/strava-activity`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ activityId, keys: 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng' }),
+      signal: ctrl.signal,
     });
+    clearTimeout(t);
     if (!r.ok) {
       const body = await r.text().catch(() => '');
       console.warn('[VL] fetchStreams HTTP', r.status, r.statusText, body);
@@ -190,8 +194,10 @@ export async function generateLocalActivitySummary(act, streams, ctx) {
 // ════════════════════════════════════════════════════
 export async function openAnalyse(act) {
   VLState._prevPanel = window.location.hash.slice(1) || 'dashboard';
-  document.getElementById('analyseInner').innerHTML = `<div class="loading" style="min-height:300px"><div class="spinner"></div><div class="mono">Chargement des données...</div></div>`;
+  const analyseEl = document.getElementById('analyseInner');
+  analyseEl.innerHTML = `<div class="loading" style="min-height:300px"><div class="spinner"></div><div class="mono">Chargement des données...</div></div>`;
   window.navigate('analyse');
+  try {
 
   const streams = await fetchStreams(act.id);
   // Fallback: use first latlng point from streams if start_latlng missing
@@ -347,6 +353,11 @@ if (summaryBox) {
   const pcEl = document.getElementById('progressCompBlock');
   if (pcEl) pcEl.innerHTML = renderComparisonBlock(act, similar, computeProgressSignals(act, similar));
 }
+  } catch(e) {
+    console.error('[VL] openAnalyse error:', e);
+    const inner = document.getElementById('analyseInner');
+    if (inner) inner.innerHTML = `<div class="loading" style="min-height:300px"><div class="mono t2" style="text-align:center">Impossible de charger l'analyse.<br><small style="opacity:.6">${e?.message || 'Erreur réseau'}</small></div><button class="hbtn" style="margin-top:1rem" onclick="closeAnalyse()">← Retour</button></div>`;
+  }
 } // ferme openAnalyse()
 
 export function showLinkActivityPanel(actId) {
