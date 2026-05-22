@@ -1,12 +1,10 @@
 import { Link, useLocation } from 'react-router'
 
 const PAGE_LABELS: Record<string, string> = {
-  '/race': 'Race Strategy',
   '/renfo': 'Renforcement musculaire',
 }
 
 const LEGACY_HASHES: Record<string, string> = {
-  '/race': 'strategie',
   '/renfo': 'renfo',
 }
 

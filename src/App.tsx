@@ -8,6 +8,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { ActivitiesPage } from './pages/ActivitiesPage'
 import { ActivityDetailPage } from './pages/ActivityDetailPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { RaceListPage } from './pages/RaceListPage'
+import { RaceStrategyPage } from './pages/RaceStrategyPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
@@ -26,7 +28,8 @@ const router = createHashRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'activities', element: <ActivitiesPage /> },
       { path: 'activities/:id', element: <ActivityDetailPage /> },
-      { path: 'race', element: <ComingSoonPage /> },
+      { path: 'race', element: <RaceListPage /> },
+      { path: 'race/:id', element: <RaceStrategyPage /> },
       { path: 'renfo', element: <ComingSoonPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: '*', element: <NotFoundPage /> },
