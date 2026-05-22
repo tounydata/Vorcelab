@@ -63,7 +63,8 @@ export async function fetchStreams(activityId) {
   }
 }
 
-export { fetchWeather } from './weather.js';
+import { fetchWeather } from './weather.js';
+export { fetchWeather };
 
 export function computeRaceContext(act, weather) {
   const fcMax=VLState.userProfile.fc_max||FC_MAX_DEFAULT;

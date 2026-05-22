@@ -187,7 +187,8 @@ export function goToEvent(raceId) {
   const race = (VLState.races||[]).find(r=>String(r.id)===String(raceId));
   const cur = window.location.hash.slice(1) || 'dashboard';
   if (!cur.startsWith('strategie')) VLState._prevPanelStrategie = cur;
-  window.Vorcelab?.navigate('strategie');
+  history.pushState(null, '', '#strategie');
+  window.Vorcelab?.showPanel?.('strategie');
   if (race) showEventSplash(race);
   // Refresh race data so GPX saved on another device is always picked up; splash covers the fetch
   loadRaces().then(() => openEventView(raceId));
@@ -208,8 +209,7 @@ export function backToCalendar() {
 }
 
 export function backFromStrategie() {
-  const prev = VLState._prevPanelStrategie || 'dashboard';
-  // Reset event view state so calView is clean when user returns to strategie
+  // Toujours retour Dashboard (pas au calendrier)
   const evV = document.getElementById('eventView');
   const calV = document.getElementById('calView');
   if (evV) evV.style.display = 'none';
@@ -220,7 +220,7 @@ export function backFromStrategie() {
   const cs = document.getElementById('eventComparisonSection');
   if (cs) cs.innerHTML = '';
   VLState.currentRaceContext = null;
-  window.Vorcelab?.navigate?.(prev);
+  window.Vorcelab?.navigate?.('dashboard');
 }
 
 export async function deleteRace(raceId) {
@@ -651,7 +651,9 @@ export function prepareRace(raceOrId) {
   const cur = window.location.hash.slice(1) || 'dashboard';
   if (!cur.startsWith('strategie')) {
     VLState._prevPanelStrategie = cur;
-    window.Vorcelab?.navigate?.('strategie');
+    // pushState évite de déclencher hashchange (qui rappellerait openEventView/resetStrategy)
+    history.pushState(null, '', '#strategie');
+    window.Vorcelab?.showPanel?.('strategie');
   }
 
   // Ensure eventView is visible (when called from outside openEventView)
@@ -676,6 +678,8 @@ export function prepareRace(raceOrId) {
       for(let i=1;i<validPts.length;i++) d += hav(validPts[i-1], validPts[i]);
       if (d < 100) { showGpxUploadPrompt(race); return; }
       document.getElementById('gpxDrop').style.display = 'none';
+      const _sr = document.getElementById('stratResult');
+      if (_sr) { _sr.style.display = 'block'; _sr.innerHTML = `<div class="loading" style="min-height:60vh"><div class="spinner"></div><div class="mono" style="margin-top:.5rem">Calcul de la stratégie…</div></div>`; }
       analyzeGPX(points, race.name);
     } catch(e) {
       showGpxUploadPrompt(race);
