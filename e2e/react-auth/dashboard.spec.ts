@@ -6,12 +6,10 @@ test.describe('Dashboard (authentifié)', () => {
     page.on('pageerror', e => errors.push(e.message))
 
     await page.goto('/Vorcelab/app/#/')
-
-    // Layout sidebar : signe que la session est reconnue
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
-    // Titre de la page
-    await expect(page.getByText('DASHBOARD')).toBeVisible()
+    // Titre dans le contenu principal (pas la sidebar)
+    await expect(page.locator('main').getByText('DASHBOARD')).toBeVisible()
 
     expect(errors, `erreurs JS : ${errors.join(' | ')}`).toHaveLength(0)
   })
@@ -23,7 +21,6 @@ test.describe('Dashboard (authentifié)', () => {
     await page.goto('/Vorcelab/app/#/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
-    // KpiBlocks présents (texte label stable quel que soit la valeur)
     await expect(page.getByText('KM CE MOIS')).toBeVisible()
     await expect(page.getByText('KM CETTE SEMAINE')).toBeVisible()
     await expect(page.getByText('D+ CE MOIS')).toBeVisible()
@@ -49,8 +46,9 @@ test.describe('Dashboard (authentifié)', () => {
     await page.goto('/Vorcelab/app/#/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
-    await page.getByRole('link', { name: 'Activités' }).click()
-    await expect(page.getByText('ACTIVITÉS')).toBeVisible({ timeout: 5_000 })
+    // Clic sur le lien de la sidebar desktop (premier <nav>)
+    await page.getByRole('navigation').first().getByRole('link', { name: /Activités/i }).click()
+    await expect(page.locator('main').getByText('ACTIVITÉS', { exact: true })).toBeVisible({ timeout: 5_000 })
 
     expect(errors).toHaveLength(0)
   })

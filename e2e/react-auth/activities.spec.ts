@@ -7,7 +7,7 @@ test.describe('Activités (authentifié)', () => {
 
     await page.goto('/Vorcelab/app/#/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('ACTIVITÉS')).toBeVisible()
+    await expect(page.locator('main').getByText('ACTIVITÉS', { exact: true })).toBeVisible()
 
     expect(errors).toHaveLength(0)
   })
@@ -20,9 +20,10 @@ test.describe('Activités (authentifié)', () => {
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // L'un des trois états doit être visible, pas de page blanche
-    const counter = page.getByText(/\d+ sortie/)          // ex: "42 sorties"
-    const empty   = page.getByText('Aucune sortie')
-    const loading = page.getByText('Chargement')
+    const main    = page.locator('main')
+    const counter = main.getByText(/\d+ sortie/)          // ex: "42 sorties"
+    const empty   = main.getByText('Aucune sortie')
+    const loading = main.getByText('Chargement')
 
     await expect(counter.or(empty).or(loading)).toBeVisible({ timeout: 8_000 })
 

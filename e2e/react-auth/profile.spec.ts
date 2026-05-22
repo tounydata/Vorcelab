@@ -23,7 +23,10 @@ test.describe('Profil (authentifié)', () => {
     // L'email est toujours affiché en bas de sidebar (Layout.tsx ligne 45)
     const testEmail = process.env.VORCELAB_TEST_EMAIL
     if (testEmail) {
-      await expect(page.getByText(testEmail)).toBeVisible()
+      // Supabase normalise les emails en minuscules ; l'email apparaît dans la sidebar ET la page profil
+      await expect(
+        page.getByRole('navigation').first().getByText(testEmail.toLowerCase())
+      ).toBeVisible()
     }
   })
 

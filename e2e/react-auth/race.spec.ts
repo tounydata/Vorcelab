@@ -7,7 +7,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
 
     await page.goto('/Vorcelab/app/#/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('STRATÉGIES DE COURSE')).toBeVisible()
+    await expect(page.locator('main').getByText('STRATÉGIES DE COURSE')).toBeVisible()
 
     expect(errors).toHaveLength(0)
   })
@@ -34,7 +34,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
 
     await page.goto('/Vorcelab/app/#/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByRole('link', { name: /Dashboard/i })).toBeVisible()
+    await expect(page.locator('main').getByRole('link', { name: /Dashboard/i })).toBeVisible()
 
     expect(errors).toHaveLength(0)
   })
