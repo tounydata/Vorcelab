@@ -42,18 +42,13 @@ supabase/.branches/
 # TypeScript
 *.tsbuildinfo
 
-# Container / environment artifacts
+# Container / environment artifacts (anciens artefacts Expo/RN, plus utilisés)
 .devcontainer/
 app.json
-app/
 babel.config.js
 expo-env.d.ts
-lib/
 start.sh
 stores/
-tsconfig.json
-utils/
-README.md
 
 # Claude Code internal
 .claude/

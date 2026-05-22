@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VORCELAB — Le laboratoire du coureur</title>
+<meta name="description" content="Le laboratoire du coureur. Analyse tes sorties Strava, prépare tes courses trail et route.">
+<meta property="og:title" content="VORCELAB — Le laboratoire du coureur">
+<meta property="og:description" content="Analyse tes sorties Strava, prépare tes courses trail et route.">
+<meta property="og:image" content="https://tounydata.github.io/Vorcelab/og.svg">
+<meta property="og:url" content="https://tounydata.github.io/Vorcelab/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="VORCELAB — Le laboratoire du coureur">
+<meta name="twitter:description" content="Le laboratoire du coureur. Analyse tes sorties Strava, prépare tes courses trail et route.">
+<meta name="twitter:image" content="https://tounydata.github.io/Vorcelab/og.svg">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Inter:wght@400;500;600&family=Fraunces:ital,wght@1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.106.0/dist/umd/supabase.min.js" integrity="sha384-zfshMiFERdyezN/WZXzHe9g53pOZCrLPBj/qC0ohHnxQ20c3zXwFqbtRAwvZMacA" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb" crossorigin="anonymous"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="style.css?v=20260519160000">
+
+</head>
+<body>
+
+<!-- ══ SPLASH ══ -->
+<div id="splashScreen">
+  <svg width="96" height="96" viewBox="0 0 60 60" fill="none">
+    <line class="splash-baseline" x1="3" y1="50" x2="57" y2="50" stroke="#F3EFE4" stroke-width="1.2" opacity="0.4"/>
+    <path class="splash-path" d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="#F3EFE4" stroke-width="3.2" stroke-linejoin="miter" stroke-linecap="square" fill="none" pathLength="100"/>
+    <circle class="splash-dot" cx="30" cy="12" r="3" fill="#E5562A"/>
+    <line class="splash-tick" x1="30" y1="50" x2="30" y2="54" stroke="#E5562A" stroke-width="1.5"/>
+  </svg>
+  <div class="splash-wordmark">VORCELAB</div>
+  <div class="splash-tagline">Le laboratoire du coureur</div>
+</div>
+<script>
+  // Failsafe : supprime le splash même si un module JS échoue à charger
+  setTimeout(function(){
+    var s = document.getElementById('splashScreen');
+    if(s){ s.style.transition='opacity .4s'; s.style.opacity='0'; setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); }, 420); }
+  }, 4000);
+</script>
+
+<!-- ══ AUTH ══ -->
+
+<div id="authScreen" style="position:relative">
+  <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.08;pointer-events:none;color:var(--vl-text)" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+    <g stroke="currentColor" stroke-width="0.8" fill="none">
+      <path d="M-20,80 Q120,50 220,90 T440,70"/>
+      <path d="M-20,200 Q100,170 220,210 T440,190"/>
+      <path d="M-20,320 Q130,290 220,330 T440,310"/>
+      <path d="M-20,440 Q110,410 220,450 T440,430"/>
+      <path d="M-20,560 Q140,530 220,570 T440,550"/>
+      <path d="M-20,680 Q120,650 220,690 T440,670"/>
+    </g>
+  </svg>
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-mark">
+        <svg width="48" height="48" viewBox="0 0 60 60" fill="none">
+          <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" stroke-width="1.2" opacity="0.3"/>
+          <path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
+          <circle cx="30" cy="12" r="3.5" fill="#E5562A"/>
+          <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="auth-brand-title">VORCELAB</div>
+        <div class="auth-brand-sub">Le laboratoire du coureur</div>
+      </div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="Vorcelab.switchTab('login',this)">Connexion</button>
+      <button class="auth-tab" onclick="Vorcelab.switchTab('signup',this)">Créer un compte</button>
+    </div>
+<form id="loginForm" onsubmit="event.preventDefault();login()">
+  <input class="fi" type="email" id="loginEmail" placeholder="Adresse email" autocomplete="email">
+  <input class="fi" type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password">
+  <button class="btn-primary" type="submit">Se connecter</button>
+</form>
+
+<form id="signupForm" style="display:none" onsubmit="event.preventDefault();signup()">
+  <input class="fi" type="text" id="signupName" placeholder="Prénom ou pseudo" autocomplete="name">
+  <input class="fi" type="email" id="signupEmail" placeholder="Adresse email" autocomplete="email">
+  <input class="fi" type="password" id="signupPassword" placeholder="Mot de passe" autocomplete="new-password" minlength="8" oninput="updatePasswordRules()">
+
+  <div id="passwordRules" style="font-size:.75rem;margin:.4rem 0 .8rem;color:var(--vl-text-3);line-height:1.5">
+    <div id="ruleLength">○ 8 caractères minimum</div>
+    <div id="ruleUpper">○ 1 majuscule minimum</div>
+    <div id="ruleDigit">○ 1 chiffre minimum</div>
+  </div>
+
+  <button class="btn-primary" type="submit">Créer mon compte</button>
+</form>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+
+<div id="appShell">
+
+<!-- ══ SIDEBAR (desktop) ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo" onclick="Vorcelab.navigate('dashboard')">
+    <div style="color:var(--vl-text);flex-shrink:0">
+      <svg width="28" height="28" viewBox="0 0 60 60" fill="none">
+        <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" stroke-width="1.2" opacity="0.3"/>
+        <path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
+        <circle cx="30" cy="12" r="3.5" fill="#E5562A"/>
+        <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <div>
+      <div style="font-family:var(--vl-display);font-size:1rem;letter-spacing:.06em;color:var(--vl-text);line-height:1">VORCELAB</div>
+      <div class="sidebar-subname" id="headerName">Anthony Bollecker</div>
+    </div>
+  </div>
+
+  <div class="sidebar-section-label">Navigation</div>
+  <button class="sidebar-item active" data-panel="dashboard"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg> Dashboard</button>
+  <button class="sidebar-item" data-panel="strategie"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendrier</button>
+  <button class="sidebar-item" data-panel="renfo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8V16M19 8V16M2 12H22M7 6V18M17 6V18"/></svg> Renfo</button>
+  <button class="sidebar-item" data-panel="activites"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Activités</button>
+  <button class="sidebar-item" data-panel="profil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil</button>
+
+  <div class="sidebar-bottom">
+    <div class="theme-row">
+      <span class="theme-row-label">Thème</span>
+      <div class="theme-toggle">
+        <button class="theme-btn" data-theme-btn="dark" onclick="Vorcelab.setTheme('dark')" title="Sombre"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="theme-btn active" data-theme-btn="auto" onclick="Vorcelab.setTheme('auto')" title="Auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="theme-btn" data-theme-btn="light" onclick="Vorcelab.setTheme('light')" title="Clair"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div class="sidebar-strava-block">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <div class="dot dot-off" id="statusDot"></div>
+        <span style="font-family:var(--vl-mono);font-size:9.5px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.1em" id="statusText">Strava</span>
+      </div>
+      <div id="lastSyncLabel" style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:8px"></div>
+      <button class="hbtn strava" id="btnStrava" onclick="Vorcelab.connectStrava()" style="width:100%;display:flex;justify-content:center">Connecter Strava</button>
+      <button class="hbtn" id="btnSync" style="display:none;width:100%;justify-content:center;gap:6px;margin-top:4px" onclick="Vorcelab.manualSync()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Sync</button>
+      <button class="hbtn" onclick="Vorcelab.disconnectStrava()" style="width:100%;display:flex;justify-content:center;margin-top:4px">Déconnecter Strava</button>
+    </div>
+    <div style="padding-top:10px;border-top:1px solid var(--vl-line);font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3);letter-spacing:.16em;text-transform:uppercase;font-weight:600">/LAB · Le laboratoire du coureur</div>
+  </div>
+</aside>
+
+<!-- ══ MOBILE HEADER ══ -->
+<div class="mobile-header">
+  <div class="sidebar-logo" onclick="Vorcelab.navigate('dashboard')" style="margin:0">
+    <div style="color:var(--vl-text);flex-shrink:0">
+      <svg width="24" height="24" viewBox="0 0 60 60" fill="none">
+        <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" stroke-width="1.2" opacity="0.3"/>
+        <path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-linecap="square" fill="none"/>
+        <circle cx="30" cy="12" r="3.5" fill="#E5562A"/>
+        <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <div>
+      <div style="font-family:var(--vl-display);font-size:.88rem;letter-spacing:.06em;color:var(--vl-text);line-height:1">VORCELAB</div>
+      <div class="sidebar-subname" id="headerNameMobile"></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;border:1px solid var(--vl-line-2);font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-2)">
+      <div class="dot dot-off" id="statusDotMobile"></div>
+      <span>SYNC</span>
+    </div>
+    <div class="theme-toggle">
+      <button class="theme-btn" data-theme-btn="dark" onclick="Vorcelab.setTheme('dark')" title="Sombre"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="theme-btn" data-theme-btn="auto" onclick="Vorcelab.setTheme('auto')" title="Auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="theme-btn" data-theme-btn="light" onclick="Vorcelab.setTheme('light')" title="Clair"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <button class="hbtn strava" id="btnStravaMobile" onclick="Vorcelab.connectStrava()" style="display:none">Strava</button>
+    <button class="hbtn" id="btnSyncMobile" style="display:none" onclick="Vorcelab.manualSync()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</div>
+
+<!-- ══ MAIN CONTENT ══ -->
+<div class="app-main">
+<main>
+
+<!-- ══ DASHBOARD ══ -->
+
+<div class="panel active" id="panel-dashboard">
+
+  <!-- ONBOARDING (shown when no Strava) -->
+
+  <div id="onboarding" style="display:none">
+    <div class="onboard">
+      <div class="onboard-icon"><svg width="72" height="72" viewBox="0 0 60 60" fill="none"><line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" stroke-width="1.2" opacity="0.4"/><path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" stroke-width="3.2" stroke-linejoin="miter" stroke-linecap="square" fill="none"/><circle cx="30" cy="12" r="3" fill="#E5562A"/><line x1="30" y1="50" x2="30" y2="54" stroke="#E5562A" stroke-width="1.5"/></svg></div>
+      <div class="onboard-title">Bienvenue sur VORCELAB</div>
+      <div class="onboard-sub">Connecte ton compte Strava pour débloquer le dashboard et voir tes stats de course.</div>
+      <div class="onboard-steps">
+        <div class="onboard-step" id="step1">
+          <div class="step-num" id="step1-num">1</div>
+          <div>
+            <div style="font-weight:600;font-size:.85rem">Connecter Strava</div>
+            <div style="font-size:.75rem;color:var(--text2)">Accès à tes 100 dernières activités</div>
+          </div>
+        </div>
+        <div class="onboard-step" id="step2">
+          <div class="step-num" id="step2-num">2</div>
+          <div>
+            <div style="font-weight:600;font-size:.85rem">Uploader l'archive ZIP Strava</div>
+            <div style="font-size:.75rem;color:var(--text2)">Profil → Import archive → Algorithme plus précis</div>
+          </div>
+        </div>
+        <div class="onboard-step" id="step3">
+          <div class="step-num" id="step3-num">3</div>
+          <div>
+            <div style="font-weight:600;font-size:.85rem">Compléter ton profil</div>
+            <div style="font-size:.75rem;color:var(--text2)">FC max, RP, avatar</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" style="max-width:300px" onclick="Vorcelab.connectStrava()">Connecter Strava →</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD CONTENT (shown when Strava connected) -->
+
+  <div id="dashContent" style="display:none">
+
+<!-- WEEK LABEL -->
+<div style="padding:.75rem 0 .5rem">
+  <div id="dashWeekLabel" class="mlabel" style="color:var(--vl-text-3)"></div>
+</div>
+
+<!-- ── ROW 1 : HERO (gauche) + STATS COURSE 7J (droite) ── -->
+<div class="dv2-row dv2-top">
+
+  <!-- PROCHAINE COURSE / KILLER FEATURE -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="nextRaceWidget" style="display:flex;flex-direction:column;height:100%"><div style="padding:1.25rem" class="mono t3">Aucune course planifiée</div></div>
+  </div>
+
+  <!-- STATS COURSE 7 DERNIERS JOURS -->
+  <div class="card" id="dash-stats-7j" style="display:flex;flex-direction:column;gap:0">
+    <div class="mlabel" style="margin-bottom:10px;letter-spacing:.14em">COURSE · 7 DERNIERS JOURS</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
+      <div class="vl-hk-val tg" id="s-km-week" style="font-size:2.8rem;line-height:1">—</div>
+      <div style="font-family:var(--vl-mono);font-size:.7rem;color:var(--vl-text-2)">km</div>
+    </div>
+    <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);margin-bottom:14px">
+      <span id="s-runs-week">—</span> sorties · D+ <span id="s-dplus-week">—</span>
+    </div>
+    <!-- Barchart SVG 7j -->
+    <div id="dash-bar7j" style="height:56px;margin-bottom:10px"></div>
+    <!-- EF indicator -->
+    <div id="aerobicStatCard" style="background:var(--vl-surf-2);border-radius:6px;padding:8px 10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="mlabel" style="font-size:8px;margin:0;letter-spacing:.1em">% EF · 7j</div>
+          <div id="aerobicStatVal" style="font-family:var(--vl-display);font-size:1.4rem;font-weight:700;color:var(--vl-text-3);line-height:1;margin-top:2px">…</div>
+          <div id="aerobicStatQuality" style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.08em;margin-top:2px"></div>
+        </div>
+        <div style="text-align:right">
+          <div class="mlabel" style="font-size:8px;margin:0;letter-spacing:.1em">D+ TOTAL</div>
+          <div id="bar7jDpTotal" style="font-family:var(--vl-display);font-size:1.4rem;font-weight:700;color:var(--color-elevation,#5da084);line-height:1;margin-top:2px">—</div>
+          <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3);margin-top:2px">m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── ROW 2 : GAUCHE (Charge + Renfo empilés) + DROITE (CE MOIS + activités) ── -->
+<div class="dv2-row dv2-bot">
+
+  <!-- LEFT: Charge 28j + Renfo empilés -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="card" style="padding:14px 16px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="clabel" style="margin:0">Charge combinée — 4 semaines</div>
+        <div style="display:flex;gap:12px;font-family:var(--vl-mono);font-size:9px">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--vl-ember);border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Course</span></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#7c3aed;border-radius:2px;display:inline-block"></span><span style="color:var(--vl-text-3)">Renfo</span></span>
+        </div>
+      </div>
+      <div style="height:110px;position:relative;max-width:100%"><canvas id="chargeChart" style="max-width:100%"></canvas></div>
+    </div>
+
+    <div class="card" id="dash-renfo-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="mlabel" style="letter-spacing:.14em;color:var(--color-renfo,#a78bfa)">RENFO · LIBRE · <span id="renfo-week-count">—</span>/5 SEM.</div>
+        <button onclick="Vorcelab.navigate('renfo')" style="font-family:var(--vl-mono);font-size:9px;font-weight:700;color:var(--color-renfo,#a78bfa);background:none;border:none;cursor:pointer;letter-spacing:.1em;touch-action:manipulation">VOIR RENFO →</button>
+      </div>
+      <div class="renfo-cat-grid" id="renfo-cat-blocks"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: CE MOIS + dernières sorties -->
+  <div class="card" style="padding:0 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 12px">
+      <div class="mlabel" style="margin:0;letter-spacing:.14em">CE MOIS</div>
+      <button onclick="Vorcelab.navigate('activites')" style="background:none;border:none;color:var(--vl-ember);font-family:var(--vl-mono);font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;padding:0">VOIR TOUT →</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px">
+      <div>
+        <div class="vl-hk-val" id="s-km-month" style="font-size:1.6rem;color:var(--color-distance,#d6803e);line-height:1">—</div>
+        <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">km COURSE</div>
+        <div class="vl-hk-delta" id="s-km-month-delta" style="margin-top:4px"></div>
+      </div>
+      <div>
+        <div class="vl-hk-val" id="s-dplus-month" style="font-size:1.6rem;color:var(--color-elevation,#5da084);line-height:1">—</div>
+        <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">m D+</div>
+      </div>
+      <div>
+        <div class="vl-hk-val" id="renfo-month-count" style="font-size:1.6rem;color:var(--color-renfo,#a78bfa);line-height:1">—</div>
+        <div style="font-family:var(--vl-mono);font-size:8px;color:var(--vl-text-3)">sess. RENFO</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--vl-line);margin:0 -16px"></div>
+    <div style="padding-top:12px;padding-bottom:4px">
+      <div class="clabel" style="margin:0">Dernières sorties</div>
+    </div>
+    <div class="acts-grid" id="actsGrid"></div>
+  </div>
+
+</div>
+
+  </div><!-- end dashContent -->
+</div>
+
+<!-- ══ STRATÉGIE ══ -->
+
+<div class="panel" id="panel-strategie">
+
+  <!-- CALENDAR VIEW -->
+  <div id="calView">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.25rem">
+      <div class="stitle" style="margin:0">Calendrier</div>
+      <button class="hbtn" onclick="Vorcelab.showAddRaceForm()" style="background:var(--purple);color:#fff;border-color:var(--purple)">+ Ajouter une course</button>
+    </div>
+
+    <!-- Add race form (hidden by default) -->
+    <div class="card" id="addRaceCard" style="display:none;margin-bottom:1rem">
+      <div class="clabel" style="margin-bottom:10px">Nouvelle course</div>
+      <div class="race-form-grid">
+        <div class="fg"><label class="fl">Nom</label><input class="fi" id="rName" placeholder="Trail du Muguet"></div>
+        <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rDate"></div>
+        <div class="fg"><label class="fl">Distance (km)</label><input class="fi" type="number" id="rDist" placeholder=""></div>
+        <div class="fg"><label class="fl">D+ (m)</label><input class="fi" type="number" id="rElev" placeholder=""></div>
+        <div class="fg"><label class="fl">Type</label><select class="fi" id="rType"><option value="Trail">Trail</option><option value="Route">Route</option><option value="Ultra">Ultra</option></select></div>
+        <div class="fg"><label class="fl">Objectif temps</label><input class="fi" id="rGoal" placeholder="ex: 4h30"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="save-btn" onclick="Vorcelab.saveRace()">Enregistrer</button>
+        <button class="hbtn" onclick="document.getElementById('addRaceCard').style.display='none'">Annuler</button>
+      </div>
+    </div>
+
+    <!-- Month navigation -->
+    <div class="cal-nav">
+      <button class="hbtn" onclick="Vorcelab.calNavMonth(-1)">‹</button>
+      <div class="cal-month-title" id="calMonthTitle"></div>
+      <button class="hbtn" onclick="Vorcelab.calNavMonth(1)">›</button>
+    </div>
+
+    <!-- Day labels -->
+    <div class="cal-header">
+      <div class="cal-day-label">Lun</div><div class="cal-day-label">Mar</div><div class="cal-day-label">Mer</div>
+      <div class="cal-day-label">Jeu</div><div class="cal-day-label">Ven</div><div class="cal-day-label">Sam</div><div class="cal-day-label">Dim</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- Upcoming list -->
+    <div id="upcomingRaces" style="margin-top:1.5rem"></div>
+  </div>
+
+  <!-- EVENT DETAIL VIEW (hidden by default) -->
+  <div id="eventView" style="display:none">
+    <!-- Header bar -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem">
+      <button class="hbtn" onclick="Vorcelab.backToCalendar()">← Retour</button>
+      <div id="eventViewSubtitle" class="mlabel" style="flex:1;color:var(--vl-text-3)"></div>
+      <div style="position:relative;flex-shrink:0" id="raceMenuWrap">
+        <button class="hbtn" onclick="Vorcelab.toggleRaceMenu(event)" style="letter-spacing:.2em">···</button>
+        <div id="raceMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--vl-surf);border:1px solid var(--vl-line-2);border-radius:var(--vl-r-sm);padding:6px;z-index:2000;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+          <button class="race-menu-item" onclick="toggleEditRaceForm();toggleRaceMenu()">Modifier</button>
+          <button class="race-menu-item" onclick="Vorcelab.raceMenuChangeGpx()">Changer de GPX</button>
+          <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="saveGpxToRace();toggleRaceMenu()">Enregistrer GPX</button>
+          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-ember)" onclick="deleteGpxFromRace();toggleRaceMenu()">Supprimer le GPX</button>
+          <button class="race-menu-item" onclick="raceMenuLinkActivity();toggleRaceMenu()">Lier à une activité</button>
+          <button class="race-menu-item" onclick="window.print();toggleRaceMenu()">Imprimer</button>
+          <div style="border-top:1px solid var(--vl-line);margin:4px 2px"></div>
+          <button class="race-menu-item" id="btnDeleteRace" style="color:var(--vl-ember)">Supprimer</button>
+        </div>
+      </div>
+    </div>
+    <!-- Race name (big display) -->
+    <div id="eventViewTitle" style="font-family:var(--vl-display);font-size:clamp(2rem,5vw,2.8rem);letter-spacing:0.02em;line-height:0.9;font-weight:800;text-transform:uppercase;margin-bottom:1.25rem"></div>
+    <div id="editRaceForm" style="display:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px 16px;margin-bottom:1rem;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="grid-column:1/-1;font-family:var(--display);font-size:.9rem;letter-spacing:.03em;margin-bottom:2px">Modifier l'événement</div>
+      <div><label class="fl">Nom de la course</label><input class="fi" id="editRaceName" type="text" placeholder="Nom"></div>
+      <div><label class="fl">Date</label><input class="fi" id="editRaceDate" type="date"></div>
+      <div><label class="fl">Type</label><select class="fi" id="editRaceType"><option value="Trail">⛰️ Trail</option><option value="Route">🏃 Route</option><option value="Ultra">🦅 Ultra</option></select></div>
+      <div><label class="fl">Distance (km)</label><input class="fi" id="editRaceDist" type="number" step="0.1" placeholder="ex: 21.1"></div>
+      <div><label class="fl">D+ (m)</label><input class="fi" id="editRaceDplus" type="number" placeholder="ex: 800"></div>
+      <div><label class="fl">Objectif temps</label><input class="fi" id="editRaceGoal" type="text" placeholder="ex: 2h30"></div>
+      <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="hbtn" onclick="Vorcelab.toggleEditRaceForm()">Annuler</button>
+        <button class="hbtn" onclick="Vorcelab.saveEditRace()" style="background:var(--cyan);color:#000;border-color:var(--cyan)">💾 Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="upload-zone" id="gpxDrop"
+      onclick="document.getElementById('gpxFile').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="Vorcelab.handleGpxDrop(event)">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">🗺️</div>
+      <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em;margin-bottom:.4rem">Déposer le fichier GPX</div>
+      <div class="mono">Compatible OpenRunner · Strava · Garmin Connect</div>
+    </div>
+    <input type="file" id="gpxFile" accept=".gpx" style="display:none" onchange="Vorcelab.handleGpxFile(event)">
+
+    <div id="stratResult" style="display:none"></div>
+    <div id="eventComparisonSection" class="mt2"></div>
+  </div>
+
+</div>
+
+<!-- ══ RENFO & PRÉVENTION ══ -->
+
+<div class="panel" id="panel-renfo">
+  <div id="renfoApp"></div>
+</div>
+
+<!-- ══ ACTIVITÉS ══ -->
+<div class="panel" id="panel-activites">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+    <div class="stitle">Activités</div>
+    <div class="mlabel" style="color:var(--vl-text-2)" id="actsInfoFull"></div>
+  </div>
+  <div class="card" style="padding:0 16px">
+    <div class="acts-grid" id="actsGridFull"></div>
+  </div>
+</div>
+
+<!-- ══ PROFIL PANEL ══ -->
+
+<div class="panel" id="panel-profil">
+  <!-- En-tête fixe avec titre + onglets -->
+  <div class="vl-page-header">
+    <div>
+      <div class="mlabel">Section 04</div>
+      <div style="font-family:var(--vl-display);font-size:2rem;font-weight:700;letter-spacing:0.01em;line-height:1">MON PROFIL</div>
+    </div>
+    <div class="vl-profil-tabs" id="profilTabs">
+      <button class="vl-tab active" onclick="Vorcelab.switchProfilTab('compte')" data-tab="compte">Compte</button>
+      <button class="vl-tab" onclick="Vorcelab.switchProfilTab('records')" data-tab="records">Records</button>
+      <button class="vl-tab" onclick="Vorcelab.switchProfilTab('nutrition')" data-tab="nutrition">Nutrition</button>
+    </div>
+  </div>
+
+  <!-- Onglet Compte -->
+  <div class="vl-profil-tab-content" id="tab-compte">
+
+<!-- AVATAR + COMPTE -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Compte</div>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+    <div style="position:relative;cursor:pointer" onclick="document.getElementById('avatarInput').click()">
+      <div id="avatarPreview" style="width:56px;height:56px;border-radius:50%;background:var(--vl-ember);display:flex;align-items:center;justify-content:center;font-family:var(--vl-display);font-size:1.4rem;font-weight:800;color:var(--vl-ink);overflow:hidden;letter-spacing:0.02em">AB</div>
+      <div style="position:absolute;bottom:-2px;right:-2px;background:var(--vl-surf-2);border:1px solid var(--vl-line-2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M21 15V19A2 2 0 0 1 19 21H5A2 2 0 0 1 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+    <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="Vorcelab.uploadAvatar(event)">
+    <div style="flex:1">
+      <div class="fg"><label class="fl">Email</label><input class="fi" id="p-email" readonly style="opacity:.6"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="hbtn" onclick="Vorcelab.changePassword()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> Changer le mot de passe</button>
+        <div class="mono t3" id="pwMsg" style="align-self:center"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DONNÉES PHYSIO -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Données physiologiques</div>
+  <div class="fg"><label class="fl">Prénom / Nom</label><input class="fi" id="p-name" placeholder=""></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">
+    <div class="fg"><label class="fl">Date de naissance</label><input class="fi" type="date" id="p-birthdate"></div>
+    <div class="fg"><label class="fl">Sexe</label><select class="fi" id="p-sex"><option value="">—</option><option value="M">Homme</option><option value="F">Femme</option></select></div>
+    <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" type="number" id="p-weight" placeholder="" step="0.1"></div>
+    <div class="fg"><label class="fl">Taille (cm)</label><input class="fi" type="number" id="p-height" placeholder=""></div>
+    <div class="fg"><label class="fl">VO2max</label><input class="fi" type="number" id="p-vo2max" placeholder="" step="0.1"></div>
+    <div class="fg"><label class="fl">FC max (bpm)</label><input class="fi" type="number" id="p-fcmax" placeholder=""></div>
+    <div class="fg"><label class="fl">Seuil lactique (bpm)</label><input class="fi" type="number" id="p-lactate" placeholder=""></div>
+    <div class="fg"><label class="fl">Seuil lactique (/km)</label><input class="fi" id="p-lactate-pace" placeholder=""></div>
+  </div>
+  <div class="fg mt2"><label class="fl">Objectifs</label><textarea class="fi" id="p-goals" rows="3" placeholder="Ultra 50-80km en 2027, sub 1h40 semi en octobre..."></textarea></div>
+  <div class="fg mt2"><label class="fl">Zones douloureuses</label><div class="pain-grid" id="painGrid"></div></div>
+  <button class="save-btn" onclick="Vorcelab.saveProfile()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Sauvegarder</button>
+  <div class="mono t3" id="profileSaveMsg" style="margin-top:6px"></div>
+</div>
+
+<!-- ZIP IMPORT -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Historique complet — Archive Strava</div>
+  <div class="mono t2" style="margin-bottom:.75rem">Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.</div>
+  <div class="upload-hist" id="zipDropZone"
+    onclick="document.getElementById('zipFile').click()"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="Vorcelab.handleZipDrop(event)">
+    <div style="margin-bottom:.5rem"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+    <div style="font-weight:600;font-size:.88rem;margin-bottom:.25rem">Glisser le ZIP Strava ici</div>
+    <div class="mono">ou cliquer · export_XXXXXX.zip</div>
+  </div>
+  <input type="file" id="zipFile" accept=".zip" style="display:none" onchange="Vorcelab.handleZipFile(event)">
+  <div id="histStats" style="display:none" class="hist-stats mt2"></div>
+</div>
+
+<div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--vl-line);display:flex;flex-direction:column;gap:10px">
+  <button onclick="Vorcelab.logout()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(229,86,42,.3);border-radius:8px;color:var(--vl-ember);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    DÉCONNEXION
+  </button>
+  <button onclick="Vorcelab.deleteAccount()" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid rgba(244,63,94,.45);border-radius:8px;color:var(--red);font-family:var(--vl-mono);font-size:11px;font-weight:600;letter-spacing:.08em;padding:10px 16px;cursor:pointer;width:100%;justify-content:center">
+    SUPPRIMER MON COMPTE
+  </button>
+</div>
+
+  </div><!-- /tab-compte -->
+
+  <!-- Onglet Records -->
+  <div class="vl-profil-tab-content" id="tab-records" style="display:none">
+<div class="card">
+  <div class="clabel">Records personnels</div>
+  <div style="display:flex;flex-direction:column;gap:0">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">5 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-5k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-5k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">10 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-10k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-10k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">15 km</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-15k" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-15k-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Semi</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-semi" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-semi-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--vl-line)">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;min-width:70px">Marathon</div>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <input class="fi" id="pr-marathon" placeholder="—" style="max-width:90px;text-align:center;font-family:var(--vl-display);color:var(--vl-amber);font-size:1.1rem;font-weight:700">
+        <input class="fi" type="date" id="pr-marathon-date" style="max-width:130px;font-size:.78rem">
+      </div>
+    </div>
+    <div style="padding:10px 0">
+      <div style="font-family:var(--vl-display);font-size:1rem;font-weight:800;letter-spacing:0.02em;margin-bottom:8px">Ultra</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg" style="margin:0"><label class="fl">Distance (km)</label><input class="fi" type="number" id="pr-ultra-dist" placeholder=""></div>
+        <div class="fg" style="margin:0"><label class="fl">D+ (m)</label><input class="fi" type="number" id="pr-ultra-dplus" placeholder=""></div>
+        <div class="fg" style="margin:0"><label class="fl">Temps</label><input class="fi" id="pr-ultra" placeholder="" style="font-family:var(--vl-display);color:var(--vl-amber)"></div>
+        <div class="fg" style="margin:0"><label class="fl">Date</label><input class="fi" type="date" id="pr-ultra-date"></div>
+      </div>
+    </div>
+  </div>
+  <button class="save-btn" style="margin-top:.75rem" onclick="Vorcelab.savePRs()">Sauvegarder les PR</button>
+  <div class="mono t3" id="prSaveMsg" style="margin-top:6px"></div>
+</div>
+  </div><!-- /tab-records -->
+
+  <!-- Onglet Nutrition -->
+  <div class="vl-profil-tab-content" id="tab-nutrition" style="display:none">
+<div class="card">
+  <div class="clabel">Capacité glucidique</div>
+  <div class="mono t2" style="margin-bottom:.6rem">Adapte l'apport selon ton entraînement digestif. Commence prudent et augmente au fil des courses.</div>
+  <select id="nutr-level" style="width:100%;background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:9px 10px;font-family:var(--mono);font-size:.72rem;margin-bottom:1.25rem;cursor:pointer">
+    <option value="prudent">Prudent — 30-45 g/h · débutant / intestin fragile</option>
+    <option value="standard">Standard — 40-60 g/h · coureur régulier</option>
+    <option value="trained">Entraîné — 50-70 g/h · habitué courses longues</option>
+    <option value="gut_trained">Entr. digestif — 60-80 g/h · entraînement digestif confirmé</option>
+    <option value="elite">Élite — 70-90 g/h · entraînement spécifique requis</option>
+  </select>
+  <hr style="border:none;border-top:1px solid var(--border);margin:0 0 1.25rem">
+
+  <div class="clabel">Mes produits nutrition</div>
+  <div class="mono t2" style="margin-bottom:1rem">Sélectionne tes marques puis coche tes produits.</div>
+
+  <div class="clabel" style="color:var(--cyan);margin-bottom:.5rem">Gels &amp; Barres</div>
+  <div id="nutrGelBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrGelList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1.25rem"></div>
+
+  <div class="clabel" style="color:var(--purple);margin-bottom:.5rem">Boissons isotoniques</div>
+  <div id="nutrDrinkBrands" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.75rem"></div>
+  <div id="nutrDrinkList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:1rem"></div>
+
+  <button class="save-btn" onclick="Vorcelab.saveNutritionProducts()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Sauvegarder mes produits</button>
+  <div class="mono t3" id="nutrSaveMsg" style="margin-top:6px"></div>
+</div>
+  </div><!-- /tab-nutrition -->
+
+</div><!-- /panel-profil -->
+
+<!-- ══ ANALYSE ══ -->
+
+<div class="panel" id="panel-analyse">
+  <div id="analyseInner" style="max-width:960px;margin:0 auto;padding:1.5rem 1rem"></div>
+</div>
+
+<div class="app-footer">
+  VORCELAB · Données sécurisées ·
+  <a onclick="Vorcelab.openCGU()">CGU & Confidentialité</a> ·
+  Strava API · Supabase·
+</div>
+
+</main>
+</div><!-- app-main -->
+
+<!-- ══ BOTTOM NAV (mobile) ══ -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bni active" data-panel="dashboard">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 13L8 6L13 12L17 9L21 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="bn-label">Dashboard</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" data-panel="strategie">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10H21M8 3V7M16 3V7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Calendrier</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" data-panel="renfo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 8V16M19 8V16M2 12H22M7 6V18M17 6V18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Renfo</span>
+      <div class="bn-dot"></div>
+    </button>
+    <button class="bni" data-panel="profil">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 21C4 16.58 7.58 13 12 13C16.42 13 20 16.58 20 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="bn-label">Profil</span>
+      <div class="bn-dot"></div>
+    </button>
+  </div>
+</nav>
+
+</div><!-- appShell -->
+
+<!-- ══ SECTION POPUP ══ -->
+
+<div class="overlay" id="sectionPopup" style="background:rgba(0,0,0,.92)" onclick="if(event.target===this)closeSectionPopup()">
+  <div style="max-width:700px;margin:0 auto;padding:1rem">
+    <!-- Header navigation -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <button onclick="Vorcelab.navigateSection(-1)" class="hbtn" id="btnPrevSection">← Préc.</button>
+      <div style="text-align:center">
+        <div id="sectionPopupTitle" style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em"></div>
+        <div id="sectionPopupCounter" class="mono t3" style="font-size:.6rem"></div>
+      </div>
+      <button onclick="Vorcelab.navigateSection(1)" class="hbtn" id="btnNextSection">Suiv. →</button>
+    </div>
+    <button onclick="Vorcelab.closeSectionPopup()" class="hbtn" style="position:absolute;top:1.5rem;right:1.5rem">✕</button>
+
+<!-- Mini carte -->
+<div id="sectionMap" style="height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2);margin-bottom:1rem"></div>
+
+<!-- Mini profil alti -->
+<div class="card" style="margin-bottom:1rem">
+  <div class="clabel">Profil altimétrique — section</div>
+  <div style="height:120px"><canvas id="sectionAltiChart"></canvas></div>
+</div>
+
+<!-- Stats section -->
+<div id="sectionPopupStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1rem"></div>
+
+<!-- Conseils -->
+<div id="sectionPopupAdvice" class="card"></div>
+
+  </div>
+</div>
+
+<script type="module" src="main.js?v=20260520190000"></script>
+
+<!-- ══ TOAST CONTAINER ══ -->
+
+<div id="toastContainer"></div>
+
+<!-- ══ ONBOARDING ══ -->
+
+<div id="onboardingOverlay">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:2.5rem;max-width:480px;width:100%;text-align:center">
+    <div class="onb-dots" id="onbDots"></div>
+
+<div class="onb-step active" id="onb-0">
+  <div class="onb-icon">👋</div>
+  <div class="onb-title">Bienvenue sur VORCELAB</div>
+  <div class="onb-desc">Ton dashboard personnel pour analyser tes sorties, préparer tes courses et progresser de façon structurée. Quelques étapes pour démarrer.</div>
+</div>
+
+<div class="onb-step" id="onb-1">
+  <div class="onb-icon">👤</div>
+  <div class="onb-title">Ton profil</div>
+  <div class="onb-desc">Renseigne ta FC max, ton seuil lactique et tes PR — le dashboard et les stratégies de course s'adaptent à tes vraies données physiologiques.</div>
+  <button class="btn-primary" style="margin-top:.5rem" onclick="navigate('profil');closeOnboarding();">Remplir mon profil →</button>
+</div>
+
+<div class="onb-step" id="onb-2">
+  <div class="onb-icon">🟠</div>
+  <div class="onb-title">Connecter Strava</div>
+  <div class="onb-desc">Tes activités se synchronisent automatiquement. Clique sur "Connecter Strava" en haut à droite pour autoriser l'accès.</div>
+</div>
+
+<div class="onb-step" id="onb-3">
+  <div class="onb-icon">🗺️</div>
+  <div class="onb-title">Préparer une course</div>
+  <div class="onb-desc">Ajoute une course dans le calendrier, uploade un GPX et laisse l'app générer ta stratégie section par section avec tes vraies zones et ton plan nutrition.</div>
+</div>
+
+<div class="onb-step" id="onb-4">
+  <div class="onb-icon">✅</div>
+  <div class="onb-title">C'est parti !</div>
+  <div class="onb-desc">VORCELAB affine ses projections à partir de ton historique personnel d’activités, de ton profil physiologique et des caractéristiques de course, sans communiquer de data à une IA.</div>
+  <div class="mono t3" style="font-size:.6rem;margin-top:.5rem">En utilisant cette app tu acceptes les <a onclick="Vorcelab.openCGU()" style="color:var(--cyan);cursor:pointer">CGU et la politique de confidentialité</a>.</div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">
+  <button class="hbtn" id="onbPrev" onclick="Vorcelab.onbNav(-1)">← Précédent</button>
+  <div class="onb-dots" id="onbDots2" style="margin:0"></div>
+  <button class="hbtn" id="onbNext" onclick="Vorcelab.onbNav(1)" style="background:var(--cyan);color:#000;border-color:var(--cyan)">Suivant →</button>
+</div>
+<div style="margin-top:.75rem">
+  <button onclick="Vorcelab.closeOnboarding()" style="background:none;border:none;color:var(--text3);font-family:var(--mono);font-size:.6rem;cursor:pointer">Passer →</button>
+</div>
+
+  </div>
+</div>
+
+<!-- ══ CGU ══ -->
+
+<div id="cguOverlay" onclick="if(event.target===this)closeCGU()">
+  <div class="cgu-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div style="font-family:var(--display);font-size:1.5rem">Conditions d'utilisation</div>
+      <button onclick="Vorcelab.closeCGU()" class="hbtn">✕</button>
+    </div>
+
+<div style="font-size:.82rem;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:70vh">
+  <div class="clabel" style="margin-bottom:.5rem">1. Objet</div>
+  <p style="margin-bottom:1rem">VORCELAB est une application personnelle d'analyse de performances en course à pied et trail. Elle est fournie à titre gratuit, sans garantie de disponibilité continue.</p>
+
+  <div class="clabel" style="margin-bottom:.5rem">2. Données personnelles</div>
+  <p style="margin-bottom:.5rem">VORCELAB collecte et traite les données suivantes :</p>
+  <ul style="margin-left:1.5rem;margin-bottom:1rem">
+    <li>Données de compte : email via Supabase Auth</li>
+    <li>Données physiologiques : FC max, poids, taille, seuil lactique, saisies volontairement par l'utilisateur</li>
+    <li>Données d'activité : activités importées depuis Strava via l'API officielle Strava, après autorisation explicite de l'utilisateur</li>
+    <li>Données de course : GPX, temps, stratégies et objectifs, stockés dans Supabase</li>
+  </ul>
+  <p style="margin-bottom:1rem">Ces données sont stockées dans Supabase. Chaque utilisateur n'a accès qu'à ses propres données. Les données d'un utilisateur ne sont pas affichées à d'autres utilisateurs.</p>
+
+  <div class="clabel" style="margin-bottom:.5rem">3. Données Strava</div>
+  <p style="margin-bottom:1rem">
+    L'accès aux données Strava est effectué via l'API officielle Strava, conformément aux <a href="https://www.strava.com/legal/api" target="_blank" style="color:var(--cyan)">conditions d'utilisation de l'API Strava</a>, uniquement après autorisation explicite de l'utilisateur.
+    Les tokens d'accès Strava sont stockés côté serveur dans Supabase et ne sont pas exposés dans le navigateur.
+    Les données Strava sont utilisées uniquement pour importer, afficher et analyser les activités personnelles de l'utilisateur connecté.
+    Elles ne sont pas vendues, ne sont pas partagées publiquement et ne sont pas affichées à d'autres utilisateurs.
+  </p>
+
+  <div class="clabel" style="margin-bottom:.5rem">4. Analyse automatique</div>
+  <p style="margin-bottom:1rem">
+    Les analyses sont générées à partir des données personnelles de l'utilisateur connecté.
+    Les données Strava ne sont pas utilisées pour entraîner, affiner ou améliorer un modèle d'intelligence artificielle ou de machine learning.
+  </p>
+
+  <div class="clabel" style="margin-bottom:.5rem">5. Suppression des données</div>
+  <p style="margin-bottom:1rem">
+    L'utilisateur peut demander la suppression de son compte et de ses données à tout moment en contactant l'administrateur de l'application.
+    Si l'utilisateur révoque l'accès Strava ou déconnecte son compte Strava, les données Strava associées sont supprimées de l'application.
+    Les activités supprimées sur Strava sont retirées de l'application dans un délai maximum de 48 heures.
+  </p>
+
+  <div class="clabel" style="margin-bottom:.5rem">6. Responsabilité</div>
+  <p style="margin-bottom:1rem">Les conseils de stratégie, nutrition, fréquence cardiaque et entraînement fournis par VORCELAB sont indicatifs. Ils ne remplacent pas l'avis d'un médecin, d'un professionnel de santé ou d'un entraîneur qualifié. L'utilisateur reste seul responsable de ses choix d'entraînement et de santé.</p>
+
+  <div class="clabel" style="margin-bottom:.5rem">7. Précision des estimations</div>
+  <p style="margin-bottom:.75rem">Vorcelab produit des estimations indicatives à partir de modèles empiriques et de données d'activité fournies par l'utilisateur : historique de performance, charge récente, caractéristiques du parcours, dénivelé, pente, type de terrain, conditions météo et, lorsque disponibles, données physiologiques (fréquence cardiaque).</p>
+  <p style="margin-bottom:.75rem">Les estimations sont progressivement personnalisées selon le profil du coureur : performances récentes, allure observée, densité de dénivelé, capacité en montée (VAM si disponible), capacité à descendre, efficacité cardiaque approximative, sensibilité aux conditions extérieures et historique d'entraînement.</p>
+  <p style="margin-bottom:.75rem">Ces estimations ne constituent pas une mesure médicale, une garantie de performance ou une prédiction certaine. Elles servent d'aide à la préparation, à la comparaison et à la stratégie de course. Vorcelab ne remplace pas un coach, un médecin ou un test physiologique.</p>
+  <p style="margin-bottom:.75rem">Les modèles reposent sur des principes de physiologie de l'effort, biomécanique, coût de la pente, charge d'entraînement et coaching endurance. Certains coefficients sont empiriques et peuvent être ajustés progressivement à partir de l'historique réel du coureur.</p>
+  <p style="margin-bottom:1rem">Références générales utilisées dans les algorithmes : Minetti et al. (coût de la pente), Bannister/TRIMP (charge d'entraînement), Gabbett/ACWR (monitoring charge aiguë/chronique), Ely et al. (chaleur et performance endurance), littérature endurance sur nutrition glucidique et caféine.</p>
+
+  <div class="clabel" style="margin-bottom:.5rem">8. Contact</div>
+  <p>Pour toute question ou demande de suppression des données : <a href="mailto:tony.bollecker@hotmail.fr" style="color:var(--cyan)">tony.bollecker@hotmail.fr</a></p>
+</div>
+
+  </div>
+</div>
+
+<!-- ══ CROP AVATAR ══ -->
+
+<div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:800;align-items:center;justify-content:center;padding:1.5rem;flex-direction:column;gap:1rem">
+  <div style="font-family:var(--display);font-size:1.2rem;color:#fff">Cadrer la photo</div>
+  <div style="position:relative;width:280px;height:280px;overflow:hidden;border-radius:50%;border:2px solid var(--cyan);cursor:move" id="cropContainer">
+    <img id="cropImage" style="position:absolute;user-select:none;-webkit-user-select:none;max-width:none">
+  </div>
+  <div style="color:var(--text2);font-family:var(--mono);font-size:.65rem">Glisse pour cadrer · Pince pour zoomer</div>
+  <div style="display:flex;gap:12px">
+    <button onclick="Vorcelab.closeCropModal()" class="hbtn">Annuler</button>
+    <button onclick="Vorcelab.confirmCrop()" class="hbtn" style="background:var(--cyan);color:#000;border-color:var(--cyan)">✓ Valider</button>
+  </div>
+</div>
+
+<!-- Back to top -->
+<button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:24px;right:20px;z-index:900;width:44px;height:44px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:1.1rem;cursor:pointer;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.5);transition:opacity .2s">↑</button>
+
+</body>
+</html>
