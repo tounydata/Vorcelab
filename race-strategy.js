@@ -756,7 +756,7 @@ export function renderDetailedSection(s, secTimeS, idx=0){
     }
   }
 
-  return `<div class="vl-section-card" style="border-left-color:${cols[s.type]}" onclick="highlightSection(${idx})" data-idx="${idx}">
+  return `<div class="vl-section-card" style="border-left-color:${cols[s.type]}" onclick="Vorcelab.highlightSection(${idx})" data-idx="${idx}">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:.3rem">
       <div class="strat-km">km ${s.startKm.toFixed(1)} → ${s.endKm.toFixed(1)}</div>
       <div class="mono t2" style="font-size:.6rem">${fmtT(secTimeS)} estimé</div>
@@ -794,7 +794,7 @@ export function buildSplitsTable(kmSecs, basePaceS){
 let sectionMapInst = null;
 let sectionAltiChartInst = null;
 
-function highlightSection(idx) {
+export function highlightSection(idx) {
   window._activeSection = idx;
   document.querySelectorAll('.vl-section-card').forEach((el,i)=>{
     el.classList.toggle('active',i===idx);
@@ -958,7 +958,7 @@ export function populateRaceSelector(){
   // Only show if not in event view
   if(document.getElementById('eventView')?.style.display!=='none') return;
   sel.style.display='block';
-  container.innerHTML=VLState.races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
+  container.innerHTML=VLState.races.filter(r=>new Date(r.date)>=new Date()).map(r=>`<button class="race-sel-btn" onclick="Vorcelab.selectRaceForStrategy(${JSON.stringify(r).replace(/"/g,'&quot;')})">${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</button>`).join('');
 }
 
 export function selectRaceForStrategy(race){

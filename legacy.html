@@ -389,12 +389,12 @@
       <div style="position:relative;flex-shrink:0" id="raceMenuWrap">
         <button class="hbtn" onclick="Vorcelab.toggleRaceMenu(event)" style="letter-spacing:.2em">···</button>
         <div id="raceMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--vl-surf);border:1px solid var(--vl-line-2);border-radius:var(--vl-r-sm);padding:6px;z-index:2000;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
-          <button class="race-menu-item" onclick="toggleEditRaceForm();toggleRaceMenu()">Modifier</button>
+          <button class="race-menu-item" onclick="Vorcelab.toggleEditRaceForm();Vorcelab.toggleRaceMenu()">Modifier</button>
           <button class="race-menu-item" onclick="Vorcelab.raceMenuChangeGpx()">Changer de GPX</button>
-          <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="saveGpxToRace();toggleRaceMenu()">Enregistrer GPX</button>
-          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-ember)" onclick="deleteGpxFromRace();toggleRaceMenu()">Supprimer le GPX</button>
-          <button class="race-menu-item" onclick="raceMenuLinkActivity();toggleRaceMenu()">Lier à une activité</button>
-          <button class="race-menu-item" onclick="window.print();toggleRaceMenu()">Imprimer</button>
+          <button class="race-menu-item" id="raceMenuSaveGpx" style="display:none" onclick="Vorcelab.saveGpxToRace();Vorcelab.toggleRaceMenu()">Enregistrer GPX</button>
+          <button class="race-menu-item" id="raceMenuDeleteGpx" style="display:none;color:var(--vl-ember)" onclick="Vorcelab.deleteGpxFromRace();Vorcelab.toggleRaceMenu()">Supprimer le GPX</button>
+          <button class="race-menu-item" onclick="Vorcelab.raceMenuLinkActivity();Vorcelab.toggleRaceMenu()">Lier à une activité</button>
+          <button class="race-menu-item" onclick="window.print();Vorcelab.toggleRaceMenu()">Imprimer</button>
           <div style="border-top:1px solid var(--vl-line);margin:4px 2px"></div>
           <button class="race-menu-item" id="btnDeleteRace" style="color:var(--vl-ember)">Supprimer</button>
         </div>
@@ -671,7 +671,7 @@
 
 <!-- ══ SECTION POPUP ══ -->
 
-<div class="overlay" id="sectionPopup" style="background:rgba(0,0,0,.92)" onclick="if(event.target===this)closeSectionPopup()">
+<div class="overlay" id="sectionPopup" style="background:rgba(0,0,0,.92)" onclick="if(event.target===this)Vorcelab.closeSectionPopup()">
   <div style="max-width:700px;margin:0 auto;padding:1rem">
     <!-- Header navigation -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
@@ -724,7 +724,7 @@
   <div class="onb-icon">👤</div>
   <div class="onb-title">Ton profil</div>
   <div class="onb-desc">Renseigne ta FC max, ton seuil lactique et tes PR — le dashboard et les stratégies de course s'adaptent à tes vraies données physiologiques.</div>
-  <button class="btn-primary" style="margin-top:.5rem" onclick="navigate('profil');closeOnboarding();">Remplir mon profil →</button>
+  <button class="btn-primary" style="margin-top:.5rem" onclick="Vorcelab.navigate('profil');Vorcelab.closeOnboarding();">Remplir mon profil →</button>
 </div>
 
 <div class="onb-step" id="onb-2">
@@ -760,7 +760,7 @@
 
 <!-- ══ CGU ══ -->
 
-<div id="cguOverlay" onclick="if(event.target===this)closeCGU()">
+<div id="cguOverlay" onclick="if(event.target===this)Vorcelab.closeCGU()">
   <div class="cgu-inner">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
       <div style="font-family:var(--display);font-size:1.5rem">Conditions d'utilisation</div>
