@@ -24,8 +24,8 @@ import {
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
   loadRaces,
 } from './race-calendar.js';
-import { openAnalyse, closeAnalyse, raceMenuLinkActivity } from './activity-analysis.js';
-import { handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy } from './race-strategy.js';
+import { openAnalyse, closeAnalyse, raceMenuLinkActivity, showLinkActivityPanel, linkActivityToRace } from './activity-analysis.js';
+import { handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy, highlightSection, selectRaceForStrategy } from './race-strategy.js';
 import { saveNutritionProducts, filterNutrBrand } from './nutrition.js';
 import {
   loadRenfoApp, preloadRenfoState,
@@ -54,8 +54,8 @@ window.Vorcelab = {
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
   loadRaces,
-  openAnalyse, closeAnalyse, raceMenuLinkActivity,
-  handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy,
+  openAnalyse, closeAnalyse, raceMenuLinkActivity, showLinkActivityPanel, linkActivityToRace,
+  handleGpxDrop, handleGpxFile, navigateSection, closeSectionPopup, resetStrategy, highlightSection, selectRaceForStrategy,
   saveNutritionProducts, filterNutrBrand,
   loadRenfoApp, preloadRenfoState,
   renderOnboardingStep, renfoNextStep, renfoObSelect, renfoToggleBand,
@@ -68,8 +68,6 @@ window.Vorcelab = {
   showRenfoLibraryIndex, showRenfoLibraryExo,
 };
 
-// Expose as direct globals for inline onclick compatibility
-Object.assign(window, window.Vorcelab);
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-panel]').forEach(btn => {

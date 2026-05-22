@@ -228,12 +228,12 @@ export async function openAnalyse(act) {
 
   document.getElementById('analyseInner').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap">
-      <button class="hbtn" onclick="closeAnalyse()">← Retour</button>
+      <button class="hbtn" onclick="Vorcelab.closeAnalyse()">← Retour</button>
       <div style="flex:1">
         <div style="font-family:var(--display);font-size:1.4rem;letter-spacing:.03em">${escapeHTML(act.name)}</div>
         <div class="mono t2" style="display:flex;align-items:center;gap:5px">${dateStr} · ${act.type==='TrailRun'?icon('trail',13):icon('run',13)} ${act.type==='TrailRun'?'Trail':'Route'}</div>
       </div>
-      <button class="hbtn" id="btnLinkActivity" onclick="showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">Lier à un événement</button>
+      <button class="hbtn" id="btnLinkActivity" onclick="Vorcelab.showLinkActivityPanel(${act.id})" style="background:var(--purple);color:#fff;border-color:var(--purple)">Lier à un événement</button>
     </div>
     <div id="linkActivityPanel" style="display:none;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;padding:12px;margin-bottom:1rem">
       <div class="clabel" style="margin-bottom:8px">Associer à une course du calendrier</div>
@@ -329,7 +329,7 @@ export async function openAnalyse(act) {
   if(linkList) {
     const sorted = [...VLState.races].sort((a,b)=>new Date(b.date)-new Date(a.date));
     linkList.innerHTML = sorted.length
-      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${escapeAttr(r.name)}" data-actid="${act.id}" onclick="linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">${icon('calendar',13)} ${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
+      ? sorted.map(r=>`<button class="race-sel-btn" data-raceid="${r.id}" data-racename="${escapeAttr(r.name)}" data-actid="${act.id}" onclick="Vorcelab.linkActivityToRace(this.dataset.raceid, this.dataset.racename, parseInt(this.dataset.actid))">${icon('calendar',13)} ${escapeHTML(r.name)} · ${new Date(r.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}</button>`).join('')
       : '<span class="mono t3">Aucune course dans le calendrier — ajoutes-en une depuis l\'onglet Calendrier</span>';
   }
 
@@ -357,7 +357,7 @@ if (summaryBox) {
   } catch(e) {
     console.error('[VL] openAnalyse error:', e);
     const inner = document.getElementById('analyseInner');
-    if (inner) inner.innerHTML = `<div class="loading" style="min-height:300px"><div class="mono t2" style="text-align:center">Impossible de charger l'analyse.<br><small style="opacity:.6">${e?.message || 'Erreur réseau'}</small></div><button class="hbtn" style="margin-top:1rem" onclick="closeAnalyse()">← Retour</button></div>`;
+    if (inner) inner.innerHTML = `<div class="loading" style="min-height:300px"><div class="mono t2" style="text-align:center">Impossible de charger l'analyse.<br><small style="opacity:.6">${e?.message || 'Erreur réseau'}</small></div><button class="hbtn" style="margin-top:1rem" onclick="Vorcelab.closeAnalyse()">← Retour</button></div>`;
   }
 } // ferme openAnalyse()
 

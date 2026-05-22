@@ -47,7 +47,7 @@ export function renderLastActivity() {
       <div class="mlabel" style="font-size:8px">FC moy</div>
     </div>` : ''}
   </div>
-  <button class="btn-analyse" onclick="openAnalyse(${JSON.stringify(act).replace(/"/g,'&quot;')})">Analyser cette sortie →</button>`;
+  <button class="btn-analyse" onclick="Vorcelab.openAnalyse(${JSON.stringify(act).replace(/"/g,'&quot;')})">Analyser cette sortie →</button>`;
 }
 
 export function renderActivities() {

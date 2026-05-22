@@ -77,7 +77,7 @@ export function renderCalendar() {
       chipsHtml += `<div style="display:flex;align-items:center;gap:2px;margin-top:1px;color:#7c3aed">${icon('renfo',14)}<span style="font-family:var(--vl-mono);font-size:8px;font-weight:700;letter-spacing:.05em">RENFO</span></div>`;
     }
 
-    cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="openEventView('${escapeAttr(race.id)}')"`:''}>
+    cells += `<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}${race?' has-event':''}" ${race?`onclick="Vorcelab.openEventView('${escapeAttr(race.id)}')"`:''}>
       <div class="cal-day-num">${dayNum}</div>
       ${race ? `<div class="cal-event-dot" style="display:flex;align-items:center;gap:3px">${typeIcon} ${escapeHTML(race.name)}</div><div class="cal-event-type">${race.distance||'?'}km${race.elevation?` · ${race.elevation}m D+`:''}</div>` : ''}
       ${chipsHtml ? `<div style="margin-top:${race?'2px':'1px'}">${chipsHtml}</div>` : ''}
@@ -91,7 +91,7 @@ export function renderCalendar() {
   if(upEl){
     upEl.innerHTML = upcoming.length ? `
       <div class="clabel" style="margin-bottom:8px">Prochaines courses</div>
-      ${upcoming.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="openEventView('${escapeAttr(r.id)}')">
+      ${upcoming.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="Vorcelab.openEventView('${escapeAttr(r.id)}')">
         <div style="display:flex;align-items:center;color:${r.type==='Trail'||r.type==='Ultra'?'var(--cyan)':'var(--green)'}">${r.type==='Trail'||r.type==='Ultra'?icon('trail',18):icon('run',18)}</div>
         <div style="flex:1">
           <div style="font-weight:600;font-size:.85rem">${escapeHTML(r.name)}</div>
@@ -400,7 +400,7 @@ export function renderRaces() {
     }
     const proj=next._projection||buildProjFromDB(next.last_projection);
     nextWidget.innerHTML=`
-    <div onclick='goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
+    <div onclick='Vorcelab.goToEvent("${next.id}")' style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">
       <div style="position:relative;padding:10px 14px 0;flex-shrink:0">
         <span style="font-family:var(--vl-mono);font-size:8.5px;font-weight:700;letter-spacing:.16em;color:var(--vl-text-3);text-transform:uppercase">STRATÉGIE DE COURSE</span>
       </div>
@@ -413,7 +413,7 @@ export function renderRaces() {
             <div style="font-family:var(--vl-display);font-size:3.8rem;font-weight:800;color:var(--vl-ember);line-height:.82;letter-spacing:-.03em">${diff}</div>
             <div style="font-family:var(--vl-mono);font-size:9px;color:var(--vl-text-3);text-transform:uppercase;letter-spacing:.16em;margin-top:4px">JOURS</div>
             <div style="font-family:var(--vl-mono);font-size:8.5px;color:${phase.c};letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-top:4px;margin-bottom:12px">${phase.label}</div>
-            <button onclick="event.stopPropagation();prepareRace('${next.id}')" style="background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:9px 14px;font-family:var(--vl-display);font-size:.9rem;font-weight:700;letter-spacing:.08em;cursor:pointer;touch-action:manipulation;width:100%;text-align:center">OUVRIR LA STRATÉGIE →</button>
+            <button onclick="event.stopPropagation();Vorcelab.prepareRace('${next.id}')" style="background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:9px 14px;font-family:var(--vl-display);font-size:.9rem;font-weight:700;letter-spacing:.08em;cursor:pointer;touch-action:manipulation;width:100%;text-align:center">OUVRIR LA STRATÉGIE →</button>
           </div>
         </div>
         <div style="width:44%;border-left:1px solid var(--vl-line-2);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
@@ -443,22 +443,22 @@ export function renderRaces() {
     // Smart buttons based on state
     let buttons='';
     if(!past){
-      buttons+=`<button onclick="prepareRace('${r.id}')" class="btn-prepare">${hasGpx?icon('map',14)+' Voir stratégie':icon('map',14)+' Préparer'}</button>`;
+      buttons+=`<button onclick="Vorcelab.prepareRace('${r.id}')" class="btn-prepare">${hasGpx?icon('map',14)+' Voir stratégie':icon('map',14)+' Préparer'}</button>`;
     } else {
       if(hasGpx){
-        buttons+=`<button onclick="prepareRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">${icon('chart',14)} Voir stratégie</button>`;
+        buttons+=`<button onclick="Vorcelab.prepareRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">${icon('chart',14)} Voir stratégie</button>`;
       } else {
-        buttons+=`<button onclick="importOrgGpx('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
+        buttons+=`<button onclick="Vorcelab.importOrgGpx('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2)">📥 GPX organisateur</button>`;
       }
       if(hasActivity){
-        buttons+=`<button onclick="linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
+        buttons+=`<button onclick="Vorcelab.linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:.52rem">↺ Changer</button>`;
       } else {
-        buttons+=`<button onclick="linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
+        buttons+=`<button onclick="Vorcelab.linkActivityFromRace('${r.id}')" class="btn-prepare" style="background:var(--purple);color:#fff;border-color:var(--purple)">🔗 Lier activité</button>`;
       }
     }
 
     const linkedAct=hasActivity?VLState.allActivities.find(a=>String(a.id)===String(r.strava_activity_id)):null;
-    const onCardClick=linkedAct?`openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`prepareRace('${r.id}')`:'';
+    const onCardClick=linkedAct?`Vorcelab.openAnalyse(${JSON.stringify(linkedAct).replace(/"/g,'&quot;')})`:hasGpx?`Vorcelab.prepareRace('${r.id}')`:'';
 
 
     return `<div class="race-item" style="cursor:${onCardClick?'pointer':'default'};transition:background .15s"
@@ -477,7 +477,7 @@ export function renderRaces() {
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
         ${buttons}
-        <button onclick="deleteRace('${r.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.75rem">✕</button>
+        <button onclick="Vorcelab.deleteRace('${r.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:.75rem">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -616,7 +616,7 @@ export async function linkActivityFromRace(raceOrId) {
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .2s"
         onmouseover="this.style.borderColor='var(--purple)'"
         onmouseout="this.style.borderColor='var(--border)'"
-        onclick="confirmLinkActivity('${escapeAttr(race.id)}','${escapeAttr(race.name)}',${Number(a.id)},this.closest('[style*=fixed]'))">
+        onclick="Vorcelab.confirmLinkActivity('${escapeAttr(race.id)}','${escapeAttr(race.name)}',${Number(a.id)},this.closest('[style*=fixed]'))">
         <div style="font-weight:600;font-size:.85rem">${escapeHTML(a.name)}</div>
         <div class="mono t2" style="font-size:.62rem;margin-top:3px">${new Date(a.start_date_local).toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'})} · ${(a.distance/1000).toFixed(1)}km · ${fmtD(a.moving_time)} · +${a.total_elevation_gain||0}m</div>
       </div>`).join('')

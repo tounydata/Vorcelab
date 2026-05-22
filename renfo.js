@@ -78,7 +78,7 @@ export function renderOnboardingStep(step) {
   const el = document.getElementById('renfoApp');
   if (!el) return;
 
-  const obBtn = (v, type, title, sub) => `<button class="vl-ob-btn" data-val="${v}" data-type="${type}" onclick="renfoObSelect(this)"
+  const obBtn = (v, type, title, sub) => `<button class="vl-ob-btn" data-val="${v}" data-type="${type}" onclick="Vorcelab.renfoObSelect(this)"
     style="text-align:left;padding:14px 16px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent;width:100%">
     <div style="font-family:var(--vl-display);font-size:1.05rem;font-weight:700;margin-bottom:3px">${title}</div>
     <div style="font-size:.73rem;color:var(--vl-text-2)">${sub}</div>
@@ -122,7 +122,7 @@ export function renderOnboardingStep(step) {
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${['Léger','Moyen','Fort','Extra-fort'].map((b,i)=>{
               const val = ['light','medium','heavy','extra-heavy'][i];
-              return `<button type="button" id="band-${val}" onclick="renfoToggleBand(this,'${val}')"
+              return `<button type="button" id="band-${val}" onclick="Vorcelab.renfoToggleBand(this,'${val}')"
                 style="padding:7px 13px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:8px;cursor:pointer;font-size:.75rem;color:var(--vl-text);touch-action:manipulation;-webkit-tap-highlight-color:transparent">${b}</button>`;
             }).join('')}
           </div>
@@ -159,10 +159,10 @@ export function renderOnboardingStep(step) {
     <div style="font-size:.8rem;color:var(--vl-text-2);margin-bottom:20px">${subs[step]}</div>
     ${contents[step]}
     <div style="display:flex;gap:10px;margin-top:24px">
-      ${step > 1 ? `<button onclick="renderOnboardingStep(${step-1})" style="flex:1;padding:14px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);font-family:var(--vl-mono);touch-action:manipulation">← Retour</button>` : ''}
+      ${step > 1 ? `<button onclick="Vorcelab.renderOnboardingStep(${step-1})" style="flex:1;padding:14px;background:var(--vl-bg2);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);font-family:var(--vl-mono);touch-action:manipulation">← Retour</button>` : ''}
       ${step < 3
-        ? `<button onclick="renfoNextStep(${step})" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Suivant →</button>`
-        : `<button onclick="finishRenfoOnboarding()" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Générer mon programme →</button>`}
+        ? `<button onclick="Vorcelab.renfoNextStep(${step})" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Suivant →</button>`
+        : `<button onclick="Vorcelab.finishRenfoOnboarding()" style="flex:2;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Générer mon programme →</button>`}
     </div>
   </div>`;
 }
@@ -293,7 +293,7 @@ function _openRenfoDoneMenu(dayKey) {
     <div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-bottom:20px">Séance validée cette semaine</div>
     <div style="display:flex;flex-direction:column;gap:10px">
       <button onclick="_changeDoneSessionDate('${dayKey}')" style="width:100%;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Modifier la date</button>
-      <button onclick="cancelRenfoSession('${dayKey}')" style="width:100%;padding:13px;background:var(--vl-bg);border:1.5px solid rgba(239,68,68,.35);border-radius:12px;cursor:pointer;color:#ef4444;font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler la validation</button>
+      <button onclick="Vorcelab.cancelRenfoSession('${dayKey}')" style="width:100%;padding:13px;background:var(--vl-bg);border:1.5px solid rgba(239,68,68,.35);border-radius:12px;cursor:pointer;color:#ef4444;font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler la validation</button>
       <button onclick="document.getElementById('renfoDoneMenu').remove()" style="width:100%;padding:11px;background:none;border:none;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.7rem;touch-action:manipulation">Fermer</button>
     </div>
   </div>`;
@@ -367,9 +367,9 @@ export async function cancelRenfoSession(dayKey) {
 
 function _renfoTabBar(active) {
   const tabs = [
-    { id: 'programme',   label: 'Programme',   fn: 'renderRenfoHome()' },
-    { id: 'bibliotheque', label: 'Bibliothèque', fn: 'showRenfoLibraryIndex()' },
-    { id: 'reglages',    label: 'Réglages',     fn: 'showRenfoSettings()' },
+    { id: 'programme',   label: 'Programme',   fn: 'Vorcelab.renderRenfoHome()' },
+    { id: 'bibliotheque', label: 'Bibliothèque', fn: 'Vorcelab.showRenfoLibraryIndex()' },
+    { id: 'reglages',    label: 'Réglages',     fn: 'Vorcelab.showRenfoSettings()' },
   ];
   return `<div style="display:flex;border-bottom:2px solid var(--vl-border);margin-bottom:16px">${
     tabs.map(t => `<button onclick="${t.fn}" style="background:none;border:none;border-bottom:3px solid ${active===t.id?'var(--vl-ember)':'transparent'};margin-bottom:-2px;color:${active===t.id?'var(--vl-ember)':'var(--vl-text-3)'};font-family:var(--vl-mono);font-size:12px;font-weight:600;letter-spacing:.06em;padding:10px 16px;cursor:pointer;text-transform:uppercase;transition:color .15s,border-color .15s;touch-action:manipulation">${t.label}</button>`).join('')
@@ -450,7 +450,7 @@ export function renderRenfoHome() {
     const chargePct = Math.min(100, count30 / 4 * 100);
     const done = weekDoneFocuses.has(f.key);
     return `
-      <div style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid ${done ? '#7c3aed60' : '#7c3aed40'};border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s;position:relative;cursor:pointer" onclick="startRenfoSession('${dayKey}')" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='${done ? '#7c3aed60' : '#7c3aed40'}'">
+      <div style="display:flex;flex-direction:column;gap:8px;padding:13px;background:var(--vl-bg2);border:1.5px solid ${done ? '#7c3aed60' : '#7c3aed40'};border-radius:12px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:border-color .15s;position:relative;cursor:pointer" onclick="Vorcelab.startRenfoSession('${dayKey}')" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='${done ? '#7c3aed60' : '#7c3aed40'}'">
         ${done ? `<button onclick="event.stopPropagation();_openRenfoDoneMenu('${dayKey}')" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;font-size:1rem;color:var(--vl-text-2);padding:2px 6px;touch-action:manipulation;line-height:1">···</button>` : ''}
         <div>
           <div style="font-family:var(--vl-display);font-size:1rem;font-weight:700;line-height:1.1">${meta.label}</div>
@@ -587,7 +587,7 @@ function _renderSessionWarmup() {
 
   el.innerHTML = `<div style="display:flex;flex-direction:column;min-height:100%;padding-bottom:4px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
-      <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:4px;touch-action:manipulation;font-size:1.1rem">←</button>
+      <button onclick="Vorcelab.renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:4px;touch-action:manipulation;font-size:1.1rem">←</button>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:#7c3aed;letter-spacing:.1em">${(session.focus||'').replace(/_/g,' ').toUpperCase()} · ~${session.duration_min} MIN</div>
     </div>
     <div style="font-family:var(--vl-display);font-size:1.8rem;font-weight:800;line-height:1;margin-bottom:6px">${session.label}</div>
@@ -762,7 +762,7 @@ function _renderSessionExo() {
     <div style="display:flex;gap:4px;margin-bottom:6px">${dotsHtml}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:4px;touch-action:manipulation;font-size:1.1rem">←</button>
+        <button onclick="Vorcelab.renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:4px;touch-action:manipulation;font-size:1.1rem">←</button>
         <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">EXO ${exoIdx+1}/${exos.length} · SÉRIE ${serieIdx+1}/${totalSets}</div>
       </div>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${elapsedFmt}</div>
@@ -774,7 +774,7 @@ function _renderSessionExo() {
         <div style="font-family:var(--vl-display);font-size:clamp(1.8rem,7vw,2.6rem);font-weight:800;line-height:1;text-transform:uppercase">${def.name_fr}</div>
         ${def.primary_muscles?.length ? `<div style="font-family:var(--vl-mono);font-size:.6rem;color:var(--vl-text-2);margin-top:6px">${def.primary_muscles.slice(0,3).join(' · ')}</div>` : ''}
         ${def.variants.length > 1
-          ? `<button onclick="showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-line-2);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
+          ? `<button onclick="Vorcelab.showVariantPicker('${exo.exercise_id}')" style="margin-top:6px;padding:3px 8px;background:transparent;border:1px solid var(--vl-line-2);border-radius:5px;cursor:pointer;font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-2);touch-action:manipulation">${variant.name}</button>`
           : `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:4px">${variant.name}</div>`}
       </div>
       ${(g=>g?`<div style="border-radius:10px;overflow:hidden;border:1px solid var(--vl-line);background:var(--vl-surf-2);line-height:0"><img src="${g}" alt="" style="width:100%;max-height:200px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>`:``)(getExerciseGifUrl(exo.exercise_id))}
@@ -1127,7 +1127,7 @@ function showRenfoLogPopup(exerciseId, variantId, loadType, prefillLoad = null) 
     </div>
     <div style="display:flex;gap:10px;margin-top:22px">
       <button onclick="document.getElementById('renfoLogPopup').remove();markExoChecked('${exerciseId}','${variantId}','${loadType}',null,null,null)" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Passer</button>
-      <button onclick="submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
+      <button onclick="Vorcelab.submitRenfoLog('${exerciseId}','${variantId}','${loadType}')" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-mono);font-weight:700;touch-action:manipulation">Valider</button>
     </div>
   </div>`;
 
@@ -1207,7 +1207,7 @@ export function showVariantPicker(exerciseId) {
     const eqHint = v.required_equipment
       ? Object.keys(v.required_equipment).filter(k => v.required_equipment[k]).join(', ') || 'poids de corps'
       : (v.required_equipment_any ? 'haltères / kettlebell' : '');
-    return `<button onclick="applyVariant('${exerciseId}','${v.id}')" style="width:100%;text-align:left;padding:12px 14px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:10px;cursor:pointer;color:var(--vl-text);touch-action:manipulation;margin-bottom:8px">
+    return `<button onclick="Vorcelab.applyVariant('${exerciseId}','${v.id}')" style="width:100%;text-align:left;padding:12px 14px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:10px;cursor:pointer;color:var(--vl-text);touch-action:manipulation;margin-bottom:8px">
       <div style="font-family:var(--vl-display);font-size:.85rem;font-weight:700">${v.name}</div>
       ${eqHint ? `<div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-top:3px">${eqHint}</div>` : ''}
     </button>`;
@@ -1280,7 +1280,7 @@ export function openCompletionPicker(dayKey) {
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('renfoCompletionPicker').remove()" style="flex:1;padding:13px;background:var(--vl-bg);border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;touch-action:manipulation">Annuler</button>
-      <button onclick="completeRenfoSession('${dayKey}',document.getElementById('sessionDatePicker').value)" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">CONFIRMER</button>
+      <button onclick="Vorcelab.completeRenfoSession('${dayKey}',document.getElementById('sessionDatePicker').value)" style="flex:2;padding:13px;background:#7c3aed;border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.95rem;font-weight:700;touch-action:manipulation">CONFIRMER</button>
     </div>
   </div>`;
   overlay.addEventListener('click', () => overlay.remove());
@@ -1385,7 +1385,7 @@ function showRenfoProgramView() {
       <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">${timingBadges}</div>
       <div style="margin-bottom:10px">${exoList}</div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="startRenfoSession('${dayKey}')" style="flex:1;padding:11px;background:${col};border:none;border-radius:10px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.85rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;gap:8px">${_ICON_PLAY} VOIR LA SÉANCE</button>
+        <button onclick="Vorcelab.startRenfoSession('${dayKey}')" style="flex:1;padding:11px;background:${col};border:none;border-radius:10px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:.85rem;font-weight:700;letter-spacing:.04em;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;gap:8px">${_ICON_PLAY} VOIR LA SÉANCE</button>
         ${done ? `<div style="padding:7px 10px;background:rgba(124,58,237,.15);border-radius:8px;font-family:var(--vl-mono);font-size:.5rem;font-weight:700;color:#7c3aed;letter-spacing:.06em;white-space:nowrap">FAIT</div>` : ''}
       </div>
     </div>`;
@@ -1393,7 +1393,7 @@ function showRenfoProgramView() {
 
   el.innerHTML = `<div style="padding-bottom:8px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
-      <button onclick="renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;display:flex;align-items:center">${_ICON_ARROW_LEFT}</button>
+      <button onclick="Vorcelab.renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;display:flex;align-items:center">${_ICON_ARROW_LEFT}</button>
       <div style="font-family:var(--vl-display);font-size:1.5rem;font-weight:800">Programme</div>
     </div>
     <div style="font-size:.72rem;color:var(--vl-text-2);font-family:var(--vl-mono);margin-bottom:16px">Choisis ta séance selon ton planning — aucun jour n'est fixe.</div>
@@ -1512,7 +1512,7 @@ export function showRenfoLibraryIndex() {
     const rows = exoIds.map(id => {
       const def = RENFO_EXERCISES[id];
       if (!def) return '';
-      return `<div onclick="showRenfoLibraryExo('${id}')" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--vl-border);cursor:pointer;touch-action:manipulation" onmouseover="this.style.color='#7c3aed'" onmouseout="this.style.color=''">
+      return `<div onclick="Vorcelab.showRenfoLibraryExo('${id}')" style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--vl-border);cursor:pointer;touch-action:manipulation" onmouseover="this.style.color='#7c3aed'" onmouseout="this.style.color=''">
         <span style="font-size:.8rem">${def.name_fr}</span>
         <span style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">${exoIds.indexOf(id)+1}/${exoIds.length}</span>
       </div>`;
@@ -1565,7 +1565,7 @@ export function showRenfoLibraryExo(exoId) {
 
   el.innerHTML = `<div style="padding-bottom:8px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem">
-      <button onclick="showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;font-size:1.2rem">←</button>
+      <button onclick="Vorcelab.showRenfoLibraryIndex()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:6px;touch-action:manipulation;font-size:1.2rem">←</button>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2)">BIBLIOTHÈQUE / ${(def.category||'').replace(/_/g,' ').toUpperCase()}</div>
     </div>
 
@@ -1632,21 +1632,21 @@ export async function showRenfoSettings() {
       <div class="clabel" style="margin-bottom:12px">OBJECTIF</div>
       ${[
         [25,'Renforcement préventif'],[50,'Équilibré'],[75,'Performance']
-      ].map(([v,t])=>`<button class="vl-ob-btn" data-val="${v}" data-type="obj" onclick="renfoObSelect(this)" style="display:block;width:100%;text-align:left;padding:12px;background:${renfoProfile.objective_weight===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.objective_weight===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);margin-bottom:8px;touch-action:manipulation">
+      ].map(([v,t])=>`<button class="vl-ob-btn" data-val="${v}" data-type="obj" onclick="Vorcelab.renfoObSelect(this)" style="display:block;width:100%;text-align:left;padding:12px;background:${renfoProfile.objective_weight===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.objective_weight===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);margin-bottom:8px;touch-action:manipulation">
         <span style="font-size:.85rem">${t}</span>
       </button>`).join('')}
     </div>
     <div class="card" style="padding:16px;margin-bottom:12px">
       <div class="clabel" style="margin-bottom:12px">SÉANCES / SEMAINE</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${[1,3,5,6].map(v=>`<button class="vl-ob-btn" data-val="${v}" data-type="spw" onclick="renfoObSelect(this)" style="padding:12px;background:${renfoProfile.sessions_per_week===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.sessions_per_week===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);touch-action:manipulation">
+        ${[1,3,5,6].map(v=>`<button class="vl-ob-btn" data-val="${v}" data-type="spw" onclick="Vorcelab.renfoObSelect(this)" style="padding:12px;background:${renfoProfile.sessions_per_week===v?'rgba(229,86,42,.1)':'var(--vl-bg2)'};border:1.5px solid ${renfoProfile.sessions_per_week===v?'var(--vl-ember)':'var(--vl-border)'};border-radius:10px;cursor:pointer;color:var(--vl-text);touch-action:manipulation">
           <span style="font-family:var(--vl-display);font-size:1.2rem;font-weight:700">${v}</span>
           <div style="font-size:.65rem;color:var(--vl-text-2)">séance${v>1?'s':''}/sem</div>
         </button>`).join('')}
       </div>
     </div>
-    <button onclick="saveRenfoSettings()" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;touch-action:manipulation">Sauvegarder & Régénérer</button>
-    <button onclick="resetRenfoOnboarding()" style="width:100%;padding:12px;background:none;border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;margin-top:10px;touch-action:manipulation">Recommencer l'onboarding</button>
+    <button onclick="Vorcelab.saveRenfoSettings()" style="width:100%;padding:14px;background:var(--vl-ember);border:none;border-radius:12px;cursor:pointer;color:#fff;font-family:var(--vl-display);font-size:1rem;font-weight:700;touch-action:manipulation">Sauvegarder & Régénérer</button>
+    <button onclick="Vorcelab.resetRenfoOnboarding()" style="width:100%;padding:12px;background:none;border:1.5px solid var(--vl-border);border-radius:12px;cursor:pointer;color:var(--vl-text-2);font-family:var(--vl-mono);font-size:.75rem;margin-top:10px;touch-action:manipulation">Recommencer l'onboarding</button>
   </div>`;
 
   _renfoOnboarding = { ...renfoProfile };
