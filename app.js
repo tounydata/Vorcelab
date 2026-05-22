@@ -1,5 +1,5 @@
 import { VLState, sb } from './app-state.js';
-import { renderCalendar, loadRaces } from './race-calendar.js';
+import { renderCalendar, loadRaces, openEventView } from './race-calendar.js';
 import { autoCalibrate } from './activity-analysis.js';
 import { loadRenfoApp, preloadRenfoState } from './renfo.js';
 import { icon } from './icons.js';
@@ -40,7 +40,8 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
 // ════════════════════════════════════════════════════
 export function showPanel(name) {
   const profilTab = name.startsWith('profil-') ? name.slice(7) : null;
-  const panelId   = profilTab ? 'profil' : name;
+  let panelId     = profilTab ? 'profil' : name;
+  if (name.startsWith('strategie/')) panelId = 'strategie';
 
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sidebar-item[data-panel]').forEach(b => b.classList.remove('active'));
@@ -75,7 +76,14 @@ export function navigate(panel) {
 
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.slice(1) || 'dashboard';
-  showPanel(hash);
+  if (hash.startsWith('strategie/')) {
+    const raceId = hash.slice('strategie/'.length);
+    showPanel('strategie');
+    if (VLState.races?.length) openEventView(raceId);
+    else loadRaces().then(() => openEventView(raceId));
+  } else {
+    showPanel(hash);
+  }
 });
 
 // ════════════════════════════════════════════════════
@@ -164,7 +172,13 @@ async function initApp(user) {
     }
   }, true);
   const initHash = window.location.hash.slice(1) || 'dashboard';
-  showPanel(initHash);
+  if (initHash.startsWith('strategie/')) {
+    const raceId = initHash.slice('strategie/'.length);
+    showPanel('strategie');
+    loadRaces().then(() => openEventView(raceId));
+  } else {
+    showPanel(initHash);
+  }
   if (!localStorage.getItem('onb_done')) initOnboarding();
   if (!VLState.userProfile.vam_avg && VLState.allActivities?.length && VLState.stravaConnected) {
     autoCalibrate(VLState.allActivities);
