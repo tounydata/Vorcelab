@@ -59,14 +59,7 @@ export async function fetchStreams(activityId) {
   }
 }
 
-export async function fetchWeather(lat, lon, date) {
-  const d=date.split('T')[0], h=parseInt(date.split('T')[1]?.split(':')[0]||10);
-  try {
-    const r=await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${d}&end_date=${d}&hourly=temperature_2m,precipitation,windspeed_10m&timezone=Europe%2FParis`);
-    const data=await r.json();
-    return {temp:data.hourly?.temperature_2m?.[h]??null,precip:data.hourly?.precipitation?.[h]??null,wind:data.hourly?.windspeed_10m?.[h]??null};
-  } catch { return null; }
-}
+export { fetchWeather } from './weather.js';
 
 export function computeRaceContext(act, weather) {
   const fcMax=VLState.userProfile.fc_max||FC_MAX_DEFAULT;

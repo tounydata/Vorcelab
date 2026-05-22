@@ -4,7 +4,7 @@
 // Données insuffisantes → signaux prudents uniquement.
 
 import { VLState, sb } from './app-state.js';
-import { fetchWeather } from './activity-analysis.js';
+import { fetchWeather } from './weather.js';
 import { isRun } from './formatters.js';
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────────

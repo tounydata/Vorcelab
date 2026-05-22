@@ -7,6 +7,7 @@ import { genNutrition } from './nutrition.js';
 import { icon } from './icons.js';
 import { computeRunnerProfile, sensitivityLabel, climbSourceLabel } from './runner-profile.js';
 import { computeFreshnessAdjustment, computeProgressionFactor } from './race-predictor.js';
+import { fetchForecastWeather } from './weather.js';
 
 // leafletMap est dans VLState.leafletMap
 
@@ -43,33 +44,8 @@ export async function analyzeGPX(points, fname) {
   for(let i=0;i<points.length;i++){if(cumDist[i]>=target){samples.push({d:+(cumDist[i]/1000).toFixed(2),alt:points[i].ele?Math.round(points[i].ele):null});target+=100;}}
   samples.push({d:+(totalDist/1000).toFixed(2),alt:eles[eles.length-1]?Math.round(eles[eles.length-1]):null});
 
-  // Weather gate — only integrate forecast if race ≤ 10 days away
-  let weather=null, weatherNote=null;
-  const raceTs=VLState.currentRaceContext?.date?new Date(VLState.currentRaceContext.date).getTime():null;
-  const daysToRace=raceTs?Math.ceil((raceTs-Date.now())/86400000):null;
-  const weatherReliable=daysToRace===null||daysToRace<=10;
-  if(weatherReliable){
-    try{
-      const forecastDays=daysToRace===null?2:Math.min(10,Math.max(2,daysToRace+1));
-      // Race hour: use event datetime if non-midnight, else assume 9:00
-      const raceDtm=VLState.currentRaceContext?.date?new Date(VLState.currentRaceContext.date):null;
-      const raceHour=raceDtm&&raceDtm.getHours()>0?raceDtm.getHours():9;
-      const h=(daysToRace!==null&&daysToRace>0?daysToRace:0)*24+raceHour;
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${points[0].lat}&longitude=${points[0].lon}&hourly=temperature_2m,precipitation_probability,precipitation,windspeed_10m&timezone=Europe%2FParis&forecast_days=${forecastDays}`);
-      const d=await r.json();
-      const precip6h=(d.hourly?.precipitation||[]).slice(Math.max(0,h-6),h+1).reduce((a,v)=>a+(v||0),0);
-      if(d.hourly?.temperature_2m?.[h]!=null){
-        weather={temp:d.hourly.temperature_2m[h],precip_prob:d.hourly?.precipitation_probability?.[h]??0,precip:d.hourly?.precipitation?.[h]??0,precip_recent:precip6h,wind:d.hourly?.windspeed_10m?.[h]};
-        if(daysToRace&&daysToRace>0&&!(raceDtm&&raceDtm.getHours()>0)){
-          weatherNote=`Météo J+${daysToRace}`;
-        }
-      } else {
-        weatherNote='Météo non disponible';
-      }
-    }catch{weatherNote='Météo indisponible';}
-  } else {
-    weatherNote=`Météo disponible à partir de J-10`;
-  }
+  const { weather, weatherNote } = await fetchForecastWeather(points[0], VLState.currentRaceContext);
+  const weatherReliable = weather !== null;
 
   // Lancer le calcul profil coureur en parallèle avec terrain (résultat attendu plus tard)
   // Cache invalidé si : nouvelles activités OU profil > 7 jours
