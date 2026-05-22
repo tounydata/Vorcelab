@@ -52,3 +52,7 @@ stores/
 
 # Claude Code internal
 .claude/
+
+# Playwright
+playwright-report/
+test-results/
