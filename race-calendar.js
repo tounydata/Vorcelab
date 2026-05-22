@@ -109,27 +109,31 @@ export function calNavMonth(dir) {
   renderCalendar();
 }
 
-export function openEventView(raceId) {
-  const race = (VLState.races||[]).find(r=>String(r.id)===String(raceId));
-  if(!race) return;
-  window._openEventRace = race; // stable reference for edit form
+function _openEventViewUI(race) {
+  window._openEventRace = race;
   document.getElementById('calView').style.display = 'none';
   document.getElementById('eventView').style.display = 'block';
   const titleEl = document.getElementById('eventViewTitle');
-  if(titleEl) titleEl.textContent = race.name.toUpperCase();
+  if (titleEl) titleEl.textContent = race.name.toUpperCase();
   const subEl = document.getElementById('eventViewSubtitle');
-  if(subEl) {
+  if (subEl) {
     const typeLabel = race.type==='Trail'?'Trail':race.type==='Ultra'?'Ultra Trail':'Route';
     const dateStr = new Date(race.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
     subEl.textContent = `${typeLabel} · ${dateStr}`;
   }
   const delBtn = document.getElementById('btnDeleteRace');
-  if(delBtn) delBtn.onclick = ()=>deleteRace(raceId);
+  if (delBtn) delBtn.onclick = () => deleteRace(race.id);
   const compSec = document.getElementById('eventComparisonSection');
-  if(compSec) compSec.innerHTML = '';
+  if (compSec) compSec.innerHTML = '';
+}
+
+export function openEventView(raceId) {
+  const race = (VLState.races||[]).find(r=>String(r.id)===String(raceId));
+  if (!race) return;
+  _openEventViewUI(race);
+  history.replaceState(null, '', `#strategie/${raceId}`);
   prepareRace(race);
-  // Load comparison if race already has linked activity + GPX
-  if(race.strava_activity_id && race.gpx_data) {
+  if (race.strava_activity_id && race.gpx_data) {
     const actId = race.strava_activity_id;
     const actObj = VLState.allActivities.find(a=>String(a.id)===String(actId)) || {id:actId, moving_time:0};
     fetchStreams(actId).then(streams => {
@@ -181,6 +185,8 @@ function showEventSplash(race) {
 
 export function goToEvent(raceId) {
   const race = (VLState.races||[]).find(r=>String(r.id)===String(raceId));
+  const cur = window.location.hash.slice(1) || 'dashboard';
+  if (!cur.startsWith('strategie')) VLState._prevPanelStrategie = cur;
   window.Vorcelab?.navigate('strategie');
   if (race) showEventSplash(race);
   // Refresh race data so GPX saved on another device is always picked up; splash covers the fetch
@@ -189,6 +195,7 @@ export function goToEvent(raceId) {
 
 export function backToCalendar() {
   document.getElementById('eventView').style.display = 'none';
+  history.replaceState(null, '', '#strategie');
   document.getElementById('calView').style.display = 'block';
   VLState.currentRaceContext = null;
   document.getElementById('stratResult').style.display='none';
@@ -198,6 +205,22 @@ export function backToCalendar() {
   const cs=document.getElementById('eventComparisonSection');if(cs)cs.innerHTML='';
   window._openEventRace=null;
   if(window._actMapInst2){window._actMapInst2.remove();window._actMapInst2=null;}
+}
+
+export function backFromStrategie() {
+  const prev = VLState._prevPanelStrategie || 'dashboard';
+  // Reset event view state so calView is clean when user returns to strategie
+  const evV = document.getElementById('eventView');
+  const calV = document.getElementById('calView');
+  if (evV) evV.style.display = 'none';
+  if (calV) calV.style.display = 'block';
+  window._openEventRace = null;
+  const ef = document.getElementById('editRaceForm');
+  if (ef) ef.style.display = 'none';
+  const cs = document.getElementById('eventComparisonSection');
+  if (cs) cs.innerHTML = '';
+  VLState.currentRaceContext = null;
+  window.Vorcelab?.navigate?.(prev);
 }
 
 export async function deleteRace(raceId) {
@@ -620,22 +643,35 @@ export async function confirmLinkActivity(raceId, raceName, actId, modal) {
 }
 
 export function prepareRace(raceOrId) {
-  const race = (typeof raceOrId === 'string' || typeof raceOrId === 'number')
-    ? (VLState.races||[]).find(r => String(r.id) === String(raceOrId))
-    : raceOrId;
+  const race = (typeof raceOrId === 'object' && raceOrId !== null)
+    ? raceOrId
+    : (VLState.races||[]).find(r => String(r.id) === String(raceOrId));
   if (!race) return;
-  window.Vorcelab?.navigate?.('strategie');
+
+  const cur = window.location.hash.slice(1) || 'dashboard';
+  if (!cur.startsWith('strategie')) {
+    VLState._prevPanelStrategie = cur;
+    window.Vorcelab?.navigate?.('strategie');
+  }
+
+  // Ensure eventView is visible (when called from outside openEventView)
+  const evV = document.getElementById('eventView');
+  if (!evV || evV.style.display !== 'block') {
+    _openEventViewUI(race);
+  }
+
+  // Stable URL for this race strategy
+  history.replaceState(null, '', `#strategie/${race.id}`);
+
   // Reset UI state, then restore context AFTER reset (resetStrategy clears it)
   resetStrategy();
   VLState.currentRaceContext = race;
-  // If GPX already saved, load it directly
+
   if (race.gpx_data) {
     try {
       const points = JSON.parse(race.gpx_data);
-      // Guard: need at least 10 points and real coordinates
       const validPts = points.filter(p => p.lat && p.lon && Math.abs(p.lat) > 0.001);
       if (validPts.length < 10) { showGpxUploadPrompt(race); return; }
-      // Guard: distance > 100m
       let d = 0;
       for(let i=1;i<validPts.length;i++) d += hav(validPts[i-1], validPts[i]);
       if (d < 100) { showGpxUploadPrompt(race); return; }

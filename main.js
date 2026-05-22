@@ -18,7 +18,7 @@ import {
   closeCropModal, confirmCrop, savePRs, switchProfilTab,
 } from './profile.js';
 import {
-  showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar,
+  showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar, backFromStrategie,
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
@@ -49,7 +49,7 @@ window.Vorcelab = {
   handleZipDrop, handleZipFile,
   onbNav, closeOnboarding, openCGU, closeCGU,
   switchProfilTab, showToast,
-  showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar,
+  showAddRaceForm, saveRace, calNavMonth, openEventView, backToCalendar, backFromStrategie,
   toggleRaceMenu, toggleEditRaceForm, saveEditRace,
   raceMenuChangeGpx, saveGpxToRace, deleteGpxFromRace, deleteRace,
   importOrgGpx, linkActivityFromRace, confirmLinkActivity, prepareRace, goToEvent,
