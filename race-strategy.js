@@ -23,13 +23,13 @@ export function parseGPX(file, raceCtx=null){
     if(!pts.length){alert('GPX invalide ou vide');return;}
     const points=[];
     pts.forEach(pt=>{const lat=parseFloat(pt.getAttribute('lat')),lon=parseFloat(pt.getAttribute('lon')),ele=pt.querySelector('ele');points.push({lat,lon,ele:ele?parseFloat(ele.textContent):null});});
-    await analyzeGPX(points, file.name||'');
+    await analyzeGPX(points, file.name||'', true);
   };
   reader.readAsText(file);
 }
 
 
-export async function analyzeGPX(points, fname) {
+export async function analyzeGPX(points, fname, fromUpload = false) {
   let cumDist=[0],dplus=0,dminus=0;
   for(let i=1;i<points.length;i++){
     cumDist.push(cumDist[i-1]+hav(points[i-1],points[i]));
@@ -635,29 +635,30 @@ export async function analyzeGPX(points, fname) {
     if(window._gpxChart){window._gpxChart.data.datasets[1]={label:'Pos',data:samples.map(()=>null),pointRadius:0};window._gpxChart.update('none');}
   });
 
-  // Toujours stocker le GPX pour permettre la liaison ultérieure
-  window._pendingGpxSave = points.filter((_,i)=>i%5===0).map(p=>({lat:p.lat,lon:p.lon,ele:p.ele}));
-
-  // Auto-save to DB when in race event context — capture id/json before async to survive navigation
-  if (VLState.currentRaceContext?.id) {
-    const savedRaceId = VLState.currentRaceContext.id;
-    const savedGpxJson = JSON.stringify(window._pendingGpxSave);
-    sb.from('race_calendar')
-      .update({gpx_data: savedGpxJson})
-      .eq('id', savedRaceId)
-      .then(({error}) => {
-        if (error) {
-          console.error('GPX save error:', error);
-          window.showToast?.('Erreur sauvegarde GPX : ' + (error.message || error.code), 'error');
-        } else {
-          const idx = VLState.races.findIndex(r=>r.id===savedRaceId);
-          if(idx>=0) VLState.races[idx].gpx_data = savedGpxJson;
-          if(VLState.currentRaceContext?.id===savedRaceId) VLState.currentRaceContext.gpx_data = savedGpxJson;
-          const si = document.getElementById('raceMenuSaveGpx');
-          if(si) si.style.display = 'none';
-          window.showToast?.('GPX enregistré ✓', 'success');
-        }
-      });
+  // Stocker et sauvegarder uniquement si c'est un upload fichier (pas un chargement depuis DB)
+  // Sans ce guard, chaque ouverture re-échantillonne ×1/5 → GPX vide après 3-4 cycles
+  if (fromUpload) {
+    window._pendingGpxSave = points.filter((_,i)=>i%5===0).map(p=>({lat:p.lat,lon:p.lon,ele:p.ele}));
+    if (VLState.currentRaceContext?.id) {
+      const savedRaceId = VLState.currentRaceContext.id;
+      const savedGpxJson = JSON.stringify(window._pendingGpxSave);
+      sb.from('race_calendar')
+        .update({gpx_data: savedGpxJson})
+        .eq('id', savedRaceId)
+        .then(({error}) => {
+          if (error) {
+            console.error('GPX save error:', error);
+            window.showToast?.('Erreur sauvegarde GPX : ' + (error.message || error.code), 'error');
+          } else {
+            const idx = VLState.races.findIndex(r=>r.id===savedRaceId);
+            if(idx>=0) VLState.races[idx].gpx_data = savedGpxJson;
+            if(VLState.currentRaceContext?.id===savedRaceId) VLState.currentRaceContext.gpx_data = savedGpxJson;
+            const si = document.getElementById('raceMenuSaveGpx');
+            if(si) si.style.display = 'none';
+            window.showToast?.('GPX enregistré ✓', 'success');
+          }
+        });
+    }
   }
 }
 
