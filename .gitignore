@@ -56,3 +56,9 @@ stores/
 # Playwright
 playwright-report/
 test-results/
+
+# Auth storageState (tokens)
+playwright/.auth/*.json
+
+# Variables de test (service role key)
+.env.test

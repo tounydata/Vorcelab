@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
+import { AUTH_FILE } from './e2e/constants'
+import { config as loadEnv } from 'dotenv'
+
+// Charge .env.test si présent (variables de test : service key, email, password)
+loadEnv({ path: '.env.test', override: false })
 
 const CI = !!process.env.CI
 
@@ -15,27 +20,40 @@ export default defineConfig({
   },
 
   projects: [
+    // ── Auth setup (précondition des tests authentifiés) ──────────────────
+    {
+      name: 'setup',
+      testMatch: 'e2e/auth.setup.ts',
+      use: { baseURL: 'http://localhost:4173' },
+    },
+
+    // ── Tests publics (pas d'auth) ────────────────────────────────────────
     {
       name: 'react',
       testMatch: 'e2e/react/**/*.spec.ts',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:4173',
-      },
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' },
     },
     {
       name: 'legacy',
       testMatch: 'e2e/legacy/**/*.spec.ts',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4174' },
+    },
+
+    // ── Tests authentifiés (dépendent du setup) ───────────────────────────
+    {
+      name: 'react-auth',
+      testMatch: 'e2e/react-auth/**/*.spec.ts',
+      dependencies: ['setup'],
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:4174',
+        baseURL: 'http://localhost:4173',
+        storageState: AUTH_FILE,
       },
     },
   ],
 
   webServer: [
     {
-      // Requires a prior `npm run build` — see e2e/README.md
       command: 'npm run preview',
       url: 'http://localhost:4173/Vorcelab/app/',
       reuseExistingServer: !CI,
