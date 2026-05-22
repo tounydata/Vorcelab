@@ -25,7 +25,7 @@ test.describe('Activités (authentifié)', () => {
     const empty   = main.getByText('Aucune sortie')
     const loading = main.getByText('Chargement')
 
-    await expect(counter.or(empty).or(loading)).toBeVisible({ timeout: 8_000 })
+    await expect(counter.or(empty).or(loading).first()).toBeVisible({ timeout: 8_000 })
 
     expect(errors).toHaveLength(0)
   })
