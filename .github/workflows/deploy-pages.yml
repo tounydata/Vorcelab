@@ -22,47 +22,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare stable frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Build React app
+        run: npm ci && npm run build
+      - name: Prepare pages
         run: |
-          mkdir -p .pages
-          V=$(date +%Y%m%d%H%M%S)
-          sed -E "s/([a-zA-Z0-9_-]+\.(js|css))\?v=[0-9]+/\1?v=$V/g" index.html > .pages/index.html
-          cp .pages/index.html .pages/404.html
-          [ -f style.css ]              && cp style.css              .pages/style.css              || true
-          [ -f main.js ]                && cp main.js                .pages/main.js                || true
-          [ -f app-state.js ]           && cp app-state.js           .pages/app-state.js           || true
-          [ -f app.js ]                 && cp app.js                 .pages/app.js                 || true
-          [ -f auth.js ]                && cp auth.js                .pages/auth.js                || true
-          [ -f strava-client.js ]       && cp strava-client.js       .pages/strava-client.js       || true
-          [ -f profile.js ]             && cp profile.js             .pages/profile.js             || true
-          [ -f dashboard.js ]           && cp dashboard.js           .pages/dashboard.js           || true
-          [ -f ui.js ]                  && cp ui.js                  .pages/ui.js                  || true
-          [ -f renfo.js ]               && cp renfo.js               .pages/renfo.js               || true
-          [ -f security.js ]            && cp security.js            .pages/security.js            || true
-          [ -f formatters.js ]          && cp formatters.js          .pages/formatters.js          || true
-          [ -f terrain.js ]             && cp terrain.js             .pages/terrain.js             || true
-          [ -f gpx-core.js ]            && cp gpx-core.js            .pages/gpx-core.js            || true
-          [ -f nutrition.js ]           && cp nutrition.js           .pages/nutrition.js           || true
-          [ -f race-calendar.js ]       && cp race-calendar.js       .pages/race-calendar.js       || true
-          [ -f activity-analysis.js ]   && cp activity-analysis.js   .pages/activity-analysis.js   || true
-          [ -f race-strategy.js ]       && cp race-strategy.js       .pages/race-strategy.js       || true
-          [ -f runner-profile.js ]      && cp runner-profile.js      .pages/runner-profile.js      || true
-          [ -f training-load.js ]       && cp training-load.js       .pages/training-load.js       || true
-          [ -f session-quality.js ]     && cp session-quality.js     .pages/session-quality.js     || true
-          [ -f progress-comparison.js ] && cp progress-comparison.js .pages/progress-comparison.js || true
-          [ -f race-predictor.js ]      && cp race-predictor.js      .pages/race-predictor.js      || true
-          [ -f icons.js ]               && cp icons.js               .pages/icons.js               || true
-          [ -f weather.js ]             && cp weather.js             .pages/weather.js             || true
-          [ -f dashboard-kpis.js ]      && cp dashboard-kpis.js      .pages/dashboard-kpis.js      || true
-          [ -f dashboard-charts.js ]    && cp dashboard-charts.js    .pages/dashboard-charts.js    || true
-          [ -f dashboard-activities.js ] && cp dashboard-activities.js .pages/dashboard-activities.js || true
-          [ -f dashboard-renfo.js ]     && cp dashboard-renfo.js     .pages/dashboard-renfo.js     || true
-          [ -f history-import.js ]      && cp history-import.js      .pages/history-import.js      || true
-          [ -f renfo-data.js ]          && cp renfo-data.js          .pages/renfo-data.js          || true
-          [ -f renfo-program.js ]       && cp renfo-program.js       .pages/renfo-program.js       || true
-          [ -f og.svg ]                 && cp og.svg                 .pages/og.svg                 || true
-          [ -f favicon.svg ]            && cp favicon.svg            .pages/favicon.svg            || true
-          [ -f apps/web/public/logo.png ] && cp apps/web/public/logo.png .pages/logo.png           || true
+          mkdir -p .pages/app
+
+          # Legacy app at root — copy all JS/CSS assets and legacy.html → index.html + 404.html
+          cp legacy.html .pages/index.html
+          cp legacy.html .pages/404.html
+          cp style.css  .pages/style.css
+          for f in *.js; do [ -f "$f" ] && cp "$f" ".pages/$f"; done
+          [ -f og.svg ]      && cp og.svg      .pages/og.svg      || true
+          [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
+
+          # React app at /app/ — Vite outputs dist/ with base=/Vorcelab/app/
+          cp -r dist/. .pages/app/
+
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
