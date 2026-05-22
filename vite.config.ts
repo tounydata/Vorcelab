@@ -15,6 +15,7 @@ export default defineConfig({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-zustand': ['zustand'],
+          'vendor-charts': ['chart.js', 'react-chartjs-2'],
         },
       },
     },

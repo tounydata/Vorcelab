@@ -130,6 +130,9 @@ function _openEventViewUI(race) {
 export function openEventView(raceId) {
   const race = (VLState.races||[]).find(r=>String(r.id)===String(raceId));
   if (!race) return;
+  // Si on vient du calendrier (calView visible) → Retour reviendra au calendrier
+  const calV = document.getElementById('calView');
+  if (calV && calV.style.display !== 'none') VLState._prevPanelStrategie = 'strategie';
   _openEventViewUI(race);
   history.replaceState(null, '', `#strategie/${raceId}`);
   prepareRace(race);
@@ -209,7 +212,7 @@ export function backToCalendar() {
 }
 
 export function backFromStrategie() {
-  // Toujours retour Dashboard (pas au calendrier)
+  const prev = VLState._prevPanelStrategie;
   const evV = document.getElementById('eventView');
   const calV = document.getElementById('calView');
   if (evV) evV.style.display = 'none';
@@ -220,7 +223,11 @@ export function backFromStrategie() {
   const cs = document.getElementById('eventComparisonSection');
   if (cs) cs.innerHTML = '';
   VLState.currentRaceContext = null;
-  window.Vorcelab?.navigate?.('dashboard');
+  if (prev === 'strategie') {
+    history.replaceState(null, '', '#strategie');
+  } else {
+    window.Vorcelab?.navigate?.('dashboard');
+  }
 }
 
 export async function deleteRace(raceId) {

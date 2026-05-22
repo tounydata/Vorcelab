@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { mapDbActivity } from '../types/activity'
 import { isRun, fmtD } from '../utils/formatters'
+import { WeeklyKmChart } from '../components/charts/WeeklyKmChart'
 
 export function DashboardPage() {
   const user = useVLStore(s => s.user)
@@ -38,26 +39,30 @@ export function DashboardPage() {
   const kmW = thisWeek.reduce((s, a) => s + a.distance / 1000, 0)
   const dpM = thisMonth.reduce((s, a) => s + (a.total_elevation_gain || 0), 0)
 
-  const kpi = (label: string, value: string, sub?: string, color?: string) => (
-    <div style={{ background: 'var(--vl-surf-2)', borderRadius: 8, padding: '14px 16px' }}>
-      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: color ?? 'var(--vl-text-1)' }}>{value}</div>
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', letterSpacing: '.1em', marginTop: 2 }}>{label}</div>
-      {sub && <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
-
   return (
     <div style={{ maxWidth: 700 }}>
       <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 800, letterSpacing: '.04em', marginBottom: 20 }}>
         DASHBOARD
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
-        {kpi('KM CE MOIS', kmM.toFixed(0), `${thisMonth.length} sorties`, 'var(--vl-ember)')}
-        {kpi('KM CETTE SEMAINE', kmW.toFixed(0), `${thisWeek.length} sorties`)}
-        {kpi('D+ CE MOIS', Math.round(dpM) + ' m', undefined, 'var(--vl-growth)')}
+      {/* KPI blocks */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+        <KpiBlock label="KM CE MOIS" value={kmM.toFixed(0)} sub={`${thisMonth.length} sorties`} color="var(--vl-ember)" />
+        <KpiBlock label="KM CETTE SEMAINE" value={kmW.toFixed(0)} sub={`${thisWeek.length} sortie${thisWeek.length !== 1 ? 's' : ''}`} />
+        <KpiBlock label="D+ CE MOIS" value={Math.round(dpM) + ' m'} color="var(--vl-growth)" />
       </div>
 
+      {/* Weekly km chart */}
+      {activities.length > 0 && (
+        <div style={{ background: 'var(--vl-surf-2)', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', letterSpacing: '.1em', marginBottom: 10 }}>
+            KM PAR SEMAINE (8 DERNIÈRES)
+          </div>
+          <WeeklyKmChart activities={activities} />
+        </div>
+      )}
+
+      {/* Recent activities */}
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)', letterSpacing: '.1em', marginBottom: 12 }}>
         DERNIÈRES SORTIES
       </div>
@@ -76,6 +81,7 @@ export function DashboardPage() {
                 <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.75rem', fontWeight: 600 }}>{act.name}</div>
                 <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', marginTop: 2 }}>
                   {(act.distance / 1000).toFixed(1)} km · {fmtD(act.moving_time)}
+                  {act.total_elevation_gain > 0 ? ` · D+ ${Math.round(act.total_elevation_gain)}m` : ''}
                 </div>
               </div>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)' }}>{ds}</div>
@@ -87,14 +93,16 @@ export function DashboardPage() {
       <Link to="/activities" style={{ fontFamily: 'var(--vl-mono)', fontSize: '.65rem', color: 'var(--vl-ember)', textDecoration: 'none' }}>
         Voir toutes les activités →
       </Link>
+    </div>
+  )
+}
 
-      <div style={{ marginTop: 40, padding: '16px 20px', background: 'var(--vl-surf-2)', borderRadius: 8, borderLeft: '3px solid var(--vl-amber)' }}>
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-amber)', letterSpacing: '.1em', marginBottom: 6 }}>MIGRATION EN COURS</div>
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.65rem', color: 'var(--vl-text-3)', lineHeight: 1.6 }}>
-          Renfo, Race Strategy et le dashboard complet arrivent dans les prochaines passes React.<br />
-          Les algorithmes sont déjà prêts — c'est juste de l'UI.
-        </div>
-      </div>
+function KpiBlock({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div style={{ background: 'var(--vl-surf-2)', borderRadius: 8, padding: '14px 16px' }}>
+      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: color ?? 'var(--vl-text-1)' }}>{value}</div>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', letterSpacing: '.1em', marginTop: 2 }}>{label}</div>
+      {sub && <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
