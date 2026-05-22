@@ -79,16 +79,16 @@
       <button class="auth-tab active" onclick="Vorcelab.switchTab('login',this)">Connexion</button>
       <button class="auth-tab" onclick="Vorcelab.switchTab('signup',this)">Créer un compte</button>
     </div>
-<form id="loginForm" onsubmit="event.preventDefault();login()">
+<form id="loginForm" onsubmit="event.preventDefault();Vorcelab.login()">
   <input class="fi" type="email" id="loginEmail" placeholder="Adresse email" autocomplete="email">
   <input class="fi" type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password">
   <button class="btn-primary" type="submit">Se connecter</button>
 </form>
 
-<form id="signupForm" style="display:none" onsubmit="event.preventDefault();signup()">
+<form id="signupForm" style="display:none" onsubmit="event.preventDefault();Vorcelab.signup()">
   <input class="fi" type="text" id="signupName" placeholder="Prénom ou pseudo" autocomplete="name">
   <input class="fi" type="email" id="signupEmail" placeholder="Adresse email" autocomplete="email">
-  <input class="fi" type="password" id="signupPassword" placeholder="Mot de passe" autocomplete="new-password" minlength="8" oninput="updatePasswordRules()">
+  <input class="fi" type="password" id="signupPassword" placeholder="Mot de passe" autocomplete="new-password" minlength="8" oninput="Vorcelab.updatePasswordRules()">
 
   <div id="passwordRules" style="font-size:.75rem;margin:.4rem 0 .8rem;color:var(--vl-text-3);line-height:1.5">
     <div id="ruleLength">○ 8 caractères minimum</div>
