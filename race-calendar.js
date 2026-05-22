@@ -624,6 +624,7 @@ export function prepareRace(raceOrId) {
     ? (VLState.races||[]).find(r => String(r.id) === String(raceOrId))
     : raceOrId;
   if (!race) return;
+  window.Vorcelab?.navigate?.('strategie');
   // Reset UI state, then restore context AFTER reset (resetStrategy clears it)
   resetStrategy();
   VLState.currentRaceContext = race;
