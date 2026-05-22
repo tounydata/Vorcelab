@@ -678,6 +678,8 @@ export function prepareRace(raceOrId) {
       for(let i=1;i<validPts.length;i++) d += hav(validPts[i-1], validPts[i]);
       if (d < 100) { showGpxUploadPrompt(race); return; }
       document.getElementById('gpxDrop').style.display = 'none';
+      const _sr = document.getElementById('stratResult');
+      if (_sr) { _sr.style.display = 'block'; _sr.innerHTML = `<div class="loading" style="min-height:60vh"><div class="spinner"></div><div class="mono" style="margin-top:.5rem">Calcul de la stratégie…</div></div>`; }
       analyzeGPX(points, race.name);
     } catch(e) {
       showGpxUploadPrompt(race);

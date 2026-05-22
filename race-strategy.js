@@ -23,6 +23,9 @@ export function parseGPX(file, raceCtx=null){
     if(!pts.length){alert('GPX invalide ou vide');return;}
     const points=[];
     pts.forEach(pt=>{const lat=parseFloat(pt.getAttribute('lat')),lon=parseFloat(pt.getAttribute('lon')),ele=pt.querySelector('ele');points.push({lat,lon,ele:ele?parseFloat(ele.textContent):null});});
+    document.getElementById('gpxDrop').style.display = 'none';
+    const _sr = document.getElementById('stratResult');
+    if (_sr) { _sr.style.display = 'block'; _sr.innerHTML = `<div class="loading" style="min-height:60vh"><div class="spinner"></div><div class="mono" style="margin-top:.5rem">Calcul de la stratégie…</div></div>`; }
     await analyzeGPX(points, file.name||'', true);
   };
   reader.readAsText(file);
