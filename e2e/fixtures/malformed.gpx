@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Vorcelab E2E Tests"
+     xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Malformed Trail (1 seul point)</name>
+    <trkseg>
+      <trkpt lat="45.8000" lon="6.8000"><ele>600.0</ele></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

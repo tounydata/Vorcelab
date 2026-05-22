@@ -1,0 +1,2 @@
+Ce fichier n'est pas un GPX.
+Aucune balise trkpt ici — le parseur doit renvoyer un tableau vide.
