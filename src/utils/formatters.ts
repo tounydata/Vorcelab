@@ -30,3 +30,5 @@ const TYPE_LABELS: Record<string, string> = {
 export function tL(type: string): string {
   return TYPE_LABELS[type] ?? type
 }
+
+export const fmtT = fmtD
