@@ -25,7 +25,7 @@ export function mapDbRace(row: Record<string, unknown>): Race {
     goal_time: (row.goal_time as string) ?? undefined,
     gpx_data: Array.isArray(row.gpx_data) ? (row.gpx_data as GpxPoint[]) : null,
     last_projection: (row.last_projection as Race['last_projection']) ?? null,
-    strava_activity_id: row.strava_activity_id != null ? Number(row.strava_activity_id) : null,
+    strava_activity_id: row.strava_activity_id !== null && row.strava_activity_id !== undefined ? Number(row.strava_activity_id) : null,
     share_token: (row.share_token as string | null) ?? null,
   }
 }
