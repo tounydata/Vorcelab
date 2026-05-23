@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { mapDbRace } from '../types/race'
 import { fmtD } from '../utils/formatters'
+import { ProjectionChart } from '../components/ProjectionChart'
 
 export function RaceListPage() {
   const user = useVLStore(s => s.user)
@@ -48,6 +49,7 @@ export function RaceListPage() {
         </div>
       ) : (
         <>
+          <ProjectionChart races={races} />
           {upcoming.length > 0 && (
             <section style={{ marginBottom: 28 }}>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)', letterSpacing: '.1em', marginBottom: 12 }}>
