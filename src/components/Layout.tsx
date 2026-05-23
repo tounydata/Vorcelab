@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from 'react-router'
 import { useVLStore } from '../store/vlStore'
+import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
-const NAV = [
-  { to: '/',            label: 'Dashboard',  icon: '◈' },
-  { to: '/activities',  label: 'Activités',  icon: '⚡' },
-  { to: '/race',        label: 'Stratégie',  icon: '◎' },
-  { to: '/renfo',       label: 'Renfo',      icon: '▲' },
-  { to: '/profile',     label: 'Profil',     icon: '○' },
+const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
+  { to: '/',            label: 'Dashboard',  icon: 'chart',    end: true },
+  { to: '/activities',  label: 'Activités',  icon: 'activity' },
+  { to: '/race',        label: 'Stratégie',  icon: 'calendar' },
+  { to: '/renfo',       label: 'Renfo',      icon: 'renfo' },
+  { to: '/profile',     label: 'Profil',     icon: 'profile' },
 ]
 
 export function Layout() {
@@ -14,35 +16,24 @@ export function Layout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar — masquée sous 900px via .sidebar en CSS */}
-      <nav className="sidebar" style={{ width: 200, flexShrink: 0, background: 'var(--vl-surf,#111214)', borderRight: '1px solid var(--vl-line)', padding: '20px 0', flexDirection: 'column', gap: 2 }}>
-        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 900, letterSpacing: '.08em', padding: '0 20px 20px', color: 'var(--vl-ember,#E5562A)' }}>
+      {/* Sidebar desktop — masquée via .sidebar{display:none} à 900px */}
+      <nav className="sidebar">
+        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 900, letterSpacing: '.08em', padding: '0 20px 24px', color: 'var(--vl-ember)' }}>
           VORCELAB
         </div>
-        {NAV.map(({ to, label, icon }) => (
+        {NAV.map(({ to, label, icon, end }) => (
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '9px 20px',
-              fontFamily: 'var(--vl-mono)',
-              fontSize: '.7rem',
-              fontWeight: 600,
-              letterSpacing: '.06em',
-              color: isActive ? 'var(--vl-text-1)' : 'var(--vl-text-3)',
-              background: isActive ? 'var(--vl-surf-2)' : 'transparent',
-              borderLeft: isActive ? '2px solid var(--vl-ember)' : '2px solid transparent',
-              textDecoration: 'none',
-              transition: 'color .15s, background .15s',
-            })}
+            end={end}
+            className={({ isActive }) => 'sidebar-item' + (isActive ? ' active' : '')}
+            style={{ textDecoration: 'none' }}
           >
-            <span style={{ fontSize: '.8rem', opacity: .7 }}>{icon}</span>
+            <Icon name={icon} size={14} />
             {label}
           </NavLink>
         ))}
-        <div style={{ marginTop: 'auto', padding: '16px 20px', fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)' }}>
+        <div style={{ marginTop: 'auto', padding: '16px 20px 4px', fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)' }}>
           {user?.email}
         </div>
       </nav>
@@ -52,15 +43,21 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {/* Bottom nav mobile — visible sous 900px via .bottom-nav en CSS */}
-      <nav className="bottom-nav" style={{ flexDirection: 'row', justifyContent: 'space-around', padding: '8px 0 env(safe-area-inset-bottom)' }}>
-        {NAV.map(({ to, label, icon }) => (
-          <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            fontFamily: 'var(--vl-mono)', fontSize: '.48rem', color: isActive ? 'var(--vl-ember)' : 'var(--vl-text-3)',
-            textDecoration: 'none', padding: '4px 0',
-          })}>
-            <span style={{ fontSize: '1rem' }}>{icon}</span>
+      {/* Bottom nav mobile — visible via .bottom-nav{display:flex} à 900px */}
+      <nav className="bottom-nav" style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', padding: '6px 0 env(safe-area-inset-bottom)' }}>
+        {NAV.map(({ to, label, icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            style={({ isActive }) => ({
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              fontFamily: 'var(--vl-mono)', fontSize: '.45rem', letterSpacing: '.08em',
+              color: isActive ? 'var(--vl-ember)' : 'var(--vl-text-3)',
+              textDecoration: 'none', padding: '4px 8px',
+            })}
+          >
+            <Icon name={icon} size={18} />
             {label}
           </NavLink>
         ))}
