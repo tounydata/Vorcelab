@@ -48,8 +48,14 @@ const MOCK_RACE_GOAL     = { ...MOCK_RACE, goal_time: '4h30' }
 const MOCK_RACE_WITH_GPX = { ...MOCK_RACE, gpx_data: GPX_POINTS_MINI }
 
 async function setupSupabaseMocks(page: Page, raceVariant: Record<string, unknown> = MOCK_RACE) {
-  // race_calendar : liste (array) ou objet unique (.single())
+  // race_calendar : GET → données mock / PATCH → 204 No Content (save GPX/projection)
   await page.route('**/rest/v1/race_calendar**', async route => {
+    const method = route.request().method()
+    if (method === 'PATCH') {
+      // Simulate successful save without returning body (standard PostgREST 204)
+      await route.fulfill({ status: 204, body: '' })
+      return
+    }
     const accept = route.request().headers()['accept'] ?? ''
     const isSingle = accept.includes('vnd.pgrst.object')
     await route.fulfill({
@@ -238,6 +244,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
 
   // ── Test 8 : fichier non-GPX ──────────────────────────────────────────────
   test('fichier non-GPX (texte brut) → zone upload réapparaît sans crash', async ({ page }) => {
+
     await setupSupabaseMocks(page)
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
@@ -255,5 +262,61 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
 
     expect(errors).toHaveLength(0)
+  })
+
+  // ── Test 9 : PATCH envoyé avec gpx_data + last_projection après upload ────
+  test('upload GPX → PATCH race_calendar envoyé avec gpx_data et last_projection', async ({ page }) => {
+    let patchBody: Record<string, unknown> | null = null
+
+    // Override le mock race_calendar pour capturer le PATCH
+    await page.route('**/rest/v1/race_calendar**', async route => {
+      const method = route.request().method()
+      if (method === 'PATCH') {
+        try { patchBody = JSON.parse(route.request().postData() ?? '{}') } catch { /* ignore */ }
+        await route.fulfill({ status: 204, body: '' })
+        return
+      }
+      const accept = route.request().headers()['accept'] ?? ''
+      const isSingle = accept.includes('vnd.pgrst.object')
+      await route.fulfill({
+        status: 200,
+        contentType: isSingle ? 'application/vnd.pgrst.object+json' : 'application/json',
+        body: isSingle ? JSON.stringify(MOCK_RACE) : JSON.stringify([MOCK_RACE]),
+      })
+    })
+    await page.route('**/rest/v1/strava_activities**', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    })
+    await page.route('**/rest/v1/profiles**', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/vnd.pgrst.object+json',
+        body: JSON.stringify({ fc_max: 180, prs: null, nutrition_level: 'standard' }),
+      })
+    })
+
+    await page.goto(`/Vorcelab/app/#/race/${RACE_ID}`)
+    await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
+    await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
+
+    const fileInput = page.locator('input[type="file"][accept=".gpx"]')
+    await fileInput.setInputFiles(GPX_FILE)
+
+    // Attendre la projection (signe que handleGpxFile a terminé + PATCH envoyé)
+    await expect(page.locator('main').getByText('PROJECTION VORCELAB')).toBeVisible({ timeout: 15_000 })
+    // Attendre l'indicateur de sauvegarde
+    await expect(page.locator('main').getByText(/GPX sauvegardé|Sauvegarde/)).toBeVisible({ timeout: 5_000 })
+
+    // Vérifier que le PATCH a bien été envoyé
+    expect(patchBody).not.toBeNull()
+    expect(Array.isArray(patchBody!['gpx_data'])).toBe(true)
+    expect((patchBody!['gpx_data'] as unknown[]).length).toBeGreaterThan(0)
+    expect(patchBody!['last_projection']).toBeDefined()
+    const proj = patchBody!['last_projection'] as Record<string, unknown>
+    expect(typeof proj['cible']).toBe('number')
+    expect(typeof proj['prudent']).toBe('number')
+    expect(typeof proj['agressif']).toBe('number')
+    expect(['good', 'medium', 'low']).toContain(proj['confidence'])
   })
 })

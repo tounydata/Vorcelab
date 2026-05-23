@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -40,7 +40,7 @@ function SectionCard({ s, timeS, idx, isTrail, fcMax }: { s: Section; timeS: num
   const z3top = Math.round(fcMax * 0.80)
   const distKm = (s.dist / 1000).toFixed(2)
 
-  let advice = ''
+  let advice: string
   const tags: { l: string; c: string }[] = []
 
   if (s.type === 'up') {
@@ -133,6 +133,7 @@ export function RaceStrategyPage() {
   const [shareState, setShareState] = useState<'idle' | 'saving' | 'copied'>('idle')
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [linkedStrava, setLinkedStrava] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const { data: race, isLoading: raceLoading } = useQuery({
     queryKey: ['race', id],
@@ -169,7 +170,7 @@ export function RaceStrategyPage() {
 
   // Sortie Strava correspondante (même jour ±1 j, type run, non encore liée)
   const stravaMatch = useMemo(() => {
-    if (linkedStrava || race?.strava_activity_id != null || !race?.date || !activities.length) return null
+    if (linkedStrava || race?.strava_activity_id !== null && race?.strava_activity_id !== undefined || !race?.date || !activities.length) return null
     const raceDate = race.date
     return activities.find(a => {
       const actDate = (a.start_date_local ?? a.start_date).slice(0, 10)
@@ -177,9 +178,10 @@ export function RaceStrategyPage() {
     }) ?? null
   }, [race, activities, linkedStrava])
 
-  // Auto-analyze when race + activities + profile are loaded and race has gpx_data
+  // Auto-analyze when race gpx_data is loaded — useEffect to avoid state updates during render
   const autoAnalyzed = useRef(false)
-  if (race?.gpx_data && race.gpx_data.length > 0 && activities.length >= 0 && !autoAnalyzed.current && !result && !analyzing) {
+  useEffect(() => {
+    if (autoAnalyzed.current || !race?.gpx_data || race.gpx_data.length < 2 || result || analyzing) return
     autoAnalyzed.current = true
     setAnalyzing(true)
     const points = race.gpx_data
@@ -189,12 +191,31 @@ export function RaceStrategyPage() {
       const r = analyzeGPX({ points, race, activities, profile, weather: w })
       setResult(r)
       setAnalyzing(false)
+      // Persist projection when not yet saved (gpx_data came from main app without projection)
+      if (race.id && !race.last_projection) {
+        supabase
+          .from('race_calendar')
+          .update({
+            last_projection: {
+              cible: Math.round(r.estTimeS),
+              prudent: Math.round(r.timeMax),
+              agressif: Math.round(r.timeMin),
+              confidence: r.confidence,
+            },
+          })
+          .eq('id', race.id)
+          .then(({ error }) => {
+            if (error) console.warn('[VL] projection save error:', error.message)
+            else queryClient.invalidateQueries({ queryKey: ['race', id] })
+          })
+      }
     })
-  }
+  }, [race, activities, profile]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleGpxFile(file: File) {
     setAnalyzing(true)
     setResult(null)
+    setSaveState('idle')
     const text = await file.text()
     const points = parseGpxXml(text)
     if (points.length < 2) { setAnalyzing(false); return }
@@ -205,9 +226,9 @@ export function RaceStrategyPage() {
     setResult(r)
     setAnalyzing(false)
 
-    // Sauvegarde asynchrone : GPX (JSONB) + projection calculée
     if (race?.id) {
-      supabase
+      setSaveState('saving')
+      const { error } = await supabase
         .from('race_calendar')
         .update({
           gpx_data: points,
@@ -219,10 +240,14 @@ export function RaceStrategyPage() {
           },
         })
         .eq('id', race.id)
-        .then(({ error }) => {
-          if (error) console.warn('[VL] race save error:', error.message)
-          else queryClient.invalidateQueries({ queryKey: ['race', id] })
-        })
+      if (error) {
+        console.warn('[VL] race save error:', error.message)
+        setSaveState('error')
+      } else {
+        setSaveState('saved')
+        queryClient.invalidateQueries({ queryKey: ['race', id] })
+        setTimeout(() => setSaveState('idle'), 3000)
+      }
     }
   }
 
@@ -366,8 +391,8 @@ export function RaceStrategyPage() {
               { val: '−' + Math.round(result.dminus) + ' m', lbl: 'D−' },
               { val: result.altMin + ' m', lbl: 'Alt. min' },
               { val: result.altMax + ' m', lbl: 'Alt. max' },
-              ...(weather?.temp != null ? [{ val: Math.round(weather.temp) + '°C', lbl: 'Météo', col: weather.temp > 25 ? 'var(--vl-ember)' : weather.temp < 5 ? 'var(--vl-amber)' : 'var(--vl-growth)' }] : []),
-              ...(weather?.precip_prob != null ? [{ val: weather.precip_prob + '%', lbl: 'Pluie', col: weather.precip_prob > 50 ? 'var(--vl-ember)' : 'var(--vl-growth)' }] : []),
+              ...(weather !== null ? [{ val: Math.round(weather.temp) + '°C', lbl: 'Météo', col: weather.temp > 25 ? 'var(--vl-ember)' : weather.temp < 5 ? 'var(--vl-amber)' : 'var(--vl-growth)' }] : []),
+              ...(weather !== null ? [{ val: weather.precip_prob + '%', lbl: 'Pluie', col: weather.precip_prob > 50 ? 'var(--vl-ember)' : 'var(--vl-growth)' }] : []),
             ].map((s, i) => (
               <div key={i} style={{ background: 'var(--vl-surf)', padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1rem', fontWeight: 700, color: s.col ?? 'var(--vl-text-2)' }}>{s.val}</div>
@@ -487,9 +512,9 @@ export function RaceStrategyPage() {
             )}
           </div>
 
-          {/* Actions : re-upload + partage */}
+          {/* Actions : re-upload + partage + save indicator */}
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={() => { setResult(null); autoAnalyzed.current = false }} style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)', background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>
+            <button onClick={() => { setResult(null); setSaveState('idle') }} style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)', background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>
               Changer le GPX
             </button>
             <button
@@ -499,6 +524,15 @@ export function RaceStrategyPage() {
             >
               {shareState === 'saving' ? '…' : shareState === 'copied' ? 'Lien copié ✓' : 'Partager ↗'}
             </button>
+            {saveState === 'saving' && (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-text-3)' }}>Sauvegarde…</span>
+            )}
+            {saveState === 'saved' && (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-growth)' }}>GPX sauvegardé ✓</span>
+            )}
+            {saveState === 'error' && (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-ember)' }}>Erreur sauvegarde</span>
+            )}
             {shareUrl && (
               <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '.5rem', color: 'var(--vl-text-3)', wordBreak: 'break-all' }}>{shareUrl}</span>
             )}
