@@ -656,10 +656,9 @@ export function prepareRace(raceOrId) {
     ? raceOrId
     : (VLState.races||[]).find(r => String(r.id) === String(raceOrId));
   if (!race) return;
-  // Redirect to React SPA — deployed at /app/ relative to the legacy app's directory
-  // new URL('.', href) correctly strips the hash before computing the directory
+  // Redirect to React SPA at root — new URL strips the hash before computing the path
   const dir = new URL('.', window.location.href).pathname;
-  window.location.href = window.location.origin + dir + 'app/#/race/' + race.id;
+  window.location.href = window.location.origin + dir + '#/race/' + race.id;
   return;
 
   const cur = window.location.hash.slice(1) || 'dashboard';
