@@ -1,12 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-type Mode = 'password' | 'magic'
-
 export function LoginPage() {
-  const [mode, setMode] = useState<Mode>('password')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -15,20 +11,13 @@ export function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
-    if (mode === 'password') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      setLoading(false)
-      if (error) setError(error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message)
-    } else {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin + '/Vorcelab/' },
-      })
-      setLoading(false)
-      if (error) setError(error.message)
-      else setSent(true)
-    }
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + '/Vorcelab/' },
+    })
+    setLoading(false)
+    if (error) setError(error.message)
+    else setSent(true)
   }
 
   return (
@@ -47,63 +36,34 @@ export function LoginPage() {
             Vérifie ta boite mail.
           </div>
         ) : (
-          <>
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="ton@email.com"
-                required
-                style={{
-                  background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)',
-                  borderRadius: 6, padding: '10px 14px',
-                  fontFamily: 'var(--vl-mono)', fontSize: '.8rem', color: 'var(--vl-text-1)',
-                  outline: 'none', width: '100%', boxSizing: 'border-box',
-                }}
-              />
-              {mode === 'password' && (
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="mot de passe"
-                  required
-                  autoComplete="current-password"
-                  style={{
-                    background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)',
-                    borderRadius: 6, padding: '10px 14px',
-                    fontFamily: 'var(--vl-mono)', fontSize: '.8rem', color: 'var(--vl-text-1)',
-                    outline: 'none', width: '100%', boxSizing: 'border-box',
-                  }}
-                />
-              )}
-              {error && <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.65rem', color: 'var(--vl-ember)' }}>{error}</div>}
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  background: 'var(--vl-ember)', color: '#fff', border: 'none',
-                  borderRadius: 6, padding: '11px 0',
-                  fontFamily: 'var(--vl-mono)', fontSize: '.75rem', fontWeight: 700,
-                  letterSpacing: '.08em', cursor: 'pointer',
-                }}
-              >
-                {loading ? '…' : mode === 'password' ? 'SE CONNECTER' : 'ENVOYER LE LIEN'}
-              </button>
-            </form>
-
-            <button
-              onClick={() => { setMode(m => m === 'password' ? 'magic' : 'password'); setError(null) }}
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="ton@email.com"
+              required
               style={{
-                marginTop: 16, background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)',
-                textDecoration: 'underline', padding: 0,
+                background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)',
+                borderRadius: 6, padding: '10px 14px',
+                fontFamily: 'var(--vl-mono)', fontSize: '.8rem', color: 'var(--vl-text-1)',
+                outline: 'none', width: '100%', boxSizing: 'border-box',
+              }}
+            />
+            {error && <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.65rem', color: 'var(--vl-ember)' }}>{error}</div>}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: 'var(--vl-ember)', color: '#fff', border: 'none',
+                borderRadius: 6, padding: '11px 0',
+                fontFamily: 'var(--vl-mono)', fontSize: '.75rem', fontWeight: 700,
+                letterSpacing: '.08em', cursor: 'pointer',
               }}
             >
-              {mode === 'password' ? 'Connexion par lien email à la place' : 'Connexion par mot de passe à la place'}
+              {loading ? '…' : 'CONNEXION PAR LIEN'}
             </button>
-          </>
+          </form>
         )}
       </div>
     </div>
