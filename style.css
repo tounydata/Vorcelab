@@ -447,6 +447,9 @@ main{padding:1.5rem 2rem;width:100%;}
 @media print{header,nav,.no-print{display:none!important;}body{background:#fff;color:#000;}.print-only{display:block!important;}}
 .print-only{display:none;}
 
+/* ── CREW PLAN — print isolation (class set by JS before window.print()) ── */
+/* Injected dynamically by CrewPlan.tsx via useEffect to avoid flash */
+
 /* ── STRATEGY — section cards ── */
 .vl-section-card{background:var(--vl-surf);border:1px solid var(--vl-line);border-left:3px solid var(--vl-text-3);border-radius:0 var(--vl-r-sm) var(--vl-r-sm) 0;padding:12px 14px;margin-bottom:7px;cursor:pointer;transition:all .18s;}
 .vl-section-card:hover{background:var(--vl-surf-2);border-color:var(--vl-line-2);transform:translateX(2px);}
