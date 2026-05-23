@@ -32,7 +32,12 @@ export function parseGPX(file, raceCtx=null){
 }
 
 
+// Cancel token — prevents stale async results from overwriting a newer race's UI
+let _analyzeToken = 0;
+export function cancelPendingAnalyze() { _analyzeToken++; }
+
 export async function analyzeGPX(points, fname, fromUpload = false) {
+  const myToken = ++_analyzeToken;
   let cumDist=[0],dplus=0,dminus=0;
   for(let i=1;i<points.length;i++){
     cumDist.push(cumDist[i-1]+hav(points[i-1],points[i]));
@@ -48,6 +53,7 @@ export async function analyzeGPX(points, fname, fromUpload = false) {
   samples.push({d:+(totalDist/1000).toFixed(2),alt:eles[eles.length-1]?Math.round(eles[eles.length-1]):null});
 
   const { weather, weatherNote } = await fetchForecastWeather(points[0], VLState.currentRaceContext);
+  if (myToken !== _analyzeToken) return; // navigated to another race while fetching — abort
   const weatherReliable = weather !== null;
 
   // Lancer le calcul profil coureur en parallèle avec terrain (résultat attendu plus tard)
@@ -146,9 +152,11 @@ export async function analyzeGPX(points, fname, fromUpload = false) {
   // Fetch terrain surfaces — awaité avant le calcul des sections (pénalité terrain incluse)
   const surfacePromise=fetchTerrainSurfaces(points, sections);
   window._gpxSectionSurfaces = await surfacePromise;
+  if (myToken !== _analyzeToken) return;
   window._gpxWeather = weather;
   // Attente profil coureur (lancé en parallèle du terrain)
   const rp = await _rpPromise;
+  if (myToken !== _analyzeToken) return;
 
   const sectionTimes=[];
   let estTimeS=0;
@@ -926,6 +934,7 @@ export function closeSectionPopup() {
 }
 
 export function resetStrategy(){
+  cancelPendingAnalyze(); // annule toute analyse async en cours
   document.getElementById('stratResult').style.display='none';
   document.getElementById('stratResult').innerHTML='';
   const drop=document.getElementById('gpxDrop');
