@@ -644,9 +644,9 @@ export async function analyzeGPX(points, fname, fromUpload = false) {
     window._pendingGpxSave = points.filter((_,i)=>i%5===0).map(p=>({lat:p.lat,lon:p.lon,ele:p.ele}));
     if (VLState.currentRaceContext?.id) {
       const savedRaceId = VLState.currentRaceContext.id;
-      const savedGpxJson = JSON.stringify(window._pendingGpxSave);
+      const gpxArray = window._pendingGpxSave;
       sb.from('race_calendar')
-        .update({gpx_data: savedGpxJson})
+        .update({gpx_data: gpxArray})
         .eq('id', savedRaceId)
         .then(({error}) => {
           if (error) {
@@ -654,8 +654,8 @@ export async function analyzeGPX(points, fname, fromUpload = false) {
             window.showToast?.('Erreur sauvegarde GPX : ' + (error.message || error.code), 'error');
           } else {
             const idx = VLState.races.findIndex(r=>r.id===savedRaceId);
-            if(idx>=0) VLState.races[idx].gpx_data = savedGpxJson;
-            if(VLState.currentRaceContext?.id===savedRaceId) VLState.currentRaceContext.gpx_data = savedGpxJson;
+            if(idx>=0) VLState.races[idx].gpx_data = gpxArray;
+            if(VLState.currentRaceContext?.id===savedRaceId) VLState.currentRaceContext.gpx_data = gpxArray;
             const si = document.getElementById('raceMenuSaveGpx');
             if(si) si.style.display = 'none';
             window.showToast?.('GPX enregistré ✓', 'success');
@@ -965,6 +965,6 @@ export function selectRaceForStrategy(race){
   document.querySelectorAll('.race-sel-btn').forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
   VLState.currentRaceContext=race;
-  if(race.gpx_data){const pts=JSON.parse(race.gpx_data);analyzeGPX(pts,race.name);}
+  if(race.gpx_data){const pts=Array.isArray(race.gpx_data)?race.gpx_data:JSON.parse(race.gpx_data);analyzeGPX(pts,race.name);}
   else document.getElementById('gpxFile').click();
 }

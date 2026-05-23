@@ -150,7 +150,7 @@ function showEventSplash(race) {
   let traceSvg = '';
   if (race.gpx_data) {
     try {
-      const pts = JSON.parse(race.gpx_data);
+      const pts = Array.isArray(race.gpx_data)?race.gpx_data:JSON.parse(race.gpx_data);
       const step = Math.max(1, Math.floor(pts.length/200));
       const sampled = pts.filter((_,i)=>i%step===0);
       const lats=sampled.map(p=>p.lat), lons=sampled.map(p=>p.lon);
@@ -295,7 +295,7 @@ export function toggleRaceMenu(e) {
     if(delGpxItem) {
       const race = window._openEventRace;
       let hasGpx = false;
-      try { if(race?.gpx_data){ const p=JSON.parse(race.gpx_data); hasGpx=Array.isArray(p)&&p.length>0; } } catch{}
+      try { if(race?.gpx_data){ const p=Array.isArray(race.gpx_data)?race.gpx_data:JSON.parse(race.gpx_data); hasGpx=Array.isArray(p)&&p.length>0; } } catch{}
       delGpxItem.style.display = hasGpx ? 'block' : 'none';
     }
   }
@@ -367,7 +367,7 @@ export function renderRaces() {
     const diff=Math.ceil((new Date(next.date)-now)/86400000);
     // gpx_data is stored as JSON array of {lat,lon,ele} — check it has actual points
     let gpxPts=null;
-    try{ if(next.gpx_data){ const p=JSON.parse(next.gpx_data); if(Array.isArray(p)&&p.length>0) gpxPts=p; } }catch{}
+    try{ if(next.gpx_data){ const p=Array.isArray(next.gpx_data)?next.gpx_data:JSON.parse(next.gpx_data); if(Array.isArray(p)&&p.length>0) gpxPts=p; } }catch{}
     const hasGpx=!!gpxPts;
     const phase=diff<=7?{label:'SEMAINE DE COURSE',c:'var(--vl-ember)'}:diff<=21?{label:'AFFÛTAGE',c:'var(--vl-amber)'}:diff<=42?{label:'PRÉPARATION SPÉCIFIQUE',c:'var(--vl-growth)'}:{label:'CONSTRUCTION DE BASE',c:'var(--vl-text-2)'};
     const raceDate=new Date(next.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
@@ -437,7 +437,7 @@ export function renderRaces() {
   list.innerHTML=VLState.races.map(r=>{
     const d=new Date(r.date),diff=Math.ceil((d-now)/86400000),past=diff<0;
     const color=past?'var(--text3)':diff<7?'var(--orange)':diff<30?'var(--yellow)':'var(--cyan)';
-    let hasGpx=false;try{if(r.gpx_data){const _p=JSON.parse(r.gpx_data);hasGpx=Array.isArray(_p)&&_p.length>0;}}catch{}
+    let hasGpx=false;try{if(r.gpx_data){const _p=Array.isArray(r.gpx_data)?r.gpx_data:JSON.parse(r.gpx_data);hasGpx=Array.isArray(_p)&&_p.length>0;}}catch{}
     const hasActivity=!!r.strava_activity_id;
 
     // Smart buttons based on state
@@ -498,8 +498,9 @@ async function linkGpxToRace(raceId, raceName) {
   }
   const btn = document.getElementById('btnLinkRace');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  const gpxArray = window._pendingGpxSave;
   const {error} = await sb.from('race_calendar')
-    .update({gpx_data: JSON.stringify(window._pendingGpxSave)})
+    .update({gpx_data: gpxArray})
     .eq('id', raceId);
   const panel = document.getElementById('linkRacePanel');
   if(panel) panel.style.display='none';
@@ -509,8 +510,8 @@ async function linkGpxToRace(raceId, raceName) {
       btn.textContent=`✓ Lié à ${raceName}`;
       btn.style.background='var(--green)';btn.style.color='#000';btn.style.border='none';
       const idx=VLState.races.findIndex(r=>r.id===raceId);
-      if(idx>=0)VLState.races[idx].gpx_data=JSON.stringify(window._pendingGpxSave);
-      VLState.currentRaceContext={id:raceId,name:raceName,gpx_data:JSON.stringify(window._pendingGpxSave)};
+      if(idx>=0)VLState.races[idx].gpx_data=gpxArray;
+      VLState.currentRaceContext={id:raceId,name:raceName,gpx_data:gpxArray};
       renderRaces();
     }
   }
@@ -520,8 +521,9 @@ export async function saveGpxToRace() {
   if(!VLState.currentRaceContext?.id||!window._pendingGpxSave) return;
   const btn=document.getElementById('btnSaveGpx');
   if(btn){btn.textContent='Sauvegarde...';btn.disabled=true;}
+  const gpxArr = window._pendingGpxSave;
   const {error}=await sb.from('race_calendar')
-    .update({gpx_data: JSON.stringify(window._pendingGpxSave)})
+    .update({gpx_data: gpxArr})
     .eq('id', VLState.currentRaceContext.id);
   if(btn){
     if(error){btn.textContent='❌ Erreur';btn.style.background='var(--red)';}
@@ -530,8 +532,8 @@ export async function saveGpxToRace() {
       btn.style.background='var(--cyan)';
       // Update local cache
       const idx=VLState.races.findIndex(r=>r.id===VLState.currentRaceContext.id);
-      if(idx>=0)VLState.races[idx].gpx_data=JSON.stringify(window._pendingGpxSave);
-      VLState.currentRaceContext.gpx_data=JSON.stringify(window._pendingGpxSave);
+      if(idx>=0)VLState.races[idx].gpx_data=gpxArr;
+      VLState.currentRaceContext.gpx_data=gpxArr;
       renderRaces();
       setTimeout(()=>{if(btn){btn.textContent=`💾 Associé à ${VLState.currentRaceContext.name}`;btn.disabled=true;}},2000);
     }
@@ -577,7 +579,7 @@ export function importOrgGpx(raceOrId) {
     // Sample every 5 points to reduce size
     const sampled = points.filter((_,i)=>i%5===0);
     const {error} = await sb.from('race_calendar')
-      .update({gpx_data: JSON.stringify(sampled)})
+      .update({gpx_data: sampled})
       .eq('id', race.id);
     if(error){ showToast('Erreur sauvegarde GPX', 'error'); return; }
     await loadRaces();
@@ -678,7 +680,7 @@ export function prepareRace(raceOrId) {
 
   if (race.gpx_data) {
     try {
-      const points = JSON.parse(race.gpx_data);
+      const points = Array.isArray(race.gpx_data)?race.gpx_data:JSON.parse(race.gpx_data);
       const validPts = points.filter(p => p.lat && p.lon && Math.abs(p.lat) > 0.001);
       if (validPts.length < 10) { showGpxUploadPrompt(race); return; }
       let d = 0;
