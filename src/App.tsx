@@ -12,6 +12,7 @@ import { RaceListPage } from './pages/RaceListPage'
 import { RaceStrategyPage } from './pages/RaceStrategyPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { RaceSharePage } from './pages/RaceSharePage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const user = useVLStore(s => s.user)
@@ -21,6 +22,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 // Hash router : pas de conflit avec le 404.html legacy de GitHub Pages
 const router = createHashRouter([
+  // Route publique — pas d'AuthGuard, pas de Layout
+  { path: '/share/:token', element: <RaceSharePage /> },
   {
     path: '/',
     element: <AuthGuard><Layout /></AuthGuard>,

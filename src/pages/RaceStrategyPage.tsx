@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { mapDbActivity } from '../types/activity'
@@ -122,6 +122,7 @@ function parseGpxXml(xml: string): GpxPoint[] {
 export function RaceStrategyPage() {
   const { id } = useParams<{ id: string }>()
   const user = useVLStore(s => s.user)
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [result, setResult] = useState<AnalyzeResult | null>(null)
   const [weather, setWeather] = useState<WeatherForecast | null>(null)
@@ -129,6 +130,9 @@ export function RaceStrategyPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [openSections, setOpenSections] = useState(true)
   const [openNutrition, setOpenNutrition] = useState(false)
+  const [shareState, setShareState] = useState<'idle' | 'saving' | 'copied'>('idle')
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [linkedStrava, setLinkedStrava] = useState(false)
 
   const { data: race, isLoading: raceLoading } = useQuery({
     queryKey: ['race', id],
@@ -163,6 +167,16 @@ export function RaceStrategyPage() {
     enabled: !!user,
   })
 
+  // Sortie Strava correspondante (même jour ±1 j, type run, non encore liée)
+  const stravaMatch = useMemo(() => {
+    if (linkedStrava || race?.strava_activity_id != null || !race?.date || !activities.length) return null
+    const raceDate = race.date
+    return activities.find(a => {
+      const actDate = (a.start_date_local ?? a.start_date).slice(0, 10)
+      return Math.abs(new Date(actDate).getTime() - new Date(raceDate).getTime()) <= 86400000
+    }) ?? null
+  }, [race, activities, linkedStrava])
+
   // Auto-analyze when race + activities + profile are loaded and race has gpx_data
   const autoAnalyzed = useRef(false)
   if (race?.gpx_data && race.gpx_data.length > 0 && activities.length >= 0 && !autoAnalyzed.current && !result && !analyzing) {
@@ -190,6 +204,62 @@ export function RaceStrategyPage() {
     const r = analyzeGPX({ points, race: race ?? { name: file.name.replace('.gpx', '') }, activities, profile, weather: w })
     setResult(r)
     setAnalyzing(false)
+
+    // Sauvegarde asynchrone : GPX (JSONB) + projection calculée
+    if (race?.id) {
+      supabase
+        .from('race_calendar')
+        .update({
+          gpx_data: points,
+          last_projection: {
+            cible: Math.round(r.estTimeS),
+            prudent: Math.round(r.timeMax),
+            agressif: Math.round(r.timeMin),
+            confidence: r.confidence,
+          },
+        })
+        .eq('id', race.id)
+        .then(({ error }) => {
+          if (error) console.warn('[VL] race save error:', error.message)
+          else queryClient.invalidateQueries({ queryKey: ['race', id] })
+        })
+    }
+  }
+
+  async function handleShare() {
+    if (!race) return
+    setShareState('saving')
+    let token = race.share_token
+    if (!token) {
+      token = crypto.randomUUID()
+      const { error } = await supabase
+        .from('race_calendar')
+        .update({ share_token: token })
+        .eq('id', race.id)
+      if (error) { setShareState('idle'); return }
+      queryClient.invalidateQueries({ queryKey: ['race', id] })
+    }
+    const base = window.location.href.split('#')[0]
+    const url = `${base}#/share/${token}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      setShareUrl(url)
+    }
+    setShareState('copied')
+    setTimeout(() => { setShareState('idle'); setShareUrl(null) }, 3000)
+  }
+
+  async function handleLinkStrava(activityId: number) {
+    if (!race) return
+    const { error } = await supabase
+      .from('race_calendar')
+      .update({ strava_activity_id: activityId })
+      .eq('id', race.id)
+    if (!error) {
+      setLinkedStrava(true)
+      queryClient.invalidateQueries({ queryKey: ['race', id] })
+    }
   }
 
   if (raceLoading) {
@@ -241,6 +311,22 @@ export function RaceStrategyPage() {
           {race.goal_time && <span>Objectif {race.goal_time}</span>}
         </div>
       </div>
+
+      {/* Suggestion de lien Strava automatique */}
+      {stravaMatch && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: 'rgba(232,162,58,.08)', border: '1px solid rgba(232,162,58,.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-2)', minWidth: 0 }}>
+            <span style={{ color: 'var(--vl-amber)', fontWeight: 700 }}>Strava ↗ </span>
+            Sortie du {new Date(stravaMatch.start_date_local).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · <em>{stravaMatch.name}</em>
+          </div>
+          <button
+            onClick={() => handleLinkStrava(stravaMatch.id)}
+            style={{ flexShrink: 0, fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-amber)', background: 'none', border: '1px solid rgba(232,162,58,.4)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Lier →
+          </button>
+        </div>
+      )}
 
       {/* Upload zone — shown when no GPX loaded */}
       {!result && !analyzing && (
@@ -401,11 +487,21 @@ export function RaceStrategyPage() {
             )}
           </div>
 
-          {/* Re-upload button */}
-          <div style={{ marginTop: 8 }}>
+          {/* Actions : re-upload + partage */}
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => { setResult(null); autoAnalyzed.current = false }} style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)', background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>
               Changer le GPX
             </button>
+            <button
+              onClick={handleShare}
+              disabled={shareState === 'saving'}
+              style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: shareState === 'copied' ? 'var(--vl-growth)' : 'var(--vl-text-3)', background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}
+            >
+              {shareState === 'saving' ? '…' : shareState === 'copied' ? 'Lien copié ✓' : 'Partager ↗'}
+            </button>
+            {shareUrl && (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '.5rem', color: 'var(--vl-text-3)', wordBreak: 'break-all' }}>{shareUrl}</span>
+            )}
           </div>
         </>
       )}
