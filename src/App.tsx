@@ -13,6 +13,7 @@ import { RaceStrategyPage } from './pages/RaceStrategyPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RaceSharePage } from './pages/RaceSharePage'
+import { RenfoPage } from './pages/RenfoPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const user = useVLStore(s => s.user)
@@ -33,7 +34,7 @@ const router = createHashRouter([
       { path: 'activities/:id', element: <ActivityDetailPage /> },
       { path: 'race', element: <RaceListPage /> },
       { path: 'race/:id', element: <RaceStrategyPage /> },
-      { path: 'renfo', element: <ComingSoonPage /> },
+      { path: 'renfo', element: <RenfoPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

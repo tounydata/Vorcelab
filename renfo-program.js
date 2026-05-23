@@ -70,21 +70,18 @@ export function allocateFocuses(spw, ow) {
     if (ow >= 70) return ['force_lourde', 'pliometrie'];
     return ['force_lourde', 'excentrique_pliometrie'];
   }
-  if (spw === 3) {
-    if (ow <= 30) return ['force_lourde', 'excentrique', 'yoga_coureur'];
-    return ['force_lourde', 'pliometrie', 'excentrique'];
-  }
+  // Yoga always included for 3+ sessions (récupération active universelle)
+  if (spw === 3) return ['force_lourde', 'excentrique', 'yoga_coureur'];
   if (spw === 4) {
-    if (ow <= 30) return ['force_lourde', 'excentrique', 'tronc', 'yoga_coureur'];
-    return ['force_lourde', 'pliometrie', 'excentrique', 'tronc'];
+    if (ow >= 70) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc'];
+    return ['force_lourde', 'excentrique', 'tronc', 'yoga_coureur'];
   }
   if (spw === 5) {
-    if (ow <= 40) return ['force_lourde', 'excentrique', 'pliometrie', 'tronc', 'yoga_coureur'];
-    return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps'];
+    if (ow >= 70) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps'];
+    return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'yoga_coureur'];
   }
   // 6 séances : programme complet
   if (ow <= 35) return ['force_lourde', 'excentrique', 'pliometrie', 'tronc', 'yoga_coureur', 'stretching'];
-  if (ow >= 65) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'mobilite'];
   return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'yoga_coureur'];
 }
 
