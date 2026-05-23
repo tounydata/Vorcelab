@@ -1,20 +1,25 @@
 import { VLState, sb } from './app-state.js';
 
 const _RENFO_EXO_CAT = {
-  squat_lourd:'force_lourde',rdl:'force_lourde',bulgare:'force_lourde',mollets_lourds:'force_lourde',hip_thrust:'force_lourde',lunge_marcheur:'force_lourde',
+  squat_lourd:'force_lourde',rdl:'force_lourde',bulgare:'force_lourde',mollets_lourds:'force_lourde',hip_thrust:'force_lourde',lunge_marcheur:'force_lourde',step_up:'force_lourde',lateral_lunge:'force_lourde',
   pogo_jumps:'pliometrie',bondissements:'pliometrie',drop_jumps:'pliometrie',skips:'pliometrie',lateral_bound:'pliometrie',box_jump:'pliometrie',
-  step_down:'excentrique',nordic:'excentrique',mollet_excentrique:'excentrique',single_leg_rdl:'excentrique',tibialis_raise:'excentrique',reverse_nordic:'excentrique',single_leg_glute_bridge:'excentrique',wall_sit:'excentrique',
+  step_down:'excentrique',nordic:'excentrique',mollet_excentrique:'excentrique',single_leg_rdl:'excentrique',tibialis_raise:'excentrique',reverse_nordic:'excentrique',single_leg_glute_bridge:'excentrique',wall_sit:'excentrique',single_leg_squat:'excentrique',
   pallof_press:'tronc',side_plank_hipdrop:'tronc',dead_bug:'tronc',bird_dog:'tronc',suitcase_carry:'tronc',copenhagen_plank:'tronc',core_rotation:'tronc',
   tractions_or_row:'haut_corps',pompes:'haut_corps',face_pull:'haut_corps',ytw_prone:'haut_corps',
   hip_9090:'mobilite',pigeon_actif:'mobilite',knee_to_wall:'mobilite',open_book:'mobilite',monster_walk:'mobilite',hip_abduction:'mobilite',cossack_squat:'mobilite',
+  low_lunge:'yoga_coureur',downward_dog:'yoga_coureur',child_pose:'yoga_coureur',reclined_twist:'yoga_coureur',butterfly:'yoga_coureur',
+  ischio_debout:'stretching',gastrocnemien_stretch:'stretching',solaire_stretch:'stretching',figure_4_piriforme:'stretching',it_band_stretch:'stretching',
 };
 const _RENFO_CAT_META = {
-  force_lourde: { label:'Force lourde',  color:'#E5562A' },
-  pliometrie:   { label:'Pliométrie',    color:'#f39c12' },
-  excentrique:  { label:'Excentrique',   color:'#3498db' },
-  tronc:        { label:'Tronc & stab.', color:'#9b59b6' },
-  haut_corps:   { label:'Haut du corps', color:'#1abc9c' },
-  mobilite:     { label:'Mobilité',      color:'#2ecc71' },
+  force_lourde:  { label:'Force lourde',   color:'#E5562A' },
+  pliometrie:    { label:'Pliométrie',     color:'#f39c12' },
+  excentrique:   { label:'Excentrique',    color:'#3498db' },
+  excentrique_pliometrie: { label:'Exc + Plio', color:'#e67e22' },
+  tronc:         { label:'Tronc & stab.', color:'#9b59b6' },
+  haut_corps:    { label:'Haut du corps', color:'#1abc9c' },
+  mobilite:      { label:'Mobilité',      color:'#2ecc71' },
+  yoga_coureur:  { label:'Yoga coureur',  color:'#4ade80' },
+  stretching:    { label:'Stretching',    color:'#2dd4bf' },
 };
 
 export async function loadRenfoWeekBlocks(weekStart) {
@@ -82,7 +87,7 @@ export async function loadRenfoWeekBlocks(weekStart) {
     return `${d}J SANS`;
   }
 
-  const _CAT_DUR = { force_lourde:40, pliometrie:25, excentrique:30, tronc:20, haut_corps:25, mobilite:15 };
+  const _CAT_DUR = { force_lourde:40, pliometrie:25, excentrique:30, tronc:20, haut_corps:25, mobilite:15, yoga_coureur:25, stretching:15 };
 
   el.innerHTML = activeFocuses.map(cat => {
     const meta  = _RENFO_CAT_META[cat];
