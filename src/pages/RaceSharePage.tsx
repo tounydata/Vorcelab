@@ -15,12 +15,11 @@ export function RaceSharePage() {
     queryKey: ['share', token],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('race_calendar')
-        .select('id, name, date, type, distance, goal_time, gpx_data, last_projection, share_token')
-        .eq('share_token', token!)
-        .single()
+        .rpc('get_shared_race', { p_share_token: token! })
       if (error) throw error
-      return mapDbRace(data as Record<string, unknown>)
+      if (!data || (Array.isArray(data) && data.length === 0)) throw new Error('not_found')
+      const row = Array.isArray(data) ? data[0] : data
+      return mapDbRace(row as Record<string, unknown>)
     },
     enabled: !!token,
     retry: false,
