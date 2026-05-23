@@ -10,9 +10,10 @@ import {
   FOCUS_META, RENFO_LOAD_WEIGHTS, RENFO_DAY_NAMES, RENFO_DAY_FR, DAYS,
 } from './renfo-data.js';
 import {
-  epley1RM, getBestVariant, generateRenfoProgram,
+  epley1RM, getBestVariant, generateRenfoProgram, buildSession,
   suggestNextLoad, suggestNextVariant, checkPlateau,
   weeklyImpactScore, weeklyImpactZone,
+  getDUPPhase, DUP_PHASE_LABELS, applyDUP, getCoPerioWarnings,
 } from './renfo-program.js';
 
 VLState.RENFO_FOCUS_COLORS = RENFO_FOCUS_COLORS;
@@ -66,6 +67,13 @@ export async function loadRenfoApp() {
   renfoSessionLogs = logs || [];
   VLState.renfoProgram = renfoProgram;
   VLState.renfoSessionLogs = renfoSessionLogs;
+
+  // Co-périodisation run/renfo : charge les alertes en arrière-plan
+  VLState.coPerioWarnings = [];
+  getCoPerioWarnings(VLState.currentUser.id)
+    .then(w => { VLState.coPerioWarnings = w || []; renderRenfoHome(); })
+    .catch(() => {});
+
   renderRenfoHome();
   if (window._pendingRenfoFocus) {
     const f = window._pendingRenfoFocus; window._pendingRenfoFocus = null;
@@ -427,14 +435,20 @@ export function renderRenfoHome() {
     return `il y a ${days}j`;
   };
 
-  const FOCUS_CARDS = [
-    { key: 'force_lourde', sub: 'squat, soulevé, presse' },
-    { key: 'pliometrie',   sub: 'bondissements, sauts' },
-    { key: 'excentrique',  sub: 'descentes, freinages' },
-    { key: 'tronc',        sub: 'gainage, anti-rotation' },
-    { key: 'haut_corps',   sub: 'tractions, pompes' },
-    { key: 'mobilite',     sub: 'hanches, chevilles' },
-  ];
+  const _FOCUS_SUBS = {
+    force_lourde: 'squat, soulevé, step-up', pliometrie: 'bondissements, sauts',
+    excentrique: 'descentes, freinages', excentrique_pliometrie: 'descentes, bondissements',
+    tronc: 'gainage, anti-rotation', haut_corps: 'tractions, pompes',
+    mobilite: 'hanches, chevilles', yoga_coureur: 'poses, étirements profonds',
+    stretching: 'mollets, ischio, piriforme',
+  };
+  // Cartes basées sur le programme alloué — dynamique
+  const allocatedKeys = [...new Set(
+    Object.values(renfoProgram.week_schedule || {})
+      .filter(s => s && !s.rest && s.focus)
+      .map(s => s.focus)
+  )];
+  const FOCUS_CARDS = allocatedKeys.map(key => ({ key, sub: _FOCUS_SUBS[key] || '' }));
 
   const weekDoneFocuses = new Set(
     thisWeekLogs.map(l => renfoProgram.week_schedule?.[l.day_key]?.focus || l.day_key).filter(Boolean)
@@ -474,6 +488,24 @@ export function renderRenfoHome() {
       </div>`;
   }).join('');
 
+  // Co-pério warnings rendering
+  const warnings = VLState.coPerioWarnings || [];
+  const warnHtml = warnings.length ? `<div style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px">
+    ${warnings.map(w => {
+      const bg = w.severity === 'alert' ? 'rgba(239,68,68,.1)' : w.severity === 'warn' ? 'rgba(245,158,11,.1)' : 'rgba(59,130,246,.1)';
+      const border = w.severity === 'alert' ? 'rgba(239,68,68,.3)' : w.severity === 'warn' ? 'rgba(245,158,11,.3)' : 'rgba(59,130,246,.3)';
+      const c = w.severity === 'alert' ? '#ef4444' : w.severity === 'warn' ? '#f59e0b' : '#3b82f6';
+      return `<div style="padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:8px;font-family:var(--vl-mono);font-size:.58rem;color:${c};line-height:1.4">${w.message}</div>`;
+    }).join('')}
+  </div>` : '';
+
+  // DUP phase badge (applies to force/excentrique/pliometrie)
+  const dupPhase = getDUPPhase();
+  const dupBadge = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+    <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-3);letter-spacing:.06em">DUP SEMAINE</div>
+    ${DUP_PHASE_LABELS.map((l,i) => `<div style="padding:3px 8px;border-radius:4px;font-family:var(--vl-mono);font-size:.5rem;font-weight:700;letter-spacing:.04em;background:${i===dupPhase?'rgba(124,58,237,.2)':'transparent'};border:1px solid ${i===dupPhase?'#7c3aed':'var(--vl-border)'};color:${i===dupPhase?'#7c3aed':'var(--vl-text-3)'}">${l}</div>`).join('')}
+  </div>`;
+
   el.innerHTML = `<div style="padding-bottom:8px">
     ${_renfoTabBar('programme')}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem">
@@ -490,6 +522,8 @@ export function renderRenfoHome() {
       </div>
     </div>
 
+    ${dupBadge}
+    ${warnHtml}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:14px">
       ${cards}
     </div>
@@ -509,6 +543,8 @@ export async function startRenfoSession(dayKey) {
       return;
     }
   }
+  // Applique DUP (sets/reps cycliques sur 3 semaines) pour force/excentrique/pliométrie
+  session = applyDUP(session);
 
   const suggestions = {};
   if (VLState.currentUser) {
@@ -545,8 +581,9 @@ export async function startRenfoSession(dayKey) {
   window._renfoSessionCompleted = state.completedExos;
   window._renfoSessionDayKey = dayKey;
 
-  // Mobilité : pas d'échauffement
-  if (session.focus === 'mobilite') {
+  // Mobilité, yoga, stretching : pas d'échauffement (c'est la récup)
+  const noWarmupFocuses = ['mobilite', 'yoga_coureur', 'stretching'];
+  if (noWarmupFocuses.includes(session.focus)) {
     _renderSessionExo();
   } else {
     _renderSessionWarmup();
@@ -559,6 +596,7 @@ const _WARMUP_TEXT = {
   excentrique:  'Vélo ou marche rapide 5min → étirements dynamiques mollets → nordic curl partiel ×5 → hip flexor stretch 30s/côté',
   tronc:        'Marche rapide 3min → rotations de buste ×10 → cat-cow ×10 → planche 20s×2 → bird-dog ×5/côté',
   haut_corps:   'Footing léger 2min → cercles d\'épaules ×10 → pompes légères ×5 → face pull élastique ×10 → bras croisés 30s/côté',
+  // yoga et stretching : pas d'échauffement, c'est la récupération
 };
 
 function _getPreviewExercisesForLoc(exercises, loc) {
@@ -589,6 +627,7 @@ function _renderSessionWarmup() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
       <button onclick="Vorcelab.renderRenfoHome()" style="background:none;border:none;cursor:pointer;color:var(--vl-text-2);padding:4px;touch-action:manipulation;font-size:1.1rem">←</button>
       <div style="font-family:var(--vl-mono);font-size:.55rem;color:#7c3aed;letter-spacing:.1em">${(session.focus||'').replace(/_/g,' ').toUpperCase()} · ~${session.duration_min} MIN</div>
+      ${session.dup_label ? `<div style="padding:2px 7px;background:rgba(124,58,237,.15);border-radius:4px;font-family:var(--vl-mono);font-size:.48rem;font-weight:700;color:#7c3aed;letter-spacing:.06em">DUP · ${session.dup_label}</div>` : ''}
     </div>
     <div style="font-family:var(--vl-display);font-size:1.8rem;font-weight:800;line-height:1;margin-bottom:6px">${session.label}</div>
     <div style="font-family:var(--vl-mono);font-size:.55rem;color:var(--vl-text-2);margin-bottom:20px">${session.exercises.length} exercices</div>
@@ -780,20 +819,26 @@ function _renderSessionExo() {
       ${(g=>g?`<div style="border-radius:10px;overflow:hidden;border:1px solid var(--vl-line);background:var(--vl-surf-2);line-height:0"><img src="${g}" alt="" style="width:100%;max-height:200px;object-fit:contain;display:block" onerror="this.parentElement.style.display='none'"></div>`:``)(getExerciseGifUrl(exo.exercise_id))}
     </div>
 
-    <div style="display:flex;gap:24px;margin-bottom:18px">
+    ${(() => {
+      const isTimeBased = variant?.unit === 's';
+      const targLabel = isTimeBased ? `${exo.reps}s` : `${exo.reps}`;
+      const targUnit  = isTimeBased ? 'TENIR' : 'REPS';
+      const restLabel = isTimeBased ? 'CÔTÉ SUIVANT' : 'REPOS';
+      return `<div style="display:flex;gap:24px;margin-bottom:18px">
       <div>
         <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);letter-spacing:.05em;margin-bottom:2px">CIBLE</div>
-        <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;line-height:1">${exo.reps}<span style="font-size:.8rem;font-weight:500;margin-left:4px">REPS</span></div>
+        <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;line-height:1">${targLabel}<span style="font-size:.8rem;font-weight:500;margin-left:4px">${targUnit}</span></div>
       </div>
-      <div>
+      ${!isTimeBased ? `<div>
         <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);letter-spacing:.05em;margin-bottom:2px">RPE</div>
         <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;line-height:1;color:#7c3aed">${exo.target_rpe}</div>
-      </div>
+      </div>` : ''}
       <div>
-        <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);letter-spacing:.05em;margin-bottom:2px">REPOS</div>
+        <div style="font-family:var(--vl-mono);font-size:.48rem;color:var(--vl-text-2);letter-spacing:.05em;margin-bottom:2px">${restLabel}</div>
         <div style="font-family:var(--vl-display);font-size:2.2rem;font-weight:800;line-height:1">${fmtRest(isLastSerie ? interExoRest : interSetRest)}</div>
       </div>
-    </div>
+    </div>`;
+    })()}
 
     ${loadHtml}
 

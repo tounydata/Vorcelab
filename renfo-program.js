@@ -71,13 +71,21 @@ export function allocateFocuses(spw, ow) {
     return ['force_lourde', 'excentrique_pliometrie'];
   }
   if (spw === 3) {
-    const base = ['force_lourde', 'pliometrie', 'excentrique'];
-    if (ow <= 30) return ['force_lourde', 'excentrique', 'mobilite'];
-    return base;
+    if (ow <= 30) return ['force_lourde', 'excentrique', 'yoga_coureur'];
+    return ['force_lourde', 'pliometrie', 'excentrique'];
   }
-  if (spw === 4) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc'];
-  if (spw === 5) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps'];
-  return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'mobilite'];
+  if (spw === 4) {
+    if (ow <= 30) return ['force_lourde', 'excentrique', 'tronc', 'yoga_coureur'];
+    return ['force_lourde', 'pliometrie', 'excentrique', 'tronc'];
+  }
+  if (spw === 5) {
+    if (ow <= 40) return ['force_lourde', 'excentrique', 'pliometrie', 'tronc', 'yoga_coureur'];
+    return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps'];
+  }
+  // 6 séances : programme complet
+  if (ow <= 35) return ['force_lourde', 'excentrique', 'pliometrie', 'tronc', 'yoga_coureur', 'stretching'];
+  if (ow >= 65) return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'mobilite'];
+  return ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'yoga_coureur'];
 }
 
 export function pickDays(spw) {
@@ -124,6 +132,117 @@ export function buildSession(focus, profile) {
     location: meta.location,
     exercises
   };
+}
+
+// ── DUP (Daily Undulating Periodization) ──────────────────────────────────
+
+// 3-week rotating cycle: 0=force, 1=volume, 2=puissance
+export function getDUPPhase() {
+  return Math.floor(Date.now() / (7 * 86400000)) % 3;
+}
+
+export const DUP_PHASE_LABELS = ['FORCE', 'VOLUME', 'PUISSANCE'];
+
+const _DUP_SCHEMA = {
+  force_lourde: [
+    { sets: 5, reps: 5, target_rpe: 8, rest_seconds: 180 },
+    { sets: 4, reps: 10, target_rpe: 7, rest_seconds: 90 },
+    { sets: 4, reps: 4, target_rpe: 8, rest_seconds: 150 },
+  ],
+  excentrique: [
+    { sets: 3, reps: 8, target_rpe: 8, rest_seconds: 120 },
+    { sets: 3, reps: 12, target_rpe: 7, rest_seconds: 90 },
+    { sets: 4, reps: 6, target_rpe: 9, rest_seconds: 120 },
+  ],
+  pliometrie: [
+    { sets: 4, reps: 6, target_rpe: 8, rest_seconds: 150 },
+    { sets: 3, reps: 12, target_rpe: 7, rest_seconds: 90 },
+    { sets: 5, reps: 4, target_rpe: 8, rest_seconds: 150 },
+  ],
+};
+
+export function applyDUP(session) {
+  if (!session || !session.focus) return session;
+  const schema = _DUP_SCHEMA[session.focus];
+  if (!schema) return session;
+  const params = schema[getDUPPhase()];
+  return {
+    ...session,
+    dup_phase: getDUPPhase(),
+    dup_label: DUP_PHASE_LABELS[getDUPPhase()],
+    exercises: session.exercises.map(e => ({
+      ...e,
+      sets: params.sets,
+      reps: params.reps,
+      target_rpe: params.target_rpe,
+      rest_seconds: params.rest_seconds,
+    })),
+  };
+}
+
+// ── CO-PÉRIODISATION RUN + RENFO ───────────────────────────────────────────
+
+export async function getCoPerioWarnings(userId) {
+  const cutoff = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  const { data: acts } = await sb.from('strava_activities')
+    .select('start_date_local, type, distance, moving_time, total_elevation_gain')
+    .eq('user_id', userId)
+    .gte('start_date_local', cutoff)
+    .order('start_date_local', { ascending: false });
+
+  if (!acts || acts.length === 0) return [];
+
+  const warnings = [];
+  const now = Date.now();
+
+  for (const act of acts) {
+    const actMs = new Date(act.start_date_local).getTime();
+    const daysAgo = Math.round((now - actMs) / 86400000);
+    const distKm = (act.distance || 0) / 1000;
+
+    // Long run (>15km) in last 48h → pas de force_lourde ni pliometrie
+    if (daysAgo <= 2 && distKm > 15) {
+      warnings.push({
+        type: 'avoid_force',
+        message: `Sortie longue ${distKm.toFixed(0)}km (il y a ${daysAgo}j) → évite la force lourde et la pliométrie haute intensité`,
+        avoid: ['force_lourde', 'pliometrie'],
+        prefer: ['yoga_coureur', 'stretching', 'tronc'],
+        severity: 'warn',
+      });
+    }
+
+    // Course très longue (>25km) ou sortie D+ élevé en dernier 3j → récup prioritaire
+    const dp = act.total_elevation_gain || 0;
+    if (daysAgo <= 3 && (distKm > 25 || dp > 1500)) {
+      warnings.push({
+        type: 'post_long',
+        message: `Course exigeante ${distKm.toFixed(0)}km / D+${dp}m → priorité récupération (mobilité ou stretching seulement)`,
+        avoid: ['force_lourde', 'pliometrie', 'excentrique'],
+        prefer: ['mobilite', 'yoga_coureur', 'stretching'],
+        severity: 'alert',
+      });
+    }
+
+    // Séance rapide hier (allure < 5min/km) → fatigue neuromusculaire
+    const pace = distKm > 0 ? (act.moving_time / 60) / distKm : 99; // min/km
+    if (daysAgo <= 1 && distKm > 3 && pace < 5) {
+      warnings.push({
+        type: 'quality_session',
+        message: `Séance rapide hier (${pace.toFixed(2)} min/km) → fléchisseurs fatigués, préfère tronc ou yoga aujourd'hui`,
+        avoid: ['pliometrie'],
+        prefer: ['tronc', 'haut_corps', 'yoga_coureur'],
+        severity: 'info',
+      });
+    }
+  }
+
+  // Deduplicate by type (keep most severe)
+  const seen = {};
+  return warnings.filter(w => {
+    if (seen[w.type]) return false;
+    seen[w.type] = true;
+    return true;
+  });
 }
 
 // ── AUTO-RÉGULATION ────────────────────────────────────────────────────────

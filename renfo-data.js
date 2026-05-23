@@ -3,12 +3,16 @@
 // ============================================================
 
 export const _SUPA_EXO = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-export const _GIF_REMOVED = new Set(['bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book']);
+export const _GIF_REMOVED = new Set(['bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book',
+  'step_up','lateral_lunge','single_leg_squat',
+  'low_lunge','downward_dog','child_pose','reclined_twist','butterfly',
+  'ischio_debout','gastrocnemien_stretch','solaire_stretch','figure_4_piriforme','it_band_stretch']);
 export function getExerciseGifUrl(id) { return _GIF_REMOVED.has(id) ? null : `${_SUPA_EXO}/${id}/demo.gif`; }
 
 export const RENFO_FOCUS_COLORS = {
   force_lourde:'#E5562A', pliometrie:'#f39c12', excentrique:'#3498db',
-  excentrique_pliometrie:'#e67e22', tronc:'#9b59b6', haut_corps:'#1abc9c', mobilite:'#2ecc71'
+  excentrique_pliometrie:'#e67e22', tronc:'#9b59b6', haut_corps:'#1abc9c', mobilite:'#2ecc71',
+  yoga_coureur:'#4ade80', stretching:'#2dd4bf',
 };
 
 export function gifPlaceholder(category, variant) {
@@ -1205,6 +1209,225 @@ export const RENFO_EXERCISES = {
 
 };
 
+// ── NOUVEAUX EXERCICES TRAIL-SPÉCIFIQUES ──────────────────────────────────
+
+RENFO_EXERCISES.step_up = {
+  id: 'step_up',
+  name_fr: 'Montée de marche',
+  name_tech: 'Step-up',
+  category: 'force_lourde',
+  primary_muscles: ['quadriceps', 'grand fessier', 'ischio-jambiers'],
+  benefits: ['force_max', 'stabilite', 'montee_trail'],
+  variants: [
+    { id: 'step_up_halteres', name: 'Step-up haltères', required_equipment_any: [{ dumbbells_max_kg: 12 }], priority: 1, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 8, rest_seconds: 90 },
+    { id: 'step_up_kb', name: 'Step-up kettlebell', required_equipment_any: [{ kettlebell_max_kg: 12 }], priority: 2, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 8, rest_seconds: 90 },
+    { id: 'step_up_bw', name: 'Step-up poids de corps', required_equipment: { step: true }, priority: 3, load_type: 'bodyweight_variant', load_variant_options: ['step 20cm', 'step 40cm', 'step 60cm'], default_sets: 3, default_reps: 12, target_rpe: 7, rest_seconds: 60 },
+  ],
+  position: 'Debout face au step ou à la marche. Un pied posé à plat sur le step. Corps droit, regard devant.',
+  movement: 'Pousser dans le talon du pied haut pour monter. Corps droit, hanche haute. Redescendre lentement (2-3s). Compléter toutes les reps d\'un côté avant de changer. C\'est le concentrique de la montée trail.',
+  common_errors: 'S\'appuyer sur la jambe basse pour aider (genou qui pousse). Pencher le buste en avant. Descendre trop vite (perdre le bénéfice excentrique de descente).',
+  youtube_search: 'step up trail runner haltères montée',
+};
+
+RENFO_EXERCISES.lateral_lunge = {
+  id: 'lateral_lunge',
+  name_fr: 'Fente latérale',
+  name_tech: 'Lateral lunge',
+  category: 'force_lourde',
+  primary_muscles: ['adducteurs', 'quadriceps', 'grand fessier'],
+  benefits: ['stabilite', 'trail_technique', 'prevention_blessure'],
+  variants: [
+    { id: 'lateral_lunge_halteres', name: 'Fente latérale haltères', required_equipment_any: [{ dumbbells_max_kg: 10 }], priority: 1, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 7, rest_seconds: 90 },
+    { id: 'lateral_lunge_bw', name: 'Fente latérale poids de corps', required_equipment: {}, priority: 2, load_type: 'bodyweight_variant', load_variant_options: ['standard', 'avec pause 2s en bas', 'avec toucher de sol'], default_sets: 3, default_reps: 12, target_rpe: 7, rest_seconds: 60 },
+  ],
+  position: 'Debout, pieds joints. Haltères tenus à la poitrine ou le long des cuisses.',
+  movement: 'Grand pas latéral. Descendre en pliant le genou de la jambe d\'appui. L\'autre jambe reste tendue. Genou dans l\'axe du pied. Pied à plat. Remonter en poussant dans le talon. Alterner.',
+  common_errors: 'Genou en valgus (rentre vers l\'intérieur). Pied de la jambe tendue qui décolle. Pencher le buste en avant.',
+  youtube_search: 'lateral lunge fente latérale trail adducteurs',
+};
+
+RENFO_EXERCISES.single_leg_squat = {
+  id: 'single_leg_squat',
+  name_fr: 'Squat unilatéral',
+  name_tech: 'Single-leg squat / Pistol squat',
+  category: 'excentrique',
+  primary_muscles: ['quadriceps', 'grand fessier', 'stabilisateurs cheville'],
+  benefits: ['resilience', 'stabilite', 'descente_trail'],
+  variants: [
+    { id: 'slsquat_chaise', name: 'SL squat vers chaise', required_equipment: { bench: true }, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['chaise haute 45cm', 'chaise basse 30cm'], default_sets: 3, default_reps: 8, target_rpe: 8, rest_seconds: 90 },
+    { id: 'slsquat_contrepoids', name: 'SL squat contre-poids', required_equipment_any: [{ dumbbells_max_kg: 5 }], priority: 2, load_type: 'external_kg', default_sets: 3, default_reps: 6, target_rpe: 8, rest_seconds: 90 },
+    { id: 'slsquat_porte', name: 'SL squat à la porte', required_equipment: {}, priority: 3, load_type: 'bodyweight_variant', load_variant_options: ['amplitude partielle', 'amplitude complète'], default_sets: 3, default_reps: 5, target_rpe: 9, rest_seconds: 90 },
+  ],
+  position: 'Debout sur une jambe. Jambe libre légèrement en avant. Bras devant ou tenu à l\'appui.',
+  movement: 'Descendre lentement (3-4s) sur la jambe d\'appui jusqu\'à 90°. Genou dans l\'axe du pied, ne pas effondrer en dedans. Remonter. La descente excentrique est le cœur du bénéfice.',
+  common_errors: 'Genou en valgus à la descente. Compensation par le bas du dos. Aller trop vite (perdre le bénéfice excentrique). Cheville qui s\'effondre.',
+  youtube_search: 'single leg squat pistol progression trail runner',
+};
+
+// ── YOGA DU COUREUR ───────────────────────────────────────────────────────
+
+RENFO_EXERCISES.low_lunge = {
+  id: 'low_lunge',
+  name_fr: 'Fente basse yoga',
+  name_tech: 'Low lunge / Anjaneyasana',
+  category: 'yoga_coureur',
+  primary_muscles: ['fléchisseurs de hanche', 'quadriceps', 'mollets'],
+  benefits: ['mobilite_hanche', 'posture', 'resilience'],
+  variants: [
+    { id: 'low_lunge_sol', name: 'Fente basse au sol', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['statique', 'avec bras levés', 'avec rotation'], unit: 's', default_sets: 2, default_reps: 90, target_rpe: 5, rest_seconds: 15 },
+  ],
+  position: 'Au sol en fente. Genou arrière posé sur un tapis. Cuisse avant verticale. Buste droit.',
+  movement: 'Pousser doucement le bassin vers l\'avant et le bas. Tenir 90s par côté. Respirer profondément, chercher à s\'enfoncer à chaque expiration. Option : lever les bras pour plus d\'ouverture des hanches.',
+  common_errors: 'Genou avant qui dépasse les orteils. Arrondir le dos. Retenir sa respiration. Ne pas laisser le bassin s\'ouvrir.',
+  youtube_search: 'low lunge yoga hip flexor coureur',
+};
+
+RENFO_EXERCISES.downward_dog = {
+  id: 'downward_dog',
+  name_fr: 'Chien tête en bas',
+  name_tech: 'Downward Dog / Adho Mukha Svanasana',
+  category: 'yoga_coureur',
+  primary_muscles: ['ischio-jambiers', 'mollets', 'grand dorsal', 'épaules'],
+  benefits: ['resilience', 'posture', 'mobilite_hanche'],
+  variants: [
+    { id: 'down_dog_bw', name: 'Chien tête en bas', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['genoux légèrement fléchis', 'jambes tendues'], unit: 's', default_sets: 1, default_reps: 60, target_rpe: 4, rest_seconds: 15 },
+  ],
+  position: 'En V inversé. Mains posées à largeur d\'épaules, doigts écartés. Pieds largeur de hanches. Talons cherchent le sol.',
+  movement: 'Pousser le sol avec les mains, monter les hanches. Allonger la colonne. Alterner talons qui s\'abaissent l\'un après l\'autre (pédalage). Tenir 60s.',
+  common_errors: 'Dos qui s\'arrondit. Poids trop sur les poignets. Épaules qui rentrent vers les oreilles.',
+  youtube_search: 'downward dog yoga runners ischio mollets',
+};
+
+RENFO_EXERCISES.child_pose = {
+  id: 'child_pose',
+  name_fr: 'Posture de l\'enfant',
+  name_tech: 'Child\'s pose / Balasana',
+  category: 'yoga_coureur',
+  primary_muscles: ['grand dorsal', 'fessiers', 'épaules'],
+  benefits: ['posture', 'resilience'],
+  variants: [
+    { id: 'child_pose_bw', name: 'Posture de l\'enfant', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['bras tendus devant', 'bras le long du corps'], unit: 's', default_sets: 1, default_reps: 60, target_rpe: 3, rest_seconds: 10 },
+  ],
+  position: 'À genoux, fesses sur les talons. Se pencher en avant en allongeant les bras devant soi. Front contre le sol.',
+  movement: 'Relâcher complètement le dos et les épaules. Respirer en gonflant le dos. Laisser la gravité étirer les dorsaux. Tenir 60s en récupération active.',
+  common_errors: 'Fesses qui ne touchent pas les talons (mettre un coussin si besoin). Corps contracté. Respiration superficielle.',
+  youtube_search: 'child pose yoga recovery runners dorsal',
+};
+
+RENFO_EXERCISES.reclined_twist = {
+  id: 'reclined_twist',
+  name_fr: 'Torsion couchée',
+  name_tech: 'Reclined spinal twist / Supta Matsyendrasana',
+  category: 'yoga_coureur',
+  primary_muscles: ['piriforme', 'thoracique', 'psoas'],
+  benefits: ['mobilite_hanche', 'posture', 'resilience'],
+  variants: [
+    { id: 'reclined_twist_bw', name: 'Torsion couchée', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['genou fléchi 90°', 'jambe tendue'], unit: 's', default_sets: 2, default_reps: 90, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Allongé sur le dos. Ramener un genou vers la poitrine, puis le faire basculer vers l\'autre côté. Bras en croix.',
+  movement: 'Laisser le genou tomber vers le sol en gardant les deux épaules plaquées. Regarder vers le côté opposé. 90s par côté. Excellent pour le piriforme et les lombaires post-sortie.',
+  common_errors: 'Épaule qui décolle du sol. Forcer le genou vers le bas. Ne pas tenir assez longtemps.',
+  youtube_search: 'reclined spinal twist yoga piriforme runner',
+};
+
+RENFO_EXERCISES.butterfly = {
+  id: 'butterfly',
+  name_fr: 'Papillon assis',
+  name_tech: 'Butterfly / Baddha Konasana',
+  category: 'yoga_coureur',
+  primary_muscles: ['adducteurs', 'piriforme', 'fléchisseurs de hanche'],
+  benefits: ['mobilite_hanche', 'resilience'],
+  variants: [
+    { id: 'butterfly_bw', name: 'Papillon assis', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['statique', 'avec inclinaison avant'], unit: 's', default_sets: 1, default_reps: 90, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Assis au sol. Plantes des pieds collées ensemble, genoux vers l\'extérieur. Tenir les pieds avec les mains.',
+  movement: 'Laisser les genoux descendre vers le sol. Option : se pencher en avant pour approfondir. Respirer. Tenir 90s.',
+  common_errors: 'Dos arrondi. Pousser activement les genoux vers le bas avec les coudes (forcer). Pieds trop proches du bassin (écarter si trop intense).',
+  youtube_search: 'butterfly pose yoga adducteurs groin runner',
+};
+
+// ── STRETCHING POST-RUN ────────────────────────────────────────────────────
+
+RENFO_EXERCISES.ischio_debout = {
+  id: 'ischio_debout',
+  name_fr: 'Étirement ischio debout',
+  name_tech: 'Standing hamstring stretch',
+  category: 'stretching',
+  primary_muscles: ['ischio-jambiers'],
+  benefits: ['resilience'],
+  variants: [
+    { id: 'ischio_debout_bw', name: 'Ischio debout classique', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['jambe tendue sur step', 'jambe tendue sur sol'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Debout. Poser un talon sur une surface (step, marche) à hauteur de hanche. Jambe tendue.',
+  movement: 'Pencher le buste en avant en gardant le dos droit. Chercher à allonger la hamstring. Tenir 45s par côté. L\'étirement se sent à l\'arrière de la cuisse, jamais derrière le genou.',
+  common_errors: 'Arrondir le dos (flexion de colonne au lieu de hanche). Genou de la jambe étirée qui fléchit. Étirement trop agressif juste après l\'effort.',
+  youtube_search: 'étirement ischio debout hamstring running',
+};
+
+RENFO_EXERCISES.gastrocnemien_stretch = {
+  id: 'gastrocnemien_stretch',
+  name_fr: 'Étirement gastrocnémien',
+  name_tech: 'Gastrocnemius stretch',
+  category: 'stretching',
+  primary_muscles: ['gastrocnémien'],
+  benefits: ['resilience', 'economie_course'],
+  variants: [
+    { id: 'gastro_mur', name: 'Gastroc au mur genou tendu', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['mur', 'step'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Debout face au mur. Pied arrière en fente longue, talon au sol, jambe arrière TENDUE.',
+  movement: 'Pencher le corps vers le mur (bras appui). Sentir l\'étirement dans le haut du mollet (gastrocnémien). Tenir 45s par côté. Jambe arrière ne doit pas plier.',
+  common_errors: 'Genou arrière fléchi (étire le soléaire à la place). Talon qui décolle. Pivoter le pied.',
+  youtube_search: 'gastrocnemius stretch mollet coureur mur',
+};
+
+RENFO_EXERCISES.solaire_stretch = {
+  id: 'solaire_stretch',
+  name_fr: 'Étirement soléaire',
+  name_tech: 'Soleus stretch',
+  category: 'stretching',
+  primary_muscles: ['soléaire', 'tendon d\'Achille'],
+  benefits: ['resilience', 'prevention_blessure'],
+  variants: [
+    { id: 'solaire_mur', name: 'Soléaire genou fléchi', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['mur', 'step'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Debout face au mur. Pied arrière en fente courte, genou arrière FLÉCHI, talon au sol.',
+  movement: 'Enfoncer le genou arrière vers l\'avant en gardant le talon au sol. Sentir l\'étirement dans le bas du mollet (soléaire). Tenir 45s par côté. Complémentaire du gastroc — toujours faire les deux.',
+  common_errors: 'Talon qui décolle. Jambe trop tendue (c\'est le gastroc dans ce cas). Étirement trop agressif.',
+  youtube_search: 'soleus stretch soléaire achille running coureur',
+};
+
+RENFO_EXERCISES.figure_4_piriforme = {
+  id: 'figure_4_piriforme',
+  name_fr: 'Figure 4 piriforme',
+  name_tech: 'Figure 4 stretch / Pigeon modifié',
+  category: 'stretching',
+  primary_muscles: ['piriforme', 'fessier moyen', 'rotateurs externes'],
+  benefits: ['resilience', 'prevention_blessure'],
+  variants: [
+    { id: 'fig4_sol', name: 'Figure 4 au sol', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['couché', 'assis sur chaise'], unit: 's', default_sets: 2, default_reps: 60, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Couché sur le dos. Plier les genoux à 90°. Croiser une cheville sur le genou opposé (position figure 4).',
+  movement: 'Relever la jambe qui soutient vers la poitrine. Sentir l\'étirement dans la fesse/hanche croisée. Tenir 60s par côté. Option : pression légère sur le genou qui dépasse pour plus d\'intensité.',
+  common_errors: 'Dos qui se décolle du sol. Trop d\'intensité (douleur = trop). Ne pas tenir assez longtemps (min 45s).',
+  youtube_search: 'figure 4 piriformis stretch fessier running',
+};
+
+RENFO_EXERCISES.it_band_stretch = {
+  id: 'it_band_stretch',
+  name_fr: 'Étirement bandelette IT',
+  name_tech: 'IT band stretch / TFL stretch',
+  category: 'stretching',
+  primary_muscles: ['TFL', 'bandelette ilio-tibiale', 'fessier moyen'],
+  benefits: ['resilience', 'prevention_blessure'],
+  variants: [
+    { id: 'itband_debout', name: 'IT band debout croisé', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['jambe droite croisée', 'avec inclinaison latérale'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
+  ],
+  position: 'Debout. Croiser la jambe à étirer derrière l\'autre jambe. S\'appuyer éventuellement sur un mur.',
+  movement: 'Incliner le buste vers le côté opposé à la jambe croisée. Sentir l\'étirement sur le côté externe de la hanche/cuisse. Tenir 45s par côté. Important après descentes techniques.',
+  common_errors: 'Rotation du bassin (invalide l\'étirement). Forcer trop fort (tissu fragile). Ne pas confondre avec étirement des adducteurs.',
+  youtube_search: 'IT band stretch bandelette ilio-tibiale trail running',
+};
+
 // Temps de repos inter-série (secondes) selon la science du coaching :
 // Force lourde 2-3 min (adaptation neuromusculaire), excentrique 2-2min30
 // (fatigue tendineuse élevée), pliométrie haute intensité 2-2min30 (récupération
@@ -1225,17 +1448,24 @@ export const INTER_SET_REST = {
   hip_9090: 30,            pigeon_actif: 30,       knee_to_wall: 30,
   open_book: 30,           monster_walk: 45,       hip_abduction: 30,
   cossack_squat: 45,
+  step_up: 90,             lateral_lunge: 90,      single_leg_squat: 90,
+  low_lunge: 15,           downward_dog: 15,       child_pose: 10,
+  reclined_twist: 10,      butterfly: 10,
+  ischio_debout: 10,       gastrocnemien_stretch: 10, solaire_stretch: 10,
+  figure_4_piriforme: 10,  it_band_stretch: 10,
 };
 
 
 export const SESSION_EXERCISES = {
-  force_lourde:           ['squat_lourd','rdl','bulgare','hip_thrust','lunge_marcheur'],
+  force_lourde:           ['squat_lourd','rdl','bulgare','hip_thrust','lunge_marcheur','step_up','lateral_lunge'],
   pliometrie:             ['pogo_jumps','bondissements','drop_jumps','lateral_bound','box_jump'],
-  excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic'],
+  excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
   excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
   haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
-  mobilite:               ['hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat']
+  mobilite:               ['hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
+  yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose'],
+  stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book'],
 };
 
 export const FOCUS_META = {
@@ -1273,12 +1503,23 @@ export const FOCUS_META = {
     label: 'Mobilité active', duration_min: 20, duration_short: 15, location: 'maison',
     timing_after_easy: true, timing_before_long: true, timing_same_quality: true,
     timing_notes: ['✅ Le soir après n\'importe quelle séance', '✅ Avant une sortie longue en activation', '✅ Partout — aucune fatigue systémique']
-  }
+  },
+  yoga_coureur: {
+    label: 'Yoga coureur', duration_min: 25, duration_short: 20, location: 'maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
+    timing_notes: ['✅ Après une sortie facile ou longue', '✅ Le soir d\'un jour de qualité', '⚠️ PNF → attendre 20min post-effort intense']
+  },
+  stretching: {
+    label: 'Stretching post-run', duration_min: 15, duration_short: 12, location: 'maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
+    timing_notes: ['✅ Dans les 30min après la course', '✅ Le soir après n\'importe quelle sortie', '❌ Jamais avant une séance (réduit la raideur tendineuse)']
+  },
 };
 
 export const RENFO_LOAD_WEIGHTS = {
   force_lourde: 1.5, pliometrie: 1.3, excentrique: 1.2,
-  haut_corps: 1.0, tronc: 0.8, mobilite: 0.5
+  haut_corps: 1.0, tronc: 0.8, mobilite: 0.5,
+  yoga_coureur: 0.3, stretching: 0.2,
 };
 
 export const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
