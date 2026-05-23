@@ -656,9 +656,9 @@ export function prepareRace(raceOrId) {
     ? raceOrId
     : (VLState.races||[]).find(r => String(r.id) === String(raceOrId));
   if (!race) return;
-  // Redirect to React SPA which has the full race strategy UX
-  const base = window.location.href.replace(/\/[^/]*$/, '/');
-  window.location.href = base + '#/race/' + race.id;
+  // Redirect to React SPA at root — new URL strips the hash before computing the path
+  const dir = new URL('.', window.location.href).pathname;
+  window.location.href = window.location.origin + dir + '#/race/' + race.id;
   return;
 
   const cur = window.location.hash.slice(1) || 'dashboard';

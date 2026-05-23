@@ -30,18 +30,15 @@ jobs:
         run: npm ci && npm run build
       - name: Prepare pages
         run: |
-          mkdir -p .pages/app
+          # React SPA at root — Vite outputs dist/ with base=/Vorcelab/
+          cp -r dist/. .pages/
 
-          # Legacy app at root — copy all JS/CSS assets and legacy.html → index.html + 404.html
-          cp legacy.html .pages/index.html
-          cp legacy.html .pages/404.html
-          cp style.css  .pages/style.css
-          for f in *.js; do [ -f "$f" ] && cp "$f" ".pages/$f"; done
-          [ -f og.svg ]      && cp og.svg      .pages/og.svg      || true
+          # Static assets referenced by index.html as /Vorcelab/<file>
           [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
+          [ -f og.svg ]      && cp og.svg      .pages/og.svg      || true
 
-          # React app at /app/ — Vite outputs dist/ with base=/Vorcelab/app/
-          cp -r dist/. .pages/app/
+          # 404 → redirect to SPA root (handles bookmarks / direct URL access)
+          echo '<!doctype html><meta http-equiv="Refresh" content="0;url=/Vorcelab/">' > .pages/404.html
 
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
