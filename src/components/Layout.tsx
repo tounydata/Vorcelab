@@ -14,8 +14,8 @@ export function Layout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar — masquée sous 900px via .sidebar en CSS */}
-      <nav className="sidebar" style={{ width: 200, flexShrink: 0, background: 'var(--vl-surf,#111214)', borderRight: '1px solid var(--vl-line)', padding: '20px 0', flexDirection: 'column', gap: 2 }}>
+      {/* Sidebar desktop */}
+      <nav style={{ width: 200, flexShrink: 0, background: 'var(--vl-surf,#111214)', borderRight: '1px solid var(--vl-line)', padding: '20px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 900, letterSpacing: '.08em', padding: '0 20px 20px', color: 'var(--vl-ember,#E5562A)' }}>
           VORCELAB
         </div>
@@ -48,12 +48,18 @@ export function Layout() {
       </nav>
 
       {/* Main content */}
-      <main className="vl-main" style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', maxWidth: '100%' }}>
+      <main style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', maxWidth: '100%' }}>
         <Outlet />
       </main>
 
-      {/* Bottom nav mobile — visible sous 900px via .bottom-nav en CSS */}
-      <nav className="bottom-nav" style={{ flexDirection: 'row', justifyContent: 'space-around', padding: '8px 0 env(safe-area-inset-bottom)' }}>
+      {/* Bottom nav mobile */}
+      <nav style={{
+        display: 'none',
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'var(--vl-surf)', borderTop: '1px solid var(--vl-line)',
+        padding: '8px 0 env(safe-area-inset-bottom)',
+        gridTemplateColumns: `repeat(${NAV.length}, 1fr)`,
+      }} className="vl-bottom-nav">
         {NAV.map(({ to, label, icon }) => (
           <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
