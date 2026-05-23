@@ -37,6 +37,18 @@ export async function loadRenfoWeekBlocks(weekStart) {
 
   const rows = data || [];
 
+  // Determine allocated focuses from the user's program (only categories in their schedule)
+  const schedule = VLState.renfoProgram?.week_schedule || {};
+  const allocatedFocuses = [...new Set(
+    Object.values(schedule).filter(s => s && !s.rest && s.focus).map(s => s.focus)
+  )];
+  // Fall back to all categories if no program loaded yet
+  const activeFocuses = allocatedFocuses.length > 0 ? allocatedFocuses : Object.keys(_RENFO_CAT_META);
+  const spw = allocatedFocuses.length || (VLState.renfoProgram?.generation_inputs?.sessions_per_week) || activeFocuses.length;
+
+  const totalEl = document.getElementById('renfo-week-total');
+  if (totalEl) totalEl.textContent = spw;
+
   const weekRows     = rows.filter(r => r.session_date >= weekCutoff);
   const weekSessions = [...new Set(weekRows.map(r => r.session_date))];
   if (countEl) countEl.textContent = weekSessions.length;
@@ -46,11 +58,15 @@ export async function loadRenfoWeekBlocks(weekStart) {
   const monthCountEl  = document.getElementById('renfo-month-count');
   if (monthCountEl) monthCountEl.textContent = monthSessions.length;
 
+  // Build per-category: last done date (all history) and done-this-week flag
   const catLastDone = {};
+  const catDoneThisWeek = {};
   rows.forEach(r => {
     Object.keys(r.completed_exercises || {}).forEach(exoId => {
       const cat = _RENFO_EXO_CAT[exoId];
-      if (cat && !catLastDone[cat]) catLastDone[cat] = r.session_date;
+      if (!cat) return;
+      if (!catLastDone[cat]) catLastDone[cat] = r.session_date;
+      if (r.session_date >= weekCutoff) catDoneThisWeek[cat] = true;
     });
   });
 
@@ -68,14 +84,19 @@ export async function loadRenfoWeekBlocks(weekStart) {
 
   const _CAT_DUR = { force_lourde:40, pliometrie:25, excentrique:30, tronc:20, haut_corps:25, mobilite:15 };
 
-  el.innerHTML = Object.entries(_RENFO_CAT_META).map(([cat, meta]) => {
+  el.innerHTML = activeFocuses.map(cat => {
+    const meta  = _RENFO_CAT_META[cat];
+    if (!meta) return '';
     const ds    = daysSince(catLastDone[cat] || null);
     const since = fmtSince(ds);
     const dur   = _CAT_DUR[cat] || 30;
+    const done  = !!catDoneThisWeek[cat];
     const sub   = since ? `${since} · ${dur} MIN` : `${dur} MIN`;
-    const fresh = ds !== null && ds <= 7;
-    return `<div class="renfo-cat-block" onclick="window._pendingRenfoFocus='${cat}';Vorcelab.navigate('renfo')" style="cursor:pointer;${fresh?'border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);':''}">
-      <div style="font-family:var(--vl-mono);font-size:.58rem;font-weight:700;color:${fresh?'var(--color-renfo,#a78bfa)':'var(--vl-text-2)'};line-height:1.2;margin-bottom:5px">${meta.label}</div>
+    return `<div class="renfo-cat-block" onclick="window._pendingRenfoFocus='${cat}';Vorcelab.navigate('renfo')" style="cursor:pointer;${done?'border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1);':''}">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+        <div style="font-family:var(--vl-mono);font-size:.58rem;font-weight:700;color:${done?'var(--color-renfo,#a78bfa)':'var(--vl-text-2)'};line-height:1.2">${meta.label}</div>
+        ${done ? '<div style="font-size:.6rem;color:var(--color-renfo,#a78bfa);line-height:1">✓</div>' : ''}
+      </div>
       <div style="font-family:var(--vl-mono);font-size:.5rem;color:var(--vl-text-3);letter-spacing:.04em">${sub}</div>
     </div>`;
   }).join('');
