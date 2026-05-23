@@ -1,12 +1,8 @@
-import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { mapDbActivity } from '../types/activity'
 import { isRun, fmtD } from '../utils/formatters'
-
-const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
-const STRAVA_CLIENT_ID = '161609'
 
 interface Profile {
   name?: string
@@ -18,8 +14,6 @@ interface Profile {
 
 export function ProfilePage() {
   const user = useVLStore(s => s.user)
-  const qc = useQueryClient()
-  const [syncing, setSyncing] = useState(false)
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -28,21 +22,6 @@ export function ProfilePage() {
       return (data as Profile | null) ?? {}
     },
     enabled: !!user,
-  })
-
-  const { data: stravaStatus, refetch: refetchStrava } = useQuery({
-    queryKey: ['strava-status', user?.id],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return null
-      const r = await fetch(`${SUPA_URL}/functions/v1/strava-status`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      })
-      if (!r.ok) return null
-      return r.json() as Promise<{ connected: boolean; athlete_firstname?: string; athlete_lastname?: string }>
-    },
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
   })
 
   const { data: activities = [] } = useQuery({
@@ -59,31 +38,6 @@ export function ProfilePage() {
     },
     enabled: !!user,
   })
-
-  function connectStrava() {
-    const state = crypto.randomUUID()
-    sessionStorage.setItem('strava_oauth_state', state)
-    const redirectUri = window.location.origin + '/Vorcelab/'
-    const p = new URLSearchParams({ client_id: STRAVA_CLIENT_ID, redirect_uri: redirectUri, response_type: 'code', approval_prompt: 'force', scope: 'read,activity:read,activity:read_all', state })
-    window.location.href = `https://www.strava.com/oauth/authorize?${p}`
-  }
-
-  async function syncStrava() {
-    setSyncing(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return
-      await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: '{}',
-      })
-      await qc.invalidateQueries({ queryKey: ['activities', user?.id] })
-      refetchStrava()
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   const totalKm = activities.reduce((s, a) => s + a.distance / 1000, 0)
   const totalDp = activities.reduce((s, a) => s + (a.total_elevation_gain || 0), 0)
@@ -168,29 +122,12 @@ export function ProfilePage() {
         </div>
       )}
 
-      {/* Strava connect */}
-      <div style={{ background: 'var(--vl-surf-2)', borderRadius: 8, padding: '14px 16px', borderLeft: `3px solid ${stravaStatus?.connected ? '#FC4C02' : 'var(--vl-border)'}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: stravaStatus?.connected ? '#FC4C02' : 'var(--vl-text-3)', letterSpacing: '.1em', marginBottom: 4 }}>
-              STRAVA {stravaStatus?.connected ? '● CONNECTÉ' : '○ NON CONNECTÉ'}
-            </div>
-            {stravaStatus?.connected && (stravaStatus.athlete_firstname || stravaStatus.athlete_lastname) && (
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-2)' }}>
-                {[stravaStatus.athlete_firstname, stravaStatus.athlete_lastname].filter(Boolean).join(' ')}
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {stravaStatus?.connected && (
-              <button onClick={syncStrava} disabled={syncing} style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', background: 'none', border: '1px solid var(--vl-border)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: 'var(--vl-text-2)' }}>
-                {syncing ? '…' : 'Synchroniser'}
-              </button>
-            )}
-            <button onClick={connectStrava} style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', background: stravaStatus?.connected ? 'none' : '#FC4C02', border: `1px solid ${stravaStatus?.connected ? 'var(--vl-border)' : '#FC4C02'}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: stravaStatus?.connected ? 'var(--vl-text-3)' : '#fff' }}>
-              {stravaStatus?.connected ? 'Reconnecter' : 'Connecter Strava'}
-            </button>
-          </div>
+      <div style={{ background: 'var(--vl-surf-2)', borderRadius: 8, padding: '14px 16px', borderLeft: '3px solid var(--vl-amber)' }}>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.55rem', color: 'var(--vl-amber)', letterSpacing: '.1em', marginBottom: 4 }}>
+          PARAMÈTRES AVANCÉS
+        </div>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.6rem', color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
+          Modifie ton profil (FC max, VO2max, zones de douleur, PRs) depuis l'application principale.
         </div>
       </div>
     </div>
