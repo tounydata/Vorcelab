@@ -656,8 +656,8 @@ export function prepareRace(raceOrId) {
     ? raceOrId
     : (VLState.races||[]).find(r => String(r.id) === String(raceOrId));
   if (!race) return;
-  // Redirect to React SPA — origin+pathname évite la duplication du fragment #
-  window.location.href = window.location.origin + window.location.pathname + '#/race/' + race.id;
+  // Redirect to React SPA at /app/ (Vite base path)
+  window.location.href = window.location.origin + window.location.pathname + 'app/#/race/' + race.id;
   return;
 
   const cur = window.location.hash.slice(1) || 'dashboard';
