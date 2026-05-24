@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import type { Activity } from '../../types/activity'
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function WeeklyKmChart({ activities }: Props) {
+  const navigate = useNavigate()
   const weeks: { label: string; km: number }[] = []
   const now = new Date()
   for (let i = 7; i >= 0; i--) {
@@ -23,8 +25,9 @@ export function WeeklyKmChart({ activities }: Props) {
   }
 
   return (
-    <div style={{ height: 140 }}>
+    <div style={{ height: 140, cursor: 'pointer' }}>
       <Bar
+        onClick={() => navigate('/activities')}
         data={{
           labels: weeks.map(w => w.label),
           datasets: [{

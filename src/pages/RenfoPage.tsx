@@ -292,7 +292,10 @@ function HomeView({ profile, program, sessionLogs, warnings, onStartSession, onS
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const focusMeta = FOCUS_META as any; const focusColors = RENFO_FOCUS_COLORS as any
 
-  const allocatedFocuses = program ? [...new Set(Object.values(program).filter((s): s is RenfoSession => !!(s as RenfoSession).focus).map(s => s.focus))] : []
+  const allocatedFocuses = program
+    ? [...new Set(Object.values(program).filter((s): s is RenfoSession => !!(s as RenfoSession).focus).map(s => s.focus))]
+        .slice(0, profile.sessions_per_week)
+    : []
   const focusToDayKey: Record<string, string> = {}
   if (program) Object.entries(program).forEach(([dk, s]) => { if ((s as RenfoSession).focus) focusToDayKey[(s as RenfoSession).focus] = dk })
 
