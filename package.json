@@ -4,44 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui",
-    "e2e:react": "playwright test --project=react",
-    "e2e:legacy": "playwright test --project=legacy",
-    "e2e:auth": "playwright test --project=setup --project=react-auth",
-    "e2e:full": "npm run build && playwright test"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
-    "@tanstack/react-query": "^5.75.5",
-    "@types/leaflet": "^1.9.21",
-    "chart.js": "^4.5.1",
-    "leaflet": "^1.9.4",
-    "react": "^19.1.0",
-    "react-chartjs-2": "^5.3.1",
-    "react-dom": "^19.1.0",
-    "react-router": "^7.6.0",
-    "zustand": "^5.0.3"
+    "lint": "eslint *.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@playwright/test": "^1.60.0",
-    "@types/react": "^19.1.4",
-    "@types/react-dom": "^19.1.3",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "@vitejs/plugin-react": "^4.4.1",
-    "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
     "vitest": "^4.1.7"
   }
 }

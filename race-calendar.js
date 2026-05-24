@@ -656,14 +656,10 @@ export function prepareRace(raceOrId) {
     ? raceOrId
     : (VLState.races||[]).find(r => String(r.id) === String(raceOrId));
   if (!race) return;
-  // Redirect to React SPA at /app/ (Vite base path, servi séparément du legacy)
-  window.location.href = window.location.origin + window.location.pathname + 'app/#/race/' + race.id;
-  return;
 
   const cur = window.location.hash.slice(1) || 'dashboard';
   if (!cur.startsWith('strategie')) {
     VLState._prevPanelStrategie = cur;
-    // pushState évite de déclencher hashchange (qui rappellerait openEventView/resetStrategy)
     history.pushState(null, '', '#strategie');
     window.Vorcelab?.showPanel?.('strategie');
   }
