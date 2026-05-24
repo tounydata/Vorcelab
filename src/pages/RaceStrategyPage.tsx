@@ -240,7 +240,7 @@ export function RaceStrategyPage() {
   const [weather, setWeather] = useState<WeatherForecast | null>(null)
   const [weatherNote, setWeatherNote] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
-  const [openAnalyse, setOpenAnalyse] = useState(true)
+  const [openAnalyse, setOpenAnalyse] = useState(false)
   const [openNutrition, setOpenNutrition] = useState(false)
   const [openCrewPlan, setOpenCrewPlan] = useState(false)
   const [shareState, setShareState] = useState<'idle' | 'saving' | 'copied'>('idle')
