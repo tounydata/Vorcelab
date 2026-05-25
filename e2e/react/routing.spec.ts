@@ -1,18 +1,22 @@
 import { test, expect } from '@playwright/test'
 
 // Tests C, D — auth guard & navigation
-// Toutes les routes sont protégées par AuthGuard (user=null au démarrage).
+// Toutes les routes privées sont protégées par PrivateRoutes (user=null au démarrage).
 // → chaque route doit afficher la LoginPage, pas un crash.
+// La route /s/:token est publique — testée séparément dans public-share.spec.ts.
 
 const ROUTES = [
-  { path: '/Vorcelab/app/#/',                   label: 'root' },
-  { path: '/Vorcelab/app/#/activities',          label: 'activités' },
-  { path: '/Vorcelab/app/#/race',                label: 'stratégie' },
-  { path: '/Vorcelab/app/#/renfo',               label: 'renfo' },
-  { path: '/Vorcelab/app/#/profile',             label: 'profil' },
-  { path: '/Vorcelab/app/#/activities/fake-id',  label: 'activité inconnue' },
-  { path: '/Vorcelab/app/#/race/fake-id',        label: 'course inconnue' },
-  { path: '/Vorcelab/app/#/route-inexistante',   label: '404 custom' },
+  { path: '/Vorcelab/app/#/',                             label: 'root' },
+  { path: '/Vorcelab/app/#/activities',                   label: 'activités' },
+  { path: '/Vorcelab/app/#/race',                         label: 'stratégie' },
+  { path: '/Vorcelab/app/#/renfo',                        label: 'renfo' },
+  { path: '/Vorcelab/app/#/profile',                      label: 'profil' },
+  { path: '/Vorcelab/app/#/activities/fake-id',           label: 'activité inconnue' },
+  { path: '/Vorcelab/app/#/race/fake-id',                 label: 'course inconnue' },
+  { path: '/Vorcelab/app/#/renfo/session/force_lourde',   label: 'session renfo' },
+  { path: '/Vorcelab/app/#/renfo/library',                label: 'bibliothèque renfo' },
+  { path: '/Vorcelab/app/#/renfo/settings',               label: 'réglages renfo' },
+  { path: '/Vorcelab/app/#/route-inexistante',            label: '404 custom' },
 ]
 
 test.describe('React — auth guard', () => {
