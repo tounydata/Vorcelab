@@ -11,6 +11,11 @@ import RaceStrategyPage from './pages/RaceStrategyPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
+import RenfoPage from './pages/RenfoPage'
+import RenfoSessionPage from './pages/RenfoSessionPage'
+import RenfoLibraryPage from './pages/RenfoLibraryPage'
+import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
+import RenfoSettingsPage from './pages/RenfoSettingsPage'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, sessionLoaded } = useVLStore()
@@ -54,7 +59,11 @@ export default function App() {
             <Route path="activities/:activityId" element={<ActivitiesPage />} />
             <Route path="race" element={<RaceListPage />} />
             <Route path="race/:raceId" element={<RaceStrategyPage />} />
-            <Route path="renfo" element={<ComingSoonPage />} />
+            <Route path="renfo" element={<RenfoPage />} />
+            <Route path="renfo/session/:focusKey" element={<RenfoSessionPage />} />
+            <Route path="renfo/library" element={<RenfoLibraryPage />} />
+            <Route path="renfo/library/:exerciseId" element={<RenfoExerciseDetailPage />} />
+            <Route path="renfo/settings" element={<RenfoSettingsPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

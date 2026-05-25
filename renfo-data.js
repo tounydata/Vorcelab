@@ -12,7 +12,7 @@ export function getExerciseGifUrl(id) { return _GIF_REMOVED.has(id) ? null : `${
 export const RENFO_FOCUS_COLORS = {
   force_lourde:'#E5562A', pliometrie:'#f39c12', excentrique:'#3498db',
   excentrique_pliometrie:'#e67e22', tronc:'#9b59b6', haut_corps:'#1abc9c', mobilite:'#2ecc71',
-  yoga_coureur:'#4ade80', stretching:'#2dd4bf',
+  yoga_coureur:'#4ade80', stretching:'#2dd4bf', pilates_coureur:'#a78bfa',
 };
 
 export function gifPlaceholder(category, variant) {
@@ -1428,6 +1428,100 @@ RENFO_EXERCISES.it_band_stretch = {
   youtube_search: 'IT band stretch bandelette ilio-tibiale trail running',
 };
 
+// ── PILATES COUREUR ───────────────────────────────────────────────────────────
+
+export const pilates_hundred = {
+  id: 'pilates_hundred', name_fr: 'The Hundred', name_tech: 'Pilates Hundred',
+  category: 'pilates_coureur',
+  primary_muscles: ['transverse_abdominal', 'obliques', 'hip_flexors'],
+  benefits: ['core_activation', 'breathing_control', 'endurance'],
+  position: 'Allongé sur le dos, jambes à 45° ou table-top, bras le long du corps.',
+  movement: 'Lever la tête et les épaules. Pomper les bras 5× en inspirant, 5× en expirant. 10 cycles = 100 pompes.',
+  common_errors: 'Tension dans le cou. Dos lombaire décollé. Respiration inversée.',
+  youtube_search: 'pilates hundred coureur core',
+  variants: [{ id:'hundred_standard', name:'Hundred classique', required_equipment:{}, priority:1,
+    load_type:'bodyweight_variant', default_sets:3, default_reps:100, target_rpe:6, rest_seconds:45,
+    load_variant_options:['jambes table-top','jambes 45°','jambes tendues'] }],
+};
+
+export const pilates_single_leg_stretch = {
+  id: 'pilates_single_leg_stretch', name_fr: 'Single Leg Stretch', name_tech: 'Single Leg Stretch',
+  category: 'pilates_coureur',
+  primary_muscles: ['obliques', 'hip_flexors', 'transverse_abdominal'],
+  benefits: ['coordination', 'core_stability', 'hip_mobility'],
+  position: 'Allongé sur le dos. Tête et épaules soulevées.',
+  movement: 'Alterner : genou droit vers poitrine (main gauche sur genou, main droite sur cheville) et jambe gauche tendue. Rythme respiratoire contrôlé.',
+  common_errors: 'Bassin qui bascule. Cou tendu. Jambe tendue trop basse.',
+  youtube_search: 'single leg stretch pilates coureur',
+  variants: [{ id:'sls_standard', name:'Single Leg Stretch', required_equipment:{}, priority:1,
+    load_type:'bodyweight_variant', default_sets:3, default_reps:20, target_rpe:6, rest_seconds:45 }],
+};
+
+export const pilates_roll_up = {
+  id: 'pilates_roll_up', name_fr: 'Roll Up', name_tech: 'Roll Up',
+  category: 'pilates_coureur',
+  primary_muscles: ['rectus_abdominal', 'hip_flexors', 'spine_extensors'],
+  benefits: ['spine_mobility', 'hamstring_flexibility', 'core_control'],
+  position: 'Allongé sur le dos, bras tendus au-dessus de la tête, jambes tendues.',
+  movement: 'Inspiration : préparer. Expiration : dérouler vertèbre par vertèbre jusqu\'à toucher les pieds. Contrôler la descente.',
+  common_errors: 'Élan des bras. Blocage de la respiration. Jambes qui décollent.',
+  youtube_search: 'pilates roll up mobilité colonne coureur',
+  variants: [{ id:'rollup_standard', name:'Roll Up', required_equipment:{}, priority:1,
+    load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:6, rest_seconds:45,
+    load_variant_options:['standard','avec serviette sous genoux (facilité)'] }],
+};
+
+export const pilates_side_kick = {
+  id: 'pilates_side_kick', name_fr: 'Side Kick Series', name_tech: 'Side Kick',
+  category: 'pilates_coureur',
+  primary_muscles: ['gluteus_medius', 'hip_abductors', 'obliques'],
+  benefits: ['hip_stability', 'lateral_strength', 'trail_balance'],
+  position: 'Allongé sur le côté, corps aligné, tête posée sur le bras tendu.',
+  movement: 'Jambe supérieure : kick avant (2 pulses) puis retour arrière (1 temps). Garder le bassin stable.',
+  common_errors: 'Bassin qui roule. Jambe trop haute. Cou tendu.',
+  youtube_search: 'pilates side kick hanche stabilisation trail',
+  variants: [{ id:'sidekick_standard', name:'Side Kick', required_equipment:{}, priority:1,
+    load_type:'bodyweight_variant', default_sets:3, default_reps:12, target_rpe:6, rest_seconds:45 }],
+};
+
+export const pilates_swimming = {
+  id: 'pilates_swimming', name_fr: 'Swimming', name_tech: 'Pilates Swimming',
+  category: 'pilates_coureur',
+  primary_muscles: ['erector_spinae', 'gluteus', 'hamstrings', 'upper_back'],
+  benefits: ['posterior_chain_endurance', 'spine_extension', 'running_posture'],
+  position: 'À plat ventre, bras tendus devant, jambes tendues.',
+  movement: 'Lever bras et jambes opposés en alternant rapidement. Inspirer 5× sur 5 battements, expirer 5× sur 5.',
+  common_errors: 'Nuque écrasée. Épaules qui montent. Mouvement trop ample (qualité > amplitude).',
+  youtube_search: 'pilates swimming chaîne postérieure coureur',
+  variants: [{ id:'swimming_standard', name:'Swimming', required_equipment:{}, priority:1,
+    load_type:'bodyweight_variant', default_sets:3, default_reps:50, target_rpe:6, rest_seconds:45 }],
+};
+
+export const pilates_teaser_prep = {
+  id: 'pilates_teaser_prep', name_fr: 'Teaser Prep', name_tech: 'Teaser Preparation',
+  category: 'pilates_coureur',
+  primary_muscles: ['rectus_abdominal', 'transverse_abdominal', 'hip_flexors'],
+  benefits: ['core_strength', 'balance', 'hip_flexor_strength'],
+  position: 'Assis, mains derrière les cuisses. Pieds soulevés, jambes fléchies.',
+  movement: 'Contrôler l\'équilibre sur les ischions. Option progressif : relâcher les mains et tendre les jambes.',
+  common_errors: 'Dos arrondi excessif. Apnée. Remonter les épaules.',
+  youtube_search: 'pilates teaser prep V-sit gainage coureur',
+  variants: [
+    { id:'teaser_prep_mains', name:'Teaser prep (mains au soutien)', required_equipment:{}, priority:1,
+      load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:7, rest_seconds:60 },
+    { id:'teaser_sans_mains', name:'Teaser sans appui', required_equipment:{}, priority:2,
+      load_type:'bodyweight_variant', default_sets:3, default_reps:6, target_rpe:8, rest_seconds:60 },
+  ],
+};
+
+// Add Pilates exercises to RENFO_EXERCISES lookup
+RENFO_EXERCISES.pilates_hundred          = pilates_hundred;
+RENFO_EXERCISES.pilates_single_leg_stretch = pilates_single_leg_stretch;
+RENFO_EXERCISES.pilates_roll_up          = pilates_roll_up;
+RENFO_EXERCISES.pilates_side_kick        = pilates_side_kick;
+RENFO_EXERCISES.pilates_swimming         = pilates_swimming;
+RENFO_EXERCISES.pilates_teaser_prep      = pilates_teaser_prep;
+
 // Temps de repos inter-série (secondes) selon la science du coaching :
 // Force lourde 2-3 min (adaptation neuromusculaire), excentrique 2-2min30
 // (fatigue tendineuse élevée), pliométrie haute intensité 2-2min30 (récupération
@@ -1462,6 +1556,7 @@ export const SESSION_EXERCISES = {
   excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
   excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
+  pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep'],
   haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
   mobilite:               ['hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
   yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose'],
@@ -1514,12 +1609,18 @@ export const FOCUS_META = {
     timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
     timing_notes: ['✅ Dans les 30min après la course', '✅ Le soir après n\'importe quelle sortie', '❌ Jamais avant une séance (réduit la raideur tendineuse)']
   },
+  pilates_coureur: {
+    label: 'Pilates coureur', duration_min: 20, duration_short: 15, location: 'maison',
+    timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
+    timing_notes: ['✅ Récupération active après sortie facile', '✅ Le soir d\'un jour de qualité', '✅ Complément idéal yoga ou stretching']
+  },
 };
 
 export const RENFO_LOAD_WEIGHTS = {
   force_lourde: 1.5, pliometrie: 1.3, excentrique: 1.2,
   haut_corps: 1.0, tronc: 0.8, mobilite: 0.5,
-  yoga_coureur: 0.3, stretching: 0.2,
+  yoga_coureur: 0.3, stretching: 0.2, pilates_coureur: 0.3,
+  excentrique_pliometrie: 1.25,
 };
 
 export const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
