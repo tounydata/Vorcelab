@@ -8,9 +8,11 @@ export const CLIENT_ID = '161609';
 export const FC_MAX_DEFAULT = 205;
 export const RUNNING_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running'];
 
-// Supabase client — window.supabase is injected by the CDN script in <head>
-const { createClient } = window.supabase;
-export const sb = createClient(SUPA_URL, SUPA_KEY);
+// Supabase client — window.supabase is injected by the CDN script in legacy.html.
+// Guard for Vite/React context where the CDN is not loaded (sb = null there).
+const _wSb = typeof window !== 'undefined' ? (window.supabase || null) : null;
+const { createClient } = _wSb || { createClient: null };
+export const sb = typeof createClient === 'function' ? createClient(SUPA_URL, SUPA_KEY) : null;
 
 export const VLState = {
   currentUser: null,
