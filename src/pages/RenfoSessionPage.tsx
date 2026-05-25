@@ -79,14 +79,23 @@ export default function RenfoSessionPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = useMemo<any>(() => {
     if (!focusKey) return null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let s: any = buildSession(focusKey, profile)
-    if (phase === 'deload') {
-      s = { ...s, exercises: applyDeloadModifiers(s.exercises) }
-    } else {
-      s = applyDUP(s)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let s: any = buildSession(focusKey, profile)
+      if (phase === 'deload') {
+        s = { ...s, exercises: applyDeloadModifiers(s.exercises) }
+      } else {
+        s = applyDUP(s)
+      }
+      // Guard: ensure exercises is always an array
+      if (!s || !Array.isArray(s.exercises)) {
+        return { ...s, exercises: [], _buildError: 'exercises manquants' }
+      }
+      return s
+    } catch (err) {
+      console.error('[RenfoSession] buildSession error for', focusKey, err)
+      return { exercises: [], focus: focusKey, label: focusKey, duration_min: 30, timing_notes: [], _buildError: String(err) }
     }
-    return s
   }, [focusKey, phase, renfoProfile]) // eslint-disable-line
 
   const logsByExo = useMemo(() => {
@@ -221,6 +230,25 @@ export default function RenfoSessionPage() {
   const color: string = RENFO_FOCUS_COLORS[focusKey!] ?? 'var(--vl-ember)'
 
   // ── Warmup ────────────────────────────────────────────────────────────────
+  if (stageState.stage === 'warmup' && session.exercises.length === 0) {
+    return (
+      <>
+        <Link to="/renfo" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
+          ← Renfo
+        </Link>
+        <div className="clabel" style={{ marginBottom: '1rem', color }}>{meta.label ?? focusKey}</div>
+        <div className="card" style={{ borderLeft: '3px solid var(--vl-ember)' }}>
+          <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>Aucun exercice disponible</div>
+          {session._buildError && (
+            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, fontSize: '0.75rem' }}>
+              {session._buildError}
+            </div>
+          )}
+        </div>
+      </>
+    )
+  }
+
   if (stageState.stage === 'warmup') {
     return (
       <>
