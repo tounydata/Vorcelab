@@ -80,6 +80,26 @@ export default function RenfoSettingsPage() {
       </Link>
       <div className="clabel" style={{ marginBottom: '1.5rem' }}>RÉGLAGES RENFO</div>
 
+      {/* Séances par semaine */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="fl" style={{ marginBottom: '0.5rem' }}>Séances par semaine</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <button key={n}
+              className="hbtn"
+              style={form.sessions_per_week === n
+                ? { background: 'var(--vl-ember)', borderColor: 'var(--vl-ember)', color: 'var(--vl-ink)', minWidth: 36 }
+                : { minWidth: 36 }}
+              onClick={() => setForm((f) => ({ ...f, sessions_per_week: n }))}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <div className="mlabel" style={{ marginTop: 6, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+          Actuellement : {form.sessions_per_week} séance{form.sessions_per_week > 1 ? 's' : ''}/semaine
+        </div>
+      </div>
+
       {/* Objectif */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="fl">Objectif</div>
