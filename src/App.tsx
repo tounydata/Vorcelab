@@ -11,6 +11,7 @@ import RaceStrategyPage from './pages/RaceStrategyPage'
 import RaceStrategyPublicPage from './pages/RaceStrategyPublicPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
+import ActivityDetailPage from './pages/ActivityDetailPage'
 import RenfoPage from './pages/RenfoPage'
 import RenfoSessionPage from './pages/RenfoSessionPage'
 import RenfoLibraryPage from './pages/RenfoLibraryPage'
@@ -60,7 +61,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="activities" element={<ActivitiesPage />} />
-            <Route path="activities/:activityId" element={<ActivitiesPage />} />
+            <Route path="activities/:activityId" element={<ActivityDetailPage />} />
             <Route path="race" element={<RaceListPage />} />
             <Route path="race/:raceId" element={<RaceStrategyPage />} />
             <Route path="renfo" element={<RenfoPage />} />
