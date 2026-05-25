@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HashRouter, Routes, Route } from 'react-router'
+import { HashRouter, Routes, Route, Outlet } from 'react-router'
 import { supabase } from './lib/supabase'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
@@ -8,7 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import ActivitiesPage from './pages/ActivitiesPage'
 import RaceListPage from './pages/RaceListPage'
 import RaceStrategyPage from './pages/RaceStrategyPage'
-import ComingSoonPage from './pages/ComingSoonPage'
+import RaceStrategyPublicPage from './pages/RaceStrategyPublicPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 import RenfoPage from './pages/RenfoPage'
@@ -17,7 +17,7 @@ import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
 import RenfoSettingsPage from './pages/RenfoSettingsPage'
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
+function PrivateRoutes() {
   const { user, sessionLoaded } = useVLStore()
 
   if (!sessionLoaded) {
@@ -30,7 +30,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!user) return <LoginPage />
 
-  return <>{children}</>
+  return <Outlet />
 }
 
 export default function App() {
@@ -51,8 +51,12 @@ export default function App() {
 
   return (
     <HashRouter>
-      <AuthGuard>
-        <Routes>
+      <Routes>
+        {/* Route publique — sans authentification */}
+        <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />
+
+        {/* Routes privées — authentification requise */}
+        <Route element={<PrivateRoutes />}>
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="activities" element={<ActivitiesPage />} />
@@ -67,8 +71,8 @@ export default function App() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
-        </Routes>
-      </AuthGuard>
+        </Route>
+      </Routes>
     </HashRouter>
   )
 }
