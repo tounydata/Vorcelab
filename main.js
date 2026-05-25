@@ -39,6 +39,9 @@ import {
   showRenfoLibraryIndex, showRenfoLibraryExo,
 } from './renfo.js';
 
+window.navigate = navigate;
+window.showToast = showToast;
+
 window.Vorcelab = {
   navigate, showPanel,
   login, signup, logout, switchTab, updatePasswordRules,

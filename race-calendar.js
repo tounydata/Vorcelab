@@ -1,5 +1,5 @@
 import { VLState, sb } from './app-state.js';
-import { analyzeGPX, populateRaceSelector } from './race-strategy.js';
+import { analyzeGPX, populateRaceSelector, resetStrategy } from './race-strategy.js';
 import { fetchStreams, renderRaceComparison } from './activity-analysis.js';
 import { escapeHTML, escapeAttr } from './security.js';
 import { fmtD } from './formatters.js';
