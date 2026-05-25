@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -17,6 +17,7 @@ interface Race {
   goal_time: string | null
   gpx_data: unknown | null
   last_projection: unknown | null
+  share_token: string | null
 }
 
 function formatDate(iso: string) {
@@ -35,6 +36,7 @@ function sectionLabel(type: 'up' | 'down' | 'flat') {
 
 export default function RaceStrategyPage() {
   const { raceId } = useParams<{ raceId: string }>()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
@@ -43,13 +45,35 @@ export default function RaceStrategyPage() {
   const [isComputing, setIsComputing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [nutritionOpen, setNutritionOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareMutation = useMutation({
+    mutationFn: async (enable: boolean) => {
+      const token = enable ? crypto.randomUUID() : null
+      const { error } = await supabase
+        .from('race_calendar')
+        .update({ share_token: token })
+        .eq('id', raceId!)
+      if (error) throw error
+      return token
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['race', raceId] }),
+  })
+
+  function copyShareUrl(token: string) {
+    const url = `${window.location.origin}${window.location.pathname}#/s/${token}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const { data: race, isLoading: raceLoading, isError } = useQuery<Race>({
     queryKey: ['race', raceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,gpx_data,last_projection')
+        .select('id,name,date,distance,elevation,type,goal_time,gpx_data,last_projection,share_token')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -230,6 +254,36 @@ export default function RaceStrategyPage() {
           {race.elevation != null && ` · ↑${race.elevation} m`}
           {race.type && ` · ${race.type}`}
         </div>
+      </div>
+
+      {/* ── Partage ─────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        {race.share_token ? (
+          <>
+            <button
+              className="hbtn"
+              style={{ color: 'var(--vl-growth)', borderColor: 'var(--vl-growth)' }}
+              onClick={() => copyShareUrl(race.share_token!)}
+            >
+              {copied ? 'Lien copié ✓' : 'Copier le lien'}
+            </button>
+            <button
+              className="hbtn"
+              onClick={() => shareMutation.mutate(false)}
+              disabled={shareMutation.isPending}
+            >
+              Arrêter le partage
+            </button>
+          </>
+        ) : (
+          <button
+            className="hbtn"
+            onClick={() => shareMutation.mutate(true)}
+            disabled={shareMutation.isPending}
+          >
+            {shareMutation.isPending ? '…' : 'Partager cette stratégie'}
+          </button>
+        )}
       </div>
 
       {/* ── Computing spinner ───────────────────────────────────────────────── */}
