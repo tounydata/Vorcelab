@@ -22,6 +22,13 @@ interface Activity2 {
   average_heartrate?: number
 }
 
+interface LastProjection {
+  cible: number
+  prudent: number
+  agressif: number
+  confidence: string
+}
+
 interface NextRace {
   id: string
   name: string
@@ -31,6 +38,7 @@ interface NextRace {
   type: string | null
   goal_time: string | null
   gpx_data: { lat: number; lon: number; ele: number }[] | null
+  last_projection: LastProjection | null
 }
 
 function formatKm(meters: number) {
@@ -259,6 +267,33 @@ function getPhase(daysLeft: number): { label: string; color: string } {
   return { label: 'CONSTRUCTION DE BASE', color: 'var(--vl-text-2)' }
 }
 
+function fmtTimeS(s: number): string {
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}min`
+}
+
+function GpxTrace({ gpxData }: { gpxData: { lat: number; lon: number; ele: number }[] }) {
+  const step = Math.max(1, Math.floor(gpxData.length / 300))
+  const pts = gpxData.filter((_, i) => i % step === 0)
+  const lats = pts.map((p) => p.lat), lons = pts.map((p) => p.lon)
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons)
+  const dLat = maxLat - minLat || 0.001, dLon = maxLon - minLon || 0.001
+  const VW = 240, VH = 130
+  const scale = Math.min(VW / dLon, VH / dLat) * 0.82
+  const ox = (VW - dLon * scale) / 2, oy = (VH - dLat * scale) / 2
+  const tracePts = pts.map((p) =>
+    `${(ox + (p.lon - minLon) * scale).toFixed(1)},${(oy + (maxLat - p.lat) * scale).toFixed(1)}`
+  ).join(' ')
+  return (
+    <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet"
+      style={{ width: '100%', height: '100%', display: 'block', opacity: 0.22, pointerEvents: 'none' }}>
+      <polyline points={tracePts} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: number }[] }) {
   const step = Math.max(1, Math.floor(gpxData.length / 80))
   const eles = gpxData.filter((_, i) => i % step === 0).map((p) => p.ele || 0)
@@ -270,16 +305,19 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
   )
   const pathD = `M${coords.join(' L')}`
   return (
-    <svg viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" width="100%" height={44} style={{ display: 'block', pointerEvents: 'none' }}>
-      <defs>
-        <linearGradient id="altiG" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="var(--vl-ember)" stopOpacity={0.35} />
-          <stop offset="1" stopColor="var(--vl-ember)" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={`${pathD} L${W},${H} L0,${H} Z`} fill="url(#altiG)" />
-      <path d={pathD} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.75} />
-    </svg>
+    <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, var(--vl-surf), transparent)', zIndex: 1, pointerEvents: 'none' }} />
+      <svg viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" width="100%" height={44} style={{ display: 'block', pointerEvents: 'none' }}>
+        <defs>
+          <linearGradient id="altiG" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor="var(--vl-ember)" stopOpacity={0.35} />
+            <stop offset="1" stopColor="var(--vl-ember)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={`${pathD} L${W},${H} L0,${H} Z`} fill="url(#altiG)" />
+        <path d={pathD} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.75} />
+      </svg>
+    </div>
   )
 }
 
@@ -291,57 +329,103 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   const dateStr = raceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const gpxPts = Array.isArray(race.gpx_data) && race.gpx_data.length > 4 ? race.gpx_data : null
+  const proj = race.last_projection
+
+  const confColor = proj
+    ? proj.confidence === 'good' ? 'var(--color-victory)' : proj.confidence === 'medium' ? 'var(--vl-amber)' : 'var(--vl-ember)'
+    : ''
+  const confFilled = proj
+    ? proj.confidence === 'good' ? 5 : proj.confidence === 'medium' ? 3 : 1
+    : 0
 
   return (
     <Link to={`/race/${race.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
       <div className="card" style={{ marginBottom: '1.5rem', padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
-        <div style={{ padding: '10px 14px 0' }}>
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '8.5px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>
-            STRATÉGIE DE COURSE
-          </span>
-        </div>
-        <div style={{ display: 'flex', padding: '8px 14px 14px', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
-              {race.type ?? 'COURSE'} · COURSE VISÉE
-            </div>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, letterSpacing: '.02em', lineHeight: 1.1, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {race.name}
-            </div>
-            <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-              <div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 700, color: 'var(--vl-ember)', lineHeight: 1 }}>
+        {/* clickable wrapper */}
+        <div style={{ position: 'relative', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+          {/* Header label */}
+          <div style={{ position: 'relative', padding: '10px 14px 0', flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '8.5px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>
+              STRATÉGIE DE COURSE
+            </span>
+          </div>
+
+          {/* Two-column body */}
+          <div style={{ position: 'relative', flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+
+            {/* LEFT column */}
+            <div style={{ flex: 1.1, padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {race.type ?? 'COURSE'} · COURSE VISÉE
+              </div>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', fontWeight: 800, letterSpacing: '.02em', textTransform: 'uppercase', lineHeight: 0.88, marginBottom: 6 }}>
+                {race.name}
+              </div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.68rem', color: 'var(--vl-text-2)', marginBottom: 10 }}>
+                {dateStr}{race.distance ? ` · ${race.distance} km` : ''}{race.elevation ? ` · D+ ${race.elevation} m` : ''}
+              </div>
+              {/* Countdown pushed to bottom */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '3.8rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 0.82, letterSpacing: '-.03em' }}>
                   {daysLeft}
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>JOURS</div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'uppercase', letterSpacing: '.16em', marginTop: 4 }}>
+                  JOURS
+                </div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '8.5px', color: phase.color, letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginTop: 4, marginBottom: 12 }}>
+                  {phase.label}
+                </div>
+                <div style={{ background: 'var(--vl-ember)', color: 'var(--vl-ink)', borderRadius: 'var(--vl-r-sm)', padding: '9px 14px', fontFamily: 'var(--vl-display)', fontSize: '.9rem', fontWeight: 700, letterSpacing: '.08em', textAlign: 'center', userSelect: 'none' }}>
+                  OUVRIR LA STRATÉGIE →
+                </div>
               </div>
-              {race.distance && (
-                <div>
-                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 700, lineHeight: 1 }}>
-                    {race.distance}
+            </div>
+
+            {/* RIGHT column */}
+            <div style={{ width: '44%', borderLeft: '1px solid var(--vl-line-2)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+              {/* Projection block */}
+              {proj && (
+                <div style={{ padding: '12px 12px 8px', flexShrink: 0 }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '9.5px', color: 'var(--vl-text-2)', letterSpacing: '.16em', marginBottom: 5, textTransform: 'uppercase', fontWeight: 700 }}>
+                    PROJECTION VORCELAB
                   </div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>km</div>
+                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82 }}>
+                    {fmtTimeS(proj.cible)}
+                  </div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--vl-mono)', letterSpacing: 2, marginTop: 6 }}>
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <span key={i} style={{ color: i < confFilled ? confColor : 'var(--vl-text-3)' }}>
+                        {i < confFilled ? '●' : '○'}
+                      </span>
+                    ))}
+                  </div>
+                  {proj.prudent && proj.agressif && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>
+                        PRUDENT <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.prudent)}</span>
+                      </span>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--color-victory)', fontWeight: 700 }}>
+                        CIBLE {fmtTimeS(proj.cible)}
+                      </span>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>
+                        AGRESSIF <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.agressif)}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
-              {race.elevation && (
-                <div>
-                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 700, color: 'var(--vl-growth)', lineHeight: 1 }}>
-                    {race.elevation}
-                  </div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>m D+</div>
+              {/* 2D route trace */}
+              {gpxPts && (
+                <div style={{ flex: 1, overflow: 'hidden', minHeight: 40 }}>
+                  <GpxTrace gpxData={gpxPts} />
                 </div>
               )}
+              {/* Mini altimetry at bottom */}
+              {gpxPts && <MiniAlti gpxData={gpxPts} />}
             </div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginBottom: 4 }}>{dateStr}</div>
-            <div style={{ display: 'inline-block', fontFamily: 'var(--vl-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '.12em', color: phase.color, border: `1px solid ${phase.color}`, borderRadius: 3, padding: '2px 6px' }}>
-              {phase.label}
-            </div>
+
           </div>
-          {gpxPts && (
-            <div style={{ width: 90, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-              <MiniAlti gpxData={gpxPts} />
-            </div>
-          )}
         </div>
       </div>
     </Link>
@@ -389,7 +473,7 @@ export default function DashboardPage() {
       const today = new Date().toISOString().slice(0, 10)
       const { data } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,gpx_data')
+        .select('id,name,date,distance,elevation,type,goal_time,gpx_data,last_projection')
         .gte('date', today)
         .order('date', { ascending: true })
         .limit(1)
