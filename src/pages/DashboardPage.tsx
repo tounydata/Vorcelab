@@ -8,6 +8,8 @@ import {
 } from '../lib/renfoUtils'
 // @ts-ignore
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
+import { fetchStreams } from '../lib/streams'
+import { computeActivityLoad } from '../lib/trainingLoad'
 
 interface Activity2 {
   id: string
@@ -81,7 +83,7 @@ function isRunning(type: string) {
 
 // ─── 7j Bar Chart (SVG) ───────────────────────────────────────────────────────
 
-function Bar7j({ activities, fcMax }: { activities: Activity2[]; fcMax?: number }) {
+function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPct?: number | null; efLoading?: boolean }) {
   const now = new Date()
   const LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -121,21 +123,7 @@ function Bar7j({ activities, fcMax }: { activities: Activity2[]; fcMax?: number 
   const totalKm = days.reduce((s, d) => s + d.km, 0)
   const runCount = days.filter((d) => d.km > 0).length
 
-  // % EF calculation
-  const cutoff7j = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
-  const cutoff7jStr = `${cutoff7j.getFullYear()}-${String(cutoff7j.getMonth() + 1).padStart(2, '0')}-${String(cutoff7j.getDate()).padStart(2, '0')}`
-  const runs7j = activities.filter(
-    (a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= cutoff7jStr && a.average_heartrate != null
-  )
-  const threshold = (fcMax ?? 185) * 0.75
-  let aerobicTime = 0, totalTimeWithHR = 0
-  for (const r of runs7j) {
-    totalTimeWithHR += r.moving_time
-    if ((r.average_heartrate ?? 999) < threshold) {
-      aerobicTime += r.moving_time
-    }
-  }
-  const efPct = totalTimeWithHR > 0 ? Math.round((aerobicTime / totalTimeWithHR) * 100) : null
+  // % EF — calculé depuis les vrais streams HR (voir loadAerobicStat legacy)
   const efColor = efPct == null ? 'var(--vl-text-3)' : efPct >= 75 ? 'var(--vl-growth)' : efPct < 50 ? 'var(--vl-ember)' : 'var(--vl-amber)'
   const efLabel = efPct == null ? '' : efPct >= 75 ? 'AÉROBIE' : efPct < 50 ? 'TROP INTENSE' : 'MIXTE'
 
@@ -191,7 +179,7 @@ function Bar7j({ activities, fcMax }: { activities: Activity2[]; fcMax?: number 
         <div>
           <div className="mlabel" style={{ fontSize: 8, margin: 0, letterSpacing: '.1em' }}>% EF · 7J</div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 700, color: efColor, lineHeight: 1, marginTop: 2 }}>
-            {efPct != null ? `${efPct}%` : '—'}
+            {efLoading ? '…' : efPct != null ? `${efPct}%` : '—'}
           </div>
           {efLabel && (
             <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: efColor, marginTop: 2, fontWeight: 700 }}>
@@ -216,7 +204,7 @@ function Bar7j({ activities, fcMax }: { activities: Activity2[]; fcMax?: number 
 
 // ─── Charge combinée 4 semaines (inline SVG) ──────────────────────────────────
 
-function ChargeCombinee({ activities, renfoLogs }: { activities: Activity2[]; renfoLogs: SessionLog[] }) {
+function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
   const now = new Date()
   const DAYS = 28
   const dates = Array.from({ length: DAYS }, (_, i) => {
@@ -224,29 +212,31 @@ function ChargeCombinee({ activities, renfoLogs }: { activities: Activity2[]; re
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
 
-  const runKms = dates.map((ds) => {
+  // Charge course via computeActivityLoad (port exact de renderChargeChart legacy)
+  const runLoads = dates.map((ds) => {
     const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-    return acts.reduce((s, a) => s + a.distance / 1000, 0)
+    return acts.reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
   })
 
+  // Charge renfo — renfo_session_log n'a pas de RPE, on approx avec duration_min × 4 (RPE=4 par défaut)
   const renfoMap: Record<string, number> = {}
   renfoLogs.forEach((r) => {
-    if (r.session_date) renfoMap[r.session_date] = (renfoMap[r.session_date] ?? 0) + (r.duration_min ?? 40)
+    if (r.session_date) renfoMap[r.session_date] = (renfoMap[r.session_date] ?? 0) + (r.duration_min ?? 40) * 4
   })
-  const renfoMins = dates.map((ds) => renfoMap[ds] ?? 0)
+  const renfoLoads = dates.map((ds) => renfoMap[ds] ?? 0)
 
-  const maxRun = Math.max(...runKms, 1)
-  const maxRenfo = Math.max(...renfoMins, 1)
+  // Même échelle pour les deux séries (comme legacy renderChargeChart)
+  const maxLoad = Math.max(...runLoads, ...renfoLoads, 1)
 
   const VW = 280, H = 80, W_COL = VW / DAYS
 
-  const runPts = runKms.map((v, i) => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxRun) * H * 0.85 }))
-  const renfoPts = renfoMins.map((v, i) => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxRenfo) * H * 0.85 }))
+  const runPts  = runLoads.map((v, i)   => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
+  const renfoPts = renfoLoads.map((v, i) => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
 
   const polyline = (pts: { x: number; y: number }[]) =>
     pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
 
-  const hasData = runKms.some((v) => v > 0) || renfoMins.some((v) => v > 0)
+  const hasData = runLoads.some((v) => v > 0) || renfoLoads.some((v) => v > 0)
   if (!hasData) return null
 
   return (
@@ -500,7 +490,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const cutoff = new Date(Date.now() - 28 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
-        .from('renfo_focus_log')
+        .from('renfo_session_log')
         .select('focus,duration_min,session_date')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)
@@ -537,6 +527,41 @@ export default function DashboardPage() {
   const fcMax = profileData?.fc_max
 
   const now = new Date()
+
+  // Précompute les IDs des runs 7j pour la query EF (stable key pour TanStack)
+  const ef7jCutoffStr = (() => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 6)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
+  const runs7jIds = activities
+    .filter((a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= ef7jCutoffStr)
+    .map((a) => a.id)
+
+  // % EF réel depuis les streams HR — port exact de loadAerobicStat (dashboard-activities.js)
+  const { data: efData, isLoading: efLoading } = useQuery({
+    queryKey: ['ef-7j', runs7jIds, fcMax ?? 185],
+    queryFn: async () => {
+      const threshold = (fcMax ?? 185) * 0.75
+      const runs = activities.filter((a) => isRunning(a.type) && runs7jIds.includes(a.id))
+      let totalPts = 0, aerobicPts = 0, authError = false
+      await Promise.all(runs.map(async (a) => {
+        try {
+          const streams = await fetchStreams(String(a.id))
+          if (streams._authError) { authError = true; return }
+          const hr = streams.heartrate?.data
+          if (!hr?.length) return
+          totalPts   += hr.length
+          aerobicPts += hr.filter((v) => v < threshold).length
+        } catch { /* ignore */ }
+      }))
+      if (authError && totalPts === 0) return { pct: null as number | null, authError: true }
+      if (totalPts === 0)            return { pct: null as number | null, authError: false }
+      return { pct: Math.round(aerobicPts / totalPts * 100), authError: false }
+    },
+    enabled: runs7jIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  })
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const startOfWeek = new Date(now)
   startOfWeek.setDate(now.getDate() - now.getDay())
@@ -624,10 +649,10 @@ export default function DashboardPage() {
           {nextRace && <NextRaceWidget race={nextRace} />}
 
           {/* 7j bar chart */}
-          {runs.length > 0 && <Bar7j activities={activities} fcMax={fcMax} />}
+          {runs.length > 0 && <Bar7j activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
 
           {/* Charge combinée */}
-          <ChargeCombinee activities={activities} renfoLogs={renfoLogs} />
+          <ChargeCombinee activities={activities} renfoLogs={renfoLogs} fcMax={fcMax} />
 
           {/* CE MOIS + DERNIÈRES SORTIES — même card */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>

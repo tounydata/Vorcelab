@@ -97,7 +97,7 @@ export default function RaceListPage() {
       const lastDay = new Date(year, month + 1, 0).getDate()
       const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       const { data } = await supabase
-        .from('renfo_focus_log')
+        .from('renfo_session_log')
         .select('session_date,focus')
         .eq('user_id', user.id)
         .gte('session_date', start)
