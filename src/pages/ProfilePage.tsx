@@ -112,7 +112,9 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
           <div style={{ fontSize: 18, fontWeight: 700, color: statusColor(stats.status) }}>
             {isUp ? fmtVam(stats.vamMH) : fmtSpeed(stats.avgSpeedKmH)}
           </div>
-          <div className="slbl" style={{ fontSize: 10 }}>{isUp ? 'VAM' : 'Vitesse'}</div>
+          <div className="slbl" style={{ fontSize: 10 }}>
+            {isUp ? `VAM · ${fmtSpeed(stats.avgSpeedKmH)}` : 'Vitesse'}
+          </div>
         </div>
 
         <div>
@@ -360,7 +362,7 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
   const [searchParams, setSearchParams] = useSearchParams()
-  type TabKey = 'compte' | 'profil' | 'records' | 'nutrition'
+  type TabKey = 'compte' | 'analyse' | 'records' | 'nutrition'
   const activeTab = (searchParams.get('tab') ?? 'compte') as TabKey
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'compte' ? {} : { tab }, { replace: false })
@@ -487,7 +489,7 @@ export default function ProfilePage() {
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
-        <button style={tabStyle(activeTab === 'profil')} onClick={() => setActiveTab('profil')}>PROFIL</button>
+        <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>ANALYSE</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
         <button style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
       </div>
@@ -500,15 +502,29 @@ export default function ProfilePage() {
             <div className="clabel" style={{ marginBottom: '0.75rem' }}>COMPTE</div>
 
             {/* Avatar */}
-            {profileRow?.avatar_url && (
-              <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
+              {profileRow?.avatar_url ? (
                 <img
                   src={profileRow.avatar_url}
                   alt="avatar"
-                  style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
+                  style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+                  onError={(e) => {
+                    const parent = (e.target as HTMLImageElement).parentElement
+                    if (parent) {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                      const fb = document.createElement('div')
+                      fb.style.cssText = 'width:56px;height:56px;border-radius:50%;background:var(--vl-ember);display:flex;align-items:center;justify-content:center;font-family:var(--vl-display);font-size:1.4rem;color:#fff;letter-spacing:.04em'
+                      fb.textContent = (profileRow?.name?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()
+                      parent.prepend(fb)
+                    }
+                  }}
                 />
-              </div>
-            )}
+              ) : (
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--vl-ember)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--vl-display)', fontSize: '1.4rem', color: '#fff', letterSpacing: '.04em' }}>
+                  {(profileRow?.name?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()}
+                </div>
+              )}
+            </div>
 
             {/* Email */}
             <div className="fg">
@@ -703,8 +719,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── Tab PROFIL COUREUR ── */}
-      {activeTab === 'profil' && (
+      {/* ── Tab ANALYSE COUREUR ── */}
+      {activeTab === 'analyse' && (
         <>
           {isLoading ? (
             <div className="loading"><div className="spinner" /></div>

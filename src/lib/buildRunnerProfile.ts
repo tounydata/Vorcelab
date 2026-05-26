@@ -370,7 +370,7 @@ export async function buildRunnerProfile(
 
     let statusResult: { status: BucketStats['status']; statusReason: string }
     if (btype === 'up') {
-      statusResult = computeClimbStatus(vamMH, cardioCost, minutesAnalyzed)
+      statusResult = computeClimbStatus(vamMH, cardioCost, minutesAnalyzed, avgSpeedKmH)
     } else if (btype === 'down') {
       statusResult = computeDescentStatus(avgSpeedKmH, cardioCost, minutesAnalyzed)
     } else {

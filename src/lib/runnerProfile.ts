@@ -79,15 +79,23 @@ export function computeEfficiencyScore(
 
 // ─── Status logic ─────────────────────────────────────────────────────────────
 
-export type BucketStatus = 'strength' | 'ok' | 'weak' | 'unknown'
+export type BucketStatus = 'strength' | 'ok' | 'weak' | 'unknown' | 'walk'
 
 export function computeClimbStatus(
   vamMH: number | null,
   cardioCost: CardioCost,
-  minutesAnalyzed: number
+  minutesAnalyzed: number,
+  avgSpeedKmH?: number | null,
 ): { status: BucketStatus; statusReason: string } {
   if (vamMH == null) {
     return { status: 'unknown', statusReason: `Peu de données : ${Math.round(minutesAnalyzed)} min analysées.` }
+  }
+  // Walking detection: < 5.0 km/h on uphill = marche active, pas de course
+  if (avgSpeedKmH != null && avgSpeedKmH < 5.0) {
+    return {
+      status: 'walk',
+      statusReason: `Marche active (${avgSpeedKmH.toFixed(1)} km/h · VAM ${Math.round(vamMH)}m/h) — les benchmarks running ne s'appliquent pas ici. VAM utilisée pour la projection de course.`,
+    }
   }
   if (vamMH >= 900) {
     if (cardioCost === 'low' || cardioCost === 'medium') {
@@ -242,6 +250,8 @@ export function statusColor(status: BucketStatus | PostClimbRecoveryStatus | HrD
     case 'weak':
     case 'marked':
       return 'var(--vl-ember)'
+    case 'walk':
+      return 'var(--vl-text-3)'
     default:
       return 'var(--vl-text-3)'
   }
@@ -256,6 +266,7 @@ export function statusLabel(status: BucketStatus | PostClimbRecoveryStatus | HrD
     case 'moderate': return 'Modéré'
     case 'weak':     return 'À renforcer'
     case 'marked':   return 'Marquée'
+    case 'walk':     return 'Marche active'
     default:         return 'Inconnu'
   }
 }
