@@ -722,6 +722,17 @@ export default function ProfilePage() {
 
               {rp && (
                 <>
+                  {/* FCmax warning: if not set, %FCmax metrics are unreliable */}
+                  {!profileRow?.fc_max && (
+                    <div style={{
+                      marginBottom: '0.75rem', padding: '8px 12px', borderRadius: 6,
+                      background: 'rgba(229,86,42,0.08)', border: '1px solid var(--vl-ember)',
+                      fontSize: 11, color: 'var(--vl-ember)', lineHeight: 1.6,
+                    }}>
+                      ⚠ FCmax non renseignée — calcul basé sur <strong>185 bpm par défaut</strong>. Les pourcentages FCmax et l'efficacité cardio sont inexacts. Renseignez votre FCmax dans l'onglet <strong>COMPTE</strong> puis recalculez.
+                    </div>
+                  )}
+
                   {/* Stale profile warning: old data computed without streams */}
                   {rp.streamCoverage < 0.01 && rp.analyzedRuns != null && rp.analyzedRuns > 0 && (
                     <div style={{
@@ -733,10 +744,14 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  {/* Header row: computed date + discreet recalc button */}
+                  {/* Header row: computed date + FCmax used + discreet recalc button */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                     <div className="mlabel" style={{ fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
                       Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')}
+                      {' · '}FCmax&nbsp;
+                      <span style={{ color: profileRow?.fc_max ? 'var(--vl-text-2)' : 'var(--vl-ember)' }}>
+                        {rp.fcMax} bpm{!profileRow?.fc_max && ' (défaut)'}
+                      </span>
                       {rp.analyzedRuns != null && ` · ${rp.analyzedRuns} sorties`}
                       {' · '}{Math.round(rp.totalStreamSeconds / 3600)}h analysées
                     </div>
