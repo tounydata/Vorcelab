@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fmtVam,
   fmtSpeed,
@@ -16,6 +16,7 @@ import {
   type BucketStats,
   type CardioCost,
 } from '../lib/runnerProfile'
+import { buildRunnerProfile, fetchActivitiesForProfile, fetchLatestActivityDate, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,11 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
-  const [activeTab, setActiveTab] = useState<'compte' | 'records' | 'nutrition'>('compte')
+  const [activeTab, setActiveTab] = useState<'compte' | 'profil' | 'records' | 'nutrition'>('compte')
+  const [computing, setComputing] = useState(false)
+  const [computeProgress, setComputeProgress] = useState(0)
+  const [computeLabel, setComputeLabel] = useState('')
+  const queryClient = useQueryClient()
 
   // Form state
   const [name, setName] = useState('')
@@ -293,6 +298,46 @@ export default function ProfilePage() {
   }
 
   const rp = profileRow?.runner_profile
+  const autoTriggeredRef = useRef(false)
+
+  // Auto-trigger profile computation when new activities exist since last computation
+  useEffect(() => {
+    if (!user || !profileRow || computing || autoTriggeredRef.current) return
+    if (activeTab !== 'profil') return
+
+    async function check() {
+      autoTriggeredRef.current = true
+      const latestDate = await fetchLatestActivityDate(user!.id)
+      if (!latestDate) return
+      const needsRecompute = !rp || new Date(latestDate) > new Date(rp._computedAt)
+      if (needsRecompute) await handleComputeProfile()
+    }
+    check()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.id, !!profileRow])
+
+  async function handleComputeProfile() {
+    if (!user) return
+    setComputing(true)
+    setComputeProgress(0)
+    setComputeLabel('Chargement des activités…')
+    try {
+      const acts = await fetchActivitiesForProfile(user.id, 50)
+      const rpNew = await buildRunnerProfile(
+        acts,
+        profileRow?.fc_max ?? 185,
+        (pct, label) => { setComputeProgress(pct); setComputeLabel(label) },
+      )
+      await saveRunnerProfile(user.id, rpNew)
+      await queryClient.invalidateQueries({ queryKey: ['profile-full', user.id] })
+    } catch (e) {
+      console.error('[VL] compute profile error:', e)
+    } finally {
+      setComputing(false)
+      setComputeProgress(0)
+      setComputeLabel('')
+    }
+  }
 
   async function handleSave() {
     if (!user) return
@@ -337,6 +382,7 @@ export default function ProfilePage() {
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
+        <button style={tabStyle(activeTab === 'profil')} onClick={() => setActiveTab('profil')}>PROFIL</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
         <button style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
       </div>
@@ -552,44 +598,106 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── PROFIL COUREUR (runner_profile buckets) — below all tabs ── */}
-      {isLoading && activeTab === 'compte' && (
-        <div className="loading"><div className="spinner" /></div>
-      )}
-
-      {!isLoading && rp && (
+      {/* ── Tab PROFIL COUREUR ── */}
+      {activeTab === 'profil' && (
         <>
-          <div className="clabel" style={{ marginBottom: '0.75rem', marginTop: '0.5rem' }}>PROFIL COUREUR</div>
-          <GlobalAnalysisCard rp={rp} />
-          <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
-          {(Object.keys(rp.buckets ?? {}) as BucketKey[])
-            .filter((k) => {
-              const b = rp.buckets[k]
-              return b && (b.totalSeconds > 0)
-            })
-            .map((bkey) => (
-              <BucketCard
-                key={bkey}
-                bucketKey={bkey}
-                stats={rp.buckets[bkey] as BucketStats}
-              />
-            ))}
-          <div className="mlabel" style={{ marginTop: 8, fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-            Calculé le {new Date(rp._computedAt).toLocaleDateString('fr-FR')}
-            {' · '}
-            {Math.round(rp.totalStreamSeconds / 60)} min de streams analysées
-            {' · '}
-            Couverture {(rp.streamCoverage * 100).toFixed(0)}%
-          </div>
-        </>
-      )}
+          {isLoading ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : (
+            <>
+              {/* Progress bar (auto or manual compute) */}
+              {computing && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div className="mlabel" style={{ marginBottom: 6, color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
+                    {computeLabel}
+                  </div>
+                  <div style={{ height: 3, background: 'var(--vl-bg-2)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', width: `${computeProgress}%`,
+                      background: 'var(--vl-ember)', borderRadius: 2, transition: 'width 0.3s',
+                    }} />
+                  </div>
+                </div>
+              )}
 
-      {!isLoading && !rp && (
-        <div className="card" style={{ marginBottom: '1rem', marginTop: '0.5rem' }}>
-          <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-            Aucun profil coureur calculé. Synchronise tes activités Strava pour générer ton profil.
-          </div>
-        </div>
+              {rp && (
+                <>
+                  {/* Header row: computed date + discreet recalc button */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <div className="mlabel" style={{ fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+                      Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')}
+                      {rp.analyzedRuns != null && ` · ${rp.analyzedRuns} sorties`}
+                      {' · '}{Math.round(rp.totalStreamSeconds / 3600)}h analysées
+                    </div>
+                    <button
+                      className="mlabel"
+                      disabled={computing}
+                      onClick={() => { autoTriggeredRef.current = true; handleComputeProfile() }}
+                      style={{
+                        background: 'none', border: '1px solid var(--vl-line)', borderRadius: 4,
+                        cursor: computing ? 'wait' : 'pointer', color: 'var(--vl-text-3)',
+                        padding: '2px 7px', fontSize: 10, letterSpacing: '.04em',
+                      }}
+                    >
+                      ↺ Recalculer
+                    </button>
+                  </div>
+
+                  {/* Analyzed months */}
+                  {rp.analyzedMonths && rp.analyzedMonths.length > 0 && (
+                    <div style={{ marginBottom: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {rp.analyzedMonths.map((m) => {
+                        const d = new Date(m + '-01')
+                        const label = d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+                        return (
+                          <span key={m} style={{
+                            fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.04em',
+                            padding: '2px 6px', borderRadius: 3, background: 'var(--vl-bg-2)',
+                            color: 'var(--vl-text-3)', textTransform: 'uppercase',
+                          }}>
+                            {label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <GlobalAnalysisCard rp={rp} />
+                  <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
+
+                  {/* All 7 buckets — always shown */}
+                  {GRADE_BUCKETS.map((b) => {
+                    const bkey = b.key as BucketKey
+                    const stats = rp.buckets[bkey]
+                    if (stats && stats.totalSeconds > 0) {
+                      return <BucketCard key={bkey} bucketKey={bkey} stats={stats as BucketStats} />
+                    }
+                    return (
+                      <div key={bkey} className="card" style={{ marginBottom: '0.75rem', opacity: 0.45 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.85rem', letterSpacing: '0.04em' }}>
+                            {b.label}
+                          </div>
+                          <span className="mlabel" style={{ fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+                            Pas de données
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+
+              {!rp && !computing && (
+                <div className="card" style={{ marginBottom: '1rem' }}>
+                  <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+                    Analyse en cours de chargement…
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {/* Logout */}
