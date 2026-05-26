@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult, type Section } from '../lib/computeRaceProjection'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
-import { extractGpxWaypoints, type RavitoPoint } from '../lib/crewPlan'
+import { extractGpxWaypoints, scoreRaceSection, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
 
@@ -92,6 +92,7 @@ export default function RaceStrategyPage() {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'strategie' | 'assistance'>('strategie')
   const [ravitos, setRavitos] = useState<RavitoPoint[]>([])
+  const [unclassifiedWaypoints, setUnclassifiedWaypoints] = useState<UnclassifiedWaypoint[]>([])
 
   const shareMutation = useMutation({
     mutationFn: async (enable: boolean) => {
@@ -241,8 +242,9 @@ export default function RaceStrategyPage() {
           : null,
       }))
       if (pts.length < 2) return
-      const waypoints = extractGpxWaypoints(text, pts)
-      setRavitos(waypoints)
+      const { ravitos: gpxRavitos, unclassified } = extractGpxWaypoints(text, pts)
+      setRavitos(gpxRavitos)
+      setUnclassifiedWaypoints(unclassified)
       runAnalysis(pts, true)
     }
     reader.readAsText(file)
@@ -310,7 +312,7 @@ export default function RaceStrategyPage() {
       .map((s, i) => ({
         section: s,
         time: projection.sectionTimes[i],
-        score: Math.abs(s.grade) * s.dist,
+        score: scoreRaceSection(s, projection.sectionTimes[i]),
         nutritionMoment: nutritionRows.find(r => {
           const k = r.moment.match(/~?(\d+)\s*km/i)
           if (!k) return false
@@ -631,8 +633,13 @@ export default function RaceStrategyPage() {
               projection={projection}
               nutritionRows={nutritionRows}
               ravitos={ravitos}
+              unclassifiedWaypoints={unclassifiedWaypoints}
               onAddRavito={(r) => setRavitos(prev => [...prev.filter(x => x.km !== r.km), r].sort((a, b) => a.km - b.km))}
               onRemoveRavito={(km) => setRavitos(prev => prev.filter(r => r.km !== km))}
+              onPromoteWaypoint={(w) => {
+                setRavitos(prev => [...prev.filter(x => x.km !== w.km), { km: w.km, label: w.label, source: 'gpx' as const }].sort((a, b) => a.km - b.km))
+                setUnclassifiedWaypoints(prev => prev.filter(u => u.km !== w.km))
+              }}
               athleteName={athleteName}
             />
           </div>

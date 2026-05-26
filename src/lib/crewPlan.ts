@@ -7,9 +7,20 @@ export interface RavitoPoint {
   source: 'gpx' | 'manual'
 }
 
+export interface UnclassifiedWaypoint {
+  km: number
+  label: string
+}
+
+export interface GpxWaypointResult {
+  ravitos: RavitoPoint[]
+  unclassified: UnclassifiedWaypoint[]
+}
+
 export interface CrewCheckpoint {
   km: number
   label: string
+  kind: 'ravito' | 'estimated'
   timeAgressif: string
   timeCible: string
   timePrudent: string
@@ -17,7 +28,49 @@ export interface CrewCheckpoint {
   nutritionToGive: string
   consigne: string
   vigilance: string
-  isRavito: boolean
+}
+
+// Options interface for future Profil Coureur integration.
+// gradeBucketMultipliers will hold per-bucket (pente) multipliers derived
+// from the runner's force/faiblesse profile — not wired in yet.
+export interface SectionScoreOptions {
+  gradeBucketMultipliers?: Record<string, number>
+}
+
+// Score a race section for importance ranking (higher = more critical).
+// Designed to be extensible: a short steep wall should never outscore
+// a long moderate climb.
+export function scoreRaceSection(
+  section: Section,
+  sectionTime: number,
+  _options?: SectionScoreOptions,
+): number {
+  const distKm = section.dist / 1000
+  const gradeAbs = Math.abs(section.grade)
+  const elev = section.type === 'up' ? section.dplus : section.dminus
+
+  // Time impact: longer time = more race impact (sqrt dampens outliers)
+  const timeFactor = Math.sqrt(Math.max(sectionTime, 60) / 300)
+
+  // Elevation density (m/km): rewards genuinely steep terrain, not just grade alone
+  const elevDensity = distKm > 0 ? elev / distKm : 0
+
+  // Long-section bonus 0→1: prevents very short walls from dominating.
+  // Caps at 3 km so a 5 km climb doesn't score 5× a 1 km climb.
+  const lengthBonus = Math.min(distKm, 3) / 3
+
+  // Grade score blends absolute grade with elevation density context
+  const gradeScore = gradeAbs * (1 + elevDensity / 150)
+
+  const score = gradeScore * distKm * timeFactor * (1 + lengthBonus)
+
+  // Future hook — uncomment when Profil Coureur force/faiblesse data is available:
+  // if (_options?.gradeBucketMultipliers) {
+  //   const bucket = getGradeBucket(section.grade)
+  //   return score * (_options.gradeBucketMultipliers[bucket] ?? 1)
+  // }
+
+  return score
 }
 
 function fmtTime(s: number): string {
@@ -41,15 +94,14 @@ function haversineM(a: { lat: number; lon: number }, b: { lat: number; lon: numb
 const RAVITO_KEYWORDS = ['ravito', 'ravitaillement', 'aid', 'cp', 'checkpoint', 'refresh', 'drop', 'base']
 
 function isRavitoKeyword(text: string): boolean {
-  const lower = text.toLowerCase()
-  return RAVITO_KEYWORDS.some(kw => lower.includes(kw))
+  return RAVITO_KEYWORDS.some(kw => text.toLowerCase().includes(kw))
 }
 
 // Browser-only: requires DOMParser. Do not call in Node/test environments.
-export function extractGpxWaypoints(gpxString: string, trackPoints: GpxPoint[]): RavitoPoint[] {
+export function extractGpxWaypoints(gpxString: string, trackPoints: GpxPoint[]): GpxWaypointResult {
   const doc = new DOMParser().parseFromString(gpxString, 'application/xml')
   const wpts = Array.from(doc.querySelectorAll('wpt'))
-  if (wpts.length === 0 || trackPoints.length < 2) return []
+  if (wpts.length === 0 || trackPoints.length < 2) return { ravitos: [], unclassified: [] }
 
   const cumDist: number[] = [0]
   for (let i = 1; i < trackPoints.length; i++) {
@@ -57,7 +109,8 @@ export function extractGpxWaypoints(gpxString: string, trackPoints: GpxPoint[]):
   }
   const totalKm = cumDist[cumDist.length - 1] / 1000
 
-  const results: RavitoPoint[] = []
+  const ravitos: RavitoPoint[] = []
+  const unclassified: UnclassifiedWaypoint[] = []
 
   for (const wpt of wpts) {
     const lat = parseFloat(wpt.getAttribute('lat') ?? '0')
@@ -71,35 +124,21 @@ export function extractGpxWaypoints(gpxString: string, trackPoints: GpxPoint[]):
       const d = haversineM({ lat, lon }, trackPoints[i])
       if (d < minDist) { minDist = d; minIdx = i }
     }
-    const km = cumDist[minIdx] / 1000
-    if (km > totalKm - 2) continue
+    const km = Math.round((cumDist[minIdx] / 1000) * 10) / 10
+    if (km > totalKm - 1) continue
 
-    const nameMatch = isRavitoKeyword(name)
-    const descMatch = isRavitoKeyword(desc)
-    const displayLabel = name || desc || `Ravito ${km.toFixed(1)} km`
-
-    if (nameMatch || descMatch) {
-      results.push({ km, label: displayLabel, source: 'gpx' })
-    } else if (!name && !desc) {
-      // Unnamed waypoint — candidate auto-ravito, marked with "?" prefix
-      results.push({ km, label: `? ${km.toFixed(1)} km`, source: 'gpx' })
+    if (isRavitoKeyword(name) || isRavitoKeyword(desc)) {
+      ravitos.push({ km, label: name || desc || `Ravito ${km} km`, source: 'gpx' })
+    } else {
+      // Not identified as a ravito — put in unclassified for user to review
+      unclassified.push({ km, label: name || desc || `Waypoint ${km} km` })
     }
   }
 
-  results.sort((a, b) => a.km - b.km)
-
-  // Filter unnamed auto-candidates: keep only if ≥5 km from previous and ≤10 km before end
-  const filtered: RavitoPoint[] = []
-  for (const r of results) {
-    if (r.label.startsWith('?')) {
-      const prev = filtered[filtered.length - 1]
-      if (prev && r.km - prev.km < 5) continue
-      if (r.km > totalKm - 10) continue
-    }
-    filtered.push(r)
+  return {
+    ravitos: ravitos.sort((a, b) => a.km - b.km),
+    unclassified: unclassified.sort((a, b) => a.km - b.km),
   }
-
-  return filtered
 }
 
 function cumulativeTimeAtKm(km: number, sections: Section[], sectionTimes: number[]): number {
@@ -110,8 +149,7 @@ function cumulativeTimeAtKm(km: number, sections: Section[], sectionTimes: numbe
     if (sEndKm <= km) {
       cumTime += sectionTimes[i]
     } else if (s.startKm < km) {
-      const fraction = (km - s.startKm) / (s.dist / 1000)
-      cumTime += sectionTimes[i] * fraction
+      cumTime += sectionTimes[i] * (km - s.startKm) / (s.dist / 1000)
       break
     } else {
       break
@@ -146,12 +184,11 @@ export function generateCrewPlan(
 
   const ravitoCheckpoints = ravitos
     .filter(r => r.km > 1 && r.km < totalKm - 1)
-    .map(r => ({ km: r.km, label: r.label, isRavito: true }))
+    .map(r => ({ km: r.km, label: r.label, kind: 'ravito' as const }))
     .sort((a, b) => a.km - b.km)
 
-  // Fill gaps > 15 km between ravitos (or start/end) with auto-spaced points
   const filledBoundaries = [0, ...ravitoCheckpoints.map(r => r.km), totalKm]
-  const autoPoints: { km: number; label: string; isRavito: boolean }[] = []
+  const autoPoints: { km: number; label: string; kind: 'estimated' }[] = []
 
   for (let i = 0; i < filledBoundaries.length - 1; i++) {
     const gapStart = filledBoundaries[i]
@@ -161,7 +198,7 @@ export function generateCrewPlan(
       const n = Math.floor(gap / 15)
       for (let j = 1; j <= n; j++) {
         const km = Math.round((gapStart + (gap / (n + 1)) * j) * 10) / 10
-        autoPoints.push({ km, label: `km ${km}`, isRavito: false })
+        autoPoints.push({ km, label: `km ${km}`, kind: 'estimated' })
       }
     }
   }
@@ -179,19 +216,21 @@ export function generateCrewPlan(
       return k !== null && k > cp.km
     })
 
+    const consigne = cp.kind === 'ravito'
+      ? `Ravito — vérifier eau + ${nextNutrition ? nextNutrition.action : 'nutrition'}`
+      : 'Checkpoint estimé — vérifier état coureur'
+
     return {
       km: cp.km,
       label: cp.label,
+      kind: cp.kind,
       timeAgressif: fmtTime(cumTime * ratioMin),
       timeCible: fmtTime(cumTime),
       timePrudent: fmtTime(cumTime * ratioMax),
       nutritionConsumed: consumed.length > 0 ? consumed.join(', ') : '—',
       nutritionToGive: nextNutrition ? nextNutrition.action : '—',
-      consigne: cp.isRavito
-        ? `Ravito — vérifier eau + ${nextNutrition ? nextNutrition.action : 'nutrition'}`
-        : 'Point de contrôle — vérifier état coureur',
+      consigne,
       vigilance: vigilanceMsg(cp.km, sections),
-      isRavito: cp.isRavito,
     }
   })
 }

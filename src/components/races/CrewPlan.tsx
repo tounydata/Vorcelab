@@ -1,19 +1,30 @@
 import { useState } from 'react'
 import type { ProjectionResult } from '../../lib/computeRaceProjection'
 import type { NutritionRow } from '../../lib/nutritionPlan'
-import type { RavitoPoint, CrewCheckpoint } from '../../lib/crewPlan'
+import type { RavitoPoint, UnclassifiedWaypoint, CrewCheckpoint } from '../../lib/crewPlan'
 import { generateCrewPlan } from '../../lib/crewPlan'
 
 interface Props {
   projection: ProjectionResult
   nutritionRows: NutritionRow[]
   ravitos: RavitoPoint[]
+  unclassifiedWaypoints: UnclassifiedWaypoint[]
   onAddRavito: (r: RavitoPoint) => void
   onRemoveRavito: (km: number) => void
+  onPromoteWaypoint: (w: UnclassifiedWaypoint) => void
   athleteName: string
 }
 
-export default function CrewPlan({ projection, nutritionRows, ravitos, onAddRavito, onRemoveRavito, athleteName }: Props) {
+export default function CrewPlan({
+  projection,
+  nutritionRows,
+  ravitos,
+  unclassifiedWaypoints,
+  onAddRavito,
+  onRemoveRavito,
+  onPromoteWaypoint,
+  athleteName,
+}: Props) {
   const [newKm, setNewKm] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const totalKm = projection.totalDistM / 1000
@@ -38,22 +49,23 @@ export default function CrewPlan({ projection, nutritionRows, ravitos, onAddRavi
 
   return (
     <div>
-      {/* Ravito management */}
+      {/* ── Ravito management ─────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="clabel" style={{ marginBottom: '0.5rem' }}>RAVITAILLEMENTS</div>
 
-        {ravitos.length === 0 && (
+        {ravitos.length === 0 && unclassifiedWaypoints.length === 0 && (
           <div className="mlabel" style={{ marginBottom: '0.75rem', color: 'var(--vl-text-2)', fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>
             Renseignez les emplacements des ravitaillements (km de course) pour personnaliser votre plan assistance.
           </div>
         )}
 
+        {/* Ravitos connus */}
         {ravitos.length > 0 && (
           <div style={{ marginBottom: '0.75rem' }}>
             {ravitos.map((r) => (
               <div key={r.km} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--vl-line)' }}>
                 <span className="mlabel">
-                  {r.source === 'gpx' && <span style={{ color: 'var(--vl-growth)', marginRight: 6, fontSize: 10 }}>GPX</span>}
+                  {r.source === 'gpx' && <span style={{ color: 'var(--vl-growth)', marginRight: 6, fontSize: 10, fontFamily: 'var(--vl-mono)' }}>GPX</span>}
                   {r.label}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -65,6 +77,34 @@ export default function CrewPlan({ projection, nutritionRows, ravitos, onAddRavi
           </div>
         )}
 
+        {/* Waypoints non classés (depuis GPX, non identifiés comme ravitos) */}
+        {unclassifiedWaypoints.length > 0 && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div className="mlabel" style={{ color: 'var(--vl-text-3)', marginBottom: 6, fontSize: 11 }}>
+              WAYPOINTS NON CLASSÉS
+            </div>
+            {unclassifiedWaypoints.map((w) => (
+              <div key={w.km} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--vl-line)', opacity: 0.8 }}>
+                <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>
+                  <span style={{ marginRight: 6, fontSize: 10, fontFamily: 'var(--vl-mono)', color: 'var(--vl-text-3)' }}>?</span>
+                  {w.label}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>{w.km.toFixed(1)} km</span>
+                  <button
+                    className="hbtn no-print"
+                    style={{ padding: '2px 8px', fontSize: 10, color: 'var(--vl-growth)', borderColor: 'var(--vl-growth)' }}
+                    onClick={() => onPromoteWaypoint(w)}
+                  >
+                    + Ravito
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Ajout manuel */}
         <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
             <div className="mlabel" style={{ fontSize: 10, marginBottom: 3 }}>KM (0–{totalKm.toFixed(0)})</div>
@@ -93,7 +133,7 @@ export default function CrewPlan({ projection, nutritionRows, ravitos, onAddRavi
         </div>
       </div>
 
-      {/* Crew plan table */}
+      {/* ── Tableau plan assistance ────────────────────────────────────────── */}
       {checkpoints.length > 0 ? (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="clabel" style={{ marginBottom: '0.75rem' }}>
@@ -115,9 +155,29 @@ export default function CrewPlan({ projection, nutritionRows, ravitos, onAddRavi
               </thead>
               <tbody>
                 {checkpoints.map((cp, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--vl-line)', background: cp.isRavito ? 'var(--vl-surf-2)' : 'transparent' }}>
-                    <td className="mono" style={{ padding: '8px 8px', fontWeight: cp.isRavito ? 700 : 400 }}>{cp.km.toFixed(1)}</td>
-                    <td className="mlabel" style={{ padding: '8px 8px', color: cp.isRavito ? 'var(--vl-growth)' : 'var(--vl-text)' }}>{cp.label}</td>
+                  <tr
+                    key={i}
+                    style={{
+                      borderBottom: '1px solid var(--vl-line)',
+                      background: cp.kind === 'ravito' ? 'var(--vl-surf-2)' : 'transparent',
+                    }}
+                  >
+                    <td className="mono" style={{ padding: '8px 8px', fontWeight: cp.kind === 'ravito' ? 700 : 400 }}>
+                      {cp.km.toFixed(1)}
+                    </td>
+                    <td style={{ padding: '8px 8px' }}>
+                      {cp.kind === 'ravito' ? (
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <span className="mlabel" style={{ color: 'var(--vl-growth)' }}>{cp.label}</span>
+                          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-growth)', letterSpacing: '0.08em' }}>RAVITO</span>
+                        </span>
+                      ) : (
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>{cp.label}</span>
+                          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '0.08em' }}>CHECKPOINT ESTIMÉ</span>
+                        </span>
+                      )}
+                    </td>
                     <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-growth)' }}>{cp.timeAgressif}</td>
                     <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700 }}>{cp.timeCible}</td>
                     <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-text-2)' }}>{cp.timePrudent}</td>

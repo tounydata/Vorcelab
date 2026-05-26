@@ -90,16 +90,16 @@ describe('generateCrewPlan', () => {
     }
   })
 
-  it('ravito checkpoints are isRavito=true, auto points are false', () => {
+  it('ravito checkpoints have kind=ravito, auto points have kind=estimated', () => {
     const proj = makeProjection(42)
     const ravitos = [{ km: 15, label: 'Ravito 1', source: 'manual' as const }]
     const result = generateCrewPlan(proj, noNutrition, ravitos)
     const ravitoCheckpoint = result.find(cp => cp.km === 15)
     expect(ravitoCheckpoint).toBeDefined()
-    expect(ravitoCheckpoint?.isRavito).toBe(true)
+    expect(ravitoCheckpoint?.kind).toBe('ravito')
     const autoCheckpoints = result.filter(cp => cp.km !== 15)
     for (const cp of autoCheckpoints) {
-      expect(cp.isRavito).toBe(false)
+      expect(cp.kind).toBe('estimated')
     }
   })
 
