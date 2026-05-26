@@ -1511,6 +1511,157 @@ export const RENFO_EXERCISES = {
     ],
   },
 
+  // ── NOUVEAUX EXERCICES YOGA — récupération & amplitude ────────────────────
+
+  warrior_3: {
+    id: 'warrior_3', name_fr: 'Guerrier III', name_tech: 'Warrior III / Virabhadrasana III',
+    category: 'yoga_coureur',
+    primary_muscles: ['grand fessier', 'stabilisateurs cheville', 'chaîne postérieure'],
+    benefits: ['stabilite', 'proprioception', 'equilibre_unipodal'],
+    position: 'Debout sur une jambe. Bras tendus devant ou dans l\'axe du corps.',
+    movement: 'Pencher le buste vers l\'avant en levant la jambe arrière jusqu\'à l\'horizontale. Corps forme une ligne droite. Tenir 30–45s par côté. Rentrer le nombril vers la colonne. Regard au sol à 1m.',
+    common_errors: 'Bassin qui s\'ouvre (hanche levée plus haute que l\'autre). Genou de support en hyperextension. Dos arrondi.',
+    youtube_search: 'warrior 3 yoga coureur équilibre proprioception trail',
+    variants: [
+      { id:'warrior3_sol', name:'Guerrier III libre', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['bras le long du corps','bras tendus devant'], unit:'s', default_sets:2, default_reps:40, target_rpe:5, rest_seconds:15 },
+      { id:'warrior3_mur', name:'Guerrier III mur (apprentissage)', required_equipment:{}, priority:2, load_type:'bodyweight_variant', load_variant_options:['pied au mur'], unit:'s', default_sets:2, default_reps:30, target_rpe:4, rest_seconds:10 },
+    ],
+  },
+
+  lizard_pose: {
+    id: 'lizard_pose', name_fr: 'Lézard', name_tech: 'Lizard Pose / Utthan Pristhasana',
+    category: 'yoga_coureur',
+    primary_muscles: ['fléchisseurs hanche profonds', 'adducteurs', 'piriforme'],
+    benefits: ['mobilite_hanche', 'resilience'],
+    position: 'En fente basse profonde. Pied avant à l\'extérieur de la main. Genou arrière au sol (tapis).',
+    movement: 'Descendre les avant-bras vers le sol si possible. Bassin vers le bas et vers l\'avant. Tenir 90s par côté en respirant profondément. Excellent après D+ chargé.',
+    common_errors: 'Genou avant qui s\'effondre vers l\'intérieur. Dos arrondi. Forcer l\'amplitude trop vite.',
+    youtube_search: 'lizard pose yoga fléchisseur hanche trail runner récupération',
+    variants: [
+      { id:'lizard_avantbras', name:'Lézard avant-bras au sol', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['avant-bras au sol','mains au sol'], unit:'s', default_sets:2, default_reps:90, target_rpe:5, rest_seconds:15 },
+      { id:'lizard_bloc', name:'Lézard mains sur blocs', required_equipment:{}, priority:2, load_type:'bodyweight_variant', load_variant_options:['avec blocs ou livres'], unit:'s', default_sets:2, default_reps:60, target_rpe:4, rest_seconds:10 },
+    ],
+  },
+
+  cat_cow: {
+    id: 'cat_cow', name_fr: 'Chat-vache', name_tech: 'Cat-Cow / Marjaryasana-Bitilasana',
+    category: 'yoga_coureur',
+    primary_muscles: ['érecteurs du rachis', 'multifides', 'abdominaux'],
+    benefits: ['posture', 'mobilite_rachis'],
+    position: 'À quatre pattes. Poignets sous les épaules, genoux sous les hanches. Dos neutre.',
+    movement: 'Inspiration — creuser le dos, soulever la tête et le coccyx (vache). Expiration — arrondir le dos, rentrer le menton et le bassin (chat). Rythme lent et fluide. 10–15 cycles. Décompression lombaire post-sortie longue.',
+    common_errors: 'Aller trop vite (perdre la synchronisation respiration-mouvement). Amplitude excessive (risque lombaire). Épaules qui montent vers les oreilles.',
+    youtube_search: 'cat cow yoga mobilité colonne vertébrale coureur running récupération',
+    variants: [
+      { id:'catcow_standard', name:'Chat-vache classique', required_equipment:{}, priority:1, load_type:'bodyweight_variant', default_sets:2, default_reps:12, target_rpe:2, rest_seconds:10 },
+    ],
+  },
+
+  supine_twist: {
+    id: 'supine_twist', name_fr: 'Torsion allongée', name_tech: 'Supine Spinal Twist / Supta Matsyendrasana allongé',
+    category: 'yoga_coureur',
+    primary_muscles: ['thoracique', 'piriforme', 'obliques', 'psoas'],
+    benefits: ['resilience', 'posture', 'mobilite_rachis'],
+    position: 'Allongé sur le dos, bras en croix. Ramener les deux genoux vers la poitrine.',
+    movement: 'Laisser tomber les deux genoux sur le côté jusqu\'au sol. Regarder dans la direction opposée. Tenir 60–90s par côté. Différent de reclined_twist : les deux genoux restent ensemble, torsion plus dorsale.',
+    common_errors: 'Épaule opposée qui décolle du sol. Genoux qui se séparent. Retenir sa respiration.',
+    youtube_search: 'supine twist torsion allongée yoga récupération dos trail',
+    variants: [
+      { id:'supine_twist_bw', name:'Torsion allongée deux genoux', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['genoux fléchis 90°','jambes plus tendues'], unit:'s', default_sets:2, default_reps:75, target_rpe:3, rest_seconds:10 },
+    ],
+  },
+
+  // ── NOUVEAUX EXERCICES PILATES — core, bassin, contrôle unilatéral ─────────
+
+  pilates_clam: {
+    id: 'pilates_clam', name_fr: 'Clam', name_tech: 'Pilates Clam',
+    category: 'pilates_coureur',
+    primary_muscles: ['fessier moyen', 'rotateurs externes de hanche'],
+    benefits: ['stabilite', 'prevention_blessure', 'trail_technique'],
+    position: 'Allongé sur le côté. Hanches empilées, genoux fléchis à 45°, pieds joints.',
+    movement: 'Ouvrir le genou supérieur vers le plafond comme un coquillage, sans rouler les hanches en arrière. Tenir 1s en haut. Redescendre lentement. Contrôle strict du bassin.',
+    common_errors: 'Bassin qui bascule en arrière pour compenser. Amplitude insuffisante (sortir des fessiers). Ne pas tenir assez longtemps au sommet.',
+    youtube_search: 'pilates clam fessier moyen stabilité latérale trail',
+    variants: [
+      { id:'clam_bw', name:'Clam poids de corps', required_equipment:{}, priority:1, load_type:'bodyweight_variant', default_sets:3, default_reps:15, target_rpe:5, rest_seconds:30 },
+      { id:'clam_bande', name:'Clam avec élastique', required_equipment:{ bands:true }, priority:2, load_type:'band', load_variant_options:['light','medium'], default_sets:3, default_reps:12, target_rpe:6, rest_seconds:45 },
+    ],
+  },
+
+  pilates_dead_bug: {
+    id: 'pilates_dead_bug', name_fr: 'Dead Bug', name_tech: 'Dead Bug',
+    category: 'pilates_coureur',
+    primary_muscles: ['transverse', 'obliques', 'stabilisateurs lombaires'],
+    benefits: ['core_activation', 'stabilite', 'prevention_blessure'],
+    position: 'Allongé sur le dos. Bras tendus vers le plafond. Jambes en table-top (hanches et genoux à 90°). Dos lombaire plaqué au sol.',
+    movement: 'Expirer, rentrer le nombril. Abaisser bras droit et jambe gauche sans décoller le bas du dos. Revenir. Alterner. Le bas du dos NE doit JAMAIS décoller.',
+    common_errors: 'Bas du dos qui se creuse (arche lombaire). Apnée. Aller trop vite. Tête qui se soulève.',
+    youtube_search: 'dead bug pilates gainage anti-rotation trail runner',
+    variants: [
+      { id:'dead_bug_jambe', name:'Dead bug jambe seule', required_equipment:{}, priority:1, load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:6, rest_seconds:45 },
+      { id:'dead_bug_complet', name:'Dead bug bras+jambe opposés', required_equipment:{}, priority:2, load_type:'bodyweight_variant', default_sets:3, default_reps:10, target_rpe:7, rest_seconds:45 },
+    ],
+  },
+
+  pilates_bridge_series: {
+    id: 'pilates_bridge_series', name_fr: 'Pont série', name_tech: 'Bridge Series',
+    category: 'pilates_coureur',
+    primary_muscles: ['grand fessier', 'ischio-jambiers', 'stabilisateurs pelviens'],
+    benefits: ['core_activation', 'stabilite', 'resilience'],
+    position: 'Allongé sur le dos, genoux fléchis, pieds à plat largeur de hanches. Bras le long du corps.',
+    movement: 'Expirer, basculer le bassin, soulever les hanches vertèbre par vertèbre. Tenir 2s en haut. Redescendre lentement. Contracter consciemment les fessiers au sommet. Variante : un pied levé (unilatéral).',
+    common_errors: 'Monter en bloc sans articulation vertèbre par vertèbre. Genoux qui s\'écartent. Descente trop rapide.',
+    youtube_search: 'pilates bridge series pont fessier running stabilité pelvienne',
+    variants: [
+      { id:'bridge_bilateral', name:'Pont bilatéral contrôlé', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['standard','avec pause 3s en haut'], default_sets:3, default_reps:12, target_rpe:5, rest_seconds:30 },
+      { id:'bridge_unilateral', name:'Pont unilatéral', required_equipment:{}, priority:2, load_type:'bodyweight_variant', default_sets:3, default_reps:10, target_rpe:7, rest_seconds:45 },
+    ],
+  },
+
+  // ── NOUVEAUX ÉTIREMENTS STRETCHING — récupération post-trail ─────────────
+
+  tibialis_anterior_stretch: {
+    id: 'tibialis_anterior_stretch', name_fr: 'Étirement tibial antérieur', name_tech: 'Tibialis Anterior Stretch',
+    category: 'stretching',
+    primary_muscles: ['tibial antérieur'],
+    benefits: ['resilience', 'prevention_blessure'],
+    position: 'Debout ou assis. Pied en extension plantaire (orteils vers le sol). Déposer le cou-de-pied sur le sol ou tenir le pied à la main.',
+    movement: 'Presser doucement le pied vers le sol ou tirer les orteils vers le tibia en sens inverse. Tenir 30–45s par côté. Prévention des shin splints après descentes prolongées.',
+    common_errors: 'Forcer sur l\'articulation de la cheville (doit sentir l\'étirement dans le shin, pas dans le tendon). Retenir sa respiration.',
+    youtube_search: 'tibialis anterior stretch shin splints trail running récupération descente',
+    variants: [
+      { id:'tibialis_sol', name:'Tibial antérieur au sol', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['assis','debout appui'], unit:'s', default_sets:2, default_reps:40, target_rpe:3, rest_seconds:10 },
+    ],
+  },
+
+  hip_flexor_couch: {
+    id: 'hip_flexor_couch', name_fr: 'Couch stretch', name_tech: 'Couch Stretch / Rectus Femoris Stretch',
+    category: 'stretching',
+    primary_muscles: ['psoas', 'droit fémoral (rectus femoris)', 'iliaque'],
+    benefits: ['mobilite_hanche', 'resilience', 'posture'],
+    position: 'Agenouillé face à un mur ou canapé. Jambe à étirer : pied contre le mur/canapé, genou au sol. Jambe avant en fente, pied à plat.',
+    movement: 'Redresser le buste progressivement. Contracter le fessier de la jambe arrière. Sentir l\'étirement profond en avant de la hanche/cuisse. Tenir 90s par côté. Plus efficace que low_lunge pour le droit fémoral.',
+    common_errors: 'Dos lombaire qui s\'arque excessivement (cambrer pour compenser). Fessier non contracté. Pas assez près du mur.',
+    youtube_search: 'couch stretch psoas droit fémoral trail running récupération D+',
+    variants: [
+      { id:'couch_standard', name:'Couch stretch contre le mur', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['buste droit','buste légèrement incliné'], unit:'s', default_sets:2, default_reps:90, target_rpe:5, rest_seconds:15 },
+    ],
+  },
+
+  adductor_squat_stretch: {
+    id: 'adductor_squat_stretch', name_fr: 'Sumo squat stretch', name_tech: 'Adductor Squat Stretch',
+    category: 'stretching',
+    primary_muscles: ['adducteurs', 'aine', 'fléchisseurs de hanche'],
+    benefits: ['mobilite_hanche', 'resilience'],
+    position: 'Debout, pieds très écartés (2× largeur épaules), orteils vers l\'extérieur (30–45°). Mains jointes devant soi ou sur les cuisses.',
+    movement: 'Descendre en squat profond (sumo). Utiliser les coudes pour pousser doucement les genoux vers l\'extérieur. Dos droit. Tenir 60s. Excellent après terrain varié avec dévers.',
+    common_errors: 'Talons qui décollent (raccourcissement des mollets). Dos arrondi. Pousser trop fort sur les genoux.',
+    youtube_search: 'sumo squat stretch adducteurs aine récupération trail running',
+    variants: [
+      { id:'sumo_squat_hold', name:'Sumo squat tenu', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['mains libres','contre-poids pour équilibre'], unit:'s', default_sets:2, default_reps:60, target_rpe:4, rest_seconds:10 },
+    ],
+  },
+
 };
 
 // Temps de repos inter-série (secondes) selon la science du coaching :
@@ -1536,8 +1687,12 @@ export const INTER_SET_REST = {
   step_up: 90,             lateral_lunge: 90,      single_leg_squat: 90,
   low_lunge: 15,           downward_dog: 15,       child_pose: 10,
   reclined_twist: 10,      butterfly: 10,
+  warrior_3: 15,           lizard_pose: 15,        cat_cow: 10,
+  supine_twist: 10,
   ischio_debout: 10,       gastrocnemien_stretch: 10, solaire_stretch: 10,
   figure_4_piriforme: 10,  it_band_stretch: 10,
+  tibialis_anterior_stretch: 10, hip_flexor_couch: 15, adductor_squat_stretch: 10,
+  pilates_clam: 30,        pilates_dead_bug: 45,   pilates_bridge_series: 30,
 };
 
 
@@ -1547,11 +1702,11 @@ export const SESSION_EXERCISES = {
   excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
   excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
-  pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep'],
+  pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep','pilates_clam','pilates_dead_bug','pilates_bridge_series'],
   haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
   mobilite:               ['hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
-  yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose'],
-  stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book'],
+  yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
+  stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book','tibialis_anterior_stretch','hip_flexor_couch','adductor_squat_stretch'],
 };
 
 export const FOCUS_META = {
