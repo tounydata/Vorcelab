@@ -76,9 +76,9 @@ function sectionConseil(s: Section) {
 }
 function profileAltiLabel(dplus: number, totalDistM: number) {
   const mPerKm = Math.round(dplus / (totalDistM / 1000))
-  if (mPerKm > 50) return `${mPerKm} m/km — course de montagne`
-  if (mPerKm > 25) return `${mPerKm} m/km — course undulée`
-  return `${mPerKm} m/km — course roulante`
+  if (mPerKm > 50) return { short: `${mPerKm} m/km D+`, tag: 'Montagneux', hint: 'Alternez course et marche, gérez les montées tôt.' }
+  if (mPerKm > 25) return { short: `${mPerKm} m/km D+`, tag: 'Undulé', hint: "Réglez l'effort sur chaque côte, récupérez en descente." }
+  return { short: `${mPerKm} m/km D+`, tag: 'Roulant', hint: 'Pacing régulier possible — économisez pour la fin.' }
 }
 
 export default function RaceStrategyPage() {
@@ -97,6 +97,19 @@ export default function RaceStrategyPage() {
   const [tab, setTab] = useState<'strategie' | 'assistance'>('strategie')
   const [ravitos, setRavitos] = useState<RavitoPoint[]>([])
   const [unclassifiedWaypoints, setUnclassifiedWaypoints] = useState<UnclassifiedWaypoint[]>([])
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    function onPointerDown(e: PointerEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [settingsOpen])
 
   const shareMutation = useMutation({
     mutationFn: async (enable: boolean) => {
@@ -265,6 +278,31 @@ export default function RaceStrategyPage() {
     setTimeout(() => window.print(), 80)
   }
 
+  async function handleRemoveGpx() {
+    setProjection(null)
+    setRavitos([])
+    setUnclassifiedWaypoints([])
+    setSettingsOpen(false)
+    await supabase.from('race_calendar').update({ gpx_data: null, last_projection: null }).eq('id', raceId!)
+    queryClient.invalidateQueries({ queryKey: ['race', raceId] })
+  }
+
+  const menuItemStyle: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left', background: 'none',
+    border: 'none', padding: '9px 14px', cursor: 'pointer',
+    fontFamily: 'var(--vl-mono)', fontSize: '0.78rem', letterSpacing: '0.04em',
+    color: 'var(--vl-text-1)', lineHeight: 1.3,
+  }
+
+  function GearIcon() {
+    return (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    )
+  }
+
   const BackLink = () => (
     <Link to="/race" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
       ← Stratégies
@@ -346,33 +384,71 @@ export default function RaceStrategyPage() {
     <>
       <BackLink />
 
-      {/* ── Race header ───────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', letterSpacing: '0.02em', lineHeight: 1, marginBottom: 4 }}>
-          {race.name}
+      {/* ── Race header + gear icon ───────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+        <div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', letterSpacing: '0.02em', lineHeight: 1, marginBottom: 4 }}>
+            {race.name}
+          </div>
+          <div className="race-meta">
+            {formatDate(race.date)}
+            {race.distance != null && ` · ${race.distance} km`}
+            {race.elevation != null && ` · ↑${race.elevation} m`}
+            {race.type && ` · ${race.type}`}
+          </div>
         </div>
-        <div className="race-meta">
-          {formatDate(race.date)}
-          {race.distance != null && ` · ${race.distance} km`}
-          {race.elevation != null && ` · ↑${race.elevation} m`}
-          {race.type && ` · ${race.type}`}
-        </div>
-      </div>
 
-      {/* ── Share ─────────────────────────────────────────────────────────────── */}
-      <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        {race.share_token ? (
-          <>
-            <button className="hbtn" style={{ color: 'var(--vl-growth)', borderColor: 'var(--vl-growth)' }} onClick={() => copyShareUrl(race.share_token!)}>
-              {copied ? 'Lien copié ✓' : 'Copier le lien'}
-            </button>
-            <button className="hbtn" onClick={() => shareMutation.mutate(false)} disabled={shareMutation.isPending}>Arrêter le partage</button>
-          </>
-        ) : (
-          <button className="hbtn" onClick={() => shareMutation.mutate(true)} disabled={shareMutation.isPending}>
-            {shareMutation.isPending ? '…' : 'Partager cette stratégie'}
+        {/* Gear settings */}
+        <div ref={settingsRef} style={{ position: 'relative', flexShrink: 0, marginLeft: 8 }} className="no-print">
+          <button
+            onClick={() => setSettingsOpen(o => !o)}
+            style={{ background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: 'var(--vl-text-2)', display: 'flex', alignItems: 'center' }}
+          >
+            <GearIcon />
           </button>
-        )}
+
+          {settingsOpen && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, minWidth: 210, background: 'var(--vl-card)', border: '1px solid var(--vl-line)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+              {/* GPX */}
+              <button style={menuItemStyle} onClick={() => { fileInputRef.current?.click(); setSettingsOpen(false) }}>
+                Changer de GPX
+              </button>
+              {projection && (
+                <button style={{ ...menuItemStyle, color: 'var(--vl-ember)' }} onClick={handleRemoveGpx}>
+                  Supprimer le GPX
+                </button>
+              )}
+
+              <div style={{ height: 1, background: 'var(--vl-line)' }} />
+
+              {/* Partage */}
+              {race.share_token ? (
+                <>
+                  <button style={{ ...menuItemStyle, color: 'var(--vl-growth)' }} onClick={() => { copyShareUrl(race.share_token!); setSettingsOpen(false) }}>
+                    {copied ? 'Lien copié ✓' : 'Copier le lien partage'}
+                  </button>
+                  <button style={{ ...menuItemStyle, color: 'var(--vl-text-2)' }} onClick={() => { shareMutation.mutate(false); setSettingsOpen(false) }}>
+                    Arrêter le partage
+                  </button>
+                </>
+              ) : (
+                <button style={menuItemStyle} onClick={() => { shareMutation.mutate(true); setSettingsOpen(false) }}>
+                  {shareMutation.isPending ? '…' : 'Partager cette stratégie'}
+                </button>
+              )}
+
+              {projection && (
+                <>
+                  <div style={{ height: 1, background: 'var(--vl-line)' }} />
+                  {/* Impression */}
+                  <button style={menuItemStyle} onClick={() => { printStrategie(); setSettingsOpen(false) }}>Imprimer plan coureur</button>
+                  <button style={menuItemStyle} onClick={() => { printAssistance(); setSettingsOpen(false) }}>Imprimer plan assistance</button>
+                  <button style={menuItemStyle} onClick={() => { printBoth(); setSettingsOpen(false) }}>Imprimer les deux</button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {isComputing && (
@@ -402,12 +478,6 @@ export default function RaceStrategyPage() {
             <button className={`vl-tab${tab === 'assistance' ? ' active' : ''}`} onClick={() => setTab('assistance')}>PLAN ASSISTANCE</button>
           </div>
 
-          {/* Print buttons */}
-          <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>
-            <button className="hbtn" onClick={printStrategie}>Imprimer plan coureur</button>
-            <button className="hbtn" onClick={printAssistance}>Imprimer plan assistance</button>
-            <button className="hbtn" onClick={printBoth}>Imprimer les deux</button>
-          </div>
 
           {/* ── ONGLET STRATÉGIE ──────────────────────────────────────────────── */}
           <div className={`strategie-section${tab !== 'strategie' ? ' tab-screen-hidden' : ''}`}>
@@ -504,38 +574,51 @@ export default function RaceStrategyPage() {
               )}
             </div>
 
-            {/* Section B — Facteurs décisifs */}
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <div className="clabel" style={{ marginBottom: '0.5rem' }}>DONNÉES COURSE</div>
+            {/* Section B — Données course */}
+            {(() => {
+              const alti = profileAltiLabel(projection.dplus, projection.totalDistM)
+              const halfRange = Math.round((projection.timeMax - projection.timeMin) / 2)
+              return (
+                <div className="card" style={{ marginBottom: '1rem' }}>
+                  <div className="clabel" style={{ marginBottom: '0.5rem' }}>DONNÉES COURSE</div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {/* Profil altimétrique */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Profil</span>
-                  <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    {profileAltiLabel(projection.dplus, projection.totalDistM)}
-                  </span>
-                </div>
-
-                {/* Fourchette */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: riskSection ? '1px solid var(--vl-line)' : 'none' }}>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Incertitude</span>
-                  <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    ±{fmtTime((projection.timeMax - projection.timeMin) / 2)} ({fmtTime(projection.timeMax - projection.timeMin)} total)
-                  </span>
-                </div>
-
-                {/* Section critique condensée */}
-                {riskSection && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-                    <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Section critique</span>
-                    <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-ember)' }}>
-                      km {riskSection.startKm.toFixed(1)}–{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · {Math.round(riskSection.grade)}% · {fmtTime(riskSectionTime)}
-                    </span>
+                  {/* Profil */}
+                  <div style={{ padding: '8px 0', borderBottom: '1px solid var(--vl-line)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Profil</span>
+                      <span className="mlabel">{alti.short} — <strong>{alti.tag}</strong></span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic', marginTop: 2 }}>{alti.hint}</div>
                   </div>
-                )}
-              </div>
-            </div>
+
+                  {/* Fourchette */}
+                  <div style={{ padding: '8px 0', borderBottom: riskSection ? '1px solid var(--vl-line)' : 'none' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Incertitude</span>
+                      <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>±{fmtTime(halfRange)} entre scénarios</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic', marginTop: 2 }}>
+                      Restez sur le temps cible si tout se passe bien, basculez vers prudent si ça résiste.
+                    </div>
+                  </div>
+
+                  {/* Section critique */}
+                  {riskSection && (
+                    <div style={{ padding: '8px 0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Point chaud</span>
+                        <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-ember)' }}>
+                          km {riskSection.startKm.toFixed(1)}–{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · {Math.round(riskSection.grade)}% · {fmtTime(riskSectionTime)}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic', marginTop: 2 }}>
+                        Montée la plus raide — {riskConseil(riskSection.grade).replace(/\.$/, '').toLowerCase()}, ne grilllez pas vos réserves ici.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Section C — Sections clés */}
             {top3Sections.length > 0 && (
