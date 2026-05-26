@@ -556,7 +556,7 @@ export default function DashboardPage() {
     if (!user || !activities.length || profileTriggeredRef.current) return
     const latestActivityDate = activities[0].start_date
     const computedAt = profileData?.runner_profile?._computedAt
-    const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 1
+    const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 0
     const needsRecompute =
       !computedAt ||
       new Date(latestActivityDate) > new Date(computedAt) ||
