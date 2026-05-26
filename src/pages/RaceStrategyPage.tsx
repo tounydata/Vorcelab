@@ -433,7 +433,7 @@ export default function RaceStrategyPage() {
           </button>
 
           {settingsOpen && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, minWidth: 210, background: 'var(--vl-card)', border: '1px solid var(--vl-line)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, minWidth: 210, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
               {/* GPX */}
               <button style={menuItemStyle} onClick={() => { fileInputRef.current?.click(); setSettingsOpen(false) }}>
                 Changer de GPX

@@ -137,7 +137,6 @@ export default function RenfoSessionPage() {
 
   const exoIdx = stageState.stage === 'active' ? stageState.exoIdx : -1
   const secondsLeft = stageState.stage === 'rest' ? stageState.secondsLeft : null
-  const prevIsRestingRef = useRef(false)
 
   useEffect(() => {
     if (exoIdx < 0 || !session) return
@@ -150,22 +149,16 @@ export default function RenfoSessionPage() {
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
-  // Beeps countdown : 3 bips courts à 3, 2, 1 secondes
+  // Beeps countdown : bips courts à 3s et 2s, bip aigu/long à 1s (signal de départ)
   useEffect(() => {
     if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
-      playBeep(880, 0.10, 0.35)
+      if (secondsLeft === 1) {
+        playBeep(1318, 0.30, 0.55)   // E6 — aigu, long → signal de départ
+      } else {
+        playBeep(880, 0.08, 0.3)     // A5 — court → compte à rebours
+      }
     }
   }, [secondsLeft]) // eslint-disable-line
-
-  // Double bip de fin quand la récupération se termine
-  useEffect(() => {
-    const isResting = stageState.stage === 'rest'
-    if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
-      playBeep(1047, 0.22, 0.55)
-      setTimeout(() => playBeep(1047, 0.22, 0.55), 280)
-    }
-    prevIsRestingRef.current = isResting
-  }, [stageState.stage]) // eslint-disable-line
 
   useEffect(() => {
     if (stageState.stage !== 'rest') {
@@ -187,6 +180,13 @@ export default function RenfoSessionPage() {
 
   function completeSet() {
     if (!session || stageState.stage !== 'active') return
+    // Pre-warm AudioContext sur le geste utilisateur (iOS impose un geste avant tout son)
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext()
+      }
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume()
+    } catch { /* ignore */ }
     const { exoIdx: ei, setIdx: si } = stageState
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exo: any = session.exercises[ei]
@@ -337,7 +337,16 @@ export default function RenfoSessionPage() {
           })}
         </div>
 
-        <button className="btn-primary" onClick={() => setStageState({ stage: 'active', exoIdx: 0, setIdx: 0 })}>
+        <button className="btn-primary" onClick={() => {
+          // Pré-échauffage AudioContext dès le premier tap (iOS)
+          try {
+            if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+              audioCtxRef.current = new AudioContext()
+            }
+            if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume()
+          } catch { /* ignore */ }
+          setStageState({ stage: 'active', exoIdx: 0, setIdx: 0 })
+        }}>
           LANCER LA SÉANCE →
         </button>
       </>
