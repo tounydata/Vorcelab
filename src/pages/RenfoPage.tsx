@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import {
@@ -32,19 +33,48 @@ export default function RenfoPage() {
     enabled: !!user,
   })
 
+  const queryClient = useQueryClient()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
   const { data: sessionLogs = [] } = useQuery<SessionLog[]>({
     queryKey: ['renfo-session-logs-7d'],
     queryFn: async () => {
       const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
       const { data } = await supabase
         .from('renfo_session_log')
-        .select('focus,duration_min,session_date')
+        .select('id,focus,duration_min,session_date')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)
         .order('session_date', { ascending: false })
       return (data ?? []) as SessionLog[]
     },
     enabled: !!user,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('renfo_session_log').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setConfirmDeleteId(null)
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+    },
+  })
+
+  const updateDateMutation = useMutation({
+    mutationFn: async ({ id, date }: { id: string; date: string }) => {
+      const DAY_KEYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+      const dayKey = DAY_KEYS[new Date(date + 'T12:00:00').getDay()]
+      const { error } = await supabase.from('renfo_session_log').update({ session_date: date, day_key: dayKey }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setEditingId(null)
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+    },
   })
 
   const warnings = computeCoPerioWarnings(activities as Parameters<typeof computeCoPerioWarnings>[0])
@@ -140,10 +170,72 @@ export default function RenfoPage() {
       </div>
 
       {/* ── Liens secondaires ────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
         <Link to="/renfo/library"><button className="hbtn">BIBLIOTHÈQUE</button></Link>
         <Link to="/renfo/settings"><button className="hbtn">RÉGLAGES ÉQUIPEMENT</button></Link>
       </div>
+
+      {/* ── Historique 7 jours — gestion séances ─────────────────────────── */}
+      {sessionLogs.length > 0 && (
+        <div className="card">
+          <div className="clabel" style={{ marginBottom: '0.75rem' }}>SÉANCES RÉCENTES</div>
+          {sessionLogs.map((s) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const meta = (FOCUS_META as Record<string, any>)[s.focus]
+            const isEditing = editingId === s.id
+            const isConfirming = confirmDeleteId === s.id
+            return (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--vl-line)', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{meta?.label ?? s.focus}</div>
+                  {isEditing ? (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 4, alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        defaultValue={s.session_date}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 4, padding: '3px 6px', color: 'var(--vl-text)' }}
+                      />
+                      <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px' }}
+                        onClick={() => editDate && s.id && updateDateMutation.mutate({ id: s.id, date: editDate })}>
+                        OK
+                      </button>
+                      <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setEditingId(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>
+                      {s.session_date ? new Date(s.session_date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : '—'}
+                      {s.duration_min ? ` · ${s.duration_min} min` : ''}
+                    </div>
+                  )}
+                </div>
+                {!isEditing && !isConfirming && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px' }}
+                      onClick={() => { setEditingId(s.id ?? null); setEditDate(s.session_date ?? '') }}>
+                      Date
+                    </button>
+                    <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px', color: 'var(--vl-ember)', borderColor: 'var(--vl-ember)' }}
+                      onClick={() => setConfirmDeleteId(s.id ?? null)}>
+                      Suppr.
+                    </button>
+                  </div>
+                )}
+                {isConfirming && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                    <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>Confirmer ?</span>
+                    <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px', color: 'var(--vl-ember)', borderColor: 'var(--vl-ember)' }}
+                      onClick={() => s.id && deleteMutation.mutate(s.id)}>
+                      Oui
+                    </button>
+                    <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px' }} onClick={() => setConfirmDeleteId(null)}>Non</button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }

@@ -30,6 +30,7 @@ export interface ExerciseLog {
 }
 
 export interface SessionLog {
+  id?: string
   focus: string
   duration_min?: number | null
   session_date?: string

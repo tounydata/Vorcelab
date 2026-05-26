@@ -37,7 +37,7 @@ function RecoveryStatusBadge({ status }: { status: string }) {
     good:     'Bonne',
     moderate: 'Modérée',
     weak:     'Faible',
-    unknown:  '—',
+    unknown:  'N/D',
     stable:   'Stable',
     marked:   'Marquée',
   }
@@ -197,6 +197,11 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
           {rp.postClimbResumeSpeedKmH != null && (
             <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
               reprise {rp.postClimbResumeSpeedKmH.toFixed(1)} km/h
+            </span>
+          )}
+          {rp.postClimbRecoveryStatus === 'unknown' && rp.postClimbHrRecoveryBpmPerMin == null && (
+            <span style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic' }}>
+              En cours de construction — besoin de sorties trail avec GPS
             </span>
           )}
         </div>
