@@ -31,6 +31,10 @@ export interface BucketStats {
   avgHrPctFcMax: number | null
   confidence: 'high' | 'medium' | 'low' | 'none'
   status: 'strength' | 'ok' | 'weak' | 'unknown'
+  efficiencyScore: number | null  // vamMH/(hrPct/100) for climbs, speed/(hrPct/100) for flat/descent
+  cardioCost: 'low' | 'medium' | 'high' | 'unknown'
+  statusReason: string
+  relanceStatus?: 'strong' | 'normal' | 'limited' | 'unknown'
 }
 
 // Full response from compute-runner-profile edge function
@@ -42,6 +46,16 @@ export interface RunnerProfileComputed {
   fcMax: number
   buckets: Record<GradientBucketKey, BucketStats>
   gradeBucketMultipliers: Record<GradientBucketKey, number>
+  // Post-climb HR recovery (global profile metric)
+  postClimbHrRecoveryBpmPerMin: number | null
+  postClimbHrDropPctFcMax: number | null
+  postClimbResumeSpeedKmH: number | null
+  postClimbRecoveryConfidence: 'high' | 'medium' | 'low' | 'none'
+  postClimbRecoveryStatus: 'good' | 'moderate' | 'weak' | 'unknown'
+  // Cardiac drift (global profile metric)
+  hrDriftPct: number | null
+  hrDriftConfidence: 'high' | 'medium' | 'low' | 'none'
+  hrDriftStatus: 'stable' | 'moderate' | 'marked' | 'unknown'
   errors?: string[]
 }
 
@@ -91,4 +105,52 @@ export function fmtDuration(sec: number): string {
   const m = Math.floor((sec % 3600) / 60)
   if (h > 0) return `${h}h${String(m).padStart(2, '0')}`
   return `${m} min`
+}
+
+// ── Helper functions (exported for testability) ──────────────────────────────
+
+/** Compute cardio cost based on avgHrPctFcMax */
+export function computeCardioCost(hrPct: number | null): BucketStats['cardioCost'] {
+  if (hrPct === null) return 'unknown'
+  if (hrPct >= 85) return 'high'
+  if (hrPct >= 70) return 'medium'
+  return 'low'
+}
+
+/** Compute efficiency score: vamMH/(hrPct/100) for climbs, speed/(hrPct/100) for flat/descent */
+export function computeEfficiencyScore(
+  metricValue: number | null,
+  hrPct: number | null
+): number | null {
+  if (metricValue === null || hrPct === null || hrPct <= 0) return null
+  return metricValue / (hrPct / 100)
+}
+
+/** Compute HR drift status from drift percentage */
+export function computeDriftStatus(pct: number | null): RunnerProfileComputed['hrDriftStatus'] {
+  if (pct === null) return 'unknown'
+  if (pct <= 5) return 'stable'
+  if (pct <= 10) return 'moderate'
+  return 'marked'
+}
+
+/** Compute post-climb recovery status */
+export function computeRecoveryStatus(
+  bpmPerMin: number | null,
+  pctFcMax: number | null
+): RunnerProfileComputed['postClimbRecoveryStatus'] {
+  if (bpmPerMin === null && pctFcMax === null) return 'unknown'
+  const bpm = bpmPerMin ?? 0
+  const pct = pctFcMax ?? 0
+  if (bpm >= 20 || pct >= 10) return 'good'
+  if (bpm >= 10 || pct >= 5) return 'moderate'
+  return 'weak'
+}
+
+/** Compute confidence level from event count */
+export function computeConfidenceFromCount(n: number): 'high' | 'medium' | 'low' | 'none' {
+  if (n >= 5) return 'high'
+  if (n >= 2) return 'medium'
+  if (n >= 1) return 'low'
+  return 'none'
 }
