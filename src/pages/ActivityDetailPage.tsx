@@ -13,6 +13,7 @@ import { buildSessionInsights } from '../lib/sessionQuality'
 
 interface ActivityDetail {
   id: string
+  strava_activity_id: number | string | null
   name: string
   distance: number
   total_elevation_gain: number
@@ -372,12 +373,12 @@ function VamSectionsCard({ dist, alt, time }: { dist: number[]; alt: number[]; t
 
 // ─── Streams section (chart + map) ────────────────────────────────────────────
 
-function StreamsSection({ activityId, fcMax }: { activityId: string; fcMax: number }) {
+function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: string; stravaActivityId: string; fcMax: number }) {
   const [hoverKm, setHoverKm] = useState<number | null>(null)
 
   const { data: streams, isLoading } = useQuery<StreamData>({
-    queryKey: ['activity-streams', activityId],
-    queryFn: () => fetchStreams(activityId),
+    queryKey: ['activity-streams', stravaActivityId],
+    queryFn: () => fetchStreams(stravaActivityId),
     staleTime: 30 * 60 * 1000,
   })
 
@@ -516,7 +517,7 @@ export default function ActivityDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,description,kudos_count')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,description,kudos_count')
         .eq('id', activityId!)
         .single()
       if (error) throw error
@@ -525,10 +526,12 @@ export default function ActivityDetailPage() {
     enabled: !!activityId,
   })
 
+  const stravaActivityIdStr = activity?.strava_activity_id != null ? String(activity.strava_activity_id) : undefined
+
   const { data: streams } = useQuery<StreamData>({
-    queryKey: ['activity-streams', activityId],
-    queryFn: () => fetchStreams(activityId!),
-    enabled: !!activityId,
+    queryKey: ['activity-streams', stravaActivityIdStr],
+    queryFn: () => fetchStreams(stravaActivityIdStr!),
+    enabled: !!stravaActivityIdStr,
     staleTime: 30 * 60 * 1000,
   })
 
@@ -589,7 +592,9 @@ export default function ActivityDetailPage() {
       <SessionQCard activity={activity} streams={streams} fcMax={fcMax} />
 
       {/* Altitude profile + map + VAM sections (streams-powered) */}
-      {activityId && <StreamsSection activityId={activityId} fcMax={fcMax} />}
+      {activityId && stravaActivityIdStr && (
+        <StreamsSection activityId={activityId} stravaActivityId={stravaActivityIdStr} fcMax={fcMax} />
+      )}
 
       {/* Metrics card */}
       <div className="card" style={{ marginBottom: '1rem' }}>

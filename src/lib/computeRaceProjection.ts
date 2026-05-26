@@ -6,6 +6,8 @@
 import { hav, minettiGradePenalty, buildDetailedSections } from '../../gpx-core.js'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment } from '../../race-predictor.js'
+// Import types for by-bucket recovery (Mission 5)
+import type { PostClimbRecoveryByBucket } from './runnerProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -224,6 +226,10 @@ export function computeRaceProjection(
   // Track previous section's climb intensity for post-climb recovery correction.
   // Correction applies to the section AFTER a significant climb, not the climb itself.
   let prevClimbGrade = 0 // 0 = no climb, >0 = grade of last significant climb
+  let prevClimbBucket: string | null = null // 'mild_up'/'mod_up'/'steep_up' or null
+
+  // Look up by-bucket recovery (Mission 5)
+  const postClimbByBucket = runnerProfile?.postClimbRecoveryByBucket as PostClimbRecoveryByBucket | undefined
 
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
@@ -242,14 +248,46 @@ export function computeRaceProjection(
       const bucketSpeedMs = bdata!.avgSpeedKmH / 3.6
       const bucketPaceS = 1000 / bucketSpeedMs
 
-      // Apply cardioCost penalty on long sections in second half
       let penaltyFactor = 1.0
-      if (bdata!.cardioCost === 'high') {
-        const isSecondHalf = progressRatio >= 0.5
-        const isLongSection = s.dist > 3000
-        if (isSecondHalf || isLongSection) {
-          penaltyFactor = 1.045 // ~4.5% penalty, within +3..+6% spec
+
+      // Mission 1 — VAM-based time for steep uphill sections
+      if ((bkey === 'mod_up' || bkey === 'steep_up') && bdata!.vamMH != null && bdata!.vamMH > 0 && s.dplus >= 15) {
+        const vamTimeS = (s.dplus / bdata!.vamMH) * 3600
+        const speedTimeS = bdata!.avgSpeedKmH ? s.dist / (bdata!.avgSpeedKmH / 3.6) : vamTimeS
+        // Blend: steep = 85% VAM, mod = 70% VAM
+        const vamWeight = bkey === 'steep_up' ? 0.85 : 0.70
+        const baseTimeS = vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)
+        // Apply drift/recovery penalties to baseTimeS directly, then push and continue
+        let missionOnePenalty = 1.0
+
+        // hrDrift penalty (same logic)
+        if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
+            (hrDriftConf === 'high' || hrDriftConf === 'medium') &&
+            progressRatio >= 0.5) {
+          const driftFactor = 1 + 0.03 + (progressRatio - 0.5) / 0.3 * 0.05
+          missionOnePenalty = Math.max(missionOnePenalty, Math.min(1.08, driftFactor))
         }
+
+        // Mission 3 — cardioCost high penalty only if recovery also weak
+        if (bdata!.cardioCost === 'high' && postClimbStatus === 'weak' && progressRatio >= 0.5) {
+          missionOnePenalty = Math.max(missionOnePenalty, 1.03)
+        }
+
+        missionOnePenalty = Math.min(missionOnePenalty, 1.10)
+        const t = baseTimeS * missionOnePenalty
+        sectionTimes.push(t)
+        estTimeS += t
+
+        // Record significant climb for next section's recovery check
+        prevClimbGrade = s.grade
+        prevClimbBucket = bkey
+        continue
+      }
+
+      // Mission 3 — Remove cardioCost auto-penalty; only penalize if recovery also weak
+      // (replaces the old always-on 4.5% penalty)
+      if (bdata!.cardioCost === 'high' && postClimbStatus === 'weak' && progressRatio >= 0.5) {
+        penaltyFactor = Math.max(penaltyFactor, 1.03)
       }
 
       // hrDrift penalty: graduated, second half only, confirmed drift only
@@ -261,10 +299,35 @@ export function computeRaceProjection(
         penaltyFactor = Math.max(penaltyFactor, Math.min(1.08, driftFactor))
       }
 
-      // Post-climb recovery: apply on the section FOLLOWING a significant climb.
-      // Recovery difficulty scales with climb steepness — can be weak after a steep
-      // climb but fine after a mild one.
-      if (postClimbStatus === 'weak' && prevClimbGrade > 0) {
+      // Mission 5 — Use real resume speed from postClimbRecoveryByBucket
+      if (prevClimbBucket && postClimbByBucket) {
+        const recKey = `after_${prevClimbBucket}` as keyof typeof postClimbByBucket
+        const rec = postClimbByBucket[recKey]
+        if (rec && rec.confidence !== 'none' && rec.sampleCount >= 2 && rec.resumeSpeedKmH != null) {
+          if (rec.status === 'weak') {
+            // Use real observed resume speed for first ~30% of section (up to 400m)
+            const resumeMs = rec.resumeSpeedKmH / 3.6
+            const normalMs = (bdata?.avgSpeedKmH ?? 8) / 3.6
+            if (resumeMs > 0 && normalMs > 0) {
+              const resumeDist = Math.min(s.dist * 0.3, 400)
+              const normalDist = s.dist - resumeDist
+              // Override: compute time from real resume speed blend
+              const blendedTimeS = resumeDist / resumeMs + normalDist / normalMs
+              const baseTimeS = s.dist / normalMs
+              // Express as a penalty factor vs base speed
+              const realPenalty = baseTimeS > 0 ? blendedTimeS / baseTimeS : 1.0
+              penaltyFactor = Math.max(penaltyFactor, Math.min(realPenalty, 1.10))
+            }
+          } else if (rec.status === 'good') {
+            // No recovery penalty — runner recovers well
+            penaltyFactor = Math.min(penaltyFactor, 1.0)
+          }
+          // 'moderate' or 'unknown': fall through to global postClimbStatus logic below
+        }
+      }
+
+      // Fallback post-climb recovery: global signal (when no by-bucket data)
+      if (postClimbStatus === 'weak' && prevClimbGrade > 0 && !prevClimbBucket) {
         const recoveryPenalty = prevClimbGrade >= 12 ? 0.06 : 0.03 // steep +6%, mod_up +3%
         penaltyFactor = Math.min(penaltyFactor + recoveryPenalty, 1.10)
       }
@@ -295,7 +358,13 @@ export function computeRaceProjection(
     }
 
     // Record significant climb for next section's recovery check
-    prevClimbGrade = (s.type === 'up' && s.dplus >= 30 && s.grade >= 6) ? s.grade : 0
+    if (s.type === 'up' && s.dplus >= 30 && s.grade >= 6) {
+      prevClimbGrade = s.grade
+      prevClimbBucket = bkey && (bkey === 'mild_up' || bkey === 'mod_up' || bkey === 'steep_up') ? bkey : null
+    } else {
+      prevClimbGrade = 0
+      prevClimbBucket = null
+    }
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────

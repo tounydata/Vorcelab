@@ -287,6 +287,30 @@ export function cardioCostLabel(cost: CardioCost): string {
   }
 }
 
+// ─── Recovery bucket types ────────────────────────────────────────────────────
+
+export interface RecoveryBucketStats {
+  hrDropBpmPerMin: number | null
+  resumeSpeedKmH: number | null
+  avgHrPctFcMaxAfter: number | null
+  speedDropVsNormalPct: number | null
+  status: 'good' | 'moderate' | 'weak' | 'unknown'
+  confidence: ConfidenceLevel
+  sampleCount: number
+}
+
+export interface PostClimbRecoveryByBucket {
+  after_mild_up?: RecoveryBucketStats
+  after_mod_up?: RecoveryBucketStats
+  after_steep_up?: RecoveryBucketStats
+}
+
+export interface PostDownhillRecoveryByBucket {
+  after_mild_down?: RecoveryBucketStats
+  after_mod_down?: RecoveryBucketStats
+  after_steep_down?: RecoveryBucketStats
+}
+
 // ─── Bucket stats type ────────────────────────────────────────────────────────
 
 export interface BucketStats {
@@ -343,4 +367,8 @@ export interface RunnerProfileComputed {
   hrDriftPct: number | null
   hrDriftConfidence: ConfidenceLevel
   hrDriftStatus: HrDriftStatus
+
+  // ── Per-bucket recovery (optional) ─────────────────────────────────────────
+  postClimbRecoveryByBucket?: PostClimbRecoveryByBucket
+  postDownhillRecoveryByBucket?: PostDownhillRecoveryByBucket
 }
