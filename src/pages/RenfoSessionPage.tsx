@@ -151,21 +151,19 @@ export default function RenfoSessionPage() {
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
-  // Compte à rebours sport : montée de tonalité A5→C6→E6 (3→2→1) + double bip GO
+  // Bips standard sport : 3 ticks courts identiques 880Hz + long bip GO
   useEffect(() => {
-    if (secondsLeft === null || secondsLeft > 3 || secondsLeft <= 0) return
-    if (secondsLeft === 3) playBeep(880,  0.13, 0.50)   // A5
-    if (secondsLeft === 2) playBeep(1047, 0.13, 0.52)   // C6 — ton plus haut
-    if (secondsLeft === 1) playBeep(1318, 0.16, 0.55)   // E6 — encore plus haut
+    if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
+      playBeep(880, 0.15, 0.50)   // tick court identique à chaque fois
+    }
   }, [secondsLeft]) // eslint-disable-line
 
-  // GO : double bip A6 à la fin de la récupération
+  // GO : même fréquence 880Hz mais beaucoup plus long
   const prevIsRestingRef = useRef(false)
   useEffect(() => {
     const isResting = stageState.stage === 'rest'
     if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
-      playBeep(1760, 0.14, 0.6)                          // A6 — bip 1
-      setTimeout(() => playBeep(1760, 0.20, 0.65), 180) // A6 — bip 2, légèrement plus long
+      playBeep(880, 0.55, 0.60)   // BEEEP long → signal départ
     }
     prevIsRestingRef.current = isResting
   }, [stageState.stage]) // eslint-disable-line
@@ -265,13 +263,16 @@ export default function RenfoSessionPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const completedMap = Object.fromEntries(session.exercises.map((e: any) => [e.exercise_id, true]))
+      const DAY_KEYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+      const dayKey = DAY_KEYS[new Date(sessionDate + 'T12:00:00').getDay()]
       const { error: sErr } = await supabase.from('renfo_session_log').upsert({
         user_id: user!.id,
         session_date: sessionDate,
+        day_key: dayKey,
         focus: focusKey!,
         duration_min: session.duration_min,
         completed_exercises: completedMap,
-      }, { onConflict: 'user_id,session_date,focus' })
+      }, { onConflict: 'user_id,session_date' })
       if (sErr) throw sErr
     },
     onSuccess: () => {
@@ -552,7 +553,7 @@ export default function RenfoSessionPage() {
       </button>
       {saveMutation.isError && (
         <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 8 }}>
-          Erreur : {String(saveMutation.error)}
+          Erreur : {(saveMutation.error as Error)?.message ?? String(saveMutation.error)}
         </div>
       )}
     </>
