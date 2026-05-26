@@ -86,15 +86,21 @@ export function computeClimbStatus(
   cardioCost: CardioCost,
   minutesAnalyzed: number,
   avgSpeedKmH?: number | null,
+  avgCadence?: number | null,
 ): { status: BucketStatus; statusReason: string } {
   if (vamMH == null) {
     return { status: 'unknown', statusReason: `Peu de données : ${Math.round(minutesAnalyzed)} min analysées.` }
   }
-  // Walking detection: < 5.0 km/h on uphill = marche active, pas de course
-  if (avgSpeedKmH != null && avgSpeedKmH < 5.0) {
+  // Walking detection: cadence < 130 pas/min couplé à vitesse < 6.5 km/h
+  // (si pas de cadence dispo, fallback vitesse seule < 5.0 km/h)
+  const isWalking = avgCadence != null
+    ? (avgCadence < 130 && avgSpeedKmH != null && avgSpeedKmH < 6.5)
+    : (avgSpeedKmH != null && avgSpeedKmH < 5.0)
+  if (isWalking) {
+    const cadNote = avgCadence != null ? ` · ${Math.round(avgCadence)} pas/min` : ''
     return {
       status: 'walk',
-      statusReason: `Marche active (${avgSpeedKmH.toFixed(1)} km/h · VAM ${Math.round(vamMH)}m/h) — les benchmarks running ne s'appliquent pas ici. VAM utilisée pour la projection de course.`,
+      statusReason: `Marche active (${avgSpeedKmH?.toFixed(1)} km/h${cadNote} · VAM ${Math.round(vamMH)}m/h) — benchmarks running non applicables. VAM utilisée pour la projection.`,
     }
   }
   if (vamMH >= 900) {
