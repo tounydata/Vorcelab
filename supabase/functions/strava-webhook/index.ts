@@ -131,6 +131,13 @@ async function processWebhookEvent(
         .eq('object_id', event.object_id)
         .eq('owner_id', event.owner_id)
         .is('processed_at', null)
+
+      // Recompute runner profile when a new trail activity is created
+      if (event.aspect_type === 'create' && isTrailActivity(activity.type, activity.sport_type)) {
+        refreshRunnerProfile(userId).catch((e) =>
+          console.error('Runner profile refresh error:', (e as Error).message)
+        )
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await supabase
@@ -141,4 +148,25 @@ async function processWebhookEvent(
         .is('processed_at', null)
     }
   }
+}
+
+const TRAIL_TYPES = new Set([
+  'Run', 'TrailRun', 'Trail Run', 'VirtualRun', 'run', 'trail', 'trailrun',
+])
+
+function isTrailActivity(type: string, sportType: string): boolean {
+  return TRAIL_TYPES.has(type) || TRAIL_TYPES.has(sportType)
+}
+
+async function refreshRunnerProfile(userId: string): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  await fetch(`${supabaseUrl}/functions/v1/compute-runner-profile`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${serviceRoleKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+  })
 }

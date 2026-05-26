@@ -14,13 +14,6 @@ import {
   type ProfileRow,
 } from '../lib/runnerProfile'
 
-const STALE_HOURS = 24
-
-function isStale(computedAt: string | null | undefined): boolean {
-  if (!computedAt) return true
-  return Date.now() - new Date(computedAt).getTime() > STALE_HOURS * 3_600_000
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
@@ -56,7 +49,6 @@ export default function ProfilePage() {
   })
 
   const profile = profileRow?.runner_profile as RunnerProfileComputed | null | undefined
-  const stale = isStale(profileRow?.runner_profile_at)
 
   const tabStyle = (t: typeof tab): React.CSSProperties => ({
     padding: '6px 16px',
@@ -126,10 +118,8 @@ export default function ProfilePage() {
                   <div className="clabel" style={{ marginBottom: 4 }}>VAM PAR GRADIENT</div>
                   {profile && (
                     <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.72rem' }}>
-                      {profile.activitiesAnalyzed} sortie{profile.activitiesAnalyzed > 1 ? 's' : ''} analysée{profile.activitiesAnalyzed > 1 ? 's' : ''} · {profile.periodDays}j
-                      {profileRow?.runner_profile_at && ` · calculé le ${fmtDate(profileRow.runner_profile_at)}`}
-                      {stale && ' · '}
-                      {stale && <span style={{ color: 'var(--vl-amber)' }}>périmé</span>}
+                      {profile.activitiesAnalyzed} sortie{profile.activitiesAnalyzed > 1 ? 's' : ''} analysée{profile.activitiesAnalyzed > 1 ? 's' : ''}
+                      {profileRow?.runner_profile_at && ` · ${fmtDate(profileRow.runner_profile_at)}`}
                     </div>
                   )}
                 </div>
@@ -139,7 +129,7 @@ export default function ProfilePage() {
                   onClick={() => computeProfile.mutate()}
                   disabled={computeProfile.isPending}
                 >
-                  {computeProfile.isPending ? '...' : profile && !stale ? 'RECALCULER' : 'CALCULER'}
+                  {computeProfile.isPending ? '...' : profile ? 'RECALCULER' : 'CALCULER'}
                 </button>
               </div>
 
