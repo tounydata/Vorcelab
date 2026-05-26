@@ -65,10 +65,9 @@ export function scoreRaceSection(
 
   const base = gradeScore * distKm * timeFactor * (1 + lengthBonus)
 
-  // Personalize: if the runner is weak on this gradient bucket, the section
-  // is scored higher → it rises in "Sections clés" and gets crew vigilance.
-  const multiplier = _options?.gradeBucketMultipliers
-    ? (_options.gradeBucketMultipliers[getGradeBucket(section.grade)] ?? 1)
+  const bucket = getGradeBucket(section.grade)
+  const multiplier = (_options?.gradeBucketMultipliers && bucket)
+    ? (_options.gradeBucketMultipliers[bucket] ?? 1)
     : 1
 
   return base * multiplier
