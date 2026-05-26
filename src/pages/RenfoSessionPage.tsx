@@ -163,7 +163,7 @@ export default function RenfoSessionPage() {
   useEffect(() => {
     const isResting = stageState.stage === 'rest'
     if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
-      playBeep(880, 0.55, 0.60)   // BEEEP long → signal départ
+      playBeep(1200, 0.55, 0.60)  // BEEEP long 1200Hz → signal départ
     }
     prevIsRestingRef.current = isResting
   }, [stageState.stage]) // eslint-disable-line
