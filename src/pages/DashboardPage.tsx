@@ -40,7 +40,7 @@ function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
 
-const SUGGESTED_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'mobilite', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+const SUGGESTED_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
 
 export default function DashboardPage() {
   const { user } = useVLStore()

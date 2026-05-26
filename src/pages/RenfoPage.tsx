@@ -12,7 +12,7 @@ import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
 
 const ALL_FOCUSES = [
   'force_lourde','pliometrie','excentrique','tronc',
-  'haut_corps','mobilite','yoga_coureur','pilates_coureur','stretching',
+  'haut_corps','yoga_coureur','pilates_coureur','stretching',
 ] as const
 
 export default function RenfoPage() {

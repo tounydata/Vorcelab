@@ -257,6 +257,16 @@ export default function RenfoSessionPage() {
         </Link>
         <div className="clabel" style={{ marginBottom: '1.5rem', color }}>{meta.label ?? focusKey}</div>
 
+        {/* Échauffement block — shown when warmup_text is defined in FOCUS_META */}
+        {meta.warmup_text && (
+          <div className="card" style={{ marginBottom: '1rem', borderLeft: `3px solid ${color}` }}>
+            <div className="mlabel" style={{ color, marginBottom: 6 }}>ÉCHAUFFEMENT</div>
+            <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, lineHeight: 1.5 }}>
+              {meta.warmup_text}
+            </div>
+          </div>
+        )}
+
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="strip" style={{ marginBottom: '1rem' }}>
             <div className="scell" style={{ gridColumn: 'span 3' }}>
@@ -277,10 +287,12 @@ export default function RenfoSessionPage() {
           <div className="fl" style={{ marginBottom: '0.5rem' }}>Programme du jour</div>
           {session.exercises.map((exo: any, i: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const ex = RENFO_EXERCISES[exo.exercise_id]
+            const isHold = exo.unit === 's'
+            const repsLabel = isHold ? `${exo.sets} × ${exo.reps}s tenir` : `${exo.sets}×${exo.reps} · RPE ${exo.target_rpe}`
             return (
               <div key={i} className="fg" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0' }}>
                 <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{ex?.name_fr ?? exo.exercise_id}</span>
-                <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>{exo.sets}×{exo.reps} · RPE {exo.target_rpe}</span>
+                <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>{repsLabel}</span>
               </div>
             )
           })}
@@ -300,6 +312,7 @@ export default function RenfoSessionPage() {
     const ex = RENFO_EXERCISES[exo.exercise_id]
     const variant = ex?.variants?.find((v: any) => v.id === exo.variant_id) ?? ex?.variants?.[0] // eslint-disable-line @typescript-eslint/no-explicit-any
     const isLoadExo = exo.load_type === 'external_kg'
+    const isHold = exo.unit === 's'
 
     return (
       <>
@@ -324,6 +337,22 @@ export default function RenfoSessionPage() {
               {ex.primary_muscles.join(' · ')}
             </div>
           )}
+          {isHold && (
+            <div style={{ marginTop: 10, display: 'flex', gap: '1.5rem' }}>
+              <div>
+                <div className="mlabel" style={{ color: 'var(--vl-text-3)', marginBottom: 2 }}>CIBLE</div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '2rem', lineHeight: 1 }}>
+                  {exo.reps}s <span className="mlabel" style={{ fontSize: '0.75rem' }}>TENIR</span>
+                </div>
+              </div>
+              <div>
+                <div className="mlabel" style={{ color: 'var(--vl-text-3)', marginBottom: 2 }}>CÔTÉ SUIVANT</div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '2rem', lineHeight: 1 }}>
+                  {exo.rest_seconds}s
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ marginBottom: '1rem' }}>
@@ -340,9 +369,9 @@ export default function RenfoSessionPage() {
               </div>
             )}
             <div style={{ flex: 1 }}>
-              <div className="fl" style={{ marginBottom: 4 }}>Répétitions</div>
+              <div className="fl" style={{ marginBottom: 4 }}>{isHold ? 'Durée réelle (s)' : 'Répétitions'}</div>
               <input
-                type="number" min={1} step={1}
+                type="number" min={1} step={isHold ? 5 : 1}
                 value={reps}
                 onChange={(e) => setReps(+e.target.value)}
                 style={{ width: '100%', padding: '0.5rem', fontSize: '1.1rem', background: 'var(--vl-surface-2)', border: '1px solid var(--vl-border)', borderRadius: 6, color: 'var(--vl-text-1)' }}
