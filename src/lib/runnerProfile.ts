@@ -325,6 +325,10 @@ export interface RunnerProfileComputed {
   totalStreamSeconds: number
   /** Coverage ratio (stream seconds vs total activity time) */
   streamCoverage: number
+  /** Months included in computation e.g. ["2024-01","2024-02"] */
+  analyzedMonths?: string[]
+  /** Number of runs analyzed */
+  analyzedRuns?: number
   /** Per-gradient-bucket stats */
   buckets: Partial<Record<BucketKey, BucketStats>>
 

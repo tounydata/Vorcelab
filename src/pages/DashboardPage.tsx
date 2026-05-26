@@ -202,6 +202,19 @@ function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPc
   )
 }
 
+// Catmull-Rom spline — même algo que renderBar7j legacy (tension 0.18)
+function smoothPath(pts: { x: number; y: number }[], maxY: number): string {
+  if (pts.length < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? maxY}`
+  const cl = (v: number) => Math.max(0, Math.min(maxY, v))
+  let path = `M${pts[0].x},${pts[0].y}`
+  const t = 0.18
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]
+    path += ` C${(p1.x + (p2.x - p0.x) * t).toFixed(1)},${cl(p1.y + (p2.y - p0.y) * t).toFixed(1)} ${(p2.x - (p3.x - p1.x) * t).toFixed(1)},${cl(p2.y - (p3.y - p1.y) * t).toFixed(1)} ${p2.x},${p2.y}`
+  }
+  return path
+}
+
 // ─── Charge combinée 4 semaines (inline SVG) ──────────────────────────────────
 
 function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
@@ -233,11 +246,20 @@ function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity
   const runPts  = runLoads.map((v, i)   => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
   const renfoPts = renfoLoads.map((v, i) => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
 
-  const polyline = (pts: { x: number; y: number }[]) =>
-    pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-
   const hasData = runLoads.some((v) => v > 0) || renfoLoads.some((v) => v > 0)
   if (!hasData) return null
+
+  const runLine  = smoothPath(runPts, H)
+  const renfoLine = smoothPath(renfoPts, H)
+  const runArea  = runLine  + ` L${runPts[runPts.length - 1].x.toFixed(1)},${H} L${runPts[0].x.toFixed(1)},${H} Z`
+  const renfoArea = renfoLine + ` L${renfoPts[renfoPts.length - 1].x.toFixed(1)},${H} L${renfoPts[0].x.toFixed(1)},${H} Z`
+
+  // Week date labels (like legacy)
+  const weekLabels = [0, 7, 14, 21].map((offset) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - (DAYS - 1 - offset))
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  })
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
@@ -255,38 +277,34 @@ function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity
         </div>
       </div>
       <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
-        <polyline
-          points={polyline(runPts)}
-          fill="none"
-          stroke="var(--vl-ember)"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity={0.8}
-        />
-        <polyline
-          points={polyline(renfoPts)}
-          fill="none"
-          stroke="#7c3aed"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity={0.7}
-        />
+        <defs>
+          <linearGradient id="runGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#E5562A" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="#E5562A" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="renfoGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.14} />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        {/* Area fills */}
+        <path d={runArea}   fill="url(#runGrad)" />
+        <path d={renfoArea} fill="url(#renfoGrad)" />
+        {/* Smooth lines */}
+        <path d={runLine}   fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+        <path d={renfoLine} fill="none" stroke="#7c3aed"         strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
         {/* Week separators */}
         {[7, 14, 21].map((d) => (
-          <line
-            key={d}
-            x1={(d * W_COL).toFixed(1)}
-            y1={0}
-            x2={(d * W_COL).toFixed(1)}
-            y2={H}
-            stroke="var(--vl-line)"
-            strokeWidth={0.5}
-            opacity={0.4}
-          />
+          <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
+            stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.5} />
         ))}
       </svg>
+      {/* Week date labels (like legacy) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        {weekLabels.map((l, i) => (
+          <span key={i} style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>{l}</span>
+        ))}
+      </div>
     </div>
   )
 }

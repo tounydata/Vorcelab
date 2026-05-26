@@ -84,6 +84,7 @@ export default function RaceStrategyPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const leafletMapRef = useRef<L.Map | null>(null)
+  const hoverMarkerRef = useRef<L.CircleMarker | null>(null)
 
   const [projection, setProjection] = useState<ProjectionResult | null>(null)
   const [isComputing, setIsComputing] = useState(false)
@@ -209,9 +210,8 @@ export default function RaceStrategyPage() {
       leafletMapRef.current = null
     }
     const map = L.map(mapContainerRef.current)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap contributors © CARTO',
-      subdomains: 'abcd',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map)
     const latLngs = projection.points.map((p) => [p.lat, p.lon] as L.LatLngTuple)
@@ -567,7 +567,99 @@ export default function RaceStrategyPage() {
                 </div>
               </div>
 
-              {/* Map */}
+              {/* Profil altimétrique interactif — synchronisé avec la carte */}
+              {projection.points.some(p => p.ele != null) && (() => {
+                // Cumulative distance pour chaque point GPX
+                const RAD = Math.PI / 180
+                const hav = (a: GpxPoint, b: GpxPoint) => {
+                  const dLat = (b.lat - a.lat) * RAD, dLon = (b.lon - a.lon) * RAD
+                  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.sin(dLon / 2) ** 2
+                  return 6371000 * 2 * Math.asin(Math.sqrt(s))
+                }
+                const cumPts: { lat: number; lon: number; ele: number; dist: number }[] = []
+                let cumDist = 0
+                for (let i = 0; i < projection.points.length; i++) {
+                  const p = projection.points[i]
+                  if (i > 0) cumDist += hav(projection.points[i - 1], p)
+                  if (p.ele != null) cumPts.push({ lat: p.lat, lon: p.lon, ele: p.ele, dist: cumDist })
+                }
+                if (cumPts.length < 4) return null
+                const step = Math.max(1, Math.floor(cumPts.length / 120))
+                const sampled = cumPts.filter((_, i) => i % step === 0)
+                const totalDist = cumPts[cumPts.length - 1].dist
+                const eles = sampled.map(p => p.ele)
+                const minEle = Math.min(...eles), maxEle = Math.max(...eles), rangeEle = maxEle - minEle || 1
+                const VW = 500, VH = 70
+                const toX = (d: number) => (d / totalDist) * VW
+                const toY = (e: number) => VH - 4 - ((e - minEle) / rangeEle) * (VH - 10)
+                const pathCoords = sampled.map(p => `${toX(p.dist).toFixed(1)},${toY(p.ele).toFixed(1)}`).join(' L')
+                const areaPath = `M${pathCoords} L${toX(totalDist).toFixed(1)},${VH} L0,${VH} Z`
+                const linePath = `M${pathCoords}`
+
+                const handleAltiHover = (e: React.MouseEvent<SVGElement>) => {
+                  if (!leafletMapRef.current) return
+                  const rect = (e.currentTarget as SVGElement).getBoundingClientRect()
+                  const xPct = (e.clientX - rect.left) / rect.width
+                  const hovDist = xPct * totalDist
+                  // find closest sampled point
+                  let best = cumPts[0], bestDiff = Infinity
+                  for (const p of cumPts) {
+                    const d = Math.abs(p.dist - hovDist)
+                    if (d < bestDiff) { bestDiff = d; best = p }
+                  }
+                  if (hoverMarkerRef.current) {
+                    hoverMarkerRef.current.setLatLng([best.lat, best.lon])
+                  } else {
+                    hoverMarkerRef.current = L.circleMarker([best.lat, best.lon], {
+                      radius: 7, color: 'var(--vl-ember)', fillColor: '#d6803e', fillOpacity: 1, weight: 2,
+                    }).addTo(leafletMapRef.current)
+                  }
+                }
+                const handleAltiLeave = () => {
+                  hoverMarkerRef.current?.remove()
+                  hoverMarkerRef.current = null
+                }
+
+                return (
+                  <div style={{ marginBottom: 6 }}>
+                    <div className="mlabel" style={{ marginBottom: 4, letterSpacing: '.1em' }}>PROFIL ALTIMÉTRIQUE</div>
+                    <svg
+                      viewBox={`0 0 ${VW} ${VH}`}
+                      preserveAspectRatio="none"
+                      width="100%"
+                      height={70}
+                      style={{ display: 'block', cursor: 'crosshair' }}
+                      onMouseMove={handleAltiHover}
+                      onMouseLeave={handleAltiLeave}
+                    >
+                      <defs>
+                        <linearGradient id="altiGrad" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="var(--vl-ember)" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="var(--vl-ember)" stopOpacity={0.03} />
+                        </linearGradient>
+                      </defs>
+                      <path d={areaPath} fill="url(#altiGrad)" />
+                      <path d={linePath} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+                      {/* km ticks */}
+                      {Array.from({ length: Math.floor(totalDist / 1000) + 1 }, (_, k) => {
+                        if (k === 0) return null
+                        const x = toX(k * 1000)
+                        return (
+                          <g key={k}>
+                            <line x1={x} y1={VH - 8} x2={x} y2={VH} stroke="var(--vl-text-3)" strokeWidth={0.5} />
+                            {k % 5 === 0 && (
+                              <text x={x} y={VH - 10} textAnchor="middle"
+                                style={{ fontFamily: 'monospace', fontSize: 7, fill: 'var(--vl-text-3)' }}>{k}</text>
+                            )}
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  </div>
+                )
+              })()}
+
+              {/* Carte Leaflet */}
               <div
                 ref={mapContainerRef}
                 style={{ height: 240, borderRadius: 8, marginBottom: '1rem', overflow: 'hidden' }}

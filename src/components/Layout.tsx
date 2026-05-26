@@ -1,6 +1,31 @@
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+
+function useTheme() {
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('vl-theme')
+    return saved ? saved === 'dark' : true
+  })
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
+    localStorage.setItem('vl-theme', isDark ? 'dark' : 'light')
+  }, [isDark])
+  return { isDark, toggle: () => setIsDark(d => !d) }
+}
+
+const IconSun = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="5" />
+    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+  </svg>
+)
+const IconMoon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  </svg>
+)
 
 const VL_LOGO = (
   <svg width="28" height="28" viewBox="0 0 60 60" fill="none" aria-hidden="true">
@@ -95,6 +120,23 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 export default function Layout() {
   const user = useVLStore((s) => s.user)
+  const { isDark, toggle } = useTheme()
+
+  const themeBtn = (
+    <button
+      onClick={toggle}
+      title={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+      style={{
+        background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6,
+        cursor: 'pointer', color: 'var(--vl-text-2)', padding: '5px 7px',
+        display: 'flex', alignItems: 'center', gap: 4,
+        fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.08em',
+      }}
+    >
+      {isDark ? <IconSun /> : <IconMoon />}
+      <span style={{ display: 'none' }} className="sidebar-theme-label">{isDark ? 'LIGHT' : 'DARK'}</span>
+    </button>
+  )
 
   return (
     <div id="appShell" className="show">
@@ -116,8 +158,11 @@ export default function Layout() {
         ))}
 
         <div className="sidebar-bottom">
-          <div className="mlabel" style={{ wordBreak: 'break-all' }}>
-            {user?.email?.toLowerCase()}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+            <div className="mlabel" style={{ wordBreak: 'break-all', margin: 0 }}>
+              {user?.email?.toLowerCase()}
+            </div>
+            {themeBtn}
           </div>
           <button
             className="hbtn"
@@ -140,6 +185,7 @@ export default function Layout() {
           </div>
           <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.88rem', letterSpacing: '.06em', color: 'var(--vl-text)' }}>VORCELAB</span>
         </NavLink>
+        {themeBtn}
       </div>
 
       <div className="app-main">
