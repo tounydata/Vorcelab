@@ -311,6 +311,19 @@ export interface PostDownhillRecoveryByBucket {
   after_steep_down?: RecoveryBucketStats
 }
 
+// ─── Downhill fatigue profile ─────────────────────────────────────────────────
+
+export type DownhillFatigueStatus = 'low' | 'moderate' | 'high' | 'unknown'
+
+export interface DownhillFatigueProfile {
+  status: DownhillFatigueStatus
+  confidence: ConfidenceLevel
+  /** Speed drop % at resume vs normal bucket speed */
+  steepDownLateRaceEfficiencyDrop: number | null
+  /** Scaffold — requires per-phase late-race stream data */
+  accumulatedDminusImpact: number | null
+}
+
 // ─── Bucket stats type ────────────────────────────────────────────────────────
 
 export interface BucketStats {
@@ -371,4 +384,7 @@ export interface RunnerProfileComputed {
   // ── Per-bucket recovery (optional) ─────────────────────────────────────────
   postClimbRecoveryByBucket?: PostClimbRecoveryByBucket
   postDownhillRecoveryByBucket?: PostDownhillRecoveryByBucket
+
+  // ── Downhill fatigue (optional) ─────────────────────────────────────────────
+  downhillFatigue?: DownhillFatigueProfile
 }

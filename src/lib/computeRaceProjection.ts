@@ -6,8 +6,7 @@
 import { hav, minettiGradePenalty, buildDetailedSections } from '../../gpx-core.js'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment } from '../../race-predictor.js'
-// Import types for by-bucket recovery (Mission 5)
-import type { PostClimbRecoveryByBucket } from './runnerProfile'
+import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -223,13 +222,19 @@ export function computeRaceProjection(
   }
   const avgCardioCostHigh = streamBuckets > 0 && highCostBuckets / streamBuckets > 0.5
 
-  // Track previous section's climb intensity for post-climb recovery correction.
-  // Correction applies to the section AFTER a significant climb, not the climb itself.
-  let prevClimbGrade = 0 // 0 = no climb, >0 = grade of last significant climb
-  let prevClimbBucket: string | null = null // 'mild_up'/'mod_up'/'steep_up' or null
+  // Track previous section for post-climb / post-downhill recovery corrections.
+  // Correction applies to the section AFTER the significant climb/descent.
+  let prevClimbGrade = 0
+  let prevClimbBucket: string | null = null     // 'mild_up' / 'mod_up' / 'steep_up'
+  let prevDownhillBucket: string | null = null  // 'mild_down' / 'mod_down' / 'steep_down'
 
-  // Look up by-bucket recovery (Mission 5)
   const postClimbByBucket = runnerProfile?.postClimbRecoveryByBucket as PostClimbRecoveryByBucket | undefined
+  const postDownhillByBucket = runnerProfile?.postDownhillRecoveryByBucket as PostDownhillRecoveryByBucket | undefined
+
+  // Flags for Race Strategy personalAdjustments explanations
+  let usedVamForSections = false
+  const weakClimbRecoveryApplied = new Set<string>()
+  const weakDownhillRecoveryApplied = new Set<string>()
 
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
@@ -250,7 +255,11 @@ export function computeRaceProjection(
 
       let penaltyFactor = 1.0
 
-      // Mission 1 — VAM-based time for steep uphill sections
+      // mild_up (2–6%): uses avgSpeedKmH — rolling terrain, stride dynamics similar to flat.
+      // VAM is less meaningful here; vertical gain is minor vs total effort.
+      // mod_up (6–12%) and steep_up (>12%): VAM is primary metric (vertical dominates).
+
+      // VAM-based time for moderate/steep uphill sections
       if ((bkey === 'mod_up' || bkey === 'steep_up') && bdata!.vamMH != null && bdata!.vamMH > 0 && s.dplus >= 15) {
         const vamTimeS = (s.dplus / bdata!.vamMH) * 3600
         const speedTimeS = bdata!.avgSpeedKmH ? s.dist / (bdata!.avgSpeedKmH / 3.6) : vamTimeS
@@ -273,14 +282,26 @@ export function computeRaceProjection(
           missionOnePenalty = Math.max(missionOnePenalty, 1.03)
         }
 
+        // Post-downhill recovery on this climb section (simple fixed penalty)
+        if (prevDownhillBucket && postDownhillByBucket) {
+          const recKey = `after_${prevDownhillBucket}` as keyof typeof postDownhillByBucket
+          const rec = postDownhillByBucket[recKey]
+          if (rec && rec.confidence !== 'none' && rec.sampleCount >= 2 && rec.status === 'weak') {
+            missionOnePenalty = Math.max(missionOnePenalty, 1.03)
+            weakDownhillRecoveryApplied.add(prevDownhillBucket)
+          }
+        }
+
         missionOnePenalty = Math.min(missionOnePenalty, 1.10)
         const t = baseTimeS * missionOnePenalty
         sectionTimes.push(t)
         estTimeS += t
+        usedVamForSections = true
 
-        // Record significant climb for next section's recovery check
+        // Record significant climb; reset downhill tracking
         prevClimbGrade = s.grade
         prevClimbBucket = bkey
+        prevDownhillBucket = null
         continue
       }
 
@@ -299,37 +320,60 @@ export function computeRaceProjection(
         penaltyFactor = Math.max(penaltyFactor, Math.min(1.08, driftFactor))
       }
 
-      // Mission 5 — Use real resume speed from postClimbRecoveryByBucket
+      // Post-climb recovery: real resume speed from by-bucket data
       if (prevClimbBucket && postClimbByBucket) {
         const recKey = `after_${prevClimbBucket}` as keyof typeof postClimbByBucket
         const rec = postClimbByBucket[recKey]
         if (rec && rec.confidence !== 'none' && rec.sampleCount >= 2 && rec.resumeSpeedKmH != null) {
           if (rec.status === 'weak') {
-            // Use real observed resume speed for first ~30% of section (up to 400m)
             const resumeMs = rec.resumeSpeedKmH / 3.6
             const normalMs = (bdata?.avgSpeedKmH ?? 8) / 3.6
             if (resumeMs > 0 && normalMs > 0) {
               const resumeDist = Math.min(s.dist * 0.3, 400)
               const normalDist = s.dist - resumeDist
-              // Override: compute time from real resume speed blend
               const blendedTimeS = resumeDist / resumeMs + normalDist / normalMs
-              const baseTimeS = s.dist / normalMs
-              // Express as a penalty factor vs base speed
-              const realPenalty = baseTimeS > 0 ? blendedTimeS / baseTimeS : 1.0
+              const baseTimeS2 = s.dist / normalMs
+              const realPenalty = baseTimeS2 > 0 ? blendedTimeS / baseTimeS2 : 1.0
               penaltyFactor = Math.max(penaltyFactor, Math.min(realPenalty, 1.10))
+              weakClimbRecoveryApplied.add(prevClimbBucket)
             }
           } else if (rec.status === 'good') {
-            // No recovery penalty — runner recovers well
             penaltyFactor = Math.min(penaltyFactor, 1.0)
           }
-          // 'moderate' or 'unknown': fall through to global postClimbStatus logic below
         }
       }
 
       // Fallback post-climb recovery: global signal (when no by-bucket data)
       if (postClimbStatus === 'weak' && prevClimbGrade > 0 && !prevClimbBucket) {
-        const recoveryPenalty = prevClimbGrade >= 12 ? 0.06 : 0.03 // steep +6%, mod_up +3%
+        const recoveryPenalty = prevClimbGrade >= 12 ? 0.06 : 0.03
         penaltyFactor = Math.min(penaltyFactor + recoveryPenalty, 1.10)
+      }
+
+      // Post-downhill recovery: real resume speed (only on non-descent sections)
+      if (prevDownhillBucket && postDownhillByBucket && s.type !== 'down') {
+        const recKey = `after_${prevDownhillBucket}` as keyof typeof postDownhillByBucket
+        const rec = postDownhillByBucket[recKey]
+        if (rec && rec.confidence !== 'none' && rec.sampleCount >= 2 && rec.resumeSpeedKmH != null) {
+          if (rec.status === 'weak') {
+            const resumeMs = rec.resumeSpeedKmH / 3.6
+            const normalMs = (bdata?.avgSpeedKmH ?? 8) / 3.6
+            if (resumeMs > 0 && normalMs > 0) {
+              const resumeDist = Math.min(s.dist * 0.3, 400)
+              const normalDist = s.dist - resumeDist
+              const blendedTimeS = resumeDist / resumeMs + normalDist / normalMs
+              const baseTimeS2 = s.dist / normalMs
+              const realPenalty = baseTimeS2 > 0 ? blendedTimeS / baseTimeS2 : 1.0
+              penaltyFactor = Math.max(penaltyFactor, Math.min(realPenalty, 1.08))
+              weakDownhillRecoveryApplied.add(prevDownhillBucket)
+            }
+          } else if (rec.status === 'good') {
+            // Good post-downhill recovery — no penalty
+          }
+          // moderate/unknown: no penalty applied
+        } else if (!rec || rec.sampleCount < 2) {
+          // Insufficient data: small fallback for steep descents only
+          if (prevDownhillBucket === 'steep_down') penaltyFactor = Math.max(penaltyFactor, 1.02)
+        }
       }
 
       // Cap total penalty at +10%
@@ -357,13 +401,21 @@ export function computeRaceProjection(
       estTimeS += t
     }
 
-    // Record significant climb for next section's recovery check
+    // Track significant climbs for next section's post-climb recovery
     if (s.type === 'up' && s.dplus >= 30 && s.grade >= 6) {
       prevClimbGrade = s.grade
       prevClimbBucket = bkey && (bkey === 'mild_up' || bkey === 'mod_up' || bkey === 'steep_up') ? bkey : null
+      prevDownhillBucket = null // leaving a climb resets descent tracking
     } else {
       prevClimbGrade = 0
       prevClimbBucket = null
+    }
+
+    // Track significant descents for next section's post-downhill recovery
+    if (s.type === 'down' && s.dminus >= 25 && Math.abs(s.grade) >= 6) {
+      prevDownhillBucket = bkey && (bkey === 'mild_down' || bkey === 'mod_down' || bkey === 'steep_down') ? bkey : null
+    } else if (s.type !== 'down') {
+      prevDownhillBucket = null
     }
   }
 
@@ -380,6 +432,35 @@ export function computeRaceProjection(
 
   // ── Personal adjustments from runner profile signals ───────────────────────
 
+  // Data-driven explanations: show only when signals actually affected the computation
+  if (usedVamForSections) {
+    personalAdjustments.push({
+      label: 'VAM historique utilisée',
+      detail: 'Temps sur montées raides basé sur ta VAM trail observée, pas sur la vitesse horizontale.',
+      color: 'var(--vl-growth)',
+    })
+  }
+
+  if (weakClimbRecoveryApplied.size > 0) {
+    const bucketNames: Record<string, string> = { mild_up: 'légère', mod_up: 'modérée', steep_up: 'raide' }
+    const names = [...weakClimbRecoveryApplied].map((b) => bucketNames[b] ?? b).join(', ')
+    personalAdjustments.push({
+      label: 'Relance post-montée prudente',
+      detail: `Vitesse de relance observée réduite après montée ${names} — appliqué aux premières centaines de mètres suivant chaque montée.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
+  if (weakDownhillRecoveryApplied.size > 0) {
+    const bucketNames: Record<string, string> = { mild_down: 'légère', mod_down: 'modérée', steep_down: 'raide' }
+    const names = [...weakDownhillRecoveryApplied].map((b) => bucketNames[b] ?? b).join(', ')
+    personalAdjustments.push({
+      label: 'Relance post-descente prudente',
+      detail: `Vitesse de relance réduite observée après descente ${names} — quadriceps contractés, reprise progressive.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
   if (avgCardioCostHigh) {
     personalAdjustments.push({
       label: 'Sections coûteuses',
@@ -392,15 +473,16 @@ export function computeRaceProjection(
       (hrDriftConf === 'high' || hrDriftConf === 'medium')) {
     personalAdjustments.push({
       label: 'Dérive cardiaque (estimée)',
-      detail: `+${hrDriftPct.toFixed(0)}% H1→H2 · biais possible terrain — deuxième moitié plus conservative.`,
+      detail: `+${hrDriftPct.toFixed(0)}% FC H1→H2 — biais possible terrain/chaleur — deuxième moitié plus conservative.`,
       color: 'var(--vl-amber)',
     })
   }
 
-  if (postClimbStatus === 'weak') {
+  // Only show generic post-climb fallback if by-bucket data didn't cover it
+  if (postClimbStatus === 'weak' && weakClimbRecoveryApplied.size === 0) {
     personalAdjustments.push({
       label: 'Récupération post-montée limitée',
-      detail: 'Relances après montées prudentes.',
+      detail: 'Relances après montées prudentes (donnée globale — affiner le profil avec plus de sorties).',
       color: 'var(--vl-amber)',
     })
   }

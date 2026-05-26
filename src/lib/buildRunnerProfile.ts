@@ -19,6 +19,7 @@ import {
   type RecoveryBucketStats,
   type PostClimbRecoveryByBucket,
   type PostDownhillRecoveryByBucket,
+  type DownhillFatigueProfile,
 } from './runnerProfile'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'virtualrun', 'hike', 'walk'])
@@ -124,10 +125,13 @@ export async function buildRunnerProfile(
         let climbEndIdx = -1
         let climbGradeSum = 0
         let climbGradeCount = 0
+        let climbDuration = 0   // accumulated seconds during climb phase
+        let climbDplusM = 0     // accumulated D+ during climb phase
 
         for (let j = 1; j < n; j++) {
+          const dt = time[j] - time[j - 1]
           const altDelta = altitude[j] - altitude[j - 1]
-          const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * (time[j] - time[j - 1])
+          const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * dt
           if (distDelta <= 0) continue
           const grade = (altDelta / distDelta) * 100
 
@@ -135,9 +139,17 @@ export async function buildRunnerProfile(
             climbPhase = true
             climbGradeSum += grade
             climbGradeCount++
+            climbDuration += dt
+            if (altDelta > 0) climbDplusM += altDelta
           } else if (climbPhase && grade < 4) {
             climbEndIdx = j
             climbPhase = false
+
+            // Minimum thresholds: skip micro-climbs (noise, short kicks)
+            if (climbDuration < 90 || climbDplusM < 20) {
+              climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0
+              continue
+            }
 
             // Classify the preceding climb
             const avgClimbGrade = climbGradeCount > 0 ? climbGradeSum / climbGradeCount : 8
@@ -149,14 +161,14 @@ export async function buildRunnerProfile(
             while (w30 < n - 1 && time[w30] - tStart < 30) w30++
             let w180 = climbEndIdx
             while (w180 < n - 1 && time[w180] - tStart < 180) w180++
-            if (w180 <= climbEndIdx) { climbGradeSum = 0; climbGradeCount = 0; continue }
+            if (w180 <= climbEndIdx) { climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0; continue }
 
             const hrAtTransition = heartrate[climbEndIdx]
             const hrAt180 = heartrate[w180]
-            if (hrAtTransition <= 0) { climbGradeSum = 0; climbGradeCount = 0; continue }
+            if (hrAtTransition <= 0) { climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0; continue }
 
             const dtWindow = time[w180] - tStart
-            if (dtWindow < 30) { climbGradeSum = 0; climbGradeCount = 0; continue }
+            if (dtWindow < 30) { climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0; continue }
 
             const hrDrop = hrAtTransition - hrAt180
             if (hrDrop > 0) {
@@ -167,7 +179,7 @@ export async function buildRunnerProfile(
                 speedsInWindow.push(velocity[w] * 3.6)
                 if (heartrate[w] > 40) hrInWindow.push(heartrate[w])
               }
-              if (speedsInWindow.length === 0) { climbGradeSum = 0; climbGradeCount = 0; continue }
+              if (speedsInWindow.length === 0) { climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0; continue }
               const resumeSpeedKmH = speedsInWindow.reduce((a, b) => a + b, 0) / speedsInWindow.length
               const avgHrPctFcMaxAfter = hrInWindow.length > 0
                 ? (hrInWindow.reduce((a, b) => a + b, 0) / hrInWindow.length / fcMax) * 100
@@ -178,11 +190,9 @@ export async function buildRunnerProfile(
                 ;(climbRecoveryAccum[climbBucket] ??= []).push(ev)
               }
             }
-            climbGradeSum = 0
-            climbGradeCount = 0
+            climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0
           } else if (!climbPhase) {
-            climbGradeSum = 0
-            climbGradeCount = 0
+            climbGradeSum = 0; climbGradeCount = 0; climbDuration = 0; climbDplusM = 0
           }
         }
       }
@@ -193,10 +203,13 @@ export async function buildRunnerProfile(
         let descentEndIdx = -1
         let descentGradeSum = 0
         let descentGradeCount = 0
+        let descentDuration = 0   // accumulated seconds during descent phase
+        let descentDminusM = 0    // accumulated D- during descent phase
 
         for (let j = 1; j < n; j++) {
+          const dt = time[j] - time[j - 1]
           const altDelta = altitude[j] - altitude[j - 1]
-          const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * (time[j] - time[j - 1])
+          const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * dt
           if (distDelta <= 0) continue
           const grade = (altDelta / distDelta) * 100
 
@@ -204,9 +217,17 @@ export async function buildRunnerProfile(
             descentPhase = true
             descentGradeSum += grade
             descentGradeCount++
+            descentDuration += dt
+            if (altDelta < 0) descentDminusM += Math.abs(altDelta)
           } else if (descentPhase && grade > -2) {
             descentEndIdx = j
             descentPhase = false
+
+            // Minimum thresholds: skip micro-descents (noise, brief steps)
+            if (descentDuration < 90 || descentDminusM < 20) {
+              descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0
+              continue
+            }
 
             // Classify the preceding descent
             const avgDescentGrade = descentGradeCount > 0 ? descentGradeSum / descentGradeCount : -6
@@ -218,14 +239,14 @@ export async function buildRunnerProfile(
             while (w30 < n - 1 && time[w30] - tStart < 30) w30++
             let w180 = descentEndIdx
             while (w180 < n - 1 && time[w180] - tStart < 180) w180++
-            if (w180 <= descentEndIdx) { descentGradeSum = 0; descentGradeCount = 0; continue }
+            if (w180 <= descentEndIdx) { descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0; continue }
 
             const hrAtTransition = heartrate[descentEndIdx]
             const hrAt180 = heartrate[w180]
-            if (hrAtTransition <= 0) { descentGradeSum = 0; descentGradeCount = 0; continue }
+            if (hrAtTransition <= 0) { descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0; continue }
 
             const dtWindow = time[w180] - tStart
-            if (dtWindow < 30) { descentGradeSum = 0; descentGradeCount = 0; continue }
+            if (dtWindow < 30) { descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0; continue }
 
             const hrDrop = hrAtTransition - hrAt180
             if (hrDrop > 0) {
@@ -236,7 +257,7 @@ export async function buildRunnerProfile(
                 speedsInWindow.push(velocity[w] * 3.6)
                 if (heartrate[w] > 40) hrInWindow.push(heartrate[w])
               }
-              if (speedsInWindow.length === 0) { descentGradeSum = 0; descentGradeCount = 0; continue }
+              if (speedsInWindow.length === 0) { descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0; continue }
               const resumeSpeedKmH = speedsInWindow.reduce((a, b) => a + b, 0) / speedsInWindow.length
               const avgHrPctFcMaxAfter = hrInWindow.length > 0
                 ? (hrInWindow.reduce((a, b) => a + b, 0) / hrInWindow.length / fcMax) * 100
@@ -246,11 +267,9 @@ export async function buildRunnerProfile(
                 ;(descentRecoveryAccum[descentBucket] ??= []).push(ev)
               }
             }
-            descentGradeSum = 0
-            descentGradeCount = 0
+            descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0
           } else if (!descentPhase) {
-            descentGradeSum = 0
-            descentGradeCount = 0
+            descentGradeSum = 0; descentGradeCount = 0; descentDuration = 0; descentDminusM = 0
           }
         }
       }
@@ -391,6 +410,42 @@ export async function buildRunnerProfile(
     }
   }
 
+  // ── Downhill fatigue signal ───────────────────────────────────────────────
+  const downhillFatigue: DownhillFatigueProfile = (() => {
+    const steepDown = buckets['steep_down']
+    const modDown = buckets['mod_down']
+    const recSteep = postDownhillRecoveryByBucket['after_steep_down']
+    const recMod = postDownhillRecoveryByBucket['after_mod_down']
+
+    const hasDescentData =
+      (steepDown && steepDown.confidence !== 'none') ||
+      (modDown && modDown.confidence !== 'none')
+    if (!hasDescentData) {
+      return { status: 'unknown', confidence: 'none', steepDownLateRaceEfficiencyDrop: null, accumulatedDminusImpact: null }
+    }
+
+    const totalDescentEvents =
+      (descentRecoveryAccum['steep_down']?.length ?? 0) +
+      (descentRecoveryAccum['mod_down']?.length ?? 0)
+    const confidence = computeConfidenceFromCount(totalDescentEvents, { high: 5, medium: 2 })
+
+    const descentSpeedWeak = (steepDown?.status === 'weak') || (modDown?.status === 'weak')
+    const recoveryWeak = (recSteep?.status === 'weak') || (recMod?.status === 'weak')
+
+    const speedDropPct = recSteep?.speedDropVsNormalPct ?? recMod?.speedDropVsNormalPct ?? null
+
+    let status: DownhillFatigueProfile['status']
+    if (descentSpeedWeak && recoveryWeak) {
+      status = 'high'
+    } else if (descentSpeedWeak || recoveryWeak) {
+      status = 'moderate'
+    } else {
+      status = 'low'
+    }
+
+    return { status, confidence, steepDownLateRaceEfficiencyDrop: speedDropPct, accumulatedDminusImpact: null }
+  })()
+
   onProgress?.(100, 'Terminé')
 
   const analyzedMonths = Array.from(analyzedMonthSet).sort()
@@ -413,6 +468,7 @@ export async function buildRunnerProfile(
     hrDriftStatus,
     postClimbRecoveryByBucket,
     postDownhillRecoveryByBucket,
+    downhillFatigue,
   }
 }
 
