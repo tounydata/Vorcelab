@@ -116,7 +116,7 @@ export default function RenfoSessionPage() {
   const timerRef = useRef<number | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
-  function playBeep(freq = 880, dur = 0.12, gain = 0.4) {
+  function playBeep(freq = 880, dur = 0.13, gain = 0.5) {
     try {
       if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
         audioCtxRef.current = new AudioContext()
@@ -128,7 +128,9 @@ export default function RenfoSessionPage() {
       osc.connect(g)
       g.connect(ctx.destination)
       osc.frequency.value = freq
+      // Attaque instantanée + déclin rapide → son sport/digital
       g.gain.setValueAtTime(gain, ctx.currentTime)
+      g.gain.setValueAtTime(gain, ctx.currentTime + 0.01)
       g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
       osc.start(ctx.currentTime)
       osc.stop(ctx.currentTime + dur)
@@ -149,26 +151,29 @@ export default function RenfoSessionPage() {
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
-  // Beeps compte à rebours : 3s et 2s courts, 1s plus long et aigu
+  // Bips standard sport : 3 ticks courts identiques 880Hz + long bip GO
   useEffect(() => {
     if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
-      if (secondsLeft === 1) {
-        playBeep(1318, 0.40, 0.55)   // E6 — aigu, assez long → avant-dernier signal
-      } else {
-        playBeep(880, 0.18, 0.35)    // A5 — légèrement long → compte à rebours 3, 2
-      }
+      playBeep(880, 0.15, 0.50)   // tick court identique à chaque fois
     }
   }, [secondsLeft]) // eslint-disable-line
 
-  // Bip GO au 0 — encore plus long, plus aigu
+  // GO : même fréquence 880Hz mais beaucoup plus long
   const prevIsRestingRef = useRef(false)
   useEffect(() => {
     const isResting = stageState.stage === 'rest'
     if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
-      playBeep(1760, 0.65, 0.6)    // A6 — très aigu, long → signal départ
+      playBeep(1200, 0.55, 0.60)  // BEEEP long 1200Hz → signal départ
     }
     prevIsRestingRef.current = isResting
   }, [stageState.stage]) // eslint-disable-line
+
+  // Scroll au timer dès que la récup commence — évite de devoir scroller
+  useEffect(() => {
+    if (stageState.stage === 'rest') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }, [stageState.stage])
 
   useEffect(() => {
     if (stageState.stage !== 'rest') {
@@ -258,13 +263,16 @@ export default function RenfoSessionPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const completedMap = Object.fromEntries(session.exercises.map((e: any) => [e.exercise_id, true]))
+      const DAY_KEYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+      const dayKey = DAY_KEYS[new Date(sessionDate + 'T12:00:00').getDay()]
       const { error: sErr } = await supabase.from('renfo_session_log').upsert({
         user_id: user!.id,
         session_date: sessionDate,
+        day_key: dayKey,
         focus: focusKey!,
         duration_min: session.duration_min,
         completed_exercises: completedMap,
-      }, { onConflict: 'user_id,session_date,focus' })
+      }, { onConflict: 'user_id,session_date' })
       if (sErr) throw sErr
     },
     onSuccess: () => {
@@ -545,7 +553,7 @@ export default function RenfoSessionPage() {
       </button>
       {saveMutation.isError && (
         <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 8 }}>
-          Erreur : {String(saveMutation.error)}
+          Erreur : {(saveMutation.error as Error)?.message ?? String(saveMutation.error)}
         </div>
       )}
     </>
