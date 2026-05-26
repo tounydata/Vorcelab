@@ -209,7 +209,7 @@ export default function RenfoSessionPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const completedMap = Object.fromEntries(session.exercises.map((e: any) => [e.exercise_id, true]))
-      const { error: sErr } = await supabase.from('renfo_focus_log').upsert({
+      const { error: sErr } = await supabase.from('renfo_session_log').upsert({
         user_id: user!.id,
         session_date: sessionDate,
         focus: focusKey!,
