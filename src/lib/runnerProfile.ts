@@ -280,9 +280,9 @@ export function cardioCostColor(cost: CardioCost): string {
 
 export function cardioCostLabel(cost: CardioCost): string {
   switch (cost) {
-    case 'low':    return 'Faible'
-    case 'medium': return 'Moyen'
-    case 'high':   return 'Élevé'
+    case 'low':    return 'FC faible'
+    case 'medium': return 'FC modérée'
+    case 'high':   return 'FC élevée'
     default:       return '—'
   }
 }
@@ -335,6 +335,12 @@ export interface BucketStats {
   avgHrPctFcMax: number | null
   /** Number of stream seconds analyzed */
   totalSeconds: number
+  /** Cumulative horizontal distance in this bucket (m) */
+  totalDistanceM: number
+  /** Cumulative altitude gain in this bucket (m D+) — climbs only */
+  altGainM: number
+  /** Number of GPS samples accumulated */
+  sampleCount: number
   /** Number of runs contributing */
   runCount: number
   /** Confidence level based on total time / run count */

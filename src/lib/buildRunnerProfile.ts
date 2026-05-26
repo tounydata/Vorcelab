@@ -35,11 +35,13 @@ interface BucketAccum {
   weightedHrSum: number
   hrWeightedSeconds: number
   altGainM: number
+  totalDistanceM: number
+  sampleCount: number
   runIds: Set<string>
 }
 
 function newAccum(): BucketAccum {
-  return { totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0, altGainM: 0, runIds: new Set() }
+  return { totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0, altGainM: 0, totalDistanceM: 0, sampleCount: 0, runIds: new Set() }
 }
 
 export async function buildRunnerProfile(
@@ -90,17 +92,45 @@ export async function buildRunnerProfile(
       analyzedMonthSet.add(act.start_date.slice(0, 7))
     }
 
-    // ── Per-sample bucket classification ─────────────────────────────────────
+    // ── Per-sample bucket classification with 60 m sliding-window grade ──────
+    // Rationale: point-by-point grade from GPS 1 Hz is extremely noisy.
+    // At 10 km/h, distDelta ≈ 2.8 m; a 1 m barometric error gives 36 % grade.
+    // Smoothing over 60 m eliminates this noise while preserving real terrain.
+
+    // Build cumulative distance array (use distArr stream if available)
+    const cumDistStream: number[] = new Array(n).fill(0)
+    if (distArr) {
+      for (let j = 0; j < n; j++) cumDistStream[j] = distArr[j]
+    } else {
+      for (let j = 1; j < n; j++) {
+        const dt2 = time[j] - time[j - 1]
+        cumDistStream[j] = cumDistStream[j - 1] + Math.max(0, velocity[j] * dt2)
+      }
+    }
+
+    // Compute smoothed grade[j] = grade over next 60 m from sample j
+    const GRADE_WINDOW_M = 60
+    const smoothGrade: number[] = new Array(n).fill(NaN)
+    for (let j = 0; j < n - 1; j++) {
+      let k = j + 1
+      while (k < n - 1 && cumDistStream[k] - cumDistStream[j] < GRADE_WINDOW_M) k++
+      const dDist = cumDistStream[k] - cumDistStream[j]
+      if (dDist >= 10) smoothGrade[j] = ((altitude[k] - altitude[j]) / dDist) * 100
+    }
+
     for (let j = 1; j < n; j++) {
       const dt = time[j] - time[j - 1]
       if (dt <= 0 || dt > 60) continue
+      if (isNaN(smoothGrade[j - 1])) continue  // no valid window grade
 
       const altDelta = altitude[j] - altitude[j - 1]
       const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * dt
-      if (distDelta <= 0.5) continue
+      if (distDelta < 1.0) continue  // minimum 1 m
 
-      const gradePercent = (altDelta / distDelta) * 100
-      const bkey = getGradeBucket(gradePercent)
+      // Skip physically impossible altitude jumps (barometric/GPS spike > 5 m/s vertical)
+      if (Math.abs(altDelta) > dt * 5) continue
+
+      const bkey = getGradeBucket(smoothGrade[j - 1])
       if (!bkey) continue
 
       const speedKmH = (velocity[j] ?? 0) * 3.6
@@ -109,6 +139,8 @@ export async function buildRunnerProfile(
       const acc = (bucketAccum[bkey] ??= newAccum())
       acc.totalSeconds += dt
       acc.weightedSpeedSum += speedKmH * dt
+      acc.totalDistanceM += distDelta
+      acc.sampleCount++
       if (hrPct != null) {
         acc.weightedHrSum += hrPct * dt
         acc.hrWeightedSeconds += dt
@@ -326,11 +358,30 @@ export async function buildRunnerProfile(
       statusResult = computeFlatStatus(avgSpeedKmH, cardioCost, minutesAnalyzed)
     }
 
+    const avgGradePct = acc.totalDistanceM > 0 ? (acc.altGainM / acc.totalDistanceM) * 100 : null
+
+    // Debug: verify bucket values in browser console
+    console.log(`[VL Profile] bucket=${key}`, {
+      totalSeconds: Math.round(acc.totalSeconds),
+      totalDistanceM: Math.round(acc.totalDistanceM),
+      altGainM: Math.round(acc.altGainM),
+      avgGradePct: avgGradePct?.toFixed(1),
+      avgSpeedKmH: avgSpeedKmH?.toFixed(1),
+      vamMH: vamMH?.toFixed(0),
+      avgHrPctFcMax: avgHrPctFcMax?.toFixed(0),
+      runCount,
+      sampleCount: acc.sampleCount,
+      confidence,
+    })
+
     buckets[key] = {
       avgSpeedKmH,
       vamMH,
       avgHrPctFcMax,
       totalSeconds: acc.totalSeconds,
+      totalDistanceM: acc.totalDistanceM,
+      altGainM: acc.altGainM,
+      sampleCount: acc.sampleCount,
       runCount,
       confidence,
       status: statusResult.status,

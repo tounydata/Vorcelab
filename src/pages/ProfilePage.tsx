@@ -150,7 +150,27 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
         Confiance : {confidenceLabel(stats.confidence as 'high' | 'medium' | 'low' | 'none')}
         {' · '}
         {Math.round(stats.totalSeconds / 60)} min · {stats.runCount} sortie(s)
+        {stats.sampleCount != null && ` · ${stats.sampleCount.toLocaleString('fr-FR')} pts GPS`}
       </div>
+
+      {/* Debug row: altGainM, avgGrade, totalDist — visible pour vérification */}
+      {isUp && stats.altGainM != null && stats.altGainM > 0 && (
+        <div style={{ marginTop: 2, fontSize: 9, color: 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)' }}>
+          D+ cumulé&nbsp;{Math.round(stats.altGainM)}m
+          {stats.totalDistanceM > 0 && (
+            <>
+              {' · '}{(stats.totalDistanceM / 1000).toFixed(1)}km
+              {' · '}pente moy {((stats.altGainM / stats.totalDistanceM) * 100).toFixed(1)}%
+            </>
+          )}
+        </div>
+      )}
+
+      {stats.status === 'strength' && (
+        <div style={{ fontSize: 9, color: 'var(--vl-text-3)', fontStyle: 'italic', marginTop: 2 }}>
+          Seuil Vorcelab (référence trail)
+        </div>
+      )}
     </div>
   )
 }
@@ -702,6 +722,17 @@ export default function ProfilePage() {
 
               {rp && (
                 <>
+                  {/* Stale profile warning: old data computed without streams */}
+                  {rp.streamCoverage < 0.01 && rp.analyzedRuns != null && rp.analyzedRuns > 0 && (
+                    <div style={{
+                      marginBottom: '0.75rem', padding: '8px 12px', borderRadius: 6,
+                      background: 'rgba(229,86,42,0.12)', border: '1px solid var(--vl-ember)',
+                      fontSize: 11, color: 'var(--vl-ember)', lineHeight: 1.5,
+                    }}>
+                      ⚠ Profil calculé sans données streams (ancienne version). Cliquez sur ↺ Recalculer pour obtenir les vraies métriques.
+                    </div>
+                  )}
+
                   {/* Header row: computed date + discreet recalc button */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                     <div className="mlabel" style={{ fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
