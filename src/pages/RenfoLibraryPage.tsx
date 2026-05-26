@@ -14,7 +14,7 @@ const RENFO_FOCUS_COLORS = _RENFO_FOCUS_COLORS as Record<string, string>
 
 const GROUP_ORDER = [
   'force_lourde', 'pliometrie', 'excentrique', 'tronc',
-  'haut_corps', 'mobilite', 'yoga_coureur', 'pilates_coureur', 'stretching',
+  'haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching',
 ]
 
 export default function RenfoLibraryPage() {

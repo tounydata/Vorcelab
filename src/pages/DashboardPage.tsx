@@ -40,7 +40,7 @@ function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
 
-const SUGGESTED_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'mobilite', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+const SUGGESTED_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
 
 export default function DashboardPage() {
   const { user } = useVLStore()
@@ -63,7 +63,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
-        .from('renfo_session_log')
+        .from('renfo_focus_log')
         .select('focus,duration_min,session_date')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)

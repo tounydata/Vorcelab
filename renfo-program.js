@@ -115,7 +115,8 @@ export function buildSession(focus, profile) {
       reps: variant.default_reps,
       target_rpe: variant.target_rpe,
       rest_seconds: variant.rest_seconds,
-      load_type: variant.load_type
+      load_type: variant.load_type,
+      unit: variant.unit ?? null,
     };
   }).filter(Boolean);
 

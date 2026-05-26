@@ -167,35 +167,138 @@ export function computeRaceProjection(
 
   const basePaceS = computeBasePaceS()
 
-  // ── 7. Section times (Minetti grade penalty, no terrain for Phase 1) ───────
+  // ── 7. Runner profile bucket lookup ──────────────────────────────────────────
+  const runnerProfile = profile.runner_profile as Record<string, unknown> | undefined
+  const rBuckets = runnerProfile?.buckets as Record<string, {
+    avgSpeedKmH: number | null
+    vamMH: number | null
+    confidence: string
+    cardioCost: string
+    status: string
+  }> | undefined
+
+  // Helper: map section grade to bucket key
+  function sectionBucketKey(grade: number, type: string): string | null {
+    if (type === 'up') {
+      if (grade >= 12) return 'steep_up'
+      if (grade >= 6)  return 'mod_up'
+      if (grade >= 2)  return 'mild_up'
+    } else if (type === 'down') {
+      const g = Math.abs(grade)
+      if (g >= 12) return 'steep_down'
+      if (g >= 6)  return 'mod_down'
+      if (g >= 2)  return 'mild_down'
+    }
+    return 'flat'
+  }
+
+  // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
   let estTimeS = 0
   const _vam = (profile.vam_avg as number | undefined) ?? 0
   const _cu = (profile.coeff_uphill as number | undefined) ?? 0
   const _cd = (profile.coeff_downhill as number | undefined) ?? 0
   const _cf = (profile.coeff_flat as number | undefined) ?? 0
+  const personalAdjustments: { label: string; detail: string; color: string }[] = []
 
-  for (const s of sections) {
-    const g = s.grade / 100
-    let pente: number
-    if (s.type === 'up' && _vam > 0 && g > 0.01) {
-      pente = Math.max(0, (3_600_000 * g / _vam) / basePaceS - 1)
-    } else if (s.type === 'up' && _cu > 0) {
-      pente = minettiGradePenalty(g) * _cu
-    } else if (s.type === 'down' && _cd > 0) {
-      pente = minettiGradePenalty(g) * _cd
-    } else if (s.type === 'flat' && _cf > 0) {
-      pente = minettiGradePenalty(g) * _cf
-    } else {
-      pente = minettiGradePenalty(g)
+  // Pre-compute some profile-level signals
+  const hrDriftStatus = (runnerProfile?.hrDriftStatus as string | undefined) ?? 'unknown'
+  const hrDriftPct    = (runnerProfile?.hrDriftPct as number | undefined) ?? 0
+  const hrDriftConf   = (runnerProfile?.hrDriftConfidence as string | undefined) ?? 'none'
+  const postClimbStatus = (runnerProfile?.postClimbRecoveryStatus as string | undefined) ?? 'unknown'
+  const streamCoverage  = (runnerProfile?.streamCoverage as number | undefined) ?? 0
+
+  // Count high-cardioCost buckets
+  let highCostBuckets = 0
+  let streamBuckets = 0
+  if (rBuckets) {
+    for (const b of Object.values(rBuckets)) {
+      if (b.confidence !== 'none') {
+        streamBuckets++
+        if (b.cardioCost === 'high') highCostBuckets++
+      }
     }
-    const t = basePaceS * (1 + pente) * s.dist / 1000
-    sectionTimes.push(t)
-    estTimeS += t
+  }
+  const avgCardioCostHigh = streamBuckets > 0 && highCostBuckets / streamBuckets > 0.5
+
+  // Track previous section's climb intensity for post-climb recovery correction.
+  // Correction applies to the section AFTER a significant climb, not the climb itself.
+  let prevClimbGrade = 0 // 0 = no climb, >0 = grade of last significant climb
+
+  for (let si = 0; si < sections.length; si++) {
+    const s = sections[si]
+    const g = s.grade / 100
+    const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
+
+    const bkey = sectionBucketKey(s.grade, s.type)
+    const bdata = bkey && rBuckets ? rBuckets[bkey] : null
+    const bConf = bdata?.confidence ?? 'none'
+    const hasGoodBucket = (bConf === 'high' || bConf === 'medium') && bdata != null
+
+    let pente: number
+
+    if (hasGoodBucket && bdata!.avgSpeedKmH != null && bdata!.avgSpeedKmH > 0) {
+      // Use learned speed directly: pace from bucket speed
+      const bucketSpeedMs = bdata!.avgSpeedKmH / 3.6
+      const bucketPaceS = 1000 / bucketSpeedMs
+
+      // Apply cardioCost penalty on long sections in second half
+      let penaltyFactor = 1.0
+      if (bdata!.cardioCost === 'high') {
+        const isSecondHalf = progressRatio >= 0.5
+        const isLongSection = s.dist > 3000
+        if (isSecondHalf || isLongSection) {
+          penaltyFactor = 1.045 // ~4.5% penalty, within +3..+6% spec
+        }
+      }
+
+      // hrDrift penalty: graduated, second half only, confirmed drift only
+      if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
+          (hrDriftConf === 'high' || hrDriftConf === 'medium') &&
+          progressRatio >= 0.5) {
+        // +3% at 50% → +8% at last 20%
+        const driftFactor = 1 + 0.03 + (progressRatio - 0.5) / 0.3 * 0.05
+        penaltyFactor = Math.max(penaltyFactor, Math.min(1.08, driftFactor))
+      }
+
+      // Post-climb recovery: apply on the section FOLLOWING a significant climb.
+      // Recovery difficulty scales with climb steepness — can be weak after a steep
+      // climb but fine after a mild one.
+      if (postClimbStatus === 'weak' && prevClimbGrade > 0) {
+        const recoveryPenalty = prevClimbGrade >= 12 ? 0.06 : 0.03 // steep +6%, mod_up +3%
+        penaltyFactor = Math.min(penaltyFactor + recoveryPenalty, 1.10)
+      }
+
+      // Cap total penalty at +10%
+      penaltyFactor = Math.min(penaltyFactor, 1.10)
+
+      const adjPaceS = bucketPaceS * penaltyFactor
+      const t = adjPaceS * s.dist / 1000
+      sectionTimes.push(t)
+      estTimeS += t
+    } else {
+      // Fallback: Minetti + legacy coefficients
+      if (s.type === 'up' && _vam > 0 && g > 0.01) {
+        pente = Math.max(0, (3_600_000 * g / _vam) / basePaceS - 1)
+      } else if (s.type === 'up' && _cu > 0) {
+        pente = minettiGradePenalty(g) * _cu
+      } else if (s.type === 'down' && _cd > 0) {
+        pente = minettiGradePenalty(g) * _cd
+      } else if (s.type === 'flat' && _cf > 0) {
+        pente = minettiGradePenalty(g) * _cf
+      } else {
+        pente = minettiGradePenalty(g)
+      }
+      const t = basePaceS * (1 + pente) * s.dist / 1000
+      sectionTimes.push(t)
+      estTimeS += t
+    }
+
+    // Record significant climb for next section's recovery check
+    prevClimbGrade = (s.type === 'up' && s.dplus >= 30 && s.grade >= 6) ? s.grade : 0
   }
 
-  // ── 8. Freshness adjustment ────────────────────────────────────────────────
-  const personalAdjustments: { label: string; detail: string; color: string }[] = []
+  // ── 9. Freshness adjustment ────────────────────────────────────────────────
   const freshness = computeFreshnessAdjustment(activities, FC_MAX)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
@@ -206,12 +309,39 @@ export function computeRaceProjection(
     })
   }
 
+  // ── Personal adjustments from runner profile signals ───────────────────────
+
+  if (avgCardioCostHigh) {
+    personalAdjustments.push({
+      label: 'Sections coûteuses',
+      detail: `FC élevée détectée sur ${highCostBuckets} gradient(s) — pacing prudent recommandé.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
+  if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
+      (hrDriftConf === 'high' || hrDriftConf === 'medium')) {
+    personalAdjustments.push({
+      label: 'Dérive cardiaque (estimée)',
+      detail: `+${hrDriftPct.toFixed(0)}% H1→H2 · biais possible terrain — deuxième moitié plus conservative.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
+  if (postClimbStatus === 'weak') {
+    personalAdjustments.push({
+      label: 'Récupération post-montée limitée',
+      detail: 'Relances après montées prudentes.',
+      color: 'var(--vl-amber)',
+    })
+  }
+
   // Scale section times to match final estTimeS
   const rawSum = sectionTimes.reduce((s, t) => s + t, 0)
   const sf = rawSum > 0 ? estTimeS / rawSum : 1
   const scaledTimes = sectionTimes.map((t) => Math.round(t * sf))
 
-  // ── 9. Confidence ─────────────────────────────────────────────────────────
+  // ── 10. Confidence ─────────────────────────────────────────────────────────
   const isRunType = (t: string) => ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t)
   const cutoff90 = Date.now() - 90 * 24 * 3600_000
   const recentRuns = activities.filter((a: Record<string, unknown>) =>
@@ -232,10 +362,24 @@ export function computeRaceProjection(
   confScore = Math.max(0, confScore)
   const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 4 ? 'medium' : 'low'
 
-  // ── 10. Range ─────────────────────────────────────────────────────────────
+  // ── 11. Range — tighter when good stream coverage + controlled cardio ──────
   const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
-  const timeMin = estTimeS * rf.min
-  const timeMax = estTimeS * rf.max
+
+  // rangeScale based on stream quality and cardio cost
+  let rangeScale = 1.0
+  if (streamCoverage >= 0.6) {
+    if (!avgCardioCostHigh && hrDriftStatus !== 'marked') {
+      rangeScale = 0.80 // tight: good data, controlled effort
+    } else {
+      rangeScale = 0.95 // slight tightening, uncertain sustainability
+    }
+  }
+
+  const baseMin = estTimeS * rf.min
+  const baseMax = estTimeS * rf.max
+  const midpoint = (baseMin + baseMax) / 2
+  const timeMin = midpoint - (midpoint - baseMin) * rangeScale
+  const timeMax = midpoint + (baseMax - midpoint) * rangeScale
 
   // ── 11. Goal comparison ───────────────────────────────────────────────────
   let goalLabel: string | undefined

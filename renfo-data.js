@@ -1748,17 +1748,20 @@ export const FOCUS_META = {
   yoga_coureur: {
     label: 'Yoga coureur', duration_min: 25, duration_short: 20, location: 'maison',
     timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
-    timing_notes: ['✅ Après une sortie facile ou longue', '✅ Le soir d\'un jour de qualité', '⚠️ PNF → attendre 20min post-effort intense']
+    timing_notes: ['✅ Après une sortie facile ou longue', '✅ Le soir d\'un jour de qualité', '⚠️ PNF → attendre 20min post-effort intense'],
+    warmup_text: 'Respiration abdominale 2 min → 5 rotations cervicales lentes → 5 cercles d\'épaules → relâchement progressif avant de démarrer.',
   },
   stretching: {
     label: 'Stretching post-run', duration_min: 15, duration_short: 12, location: 'maison',
     timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
-    timing_notes: ['✅ Dans les 30min après la course', '✅ Le soir après n\'importe quelle sortie', '❌ Jamais avant une séance (réduit la raideur tendineuse)']
+    timing_notes: ['✅ Dans les 30min après la course', '✅ Le soir après n\'importe quelle sortie', '❌ Jamais avant une séance (réduit la raideur tendineuse)'],
+    warmup_text: 'À pratiquer muscles encore chauds, après l\'effort. Pas d\'échauffement spécifique nécessaire — entrez directement dans les postures.',
   },
   pilates_coureur: {
     label: 'Pilates coureur', duration_min: 20, duration_short: 15, location: 'maison',
     timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
-    timing_notes: ['✅ Récupération active après sortie facile', '✅ Le soir d\'un jour de qualité', '✅ Complément idéal yoga ou stretching']
+    timing_notes: ['✅ Récupération active après sortie facile', '✅ Le soir d\'un jour de qualité', '✅ Complément idéal yoga ou stretching'],
+    warmup_text: 'Activation posturale 2 min : pelvic tilts ×10 → genoux contre poitrine alternés ×5 → respirations latérales conscientes.',
   },
 };
 
