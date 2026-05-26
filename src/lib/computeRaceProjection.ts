@@ -6,6 +6,7 @@
 import { hav, minettiGradePenalty, buildDetailedSections } from '../../gpx-core.js'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment } from '../../race-predictor.js'
+import { getGradeBucket } from './runnerProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -167,15 +168,48 @@ export function computeRaceProjection(
 
   const basePaceS = computeBasePaceS()
 
-  // ── 7. Section times (Minetti grade penalty, no terrain for Phase 1) ───────
+  // ── 7. Section times ──────────────────────────────────────────────────────
+  // Priority: per-bucket stream data from runner profile (precise, personalized)
+  // Fallback: legacy Minetti grade penalty with profile coefficients
+  interface RunnerBucket {
+    avgSpeedKmH: number | null
+    vamMH: number | null
+    confidence: 'high' | 'medium' | 'low' | 'none'
+  }
+  const runnerBuckets = (
+    profile.runner_profile as { buckets?: Record<string, RunnerBucket> } | null | undefined
+  )?.buckets ?? null
+
+  // Returns stream-based time (s) for a section, or null if data insufficient.
+  // Uses avgSpeedKmH when confidence is high/medium — it's the actual measured
+  // movement speed in that gradient zone across the last 8 weeks of trail runs.
+  function streamTime(s: Section): number | null {
+    if (!runnerBuckets) return null
+    const b = runnerBuckets[getGradeBucket(s.grade)]
+    if (!b || b.confidence === 'none' || b.confidence === 'low') return null
+    if (b.avgSpeedKmH && b.avgSpeedKmH > 0) {
+      return (s.dist / 1000) / b.avgSpeedKmH * 3600
+    }
+    return null
+  }
+
   const sectionTimes: number[] = []
   let estTimeS = 0
+  let streamSectionCount = 0
   const _vam = (profile.vam_avg as number | undefined) ?? 0
   const _cu = (profile.coeff_uphill as number | undefined) ?? 0
   const _cd = (profile.coeff_downhill as number | undefined) ?? 0
   const _cf = (profile.coeff_flat as number | undefined) ?? 0
 
   for (const s of sections) {
+    const tStream = streamTime(s)
+    if (tStream !== null) {
+      sectionTimes.push(tStream)
+      estTimeS += tStream
+      streamSectionCount++
+      continue
+    }
+    // Legacy fallback
     const g = s.grade / 100
     let pente: number
     if (s.type === 'up' && _vam > 0 && g > 0.01) {
@@ -189,13 +223,21 @@ export function computeRaceProjection(
     } else {
       pente = minettiGradePenalty(g)
     }
-    const t = basePaceS * (1 + pente) * s.dist / 1000
-    sectionTimes.push(t)
-    estTimeS += t
+    sectionTimes.push(basePaceS * (1 + pente) * s.dist / 1000)
+    estTimeS += sectionTimes[sectionTimes.length - 1]
   }
 
-  // ── 8. Freshness adjustment ────────────────────────────────────────────────
+  // ── 8. Freshness adjustment + stream profile note ─────────────────────────
   const personalAdjustments: { label: string; detail: string; color: string }[] = []
+
+  if (streamSectionCount > 0) {
+    const pct = Math.round(streamSectionCount / sections.length * 100)
+    personalAdjustments.push({
+      label: 'Profil VAM streams',
+      detail: `${pct}% des sections calculées depuis tes streams Strava (8 semaines)`,
+      color: 'var(--vl-growth)',
+    })
+  }
   const freshness = computeFreshnessAdjustment(activities, FC_MAX)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
@@ -229,11 +271,19 @@ export function computeRaceProjection(
   if (recentCount >= 3) confScore += 1
   if (hasHR) confScore += 1
   if (totalDistM > 5000 && sections.length >= 5) confScore += 1
+  // Stream profile boosts confidence: per-bucket VAM is more precise than heuristics
+  if (streamSectionCount > 0) confScore += streamSectionCount >= sections.length * 0.6 ? 2 : 1
   confScore = Math.max(0, confScore)
   const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 4 ? 'medium' : 'low'
 
-  // ── 10. Range ─────────────────────────────────────────────────────────────
-  const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
+  // ── 10. Range — tightened when stream profile covers most sections ────────
+  const streamCoverage = sections.length > 0 ? streamSectionCount / sections.length : 0
+  const rangeScale = streamCoverage >= 0.6 ? 0.85 : 1  // 15% tighter when ≥60% stream-sourced
+  const baseRange = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
+  const rf = {
+    min: 1 - (1 - baseRange.min) * rangeScale,
+    max: 1 + (baseRange.max - 1) * rangeScale,
+  }
   const timeMin = estTimeS * rf.min
   const timeMax = estTimeS * rf.max
 
