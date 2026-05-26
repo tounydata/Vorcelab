@@ -510,8 +510,11 @@ export function computeRaceProjection(
   if (recentCount >= 3) confScore += 1
   if (hasHR) confScore += 1
   if (totalDistM > 5000 && sections.length >= 5) confScore += 1
+  // stream coverage: GPS data quality boosts confidence
+  if (streamCoverage >= 0.6) confScore += 2
+  else if (streamCoverage >= 0.3) confScore += 1
   confScore = Math.max(0, confScore)
-  const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 4 ? 'medium' : 'low'
+  const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 3 ? 'medium' : 'low'
 
   // ── 11. Range — tighter when good stream coverage + controlled cardio ──────
   const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
