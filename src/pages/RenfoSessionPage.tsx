@@ -116,7 +116,7 @@ export default function RenfoSessionPage() {
   const timerRef = useRef<number | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
-  function playBeep(freq = 880, dur = 0.12, gain = 0.4) {
+  function playBeep(freq = 880, dur = 0.13, gain = 0.5) {
     try {
       if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
         audioCtxRef.current = new AudioContext()
@@ -128,7 +128,9 @@ export default function RenfoSessionPage() {
       osc.connect(g)
       g.connect(ctx.destination)
       osc.frequency.value = freq
+      // Attaque instantanée + déclin rapide → son sport/digital
       g.gain.setValueAtTime(gain, ctx.currentTime)
+      g.gain.setValueAtTime(gain, ctx.currentTime + 0.01)
       g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
       osc.start(ctx.currentTime)
       osc.stop(ctx.currentTime + dur)
@@ -149,26 +151,31 @@ export default function RenfoSessionPage() {
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
-  // Beeps compte à rebours : 3s et 2s courts, 1s plus long et aigu
+  // Compte à rebours sport : montée de tonalité A5→C6→E6 (3→2→1) + double bip GO
   useEffect(() => {
-    if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
-      if (secondsLeft === 1) {
-        playBeep(1318, 0.40, 0.55)   // E6 — aigu, assez long → avant-dernier signal
-      } else {
-        playBeep(880, 0.18, 0.35)    // A5 — légèrement long → compte à rebours 3, 2
-      }
-    }
+    if (secondsLeft === null || secondsLeft > 3 || secondsLeft <= 0) return
+    if (secondsLeft === 3) playBeep(880,  0.13, 0.50)   // A5
+    if (secondsLeft === 2) playBeep(1047, 0.13, 0.52)   // C6 — ton plus haut
+    if (secondsLeft === 1) playBeep(1318, 0.16, 0.55)   // E6 — encore plus haut
   }, [secondsLeft]) // eslint-disable-line
 
-  // Bip GO au 0 — encore plus long, plus aigu
+  // GO : double bip A6 à la fin de la récupération
   const prevIsRestingRef = useRef(false)
   useEffect(() => {
     const isResting = stageState.stage === 'rest'
     if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
-      playBeep(1760, 0.65, 0.6)    // A6 — très aigu, long → signal départ
+      playBeep(1760, 0.14, 0.6)                          // A6 — bip 1
+      setTimeout(() => playBeep(1760, 0.20, 0.65), 180) // A6 — bip 2, légèrement plus long
     }
     prevIsRestingRef.current = isResting
   }, [stageState.stage]) // eslint-disable-line
+
+  // Scroll au timer dès que la récup commence — évite de devoir scroller
+  useEffect(() => {
+    if (stageState.stage === 'rest') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }, [stageState.stage])
 
   useEffect(() => {
     if (stageState.stage !== 'rest') {
