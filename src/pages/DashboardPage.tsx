@@ -63,7 +63,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
-        .from('renfo_session_log')
+        .from('renfo_focus_log')
         .select('focus,duration_min,session_date')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)
