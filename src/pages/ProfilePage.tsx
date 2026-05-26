@@ -740,7 +740,7 @@ export default function ProfilePage() {
                       background: 'rgba(229,86,42,0.12)', border: '1px solid var(--vl-ember)',
                       fontSize: 11, color: 'var(--vl-ember)', lineHeight: 1.5,
                     }}>
-                      ⚠ Profil calculé sans données streams (ancienne version). Cliquez sur ↺ Recalculer pour obtenir les vraies métriques.
+                      ⚠ Profil calculé sans streams GPS — métriques incomplètes. Cliquez sur ↺ Recalculer pour charger les vraies données.
                     </div>
                   )}
 
