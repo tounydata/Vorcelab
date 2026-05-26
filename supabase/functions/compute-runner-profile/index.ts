@@ -4,7 +4,7 @@ import { getServiceClient } from '../_shared/auth.ts'
 // verify_jwt: false — auth handled below (JWT or service role key for server-to-server)
 
 const STRAVA_STREAMS_URL = 'https://www.strava.com/api/v3/activities'
-const PERIOD_DAYS = 90
+const PERIOD_DAYS = 56  // 8 weeks — recent enough to reflect current fitness
 const MAX_ACTIVITIES = 30
 const MIN_DIST_M = 3000
 

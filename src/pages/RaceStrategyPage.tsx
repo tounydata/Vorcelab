@@ -308,11 +308,13 @@ export default function RaceStrategyPage() {
       .filter(s => s.type === 'down')
       .sort((a, b) => b.dist - a.dist)[0] ?? null
 
+    const gradeBucketMultipliers = (profileData?.runner_profile as { gradeBucketMultipliers?: Record<string, number> } | null)?.gradeBucketMultipliers
+
     top3Sections = projection.sections
       .map((s, i) => ({
         section: s,
         time: projection.sectionTimes[i],
-        score: scoreRaceSection(s, projection.sectionTimes[i]),
+        score: scoreRaceSection(s, projection.sectionTimes[i], { gradeBucketMultipliers }),
         nutritionMoment: nutritionRows.find(r => {
           const k = r.moment.match(/~?(\d+)\s*km/i)
           if (!k) return false

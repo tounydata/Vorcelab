@@ -1,5 +1,6 @@
 import type { Section, ProjectionResult, GpxPoint } from './computeRaceProjection'
 import type { NutritionRow } from './nutritionPlan'
+import { getGradeBucket } from './runnerProfile'
 
 export interface RavitoPoint {
   km: number
@@ -62,15 +63,15 @@ export function scoreRaceSection(
   // Grade score blends absolute grade with elevation density context
   const gradeScore = gradeAbs * (1 + elevDensity / 150)
 
-  const score = gradeScore * distKm * timeFactor * (1 + lengthBonus)
+  const base = gradeScore * distKm * timeFactor * (1 + lengthBonus)
 
-  // Future hook — uncomment when Profil Coureur force/faiblesse data is available:
-  // if (_options?.gradeBucketMultipliers) {
-  //   const bucket = getGradeBucket(section.grade)
-  //   return score * (_options.gradeBucketMultipliers[bucket] ?? 1)
-  // }
+  // Personalize: if the runner is weak on this gradient bucket, the section
+  // is scored higher → it rises in "Sections clés" and gets crew vigilance.
+  const multiplier = _options?.gradeBucketMultipliers
+    ? (_options.gradeBucketMultipliers[getGradeBucket(section.grade)] ?? 1)
+    : 1
 
-  return score
+  return base * multiplier
 }
 
 function fmtTime(s: number): string {
