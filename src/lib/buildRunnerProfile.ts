@@ -37,11 +37,13 @@ interface BucketAccum {
   altGainM: number
   totalDistanceM: number
   sampleCount: number
+  cadenceSum: number
+  cadenceCount: number
   runIds: Set<string>
 }
 
 function newAccum(): BucketAccum {
-  return { totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0, altGainM: 0, totalDistanceM: 0, sampleCount: 0, runIds: new Set() }
+  return { totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0, altGainM: 0, totalDistanceM: 0, sampleCount: 0, cadenceSum: 0, cadenceCount: 0, runIds: new Set() }
 }
 
 export async function buildRunnerProfile(
@@ -79,6 +81,7 @@ export async function buildRunnerProfile(
     const velocity = streams.velocity_smooth?.data
     const heartrate = streams.heartrate?.data
     const distArr = streams.distance?.data
+    const cadenceArr = streams.cadence?.data
 
     if (!altitude || !velocity || time.length < 5) continue
 
@@ -163,6 +166,10 @@ export async function buildRunnerProfile(
       if (hrPct != null) {
         acc.weightedHrSum += hrPct * dt
         acc.hrWeightedSeconds += dt
+      }
+      if (cadenceArr && cadenceArr[j] > 0) {
+        acc.cadenceSum += cadenceArr[j]
+        acc.cadenceCount++
       }
       if (altDelta > 0) acc.altGainM += altDelta
       acc.runIds.add(String(act.id))
@@ -362,6 +369,7 @@ export async function buildRunnerProfile(
       ? (acc.altGainM / acc.totalSeconds) * 3600
       : null
 
+    const avgCadence = acc.cadenceCount > 0 ? acc.cadenceSum / acc.cadenceCount : null
     const cardioCost = computeCardioCost(avgHrPctFcMax)
     const efficiencyScore = computeEfficiencyScore(btype, vamMH, avgSpeedKmH, avgHrPctFcMax)
     const minutesAnalyzed = acc.totalSeconds / 60
@@ -370,7 +378,7 @@ export async function buildRunnerProfile(
 
     let statusResult: { status: BucketStats['status']; statusReason: string }
     if (btype === 'up') {
-      statusResult = computeClimbStatus(vamMH, cardioCost, minutesAnalyzed)
+      statusResult = computeClimbStatus(vamMH, cardioCost, minutesAnalyzed, avgSpeedKmH, avgCadence)
     } else if (btype === 'down') {
       statusResult = computeDescentStatus(avgSpeedKmH, cardioCost, minutesAnalyzed)
     } else {

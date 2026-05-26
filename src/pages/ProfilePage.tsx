@@ -112,7 +112,9 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
           <div style={{ fontSize: 18, fontWeight: 700, color: statusColor(stats.status) }}>
             {isUp ? fmtVam(stats.vamMH) : fmtSpeed(stats.avgSpeedKmH)}
           </div>
-          <div className="slbl" style={{ fontSize: 10 }}>{isUp ? 'VAM' : 'Vitesse'}</div>
+          <div className="slbl" style={{ fontSize: 10 }}>
+            {isUp ? `VAM · ${fmtSpeed(stats.avgSpeedKmH)}` : 'Vitesse'}
+          </div>
         </div>
 
         <div>
@@ -360,7 +362,7 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
   const [searchParams, setSearchParams] = useSearchParams()
-  type TabKey = 'compte' | 'profil' | 'records' | 'nutrition'
+  type TabKey = 'compte' | 'analyse' | 'records' | 'nutrition'
   const activeTab = (searchParams.get('tab') ?? 'compte') as TabKey
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'compte' ? {} : { tab }, { replace: false })
@@ -381,6 +383,12 @@ export default function ProfilePage() {
   const [lactatePace, setLactatePace] = useState('')
   const [goals, setGoals] = useState('')
   const [formLoaded, setFormLoaded] = useState(false)
+
+  // Records state
+  const PR_KEYS = ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra'] as const
+  const [prsEdit, setPrsEdit] = useState<Record<string, string>>({})
+  const [prsMode, setPrsMode] = useState<'view' | 'edit'>('view')
+  const [prsSaveMsg, setPrsSaveMsg] = useState('')
 
   // Password change state
   const [showPwdInput, setShowPwdInput] = useState(false)
@@ -487,7 +495,7 @@ export default function ProfilePage() {
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
-        <button style={tabStyle(activeTab === 'profil')} onClick={() => setActiveTab('profil')}>PROFIL</button>
+        <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>ANALYSE</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
         <button style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
       </div>
@@ -500,15 +508,29 @@ export default function ProfilePage() {
             <div className="clabel" style={{ marginBottom: '0.75rem' }}>COMPTE</div>
 
             {/* Avatar */}
-            {profileRow?.avatar_url && (
-              <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ marginBottom: '0.75rem' }}>
+              {profileRow?.avatar_url ? (
                 <img
                   src={profileRow.avatar_url}
                   alt="avatar"
-                  style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
+                  style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+                  onError={(e) => {
+                    const parent = (e.target as HTMLImageElement).parentElement
+                    if (parent) {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                      const fb = document.createElement('div')
+                      fb.style.cssText = 'width:56px;height:56px;border-radius:50%;background:var(--vl-ember);display:flex;align-items:center;justify-content:center;font-family:var(--vl-display);font-size:1.4rem;color:#fff;letter-spacing:.04em'
+                      fb.textContent = (profileRow?.name?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()
+                      parent.prepend(fb)
+                    }
+                  }}
                 />
-              </div>
-            )}
+              ) : (
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--vl-ember)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--vl-display)', fontSize: '1.4rem', color: '#fff', letterSpacing: '.04em' }}>
+                  {(profileRow?.name?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()}
+                </div>
+              )}
+            </div>
 
             {/* Email */}
             <div className="fg">
@@ -658,24 +680,99 @@ export default function ProfilePage() {
       {/* ── Tab RECORDS ── */}
       {activeTab === 'records' && (
         <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="clabel" style={{ marginBottom: '0.75rem' }}>RECORDS PERSONNELS</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div className="clabel">RECORDS PERSONNELS</div>
+            {prsMode === 'view' && (
+              <button
+                className="mlabel"
+                onClick={() => {
+                  const raw = profileRow?.prs ?? {}
+                  const flat: Record<string, string> = {}
+                  for (const k of ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra']) {
+                    const v = raw[k]
+                    flat[k] = typeof v === 'string' ? v : (v && typeof v === 'object' ? String((v as Record<string,unknown>).time ?? (v as Record<string,unknown>).value ?? '') : '')
+                  }
+                  setPrsEdit(flat)
+                  setPrsMode('edit')
+                }}
+                style={{ background: 'none', border: '1px solid var(--vl-line)', borderRadius: 4, cursor: 'pointer', color: 'var(--vl-text-3)', padding: '2px 7px', fontSize: 10, letterSpacing: '.04em' }}
+              >
+                ✏ Modifier
+              </button>
+            )}
+          </div>
           {isLoading ? (
             <div className="loading"><div className="spinner" /></div>
-          ) : profileRow?.prs && Object.keys(profileRow.prs).length > 0 ? (
-            <div>
-              {Object.entries(profileRow.prs).map(([dist, time]) => (
-                <div key={dist} className="fg" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="fl">{dist}</span>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
-                    {String(time)}
-                  </span>
+          ) : prsMode === 'edit' ? (
+            <>
+              {(['5K', '10K', '15K', 'Semi', 'Marathon'] as const).map((k) => (
+                <div key={k} className="fg" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span className="fl" style={{ minWidth: 80 }}>{k}</span>
+                  <input
+                    className="fi"
+                    type="text"
+                    placeholder={k === 'Semi' ? '1:45:30' : k === 'Marathon' ? '3:45:00' : '23:45'}
+                    value={prsEdit[k] ?? ''}
+                    onChange={(e) => setPrsEdit((p) => ({ ...p, [k]: e.target.value }))}
+                    style={{ flex: 1 }}
+                  />
                 </div>
               ))}
-            </div>
+              <div className="fg" style={{ marginBottom: 6 }}>
+                <span className="fl">Ultra</span>
+                <input
+                  className="fi"
+                  type="text"
+                  placeholder="ex: UTMB 170K en 45h23, ou 67K 3500D+ 11h30"
+                  value={prsEdit['Ultra'] ?? ''}
+                  onChange={(e) => setPrsEdit((p) => ({ ...p, Ultra: e.target.value }))}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button
+                  className="hbtn"
+                  style={{ background: 'var(--vl-ember)', color: '#fff', flex: 1 }}
+                  onClick={async () => {
+                    const cleaned: Record<string, string> = {}
+                    for (const [k, v] of Object.entries(prsEdit)) {
+                      if (v.trim()) cleaned[k] = v.trim()
+                    }
+                    const { error } = await supabase.from('profiles').update({ prs: cleaned }).eq('id', user!.id)
+                    if (!error) {
+                      queryClient.invalidateQueries({ queryKey: ['profile-full', user?.id] })
+                      setPrsMode('view')
+                      setPrsSaveMsg('Sauvegardé ✓')
+                      setTimeout(() => setPrsSaveMsg(''), 2000)
+                    }
+                  }}
+                >
+                  💾 Sauvegarder
+                </button>
+                <button className="hbtn" onClick={() => setPrsMode('view')} style={{ flex: 1 }}>
+                  Annuler
+                </button>
+              </div>
+              {prsSaveMsg && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--vl-growth)', fontFamily: 'var(--vl-mono)' }}>{prsSaveMsg}</div>}
+            </>
           ) : (
-            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-              Aucun record enregistré.
-            </div>
+            (() => {
+              const formatPr = (v: unknown) => typeof v === 'string' ? v : v && typeof v === 'object' ? String((v as Record<string,unknown>).time ?? (v as Record<string,unknown>).value ?? '') : String(v)
+              const entries = Object.entries(profileRow?.prs ?? {}).filter(([, v]) => formatPr(v))
+              return entries.length > 0 ? (
+                <div>
+                  {entries.map(([dist, val]) => (
+                    <div key={dist} className="fg" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span className="fl">{dist}</span>
+                      <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>{formatPr(val)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+                  Aucun record enregistré. Cliquez sur ✏ Modifier pour les saisir.
+                </div>
+              )
+            })()
           )}
         </div>
       )}
@@ -703,8 +800,8 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── Tab PROFIL COUREUR ── */}
-      {activeTab === 'profil' && (
+      {/* ── Tab ANALYSE COUREUR ── */}
+      {activeTab === 'analyse' && (
         <>
           {isLoading ? (
             <div className="loading"><div className="spinner" /></div>
