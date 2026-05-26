@@ -149,16 +149,26 @@ export default function RenfoSessionPage() {
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
-  // Beeps countdown : bips courts à 3s et 2s, bip aigu/long à 1s (signal de départ)
+  // Beeps compte à rebours : 3s et 2s courts, 1s plus long et aigu
   useEffect(() => {
     if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
       if (secondsLeft === 1) {
-        playBeep(1318, 0.30, 0.55)   // E6 — aigu, long → signal de départ
+        playBeep(1318, 0.40, 0.55)   // E6 — aigu, assez long → avant-dernier signal
       } else {
-        playBeep(880, 0.08, 0.3)     // A5 — court → compte à rebours
+        playBeep(880, 0.18, 0.35)    // A5 — légèrement long → compte à rebours 3, 2
       }
     }
   }, [secondsLeft]) // eslint-disable-line
+
+  // Bip GO au 0 — encore plus long, plus aigu
+  const prevIsRestingRef = useRef(false)
+  useEffect(() => {
+    const isResting = stageState.stage === 'rest'
+    if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
+      playBeep(1760, 0.65, 0.6)    // A6 — très aigu, long → signal départ
+    }
+    prevIsRestingRef.current = isResting
+  }, [stageState.stage]) // eslint-disable-line
 
   useEffect(() => {
     if (stageState.stage !== 'rest') {
