@@ -118,20 +118,39 @@ export async function buildRunnerProfile(
       if (dDist >= 10) smoothGrade[j] = ((altitude[k] - altitude[j]) / dDist) * 100
     }
 
+    // Minimum stable run: only count samples that are part of >= 8 consecutive
+    // samples with the same bucket classification. Filters micro-transitions and
+    // GPS spikes that slip through the 60 m window at very slow speeds.
+    const MIN_RUN_SAMPLES = 8
+    const rawBucketSample: (BucketKey | null)[] = new Array(n).fill(null)
+    for (let j = 0; j < n - 1; j++) {
+      if (!isNaN(smoothGrade[j])) rawBucketSample[j] = getGradeBucket(smoothGrade[j])
+    }
+    const stableBucketSample: (BucketKey | null)[] = new Array(n).fill(null)
+    let runS = 0
+    for (let j = 1; j <= n; j++) {
+      if (j === n || rawBucketSample[j] !== rawBucketSample[j - 1]) {
+        if (j - runS >= MIN_RUN_SAMPLES) {
+          const bk = rawBucketSample[runS]
+          if (bk !== null) for (let k = runS; k < j; k++) stableBucketSample[k] = bk
+        }
+        runS = j
+      }
+    }
+
     for (let j = 1; j < n; j++) {
+      const bkey = stableBucketSample[j - 1]
+      if (bkey === null) continue  // not in a stable terrain run
+
       const dt = time[j] - time[j - 1]
       if (dt <= 0 || dt > 60) continue
-      if (isNaN(smoothGrade[j - 1])) continue  // no valid window grade
 
       const altDelta = altitude[j] - altitude[j - 1]
       const distDelta = distArr ? distArr[j] - distArr[j - 1] : velocity[j] * dt
-      if (distDelta < 1.0) continue  // minimum 1 m
+      if (distDelta < 2.0) continue  // stronger minimum (was 1.0 m)
 
       // Skip physically impossible altitude jumps (barometric/GPS spike > 5 m/s vertical)
       if (Math.abs(altDelta) > dt * 5) continue
-
-      const bkey = getGradeBucket(smoothGrade[j - 1])
-      if (!bkey) continue
 
       const speedKmH = (velocity[j] ?? 0) * 3.6
       const hrPct = heartrate ? (heartrate[j] / fcMax) * 100 : null
