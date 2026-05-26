@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
@@ -10,6 +11,8 @@ import {
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
 import { fetchStreams } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
+import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
 interface Activity2 {
   id: string
@@ -533,16 +536,39 @@ export default function DashboardPage() {
     },
   })
 
-  const { data: profileData } = useQuery<{ fc_max?: number } | null>({
+  const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null } | null>({
     queryKey: ['profile-fcmax-dash', user?.id],
     queryFn: async () => {
       if (!user) return null
-      const { data } = await supabase.from('profiles').select('fc_max').eq('id', user.id).single()
-      return data as { fc_max?: number } | null
+      const { data } = await supabase.from('profiles').select('fc_max,runner_profile').eq('id', user.id).single()
+      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed | null } | null
     },
     enabled: !!user,
   })
   const fcMax = profileData?.fc_max
+
+  // Silent background recompute when latest activity is newer than last profile computation
+  const profileTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (!user || !activities.length || profileTriggeredRef.current) return
+    const latestActivityDate = activities[0].start_date
+    const computedAt = profileData?.runner_profile?._computedAt
+    const needsRecompute = !computedAt || new Date(latestActivityDate) > new Date(computedAt)
+    if (!needsRecompute) return
+
+    profileTriggeredRef.current = true
+    ;(async () => {
+      try {
+        const acts = await fetchActivitiesForProfile(user.id, 50)
+        const rp = await buildRunnerProfile(acts, profileData?.fc_max ?? 185)
+        await saveRunnerProfile(user.id, rp)
+        await refetchProfile()
+      } catch (e) {
+        console.warn('[VL] background profile recompute failed:', e)
+        profileTriggeredRef.current = false
+      }
+    })()
+  }, [user?.id, activities[0]?.start_date, profileData?.runner_profile?._computedAt])
 
   const now = new Date()
 

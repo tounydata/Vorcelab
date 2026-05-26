@@ -108,6 +108,8 @@ input[type="date"],input[type="time"]{color-scheme:dark;-webkit-appearance:none;
 .btn-primary{width:100%;background:var(--vl-ember);color:var(--vl-ink);border:none;border-radius:var(--vl-r-sm);padding:13px;font-family:var(--vl-display);font-weight:700;font-size:1rem;letter-spacing:0.06em;cursor:pointer;transition:opacity .2s;height:46px;display:flex;align-items:center;justify-content:center;}
 .btn-primary:hover{opacity:.88;}
 .auth-msg{font-family:var(--vl-mono);font-size:10.5px;text-align:center;margin-top:.75rem;min-height:1rem;color:var(--vl-ember);}
+.auth-link{background:none;border:none;cursor:pointer;font-family:var(--vl-mono);font-size:10.5px;letter-spacing:.06em;color:var(--vl-text-3);padding:0;text-decoration:underline;text-underline-offset:3px;transition:color .15s;}
+.auth-link:hover{color:var(--vl-text-2);}
 
 /* ── APP LAYOUT ── */
 #appShell{display:none;}

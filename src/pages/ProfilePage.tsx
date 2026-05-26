@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -16,7 +16,7 @@ import {
   type BucketStats,
   type CardioCost,
 } from '../lib/runnerProfile'
-import { buildRunnerProfile, fetchActivitiesForProfile, fetchLatestActivityDate, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -298,23 +298,6 @@ export default function ProfilePage() {
   }
 
   const rp = profileRow?.runner_profile
-  const autoTriggeredRef = useRef(false)
-
-  // Auto-trigger profile computation when new activities exist since last computation
-  useEffect(() => {
-    if (!user || !profileRow || computing || autoTriggeredRef.current) return
-    if (activeTab !== 'profil') return
-
-    async function check() {
-      autoTriggeredRef.current = true
-      const latestDate = await fetchLatestActivityDate(user!.id)
-      if (!latestDate) return
-      const needsRecompute = !rp || new Date(latestDate) > new Date(rp._computedAt)
-      if (needsRecompute) await handleComputeProfile()
-    }
-    check()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user?.id, !!profileRow])
 
   async function handleComputeProfile() {
     if (!user) return
@@ -632,7 +615,7 @@ export default function ProfilePage() {
                     <button
                       className="mlabel"
                       disabled={computing}
-                      onClick={() => { autoTriggeredRef.current = true; handleComputeProfile() }}
+                      onClick={() => handleComputeProfile()}
                       style={{
                         background: 'none', border: '1px solid var(--vl-line)', borderRadius: 4,
                         cursor: computing ? 'wait' : 'pointer', color: 'var(--vl-text-3)',
