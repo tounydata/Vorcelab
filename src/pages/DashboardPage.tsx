@@ -59,8 +59,20 @@ function formatPace(distM: number, timeS: number): string {
   return `${m}'${s.toString().padStart(2, '0')}"/km`
 }
 
+function formatPaceShort(distM: number, timeS: number): string {
+  if (!distM || !timeS) return '—'
+  const secPerKm = timeS / (distM / 1000)
+  const m = Math.floor(secPerKm / 60)
+  const s = Math.round(secPerKm % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+}
+
+function formatDateShort(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).toUpperCase()
 }
 
 function isRunning(type: string) {
@@ -69,7 +81,7 @@ function isRunning(type: string) {
 
 // ─── 7j Bar Chart (SVG) ───────────────────────────────────────────────────────
 
-function Bar7j({ activities }: { activities: Activity2[] }) {
+function Bar7j({ activities, fcMax }: { activities: Activity2[]; fcMax?: number }) {
   const now = new Date()
   const LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -108,6 +120,24 @@ function Bar7j({ activities }: { activities: Activity2[] }) {
   const totalDp = days.reduce((s, d) => s + d.dp, 0)
   const totalKm = days.reduce((s, d) => s + d.km, 0)
   const runCount = days.filter((d) => d.km > 0).length
+
+  // % EF calculation
+  const cutoff7j = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+  const cutoff7jStr = `${cutoff7j.getFullYear()}-${String(cutoff7j.getMonth() + 1).padStart(2, '0')}-${String(cutoff7j.getDate()).padStart(2, '0')}`
+  const runs7j = activities.filter(
+    (a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= cutoff7jStr && a.average_heartrate != null
+  )
+  const threshold = (fcMax ?? 185) * 0.75
+  let aerobicTime = 0, totalTimeWithHR = 0
+  for (const r of runs7j) {
+    totalTimeWithHR += r.moving_time
+    if ((r.average_heartrate ?? 999) < threshold) {
+      aerobicTime += r.moving_time
+    }
+  }
+  const efPct = totalTimeWithHR > 0 ? Math.round((aerobicTime / totalTimeWithHR) * 100) : null
+  const efColor = efPct == null ? 'var(--vl-text-3)' : efPct >= 75 ? 'var(--vl-growth)' : efPct < 50 ? 'var(--vl-ember)' : 'var(--vl-amber)'
+  const efLabel = efPct == null ? '' : efPct >= 75 ? 'AÉROBIE' : efPct < 50 ? 'TROP INTENSE' : 'MIXTE'
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -156,17 +186,30 @@ function Bar7j({ activities }: { activities: Activity2[] }) {
           </text>
         ))}
       </svg>
-      {totalDp > 0 && (
-        <div style={{ background: 'var(--vl-surf-2)', borderRadius: 6, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
+      <div style={{ background: 'var(--vl-surf-2)', borderRadius: 6, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* Left: % EF */}
+        <div>
+          <div className="mlabel" style={{ fontSize: 8, margin: 0, letterSpacing: '.1em' }}>% EF · 7J</div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 700, color: efColor, lineHeight: 1, marginTop: 2 }}>
+            {efPct != null ? `${efPct}%` : '—'}
+          </div>
+          {efLabel && (
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: efColor, marginTop: 2, fontWeight: 700 }}>
+              {efLabel}
+            </div>
+          )}
+        </div>
+        {/* Right: D+ total */}
+        {totalDp > 0 && (
+          <div style={{ textAlign: 'right' }}>
             <div className="mlabel" style={{ fontSize: 8, margin: 0, letterSpacing: '.1em' }}>D+ TOTAL</div>
             <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--vl-growth)', lineHeight: 1, marginTop: 2 }}>
               {Math.round(totalDp)}
             </div>
             <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m</div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -482,6 +525,17 @@ export default function DashboardPage() {
     },
   })
 
+  const { data: profileData } = useQuery<{ fc_max?: number } | null>({
+    queryKey: ['profile-fcmax-dash', user?.id],
+    queryFn: async () => {
+      if (!user) return null
+      const { data } = await supabase.from('profiles').select('fc_max').eq('id', user.id).single()
+      return data as { fc_max?: number } | null
+    },
+    enabled: !!user,
+  })
+  const fcMax = profileData?.fc_max
+
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const startOfWeek = new Date(now)
@@ -490,11 +544,23 @@ export default function DashboardPage() {
 
   const runs = activities.filter((a) => isRunning(a.type))
   const monthRuns = runs.filter((a) => new Date(a.start_date) >= startOfMonth)
-  const weekRuns = runs.filter((a) => new Date(a.start_date) >= startOfWeek)
 
   const kmMonth = monthRuns.reduce((s, a) => s + a.distance, 0)
-  const kmWeek = weekRuns.reduce((s, a) => s + a.distance, 0)
   const elevMonth = monthRuns.reduce((s, a) => s + (a.total_elevation_gain ?? 0), 0)
+
+  // Prev month delta
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+  const prevMonthRuns = runs.filter((a) => {
+    const d = new Date(a.start_date)
+    return d >= prevMonthStart && d <= prevMonthEnd
+  })
+  const kmPrevMonth = prevMonthRuns.reduce((s, a) => s + a.distance, 0)
+  const deltaKmPct = kmPrevMonth > 0 ? Math.round(((kmMonth - kmPrevMonth) / kmPrevMonth) * 100) : null
+
+  // Renfo sessions ce mois
+  const monthCutoffStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const renfoMonthCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= monthCutoffStr).map((r) => r.session_date))].length
 
   const recent = runs.slice(0, 5)
 
@@ -502,7 +568,7 @@ export default function DashboardPage() {
   const weekCutoff = new Date(now)
   weekCutoff.setDate(now.getDate() - 7)
   const weekCutoffStr = weekCutoff.toISOString().slice(0, 10)
-  const renfoWeekCount = renfoLogs.filter((r) => r.session_date && r.session_date >= weekCutoffStr).length
+  const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekCutoffStr).map((r) => r.session_date))].length
 
   // Co-périodisation
   const recentActs = activities
@@ -557,40 +623,109 @@ export default function DashboardPage() {
           {/* Prochaine course */}
           {nextRace && <NextRaceWidget race={nextRace} />}
 
-          {/* KPI course */}
-          <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="stat-card">
-              <div className="stat-val" style={{ color: 'var(--vl-ember)' }}>{formatKm(kmMonth)}</div>
-              <div className="stat-lbl">KM CE MOIS</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-val" style={{ color: 'var(--vl-ember)' }}>{formatKm(kmWeek)}</div>
-              <div className="stat-lbl">KM CETTE SEMAINE</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-val" style={{ color: 'var(--vl-growth)' }}>{Math.round(elevMonth)}</div>
-              <div className="stat-lbl">D+ CE MOIS</div>
-            </div>
-          </div>
-
           {/* 7j bar chart */}
-          {runs.length > 0 && <Bar7j activities={activities} />}
+          {runs.length > 0 && <Bar7j activities={activities} fcMax={fcMax} />}
 
           {/* Charge combinée */}
           <ChargeCombinee activities={activities} renfoLogs={renfoLogs} />
 
+          {/* CE MOIS + DERNIÈRES SORTIES — même card */}
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            {/* CE MOIS header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
+              <Link to="/activities" style={{ textDecoration: 'none' }}>
+                <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR TOUT →</div>
+              </Link>
+            </div>
+
+            {/* 3 stats grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              {/* km course */}
+              <div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
+                  {(kmMonth / 1000).toFixed(1)}
+                </div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>km COURSE</div>
+                {deltaKmPct != null && (
+                  <div style={{
+                    display: 'inline-block',
+                    marginTop: 4,
+                    background: 'var(--vl-surf-2)',
+                    borderRadius: 3,
+                    padding: '2px 6px',
+                    fontFamily: 'var(--vl-mono)',
+                    fontSize: 8,
+                    color: deltaKmPct >= 0 ? 'var(--vl-growth)' : 'var(--vl-ember)',
+                  }}>
+                    {deltaKmPct >= 0 ? '+' : ''}{deltaKmPct}% · vs M-1
+                  </div>
+                )}
+              </div>
+              {/* m D+ */}
+              <div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>
+                  {Math.round(elevMonth)}
+                </div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m D+</div>
+              </div>
+              {/* sess. RENFO */}
+              <div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: '#a78bfa', lineHeight: 1 }}>
+                  {renfoMonthCount}
+                </div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>sess. RENFO</div>
+              </div>
+            </div>
+
+            {/* Separator */}
+            <div style={{ borderTop: '1px solid var(--vl-line)', margin: '0.75rem 0' }} />
+
+            {/* DERNIÈRES SORTIES */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div className="clabel" style={{ margin: 0 }}>DERNIÈRES SORTIES</div>
+            </div>
+            {recent.length === 0 ? (
+              <div className="mlabel">Aucune activité enregistrée</div>
+            ) : (
+              <div className="acts-grid">
+                {recent.map((a) => (
+                  <NavLink key={a.id} to={`/activities/${a.id}`} className="act-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="act-name" style={{ textTransform: 'uppercase', fontWeight: 700 }}>{a.name}</div>
+                      <div className="act-meta">
+                        {(a.distance / 1000).toFixed(1)} km · {formatTime(a.moving_time)} · D+ {Math.round(a.total_elevation_gain ?? 0)}m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
+                        {formatPaceShort(a.distance, a.moving_time)}
+                      </div>
+                      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
+                        /KM · {formatDateShort(a.start_date)}
+                      </div>
+                      <span className="act-badge">{a.type}</span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Renfo */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <div className="clabel">RENFO</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="mlabel" style={{ fontSize: 9, color: '#a78bfa', letterSpacing: '.12em' }}>
-                  {renfoWeekCount > 0 ? `${renfoWeekCount} SESSION${renfoWeekCount > 1 ? 'S' : ''} · 7J` : ''}
-                </div>
-                <div className="mlabel" style={{ color: DUP4_COLORS[phase] }}>
-                  {DUP4_LABELS[phase]}
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
+                RENFO · LIBRE · {renfoWeekCount}/{3} SEM.
               </div>
+              <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR RENFO →</div>
+              </Link>
+            </div>
+
+            {/* DUP phase badge under header */}
+            <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.75rem', marginTop: 2 }}>
+              {DUP4_LABELS[phase]}
             </div>
 
             {warnings.length > 0 && (
@@ -644,49 +779,6 @@ export default function DashboardPage() {
                 )
               })}
             </div>
-
-            <Link to="/renfo" style={{ textDecoration: 'none' }}>
-              <div className="mlabel" style={{ marginTop: '0.75rem', color: 'var(--vl-text-3)', textAlign: 'right' }}>
-                Tout voir →
-              </div>
-            </Link>
-          </div>
-
-          {/* Dernières sorties */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <div className="clabel" style={{ margin: 0 }}>DERNIÈRES SORTIES</div>
-              <Link to="/activities" style={{ textDecoration: 'none' }}>
-                <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR TOUT →</div>
-              </Link>
-            </div>
-            {recent.length === 0 ? (
-              <div className="mlabel">Aucune activité enregistrée</div>
-            ) : (
-              <div className="acts-grid">
-                {recent.map((a) => (
-                  <NavLink key={a.id} to={`/activities/${a.id}`} className="act-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ flex: 1 }}>
-                      <div className="act-name">{a.name}</div>
-                      <div className="act-meta">
-                        {formatDate(a.start_date)} · {formatKm(a.distance)} km · {formatTime(a.moving_time)} · ↑{Math.round(a.total_elevation_gain ?? 0)} m
-                      </div>
-                      {(a.average_heartrate || a.distance > 0) && (
-                        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2, display: 'flex', gap: 8 }}>
-                          {a.average_heartrate && (
-                            <span style={{ color: 'var(--vl-ember)' }}>♥ {Math.round(a.average_heartrate)} bpm</span>
-                          )}
-                          <span>{formatPace(a.distance, a.moving_time)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <span className="act-badge">{a.type}</span>
-                    </div>
-                  </NavLink>
-                ))}
-              </div>
-            )}
           </div>
         </>
       )}
