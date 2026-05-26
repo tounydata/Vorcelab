@@ -315,8 +315,8 @@ function processStreams(
 
     const hr = heartrate ? heartrate[i] : null
     if (hr != null && hr > 0 && fcMax > 0) {
-      acc.hrSum += hr
-      acc.hrCount++
+      acc.hrSum += hr * dt   // time-weighted: sum(hr * dt) / sum(dt) = true avg
+      acc.hrCount += dt
     }
   }
 
@@ -620,12 +620,14 @@ Deno.serve(async (req: Request) => {
 
     const fcMax: number = (profileRow as { fc_max?: number } | null)?.fc_max ?? 190
 
-    // Load recent run activities
+    // Load recent run activities — 8-week window (56 days)
+    const since56d = new Date(Date.now() - 56 * 24 * 60 * 60 * 1000).toISOString()
     const { data: activities } = await supabase
       .from('strava_activities')
       .select('strava_activity_id,moving_time,type,sport_type,total_elevation_gain,distance')
       .eq('user_id', user.id)
       .in('sport_type', ['Run', 'TrailRun', 'Trail Run', 'Running'])
+      .gte('start_date', since56d)
       .order('start_date', { ascending: false })
       .limit(30)
 
@@ -765,7 +767,9 @@ Deno.serve(async (req: Request) => {
 
     const computedAt = new Date().toISOString()
     const runnerProfile = {
-      _computedAt: computedAt,
+      computedAt,
+      periodDays: 56,
+      activitiesAnalyzed: activities.length,
       fcMax,
       totalStreamSeconds: Math.round(totalStreamSecondsAll),
       streamCoverage: +streamCoverage.toFixed(3),

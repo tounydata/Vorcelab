@@ -221,6 +221,10 @@ export function computeRaceProjection(
   }
   const avgCardioCostHigh = streamBuckets > 0 && highCostBuckets / streamBuckets > 0.5
 
+  // Track previous section's climb intensity for post-climb recovery correction.
+  // Correction applies to the section AFTER a significant climb, not the climb itself.
+  let prevClimbGrade = 0 // 0 = no climb, >0 = grade of last significant climb
+
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
     const g = s.grade / 100
@@ -257,9 +261,12 @@ export function computeRaceProjection(
         penaltyFactor = Math.max(penaltyFactor, Math.min(1.08, driftFactor))
       }
 
-      // postClimbRecovery penalty: sections after significant climb
-      if (postClimbStatus === 'weak' && s.dplus >= 30 && s.grade >= 6) {
-        penaltyFactor = Math.min(penaltyFactor + 0.03, penaltyFactor * 1.04) // +2..+4%
+      // Post-climb recovery: apply on the section FOLLOWING a significant climb.
+      // Recovery difficulty scales with climb steepness — can be weak after a steep
+      // climb but fine after a mild one.
+      if (postClimbStatus === 'weak' && prevClimbGrade > 0) {
+        const recoveryPenalty = prevClimbGrade >= 12 ? 0.06 : 0.03 // steep +6%, mod_up +3%
+        penaltyFactor = Math.min(penaltyFactor + recoveryPenalty, 1.10)
       }
 
       // Cap total penalty at +10%
@@ -286,6 +293,9 @@ export function computeRaceProjection(
       sectionTimes.push(t)
       estTimeS += t
     }
+
+    // Record significant climb for next section's recovery check
+    prevClimbGrade = (s.type === 'up' && s.dplus >= 30 && s.grade >= 6) ? s.grade : 0
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────
@@ -312,8 +322,8 @@ export function computeRaceProjection(
   if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
       (hrDriftConf === 'high' || hrDriftConf === 'medium')) {
     personalAdjustments.push({
-      label: 'Dérive cardiaque',
-      detail: `+${hrDriftPct.toFixed(0)}% → deuxième moitié plus conservative.`,
+      label: 'Dérive cardiaque (estimée)',
+      detail: `+${hrDriftPct.toFixed(0)}% H1→H2 · biais possible terrain — deuxième moitié plus conservative.`,
       color: 'var(--vl-amber)',
     })
   }
