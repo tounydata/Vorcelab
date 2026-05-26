@@ -43,10 +43,13 @@ function confidenceColor(c: string) {
 function confidenceLabel(c: string) {
   return c === 'good' ? 'Bonne' : c === 'medium' ? 'Moyenne' : 'Faible'
 }
-function confidenceExplanation(c: string) {
-  if (c === 'low') return "peu d'activités trail récentes · fourchette large"
-  if (c === 'medium') return 'activités trail disponibles · estimation raisonnable'
-  return 'profil trail solide · estimation fiable'
+function confidenceExplanation(c: string, trailCount?: number, recentCount?: number) {
+  const tc = trailCount != null ? `${trailCount} sortie${trailCount > 1 ? 's' : ''} trail` : null
+  const rc = recentCount != null ? `${recentCount} récente${recentCount > 1 ? 's' : ''}` : null
+  const base = [tc, rc].filter(Boolean).join(' · ')
+  if (c === 'low') return (base ? `${base} · ` : '') + 'fourchette large'
+  if (c === 'medium') return (base ? `${base} · ` : '') + 'estimation raisonnable'
+  return (base ? `${base} · ` : '') + 'profil solide, estimation fiable'
 }
 function departStrategy(c: string) {
   if (c === 'low') return 'Départ prudent fortement conseillé — fourchette large, commencez 10% en dessous du rythme cible.'
@@ -282,6 +285,18 @@ export default function RaceStrategyPage() {
   }
 
   const athleteName = getAthleteLabel(profileData ?? null)
+
+  const TRAIL_TYPES_UI = ['TrailRun', 'Trail Run', 'Trail']
+  const trailActivityCount = (activitiesData ?? []).filter(a =>
+    TRAIL_TYPES_UI.includes((a.type || a.sport_type) as string) && (a.distance as number) > 5000
+  ).length
+  const recentActivityCount = (activitiesData ?? []).filter(a => {
+    const t = (a.type || a.sport_type) as string
+    return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t) &&
+      new Date(a.start_date as string).getTime() >= Date.now() - 90 * 24 * 3600_000 &&
+      (a.distance as number) > 0
+  }).length
+
   const nutritionRows = projection
     ? computeNutritionPlan(
         projection.totalDistM,
@@ -401,121 +416,121 @@ export default function RaceStrategyPage() {
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="clabel">PLAN DE COURSE DE {athleteName.toUpperCase()}</div>
 
-              {/* Times */}
-              <div className="strip" style={{ marginTop: '0.5rem' }}>
-                <div className="scell">
-                  <div className="sval">{fmtTime(projection.estTimeS)}</div>
-                  <div className="slbl">Cible</div>
+              {/* Hero time */}
+              <div style={{ textAlign: 'center', margin: '1.25rem 0 0.75rem' }}>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '3.2rem', lineHeight: 1, letterSpacing: '-0.01em' }}>
+                  {fmtTime(projection.estTimeS)}
                 </div>
-                <div className="scell">
-                  <div className="sval">{fmtTime(projection.timeMin)}</div>
-                  <div className="slbl">Optimiste</div>
+                <div className="mlabel" style={{ marginTop: 4 }}>temps cible</div>
+              </div>
+
+              {/* Range bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '0.75rem' }}>
+                <div style={{ textAlign: 'center', minWidth: 52 }}>
+                  <div className="sval" style={{ fontSize: '1rem' }}>{fmtTime(projection.timeMin)}</div>
+                  <div className="slbl" style={{ fontSize: '0.65rem' }}>optimiste</div>
                 </div>
-                <div className="scell">
-                  <div className="sval">{fmtTime(projection.timeMax)}</div>
-                  <div className="slbl">Prudent</div>
+                <div style={{ flex: 1, position: 'relative', height: 6, background: 'var(--vl-line)', borderRadius: 3 }}>
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, var(--vl-growth) 0%, var(--vl-ember) 50%, #c0392b 100%)`, borderRadius: 3, opacity: 0.3 }} />
+                  <div style={{ position: 'absolute', left: '50%', top: '50%', width: 12, height: 12, borderRadius: '50%', background: 'var(--vl-ember)', border: '2px solid var(--vl-bg)', transform: 'translate(-50%,-50%)' }} />
+                </div>
+                <div style={{ textAlign: 'center', minWidth: 52 }}>
+                  <div className="sval" style={{ fontSize: '1rem' }}>{fmtTime(projection.timeMax)}</div>
+                  <div className="slbl" style={{ fontSize: '0.65rem' }}>prudent</div>
                 </div>
               </div>
 
-              {/* Confiance */}
-              <div className="mlabel" style={{ marginTop: '0.5rem', color: confidenceColor(projection.confidence) }}>
-                Confiance : {confidenceLabel(projection.confidence)} — {confidenceExplanation(projection.confidence)}
+              {/* Confiance pill */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <span className="mlabel">Confiance</span>
+                <span style={{ padding: '2px 10px', borderRadius: 10, background: confidenceColor(projection.confidence) + '28', color: confidenceColor(projection.confidence), fontFamily: 'var(--vl-display)', fontSize: '0.8rem', letterSpacing: '.05em' }}>
+                  {confidenceLabel(projection.confidence)}
+                </span>
+                <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
+                  {confidenceExplanation(projection.confidence, trailActivityCount, recentActivityCount)}
+                </span>
               </div>
 
-              {/* Objectif */}
+              {/* Objectif vs projection */}
               {race.goal_time && projection.goalLabel && (
-                <div style={{ marginTop: '0.5rem', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span className="sval" style={{ fontSize: '1.2rem' }}>{race.goal_time}</span>
-                  <span className="mlabel" style={{ color: projection.goalCompareColor }}>{projection.goalLabel}</span>
-                  {projection.goalCompareStr && <span className="mlabel">{projection.goalCompareStr}</span>}
+                <div style={{ marginBottom: '0.5rem', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="mlabel">Objectif {race.goal_time}</span>
+                  <span className="mlabel" style={{ color: projection.goalCompareColor }}>→ {projection.goalLabel}</span>
+                  {projection.goalCompareStr && <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>{projection.goalCompareStr}</span>}
                 </div>
               )}
 
               {/* Stratégie départ */}
-              <div className="mlabel" style={{ marginTop: '0.5rem', fontStyle: 'italic', color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
+              <div className="mlabel" style={{ fontStyle: 'italic', color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0, marginBottom: riskSection || opportunitySection ? '0.75rem' : 0 }}>
                 {departStrategy(projection.confidence)}
               </div>
 
-              {/* Risque principal */}
-              {riskSection && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--vl-line)' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>RISQUE PRINCIPAL</div>
-                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    <strong>Conseil :</strong> {riskConseil(riskSection.grade)}
-                  </div>
-                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    <strong>Preuve :</strong> {Math.round(riskSection.grade)}% moyen · +{Math.round(riskSection.dplus)}m D+ · {(riskSection.dist / 1000).toFixed(1)} km.
-                  </div>
-                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    <strong>Détail :</strong> km {riskSection.startKm.toFixed(1)} → {(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · temps estimé {fmtTime(riskSectionTime)}.
-                  </div>
-                </div>
-              )}
-
-              {/* Opportunité */}
-              {opportunitySection && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--vl-line)' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-growth)', marginBottom: 4 }}>OPPORTUNITÉ</div>
-                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                    Récupération possible sur la descente km {opportunitySection.startKm.toFixed(1)} → {(opportunitySection.startKm + opportunitySection.dist / 1000).toFixed(1)} (-{Math.round(opportunitySection.dminus)}m D-).
-                  </div>
+              {/* Risque + Opportunité — 2 cards côte à côte */}
+              {(riskSection || opportunitySection) && (
+                <div style={{ display: 'grid', gridTemplateColumns: riskSection && opportunitySection ? '1fr 1fr' : '1fr', gap: 8 }}>
+                  {riskSection && (
+                    <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'rgba(214,128,62,0.08)', border: '1px solid rgba(214,128,62,0.3)' }}>
+                      <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>RISQUE</div>
+                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', lineHeight: 1, color: 'var(--vl-ember)', marginBottom: 2 }}>{Math.round(riskSection.grade)}%</div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
+                        km {riskSection.startKm.toFixed(1)}→{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · +{Math.round(riskSection.dplus)}m · {fmtTime(riskSectionTime)}
+                      </div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{riskConseil(riskSection.grade)}</div>
+                    </div>
+                  )}
+                  {opportunitySection && (
+                    <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.3)' }}>
+                      <div className="mlabel" style={{ color: 'var(--vl-growth)', marginBottom: 4 }}>OPPORTUNITÉ</div>
+                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', lineHeight: 1, color: 'var(--vl-growth)', marginBottom: 2 }}>{(opportunitySection.dist / 1000).toFixed(1)} km</div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
+                        km {opportunitySection.startKm.toFixed(1)}→{(opportunitySection.startKm + opportunitySection.dist / 1000).toFixed(1)} · -{Math.round(opportunitySection.dminus)}m
+                      </div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>Récupération — relâchez le haut du corps.</div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Personal adjustments */}
-              {projection.personalAdjustments.map((adj, i) => (
-                <div key={i} className="fg" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                  <span className="mlabel">{adj.label}</span>
-                  <span className="mlabel" style={{ color: adj.color }}>{adj.detail}</span>
+              {projection.personalAdjustments.length > 0 && (
+                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--vl-line)' }}>
+                  {projection.personalAdjustments.map((adj, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span className="mlabel">{adj.label}</span>
+                      <span className="mlabel" style={{ color: adj.color }}>{adj.detail}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Section B — Facteurs décisifs */}
             <div className="card" style={{ marginBottom: '1rem' }}>
-              <div className="clabel" style={{ marginBottom: '0.5rem' }}>FACTEURS DÉCISIFS</div>
+              <div className="clabel" style={{ marginBottom: '0.5rem' }}>DONNÉES COURSE</div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {/* 1. Profil altimétrique */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Profil altimétrique</span>
-                  <span className="mlabel" style={{ textAlign: 'right', textTransform: 'none', letterSpacing: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {/* Profil altimétrique */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
+                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Profil</span>
+                  <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
                     {profileAltiLabel(projection.dplus, projection.totalDistM)}
                   </span>
                 </div>
 
-                {/* 2. Confiance */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Confiance projection</span>
-                  <span className="mlabel" style={{ textAlign: 'right', color: confidenceColor(projection.confidence), textTransform: 'none', letterSpacing: 0 }}>
-                    {confidenceLabel(projection.confidence)} — {confidenceExplanation(projection.confidence)}
+                {/* Fourchette */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: riskSection ? '1px solid var(--vl-line)' : 'none' }}>
+                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Incertitude</span>
+                  <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>
+                    ±{fmtTime((projection.timeMax - projection.timeMin) / 2)} ({fmtTime(projection.timeMax - projection.timeMin)} total)
                   </span>
                 </div>
 
-                {/* 3. Section critique */}
+                {/* Section critique condensée */}
                 {riskSection && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 0' }}>
                     <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Section critique</span>
-                    <span className="mlabel" style={{ textAlign: 'right', textTransform: 'none', letterSpacing: 0 }}>
-                      km {riskSection.startKm.toFixed(1)}–{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · {Math.round(riskSection.grade)}% · +{Math.round(riskSection.dplus)}m · {fmtTime(riskSectionTime)}
-                    </span>
-                  </div>
-                )}
-
-                {/* 4. Fourchette d'incertitude */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--vl-line)' }}>
-                  <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Fourchette d'incertitude</span>
-                  <span className="mlabel" style={{ textAlign: 'right', textTransform: 'none', letterSpacing: 0 }}>
-                    {fmtTime(projection.timeMax - projection.timeMin)} entre scénarios
-                  </span>
-                </div>
-
-                {/* 5. Ajustement fraîcheur */}
-                {projection.personalAdjustments.length > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, padding: '6px 0' }}>
-                    <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>Ajustement fraîcheur</span>
-                    <span className="mlabel" style={{ textAlign: 'right', color: projection.personalAdjustments[0].color, textTransform: 'none', letterSpacing: 0 }}>
-                      {projection.personalAdjustments[0].detail}
+                    <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-ember)' }}>
+                      km {riskSection.startKm.toFixed(1)}–{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · {Math.round(riskSection.grade)}% · {fmtTime(riskSectionTime)}
                     </span>
                   </div>
                 )}
@@ -525,27 +540,38 @@ export default function RaceStrategyPage() {
             {/* Section C — Sections clés */}
             {top3Sections.length > 0 && (
               <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="clabel" style={{ marginBottom: '0.5rem' }}>SECTIONS CLÉS</div>
-                {top3Sections.map((item, i) => (
-                  <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < top3Sections.length - 1 ? '1px solid var(--vl-line)' : 'none' }}>
-                    <div className="mlabel" style={{ marginBottom: 3 }}>
-                      <span style={{ color: item.section.type === 'up' ? 'var(--vl-ember)' : 'var(--vl-growth)' }}>
-                        {sectionLabel(item.section.type)}
-                      </span>
-                      {' '}km {item.section.startKm.toFixed(1)} → {(item.section.startKm + item.section.dist / 1000).toFixed(1)}
+                <div className="clabel" style={{ marginBottom: '0.75rem' }}>SECTIONS CLÉS</div>
+                {top3Sections.map((item, i) => {
+                  const isUp = item.section.type === 'up'
+                  const color = isUp ? 'var(--vl-ember)' : 'var(--vl-growth)'
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 12, padding: '0.6rem 0', borderBottom: i < top3Sections.length - 1 ? '1px solid var(--vl-line)' : 'none', alignItems: 'flex-start' }}>
+                      {/* Grade badge */}
+                      <div style={{ minWidth: 44, textAlign: 'center', padding: '4px 6px', borderRadius: 6, background: color + '18', flexShrink: 0 }}>
+                        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', color, lineHeight: 1 }}>{Math.abs(Math.round(item.section.grade))}%</div>
+                        <div className="slbl" style={{ fontSize: '0.6rem', color }}>{isUp ? 'D+' : 'D-'}</div>
+                      </div>
+                      {/* Content */}
+                      <div style={{ flex: 1 }}>
+                        <div className="mlabel" style={{ marginBottom: 2 }}>
+                          <span style={{ color }}>{sectionLabel(item.section.type)}</span>
+                          {' '}km {item.section.startKm.toFixed(1)}→{(item.section.startKm + item.section.dist / 1000).toFixed(1)}
+                          <span style={{ color: 'var(--vl-text-2)' }}>
+                            {' '}· {isUp ? `+${Math.round(item.section.dplus)}m` : `-${Math.round(item.section.dminus)}m`} · {(item.section.dist / 1000).toFixed(1)} km · {fmtTime(item.time)}
+                          </span>
+                        </div>
+                        <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-1)' }}>
+                          → {sectionConseil(item.section)}
+                        </div>
+                        {item.nutritionMoment && (
+                          <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginTop: 2 }}>
+                            Nutrition {item.nutritionMoment}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, marginBottom: 2 }}>
-                      <strong>Conseil :</strong> {sectionConseil(item.section)}
-                    </div>
-                    <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 2 }}>
-                      <strong>Preuve :</strong> {Math.abs(Math.round(item.section.grade))}% · {item.section.type === 'up' ? `+${Math.round(item.section.dplus)}m D+` : `-${Math.round(item.section.dminus)}m D-`} · {(item.section.dist / 1000).toFixed(1)} km · {fmtTime(item.time)}.
-                    </div>
-                    <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)' }}>
-                      <strong>Détail :</strong> km {item.section.startKm.toFixed(1)} → {(item.section.startKm + item.section.dist / 1000).toFixed(1)}
-                      {item.nutritionMoment ? ` · Nutrition : ${item.nutritionMoment}` : ''}.
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
