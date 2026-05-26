@@ -1,83 +1,62 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import {
-  computeRunnerProfile,
-  fmtPaceProfile,
+  GRADIENT_BUCKETS,
   statusColor,
   statusLabel,
-  type ActivityAggregate,
+  confidenceLabel,
+  fmtVam,
+  fmtSpeed,
+  fmtDuration,
+  type RunnerProfileComputed,
+  type ProfileRow,
 } from '../lib/runnerProfile'
 
-const FC_MAX_DEFAULT = 190
+const STALE_HOURS = 24
 
-interface ProfileRow {
-  fc_max?: number | null
-  name?: string | null
+function isStale(computedAt: string | null | undefined): boolean {
+  if (!computedAt) return true
+  return Date.now() - new Date(computedAt).getTime() > STALE_HOURS * 3_600_000
 }
 
-interface ActivityRow {
-  id: string
-  distance: number
-  total_elevation_gain: number
-  moving_time: number
-  average_heartrate: number | null
-  average_speed: number | null
-  type: string
-  sport_type: string | null
-  start_date: string
-}
-
-function toAggregate(a: ActivityRow): ActivityAggregate {
-  return {
-    id: a.id,
-    distM: a.distance,
-    dplus: a.total_elevation_gain,
-    movingTimeSec: a.moving_time,
-    avgHrBpm: a.average_heartrate,
-    avgSpeedMs: a.average_speed,
-    type: a.type,
-    sportType: a.sport_type,
-    startDate: a.start_date,
-  }
-}
-
-function fmtH(h: number) {
-  const hh = Math.floor(h)
-  const mm = Math.round((h - hh) * 60)
-  return mm > 0 ? `${hh}h${String(mm).padStart(2, '0')}` : `${hh}h`
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
   const [tab, setTab] = useState<'compte' | 'profil'>('profil')
+  const qc = useQueryClient()
 
-  const { data: profileRow } = useQuery<ProfileRow | null>({
+  const { data: profileRow, isLoading: profileLoading } = useQuery<ProfileRow | null>({
     queryKey: ['profile-row'],
     queryFn: async () => {
       if (!user) return null
-      const { data } = await supabase.from('profiles').select('fc_max,name').eq('id', user.id).single()
+      const { data } = await supabase
+        .from('profiles')
+        .select('fc_max,name,runner_profile,runner_profile_at')
+        .eq('id', user.id)
+        .single()
       return data as ProfileRow | null
     },
     enabled: !!user,
   })
 
-  const { data: activities = [], isLoading: activitiesLoading } = useQuery<ActivityRow[]>({
-    queryKey: ['activities-profile'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('strava_activities')
-        .select('id,distance,total_elevation_gain,moving_time,average_heartrate,average_speed,type,sport_type,start_date')
-        .order('start_date', { ascending: false })
+  const computeProfile = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('compute-runner-profile')
       if (error) throw error
-      return (data ?? []) as ActivityRow[]
+      return data as RunnerProfileComputed
     },
-    enabled: !!user,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile-row'] })
+    },
   })
 
-  const fcMax = profileRow?.fc_max ?? FC_MAX_DEFAULT
-  const profile = computeRunnerProfile(activities.map(toAggregate), fcMax)
+  const profile = profileRow?.runner_profile as RunnerProfileComputed | null | undefined
+  const stale = isStale(profileRow?.runner_profile_at)
 
   const tabStyle = (t: typeof tab): React.CSSProperties => ({
     padding: '6px 16px',
@@ -137,105 +116,148 @@ export default function ProfilePage() {
       {/* ── PROFIL COUREUR ────────────────────────────────────────────── */}
       {tab === 'profil' && (
         <>
-          {activitiesLoading ? (
+          {profileLoading ? (
             <div className="loading"><div className="spinner" /></div>
-          ) : profile.trailActivities === 0 ? (
-            <div className="card">
-              <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)' }}>
-                Aucune activité trail détectée sur les {profile.periodMonths} derniers mois.
-                Synchronisez vos sorties Strava pour générer votre profil coureur.
-              </div>
-            </div>
           ) : (
             <>
-              {/* Volume */}
-              <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="clabel" style={{ marginBottom: '0.75rem' }}>
-                  VOLUME — {profile.periodMonths} DERNIERS MOIS
+              {/* Header + compute button */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '0.75rem' }}>
+                <div>
+                  <div className="clabel" style={{ marginBottom: 4 }}>VAM PAR GRADIENT</div>
+                  {profile && (
+                    <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.72rem' }}>
+                      {profile.activitiesAnalyzed} sortie{profile.activitiesAnalyzed > 1 ? 's' : ''} analysée{profile.activitiesAnalyzed > 1 ? 's' : ''} · {profile.periodDays}j
+                      {profileRow?.runner_profile_at && ` · calculé le ${fmtDate(profileRow.runner_profile_at)}`}
+                      {stale && ' · '}
+                      {stale && <span style={{ color: 'var(--vl-amber)' }}>périmé</span>}
+                    </div>
+                  )}
                 </div>
-                <div className="strip">
-                  <div className="scell">
-                    <div className="sval">{profile.totalDistKm}</div>
-                    <div className="slbl">KM TRAIL</div>
-                  </div>
-                  <div className="scell">
-                    <div className="sval">+{profile.totalDplus.toLocaleString('fr-FR')}</div>
-                    <div className="slbl">D+ TOTAL</div>
-                  </div>
-                  <div className="scell">
-                    <div className="sval">{fmtH(profile.totalTimeH)}</div>
-                    <div className="slbl">TEMPS TOTAL</div>
-                  </div>
-                  <div className="scell">
-                    <div className="sval">{profile.trailActivities}</div>
-                    <div className="slbl">SORTIES</div>
-                  </div>
-                </div>
+                <button
+                  className="hbtn"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => computeProfile.mutate()}
+                  disabled={computeProfile.isPending}
+                >
+                  {computeProfile.isPending ? '...' : profile && !stale ? 'RECALCULER' : 'CALCULER'}
+                </button>
               </div>
 
-              {/* Profil terrain + cadence */}
-              <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="clabel" style={{ marginBottom: '0.75rem' }}>PROFIL TERRAIN</div>
-                <div className="fg">
-                  <span className="fl">D+ moyen</span>
-                  <span className="mlabel">{profile.avgDplusPerKm} m/km</span>
+              {computeProfile.isError && (
+                <div className="card" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--vl-ember)' }}>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', textTransform: 'none', letterSpacing: 0 }}>
+                    Erreur lors du calcul. Vérifiez que Strava est connecté et réessayez.
+                  </div>
                 </div>
-                <div className="fg">
-                  <span className="fl">Type de terrain</span>
-                  <span className="mlabel" style={{ textTransform: 'capitalize' }}>{profile.terrainLabel}</span>
-                </div>
-                <div className="fg">
-                  <span className="fl">D+ par sortie</span>
-                  <span className="mlabel">+{profile.avgDplusPerSession} m</span>
-                </div>
-                <div className="fg">
-                  <span className="fl">Cadence</span>
-                  <span className="mlabel" style={{ color: statusColor(profile.cadenceStatus) }}>
-                    {profile.cadencePerMonth} sortie{profile.cadencePerMonth > 1 ? 's' : ''}/mois
-                    {' '}<span style={{ fontSize: 10, opacity: 0.7 }}>— {statusLabel(profile.cadenceStatus)}</span>
-                  </span>
-                </div>
-              </div>
+              )}
 
-              {/* Performances */}
-              <div className="card" style={{ marginBottom: '1rem' }}>
-                <div className="clabel" style={{ marginBottom: '0.75rem' }}>PERFORMANCES</div>
-                <div className="fg">
-                  <span className="fl">Allure trail moy.</span>
-                  <span className="mlabel">{fmtPaceProfile(profile.avgPaceSecPerKm)}</span>
+              {!profile ? (
+                <div className="card">
+                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
+                    Aucun profil calculé. Cliquez sur <strong>CALCULER</strong> pour analyser vos streams Strava
+                    et obtenir votre VAM précise par tranche de pente (3–6 %, 6–10 %, 10–15 %, &gt;15 %).
+                  </div>
                 </div>
-                <div className="fg">
-                  <span className="fl">FC moyenne</span>
-                  <span className="mlabel">
-                    {profile.avgHrBpm ? `${profile.avgHrBpm} bpm` : '—'}
-                    {profile.avgHrPctFcMax ? ` (${Math.round(profile.avgHrPctFcMax * 100)}% FC max)` : ''}
-                  </span>
-                </div>
-                <div className="fg">
-                  <span className="fl">VAM estimée</span>
-                  <span className="mlabel" style={{ color: statusColor(profile.vamStatus) }}>
-                    {profile.estimatedVamMH ? `${profile.estimatedVamMH} m/h` : '—'}
-                    {profile.estimatedVamMH && (
-                      <span style={{ fontSize: 10, opacity: 0.7 }}> — {statusLabel(profile.vamStatus)}</span>
-                    )}
-                  </span>
-                </div>
-                <div className="fg">
-                  <span className="fl">FC max configurée</span>
-                  <span className="mlabel">{fcMax} bpm</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  {/* Summary strip */}
+                  <div className="strip" style={{ marginBottom: '1rem' }}>
+                    <div className="scell" style={{ gridColumn: 'span 3' }}>
+                      <div className="sval">{profile.activitiesAnalyzed}</div>
+                      <div className="slbl">SORTIES</div>
+                    </div>
+                    <div className="scell" style={{ gridColumn: 'span 3' }}>
+                      <div className="sval">{profile.fcMax}</div>
+                      <div className="slbl">FC MAX</div>
+                    </div>
+                  </div>
 
-              {/* Note limitation */}
-              <div className="card" style={{ marginBottom: '1rem', borderColor: 'var(--vl-line)' }}>
-                <div className="clabel" style={{ marginBottom: '0.5rem', color: 'var(--vl-text-3)' }}>À VENIR — VAM PAR GRADIENT</div>
-                <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
-                  L'analyse VAM par tranche de pente (3–6 %, 6–10 %, 10–15 %,  &gt;15 %) nécessite
-                  les données GPS segments Strava (streams). Ces données ne sont pas encore synchronisées.
-                  Une fois disponibles, votre profil forces/faiblesses par gradient alimentera automatiquement
-                  la projection de course personnalisée.
-                </div>
-              </div>
+                  {/* Errors from edge function */}
+                  {profile.errors && profile.errors.length > 0 && (
+                    <div className="card" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--vl-amber)' }}>
+                      <div className="mlabel" style={{ color: 'var(--vl-amber)', marginBottom: 4 }}>⚡ DONNÉES PARTIELLES</div>
+                      {profile.errors.slice(0, 3).map((e, i) => (
+                        <div key={i} className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.72rem' }}>{e}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Climb buckets */}
+                  <div className="card" style={{ marginBottom: '1rem' }}>
+                    <div className="clabel" style={{ marginBottom: '0.75rem' }}>MONTÉES — VAM</div>
+                    {GRADIENT_BUCKETS.filter(b => b.type === 'up').map(b => {
+                      const s = profile.buckets[b.key]
+                      if (!s) return null
+                      return (
+                        <div key={b.key} className="fg" style={{ alignItems: 'flex-start', paddingBottom: 6 }}>
+                          <div style={{ flex: 1 }}>
+                            <div className="fl" style={{ marginBottom: 2 }}>{b.label}</div>
+                            <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.7rem' }}>
+                              {fmtDuration(s.timeSec)} · {s.avgHrPctFcMax !== null ? `${Math.round(s.avgHrPctFcMax)}% FC max` : '—'}
+                              {' · '}{confidenceLabel(s.confidence)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '0.75rem' }}>
+                            <div className="sval" style={{ fontSize: '1rem', color: s.status !== 'unknown' ? statusColor(s.status) : 'var(--vl-text-3)' }}>
+                              {fmtVam(s.vamMH)}
+                            </div>
+                            <div className="slbl" style={{ color: s.status !== 'unknown' ? statusColor(s.status) : 'var(--vl-text-3)' }}>
+                              {s.status !== 'unknown' ? statusLabel(s.status) : '—'}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Descent buckets */}
+                  <div className="card" style={{ marginBottom: '1rem' }}>
+                    <div className="clabel" style={{ marginBottom: '0.75rem' }}>DESCENTES — VITESSE</div>
+                    {GRADIENT_BUCKETS.filter(b => b.type === 'down').map(b => {
+                      const s = profile.buckets[b.key]
+                      if (!s) return null
+                      return (
+                        <div key={b.key} className="fg" style={{ alignItems: 'flex-start', paddingBottom: 6 }}>
+                          <div style={{ flex: 1 }}>
+                            <div className="fl" style={{ marginBottom: 2 }}>{b.label}</div>
+                            <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.7rem' }}>
+                              {fmtDuration(s.timeSec)} · {s.avgHrPctFcMax !== null ? `${Math.round(s.avgHrPctFcMax)}% FC max` : '—'}
+                              {' · '}{confidenceLabel(s.confidence)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '0.75rem' }}>
+                            <div className="sval" style={{ fontSize: '1rem', color: s.status !== 'unknown' ? statusColor(s.status) : 'var(--vl-text-3)' }}>
+                              {fmtSpeed(s.avgSpeedKmH)}
+                            </div>
+                            <div className="slbl" style={{ color: s.status !== 'unknown' ? statusColor(s.status) : 'var(--vl-text-3)' }}>
+                              {s.status !== 'unknown' ? statusLabel(s.status) : '—'}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Flat bucket */}
+                  {profile.buckets.flat && (
+                    <div className="card" style={{ marginBottom: '1rem' }}>
+                      <div className="clabel" style={{ marginBottom: '0.75rem' }}>PLAT</div>
+                      <div className="fg">
+                        <div>
+                          <div className="fl">Vitesse</div>
+                          <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)', fontSize: '0.7rem' }}>
+                            {fmtDuration(profile.buckets.flat.timeSec)} · {profile.buckets.flat.avgHrPctFcMax !== null ? `${Math.round(profile.buckets.flat.avgHrPctFcMax)}% FC max` : '—'}
+                            {' · '}{confidenceLabel(profile.buckets.flat.confidence)}
+                          </div>
+                        </div>
+                        <div className="sval" style={{ fontSize: '1rem' }}>
+                          {fmtSpeed(profile.buckets.flat.avgSpeedKmH)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </>

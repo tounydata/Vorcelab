@@ -1,10 +1,5 @@
-// Profil Coureur Vorcelab — computed from aggregate Strava activity data.
-//
-// VAM per gradient bucket (3-6%, 6-10%, etc.) requires Strava GPS streams,
-// which are not stored in strava_activities. The estimates here use global
-// D+/time which overestimates VAM (flat portions dilute climbing time).
-// gradeBucketMultipliers for scoreRaceSection will remain null until
-// stream data is available (Phase 5+).
+// Profil Coureur Vorcelab — types matching the `compute-runner-profile` edge function.
+// Stream-based: VAM per gradient bucket computed from second-by-second Strava streams.
 
 export const GRADIENT_BUCKETS = [
   { key: 'climb_easy',       label: 'Montée roulante',    min: 3,    max: 6,    type: 'up'   },
@@ -26,145 +21,39 @@ export function getGradeBucket(grade: number): GradientBucketKey {
   return grade >= 0 ? 'climb_wall' : 'descent_steep'
 }
 
-export interface ActivityAggregate {
-  id: string
-  distM: number
-  dplus: number
-  movingTimeSec: number
-  avgHrBpm: number | null
-  avgSpeedMs: number | null
-  type: string
-  sportType: string | null
-  startDate: string
-}
-
-// Status for a metric: strength / ok / weak / unknown
-export type MetricStatus = 'strength' | 'ok' | 'weak' | 'unknown'
-
-function metricStatus(value: number | null, thresholds: { ok: number; strength: number }): MetricStatus {
-  if (value === null) return 'unknown'
-  if (value >= thresholds.strength) return 'strength'
-  if (value >= thresholds.ok) return 'ok'
-  return 'weak'
-}
-
-export interface RunnerProfile {
-  // Volume
-  totalActivities: number
-  trailActivities: number
-  totalDistKm: number
-  totalDplus: number
-  totalTimeH: number
-  periodMonths: number
-
-  // Terrain
-  avgDplusPerKm: number
-  terrainLabel: string  // 'montagne' | 'vallonné' | 'roulant'
-
-  // Pace (trail only, m/s → min/km)
-  avgPaceSecPerKm: number | null
-
-  // Cardio
+// Per-bucket stats returned by the edge function
+export interface BucketStats {
+  timeSec: number
+  dplusM: number
+  vamMH: number | null          // null for descents/flat or insufficient data
+  avgSpeedKmH: number | null
   avgHrBpm: number | null
   avgHrPctFcMax: number | null
-
-  // VAM (global estimate — not per bucket, explains limitation)
-  estimatedVamMH: number | null
-  vamStatus: MetricStatus
-
-  // Cadence (sorties/mois)
-  cadencePerMonth: number
-  cadenceStatus: MetricStatus
-
-  // Load
-  avgDplusPerSession: number
-
-  // Gradient-bucket multipliers for scoreRaceSection — null until streams available
-  gradeBucketMultipliers: Record<GradientBucketKey, number> | null
-  streamsAvailable: false  // will become true when streams are stored
+  confidence: 'high' | 'medium' | 'low' | 'none'
+  status: 'strength' | 'ok' | 'weak' | 'unknown'
 }
 
-const TRAIL_TYPES = new Set([
-  'run', 'trail', 'virtualrun',
-  'Run', 'Trail', 'VirtualRun',
-])
-
-function isTrail(a: ActivityAggregate): boolean {
-  return TRAIL_TYPES.has(a.type) || TRAIL_TYPES.has(a.sportType ?? '')
+// Full response from compute-runner-profile edge function
+export interface RunnerProfileComputed {
+  computedAt: string
+  periodDays: number
+  activitiesAnalyzed: number
+  totalActivitiesFound: number
+  fcMax: number
+  buckets: Record<GradientBucketKey, BucketStats>
+  gradeBucketMultipliers: Record<GradientBucketKey, number>
+  errors?: string[]
 }
 
-export function computeRunnerProfile(
-  activities: ActivityAggregate[],
-  fcMax: number,
-  periodMonths = 12,
-): RunnerProfile {
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - periodMonths)
-
-  const recent = activities.filter(a => new Date(a.startDate) >= cutoff)
-  const trail = recent.filter(isTrail)
-
-  const totalDistKm = trail.reduce((s, a) => s + a.distM / 1000, 0)
-  const totalDplus  = trail.reduce((s, a) => s + (a.dplus ?? 0), 0)
-  const totalTimeH  = trail.reduce((s, a) => s + a.movingTimeSec / 3600, 0)
-
-  const avgDplusPerKm = totalDistKm > 0 ? totalDplus / totalDistKm : 0
-  const terrainLabel =
-    avgDplusPerKm >= 50 ? 'montagne' :
-    avgDplusPerKm >= 25 ? 'vallonné' : 'roulant'
-
-  const withSpeed = trail.filter(a => a.avgSpeedMs && a.avgSpeedMs > 0)
-  const avgPaceSecPerKm = withSpeed.length > 0
-    ? withSpeed.reduce((s, a) => s + 1000 / a.avgSpeedMs!, 0) / withSpeed.length
-    : null
-
-  const withHr = trail.filter(a => a.avgHrBpm && a.avgHrBpm > 0)
-  const avgHrBpm = withHr.length > 0
-    ? withHr.reduce((s, a) => s + a.avgHrBpm!, 0) / withHr.length
-    : null
-  const avgHrPctFcMax = avgHrBpm ? avgHrBpm / fcMax : null
-
-  // Global VAM estimate: only meaningful if terrain has significant D+
-  const estimatedVamMH = totalTimeH > 0 && totalDplus > 500
-    ? Math.round(totalDplus / totalTimeH)
-    : null
-
-  const cadencePerMonth = trail.length / periodMonths
-
-  return {
-    totalActivities: recent.length,
-    trailActivities: trail.length,
-    totalDistKm: Math.round(totalDistKm),
-    totalDplus: Math.round(totalDplus),
-    totalTimeH: Math.round(totalTimeH * 10) / 10,
-    periodMonths,
-
-    avgDplusPerKm: Math.round(avgDplusPerKm),
-    terrainLabel,
-
-    avgPaceSecPerKm: avgPaceSecPerKm ? Math.round(avgPaceSecPerKm) : null,
-    avgHrBpm: avgHrBpm ? Math.round(avgHrBpm) : null,
-    avgHrPctFcMax: avgHrPctFcMax ? Math.round(avgHrPctFcMax * 100) / 100 : null,
-
-    estimatedVamMH,
-    vamStatus: metricStatus(estimatedVamMH, { ok: 600, strength: 900 }),
-
-    cadencePerMonth: Math.round(cadencePerMonth * 10) / 10,
-    cadenceStatus: metricStatus(cadencePerMonth, { ok: 2, strength: 4 }),
-
-    avgDplusPerSession: trail.length > 0 ? Math.round(totalDplus / trail.length) : 0,
-
-    gradeBucketMultipliers: null,
-    streamsAvailable: false,
-  }
+// Profile row from profiles table (JSONB column)
+export interface ProfileRow {
+  fc_max?: number | null
+  name?: string | null
+  runner_profile?: RunnerProfileComputed | null
+  runner_profile_at?: string | null
 }
 
-export function fmtPaceProfile(secPerKm: number | null): string {
-  if (!secPerKm) return '—'
-  const m = Math.floor(secPerKm / 60)
-  const s = Math.round(secPerKm % 60)
-  return `${m}'${String(s).padStart(2, '0')}/km`
-}
+export type MetricStatus = 'strength' | 'ok' | 'weak' | 'unknown'
 
 export function statusColor(s: MetricStatus): string {
   if (s === 'strength') return 'var(--vl-growth)'
@@ -178,4 +67,28 @@ export function statusLabel(s: MetricStatus): string {
   if (s === 'ok') return 'Correct'
   if (s === 'weak') return 'À renforcer'
   return '—'
+}
+
+export function confidenceLabel(c: BucketStats['confidence']): string {
+  if (c === 'high') return 'Fiable'
+  if (c === 'medium') return 'Moyen'
+  if (c === 'low') return 'Peu de données'
+  return '—'
+}
+
+export function fmtVam(vam: number | null): string {
+  if (vam === null) return '—'
+  return `${Math.round(vam)} m/h`
+}
+
+export function fmtSpeed(kmh: number | null): string {
+  if (kmh === null) return '—'
+  return `${kmh.toFixed(1)} km/h`
+}
+
+export function fmtDuration(sec: number): string {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}`
+  return `${m} min`
 }
