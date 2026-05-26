@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { useQuery } from '@tanstack/react-query'
@@ -102,7 +103,6 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginBottom: 6 }}>
-        {/* VAM or Speed */}
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: statusColor(stats.status) }}>
             {isUp ? fmtVam(stats.vamMH) : fmtSpeed(stats.avgSpeedKmH)}
@@ -110,7 +110,6 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
           <div className="slbl" style={{ fontSize: 10 }}>{isUp ? 'VAM' : 'Vitesse'}</div>
         </div>
 
-        {/* FC% — prominent */}
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>
             {stats.avgHrPctFcMax != null ? `${stats.avgHrPctFcMax.toFixed(0)}%` : '—'}
@@ -118,7 +117,6 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
           <div className="slbl" style={{ fontSize: 10 }}>FCmax</div>
         </div>
 
-        {/* Efficiency */}
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>
             {stats.efficiencyScore != null ? stats.efficiencyScore.toFixed(0) : '—'}
@@ -127,14 +125,12 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
         </div>
       </div>
 
-      {/* statusReason */}
       {stats.statusReason && (
         <div style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic', marginBottom: 4 }}>
           {stats.statusReason}
         </div>
       )}
 
-      {/* Relance status */}
       {stats.relanceStatus && stats.relanceStatus !== 'unknown' && (
         <div className="mlabel" style={{ fontSize: 10, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
           Relance après montée&nbsp;:&nbsp;
@@ -162,7 +158,6 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
     <div className="card" style={{ marginBottom: '1rem' }}>
       <div className="clabel" style={{ marginBottom: '0.75rem' }}>ANALYSE GLOBALE</div>
 
-      {/* Post-climb recovery */}
       <div style={{ marginBottom: '0.75rem' }}>
         <div className="mlabel" style={{ marginBottom: 4 }}>Récupération post-montée</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -183,7 +178,6 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
         </div>
       </div>
 
-      {/* Cardiac drift */}
       <div>
         <div className="mlabel" style={{ marginBottom: 4 }}>Dérive cardiaque</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -207,78 +201,366 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
   )
 }
 
+// ─── Full profile row type ────────────────────────────────────────────────────
+
+interface ProfileRow {
+  id: string
+  name?: string | null
+  weight?: number | null
+  height?: number | null
+  vo2max?: number | null
+  fc_max?: number | null
+  lactate_threshold?: number | null
+  lactate_pace?: string | null
+  goals?: string | null
+  sex?: string | null
+  birthdate?: string | null
+  avatar_url?: string | null
+  prs?: Record<string, unknown> | null
+  nutrition_level?: string | null
+  runner_profile?: RunnerProfileComputed | null
+}
+
+// ─── Tab styles ───────────────────────────────────────────────────────────────
+
+const tabStyle = (active: boolean): React.CSSProperties => ({
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '8px 12px',
+  fontFamily: 'var(--vl-mono)',
+  fontSize: 11,
+  letterSpacing: '.1em',
+  textTransform: 'uppercase',
+  color: active ? 'var(--vl-ember)' : 'var(--vl-text-3)',
+  borderBottom: active ? '2px solid var(--vl-ember)' : '2px solid transparent',
+})
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
+  const [activeTab, setActiveTab] = useState<'compte' | 'records' | 'nutrition'>('compte')
 
-  const { data: profileRow, isLoading } = useQuery<{
-    fc_max?: number
-    runner_profile?: RunnerProfileComputed
-  } | null>({
-    queryKey: ['profile-runner', user?.id],
-    queryFn: async () => {
+  // Form state
+  const [name, setName] = useState('')
+  const [birthdate, setBirthdate] = useState('')
+  const [sex, setSex] = useState('')
+  const [weight, setWeight] = useState('')
+  const [height, setHeight] = useState('')
+  const [vo2max, setVo2max] = useState('')
+  const [fcMax, setFcMax] = useState('')
+  const [lactate, setLactate] = useState('')
+  const [lactatePace, setLactatePace] = useState('')
+  const [goals, setGoals] = useState('')
+  const [formLoaded, setFormLoaded] = useState(false)
+
+  // Password change state
+  const [showPwdInput, setShowPwdInput] = useState(false)
+  const [newPwd, setNewPwd] = useState('')
+  const [pwdMsg, setPwdMsg] = useState('')
+
+  // Save state
+  const [saveMsg, setSaveMsg] = useState('')
+
+  const { data: profileRow, isLoading, refetch } = useQuery<ProfileRow | null>({
+    queryKey: ['profile-full', user?.id],
+    queryFn: async (): Promise<ProfileRow | null> => {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('fc_max,runner_profile')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,runner_profile')
         .eq('id', user.id)
         .single()
-      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed } | null
+      return data as ProfileRow | null
     },
     enabled: !!user,
   })
 
+  // Populate form once data loads
+  if (profileRow && !formLoaded) {
+    setName(profileRow.name ?? '')
+    setBirthdate(profileRow.birthdate ?? '')
+    setSex(profileRow.sex ?? '')
+    setWeight(profileRow.weight != null ? String(profileRow.weight) : '')
+    setHeight(profileRow.height != null ? String(profileRow.height) : '')
+    setVo2max(profileRow.vo2max != null ? String(profileRow.vo2max) : '')
+    setFcMax(profileRow.fc_max != null ? String(profileRow.fc_max) : '')
+    setLactate(profileRow.lactate_threshold != null ? String(profileRow.lactate_threshold) : '')
+    setLactatePace(profileRow.lactate_pace ?? '')
+    setGoals(profileRow.goals ?? '')
+    setFormLoaded(true)
+  }
+
   const rp = profileRow?.runner_profile
+
+  async function handleSave() {
+    if (!user) return
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      name: name || null,
+      birthdate: birthdate || null,
+      sex: sex || null,
+      weight: weight ? parseFloat(weight) : null,
+      height: height ? parseInt(height) : null,
+      vo2max: vo2max ? parseFloat(vo2max) : null,
+      fc_max: fcMax ? parseInt(fcMax) : null,
+      lactate_threshold: lactate ? parseInt(lactate) : null,
+      lactate_pace: lactatePace || null,
+      goals: goals || null,
+    })
+    await refetch()
+    setSaveMsg('Sauvegardé ✓')
+    setTimeout(() => setSaveMsg(''), 3000)
+  }
+
+  async function handlePwdChange() {
+    if (!newPwd) return
+    const { error } = await supabase.auth.updateUser({ password: newPwd })
+    if (error) {
+      setPwdMsg('Erreur : ' + error.message)
+    } else {
+      setPwdMsg('Mot de passe mis à jour ✓')
+      setNewPwd('')
+      setShowPwdInput(false)
+      setTimeout(() => setPwdMsg(''), 3000)
+    }
+  }
 
   return (
     <>
+      {/* Header */}
       <div className="clabel" style={{ marginBottom: '1rem', fontSize: '1.4rem', fontFamily: 'var(--vl-display)', letterSpacing: '0.04em' }}>
-        PROFIL
+        MON PROFIL
       </div>
 
-      {/* Account info */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="clabel">Compte</div>
-        <div className="fg">
-          <span className="fl">Email</span>
-          <span className="mlabel" style={{ color: 'var(--vl-text-2)' }}>
-            {user?.email?.toLowerCase()}
-          </span>
-        </div>
-        <div className="fg">
-          <span className="fl">ID</span>
-          <span className="mlabel" style={{ color: 'var(--vl-text-3)', fontSize: 10 }}>
-            {user?.id}
-          </span>
-        </div>
-        {profileRow?.fc_max && (
-          <div className="fg">
-            <span className="fl">FCmax</span>
-            <span className="mlabel">{profileRow.fc_max} bpm</span>
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
+        <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
+        <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
+        <button style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
+      </div>
+
+      {/* ── Tab COMPTE ── */}
+      {activeTab === 'compte' && (
+        <>
+          {/* Card COMPTE */}
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="clabel" style={{ marginBottom: '0.75rem' }}>COMPTE</div>
+
+            {/* Avatar */}
+            {profileRow?.avatar_url && (
+              <div style={{ marginBottom: '0.75rem' }}>
+                <img
+                  src={profileRow.avatar_url}
+                  alt="avatar"
+                  style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
+                />
+              </div>
+            )}
+
+            {/* Email */}
+            <div className="fg">
+              <span className="fl">EMAIL</span>
+              <input
+                className="fi"
+                type="email"
+                value={user?.email ?? ''}
+                readOnly
+                disabled
+              />
+            </div>
+
+            {/* Password change */}
+            <div style={{ marginTop: '0.75rem' }}>
+              {!showPwdInput ? (
+                <button
+                  className="hbtn"
+                  onClick={() => setShowPwdInput(true)}
+                >
+                  🔑 Changer le mot de passe
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    className="fi"
+                    type="password"
+                    placeholder="Nouveau mot de passe"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="hbtn" onClick={handlePwdChange}>Confirmer</button>
+                    <button
+                      className="hbtn"
+                      style={{ background: 'var(--vl-bg-2)', color: 'var(--vl-text-3)' }}
+                      onClick={() => { setShowPwdInput(false); setNewPwd('') }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+              {pwdMsg && (
+                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--vl-growth)', fontFamily: 'var(--vl-mono)' }}>
+                  {pwdMsg}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Runner profile */}
-      {isLoading && (
+          {/* Card DONNÉES PHYSIOLOGIQUES */}
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="clabel" style={{ marginBottom: '0.75rem' }}>DONNÉES PHYSIOLOGIQUES</div>
+
+            {isLoading ? (
+              <div className="loading"><div className="spinner" /></div>
+            ) : (
+              <>
+                <div className="fg">
+                  <span className="fl">PRÉNOM / NOM</span>
+                  <input className="fi" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Prénom Nom" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">DATE DE NAISSANCE</span>
+                  <input className="fi" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">SEXE</span>
+                  <select className="fi" value={sex} onChange={(e) => setSex(e.target.value)}>
+                    <option value="">—</option>
+                    <option value="M">Homme</option>
+                    <option value="F">Femme</option>
+                  </select>
+                </div>
+
+                <div className="fg">
+                  <span className="fl">POIDS (KG)</span>
+                  <input className="fi" type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="70.0" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">TAILLE (CM)</span>
+                  <input className="fi" type="number" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="175" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">VO2MAX</span>
+                  <input className="fi" type="number" value={vo2max} onChange={(e) => setVo2max(e.target.value)} placeholder="55" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">FC MAX (BPM)</span>
+                  <input className="fi" type="number" value={fcMax} onChange={(e) => setFcMax(e.target.value)} placeholder="185" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">SEUIL LACTIQUE (BPM)</span>
+                  <input className="fi" type="number" value={lactate} onChange={(e) => setLactate(e.target.value)} placeholder="165" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">SEUIL LACTIQUE (/KM)</span>
+                  <input className="fi" type="text" value={lactatePace} onChange={(e) => setLactatePace(e.target.value)} placeholder="4:50" />
+                </div>
+
+                <div className="fg">
+                  <span className="fl">OBJECTIFS</span>
+                  <textarea
+                    className="fi"
+                    value={goals}
+                    onChange={(e) => setGoals(e.target.value)}
+                    placeholder="Vos objectifs de course..."
+                    rows={3}
+                    style={{ resize: 'vertical' }}
+                  />
+                </div>
+
+                <button
+                  className="hbtn"
+                  style={{ marginTop: '0.5rem', background: 'var(--vl-ember)', color: '#fff' }}
+                  onClick={handleSave}
+                >
+                  💾 Sauvegarder
+                </button>
+                {saveMsg && (
+                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--vl-growth)', fontFamily: 'var(--vl-mono)' }}>
+                    {saveMsg}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Card ARCHIVE STRAVA */}
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div className="clabel" style={{ marginBottom: '0.5rem' }}>HISTORIQUE COMPLET — ARCHIVE STRAVA</div>
+            <div style={{ fontSize: 12, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
+              Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Tab RECORDS ── */}
+      {activeTab === 'records' && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="clabel" style={{ marginBottom: '0.75rem' }}>RECORDS PERSONNELS</div>
+          {isLoading ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : profileRow?.prs && Object.keys(profileRow.prs).length > 0 ? (
+            <div>
+              {Object.entries(profileRow.prs).map(([dist, time]) => (
+                <div key={dist} className="fg" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="fl">{dist}</span>
+                  <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
+                    {String(time)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+              Aucun record enregistré.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab NUTRITION ── */}
+      {activeTab === 'nutrition' && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="clabel" style={{ marginBottom: '0.75rem' }}>NUTRITION</div>
+          {isLoading ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : profileRow?.nutrition_level ? (
+            <div>
+              <div className="fg">
+                <span className="fl">NIVEAU</span>
+                <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
+                  {profileRow.nutrition_level}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+              Configurer vos préférences nutritionnelles dans vos stratégies de course.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PROFIL COUREUR (runner_profile buckets) — below all tabs ── */}
+      {isLoading && activeTab === 'compte' && (
         <div className="loading"><div className="spinner" /></div>
       )}
 
-      {!isLoading && !rp && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-            Aucun profil coureur calculé. Synchronise tes activités Strava pour générer ton profil.
-          </div>
-        </div>
-      )}
-
-      {rp && (
+      {!isLoading && rp && (
         <>
-          {/* Global analysis */}
+          <div className="clabel" style={{ marginBottom: '0.75rem', marginTop: '0.5rem' }}>PROFIL COUREUR</div>
           <GlobalAnalysisCard rp={rp} />
-
-          {/* Per-bucket cards */}
           <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
           {(Object.keys(rp.buckets ?? {}) as BucketKey[])
             .filter((k) => {
@@ -292,8 +574,6 @@ export default function ProfilePage() {
                 stats={rp.buckets[bkey] as BucketStats}
               />
             ))}
-
-          {/* Meta */}
           <div className="mlabel" style={{ marginTop: 8, fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
             Calculé le {new Date(rp._computedAt).toLocaleDateString('fr-FR')}
             {' · '}
@@ -304,6 +584,15 @@ export default function ProfilePage() {
         </>
       )}
 
+      {!isLoading && !rp && (
+        <div className="card" style={{ marginBottom: '1rem', marginTop: '0.5rem' }}>
+          <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+            Aucun profil coureur calculé. Synchronise tes activités Strava pour générer ton profil.
+          </div>
+        </div>
+      )}
+
+      {/* Logout */}
       <button
         className="hbtn"
         style={{ marginTop: '1.5rem' }}
