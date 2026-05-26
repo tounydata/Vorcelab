@@ -548,13 +548,19 @@ export default function DashboardPage() {
   })
   const fcMax = profileData?.fc_max
 
-  // Silent background recompute when latest activity is newer than last profile computation
+  // Silent background recompute when:
+  //   a) latest activity is newer than last profile computation, OR
+  //   b) streamCoverage < 0.01 (old profile computed without streams — stale data)
   const profileTriggeredRef = useRef(false)
   useEffect(() => {
     if (!user || !activities.length || profileTriggeredRef.current) return
     const latestActivityDate = activities[0].start_date
     const computedAt = profileData?.runner_profile?._computedAt
-    const needsRecompute = !computedAt || new Date(latestActivityDate) > new Date(computedAt)
+    const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 1
+    const needsRecompute =
+      !computedAt ||
+      new Date(latestActivityDate) > new Date(computedAt) ||
+      streamCoverage < 0.01
     if (!needsRecompute) return
 
     profileTriggeredRef.current = true
