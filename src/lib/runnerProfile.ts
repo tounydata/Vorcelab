@@ -1,156 +1,342 @@
-// Profil Coureur Vorcelab — types matching the `compute-runner-profile` edge function.
-// Stream-based: VAM per gradient bucket computed from second-by-second Strava streams.
+// runnerProfile.ts
+// TypeScript types and pure helper functions for the runner profile system.
+// All functions are exported so they can be unit-tested independently.
 
-export const GRADIENT_BUCKETS = [
-  { key: 'climb_easy',       label: 'Montée roulante',    min: 3,    max: 6,    type: 'up'   },
-  { key: 'climb_moderate',   label: 'Montée modérée',     min: 6,    max: 10,   type: 'up'   },
-  { key: 'climb_steep',      label: 'Montée raide',       min: 10,   max: 15,   type: 'up'   },
-  { key: 'climb_wall',       label: 'Très raide / marche',min: 15,   max: 999,  type: 'up'   },
-  { key: 'flat',             label: 'Plat',               min: -3,   max: 3,    type: 'flat' },
-  { key: 'descent_easy',     label: 'Descente roulante',  min: -8,   max: -3,   type: 'down' },
-  { key: 'descent_moderate', label: 'Descente technique', min: -15,  max: -8,   type: 'down' },
-  { key: 'descent_steep',    label: 'Descente très raide',min: -999, max: -15,  type: 'down' },
+// ─── Grade bucket helpers ─────────────────────────────────────────────────────
+
+export const GRADE_BUCKETS = [
+  { key: 'steep_up',   label: 'Montée raide',   minGrade: 12,  maxGrade: Infinity, type: 'up'   },
+  { key: 'mod_up',     label: 'Montée modérée', minGrade: 6,   maxGrade: 12,       type: 'up'   },
+  { key: 'mild_up',    label: 'Montée légère',  minGrade: 2,   maxGrade: 6,        type: 'up'   },
+  { key: 'flat',       label: 'Plat',           minGrade: -2,  maxGrade: 2,        type: 'flat' },
+  { key: 'mild_down',  label: 'Descente légère',minGrade: -6,  maxGrade: -2,       type: 'down' },
+  { key: 'mod_down',   label: 'Descente modérée',minGrade:-12, maxGrade: -6,       type: 'down' },
+  { key: 'steep_down', label: 'Descente raide', minGrade:-Infinity, maxGrade: -12, type: 'down' },
 ] as const
 
-export type GradientBucketKey = typeof GRADIENT_BUCKETS[number]['key']
+export type BucketKey = typeof GRADE_BUCKETS[number]['key']
+export type BucketType = 'up' | 'flat' | 'down'
 
-export function getGradeBucket(grade: number): GradientBucketKey {
-  for (const b of GRADIENT_BUCKETS) {
-    if (grade >= b.min && grade < b.max) return b.key
+export function getGradeBucket(gradePercent: number): BucketKey | null {
+  // For ascents (positive grades): boundary belongs to the steeper bucket — use >= minGrade, < maxGrade
+  // For descents (negative grades): boundary belongs to the steeper (more negative) bucket — use > minGrade, <= maxGrade
+  for (const b of GRADE_BUCKETS) {
+    if (b.type === 'down' || (b.minGrade < 0 && b.maxGrade <= 0)) {
+      // Descent: > minGrade && <= maxGrade (boundary belongs to steeper/lower bucket)
+      if (gradePercent > b.minGrade && gradePercent <= b.maxGrade) return b.key
+    } else {
+      // Ascent / flat: >= minGrade && < maxGrade (boundary belongs to steeper/higher bucket)
+      if (gradePercent >= b.minGrade && gradePercent < b.maxGrade) return b.key
+    }
   }
-  return grade >= 0 ? 'climb_wall' : 'descent_steep'
+  return null
 }
 
-// Per-bucket stats returned by the edge function
-export interface BucketStats {
-  timeSec: number
-  dplusM: number
-  vamMH: number | null          // null for descents/flat or insufficient data
-  avgSpeedKmH: number | null
-  avgHrBpm: number | null
-  avgHrPctFcMax: number | null
-  confidence: 'high' | 'medium' | 'low' | 'none'
-  status: 'strength' | 'ok' | 'weak' | 'unknown'
-  efficiencyScore: number | null  // vamMH/(hrPct/100) for climbs, speed/(hrPct/100) for flat/descent
-  cardioCost: 'low' | 'medium' | 'high' | 'unknown'
-  statusReason: string
-  relanceStatus?: 'strong' | 'normal' | 'limited' | 'unknown'
+export function getBucketType(key: BucketKey): BucketType {
+  const b = GRADE_BUCKETS.find((b) => b.key === key)
+  return (b?.type ?? 'flat') as BucketType
 }
 
-// Full response from compute-runner-profile edge function
-export interface RunnerProfileComputed {
-  computedAt: string
-  periodDays: number
-  activitiesAnalyzed: number
-  totalActivitiesFound: number
-  fcMax: number
-  buckets: Record<GradientBucketKey, BucketStats>
-  gradeBucketMultipliers: Record<GradientBucketKey, number>
-  // Post-climb HR recovery (global profile metric)
-  postClimbHrRecoveryBpmPerMin: number | null
-  postClimbHrDropPctFcMax: number | null
-  postClimbResumeSpeedKmH: number | null
-  postClimbRecoveryConfidence: 'high' | 'medium' | 'low' | 'none'
-  postClimbRecoveryStatus: 'good' | 'moderate' | 'weak' | 'unknown'
-  // Cardiac drift (global profile metric)
-  hrDriftPct: number | null
-  hrDriftConfidence: 'high' | 'medium' | 'low' | 'none'
-  hrDriftStatus: 'stable' | 'moderate' | 'marked' | 'unknown'
-  errors?: string[]
+// ─── Cardio cost ──────────────────────────────────────────────────────────────
+
+export type CardioCost = 'low' | 'medium' | 'high' | 'unknown'
+
+/**
+ * Compute cardio cost from average HR as % FCmax.
+ * @param hrPctFcMax  0–100 (percent of fcMax), or null if no HR data
+ */
+export function computeCardioCost(hrPctFcMax: number | null): CardioCost {
+  if (hrPctFcMax == null) return 'unknown'
+  if (hrPctFcMax < 70) return 'low'
+  if (hrPctFcMax < 85) return 'medium'
+  return 'high'
 }
 
-// Profile row from profiles table (JSONB column)
-export interface ProfileRow {
-  fc_max?: number | null
-  name?: string | null
-  runner_profile?: RunnerProfileComputed | null
-  runner_profile_at?: string | null
+// ─── Efficiency score ─────────────────────────────────────────────────────────
+
+/**
+ * Efficiency score:
+ *  - climbs:          vamMH / (avgHrPctFcMax/100)
+ *  - flat/descent:    avgSpeedKmH / (avgHrPctFcMax/100)
+ * Returns null if no HR data.
+ */
+export function computeEfficiencyScore(
+  bucketType: BucketType,
+  vamMH: number | null,
+  avgSpeedKmH: number | null,
+  hrPctFcMax: number | null
+): number | null {
+  if (hrPctFcMax == null || hrPctFcMax <= 0) return null
+  const hrFrac = hrPctFcMax / 100
+  if (bucketType === 'up') {
+    if (vamMH == null) return null
+    return vamMH / hrFrac
+  } else {
+    if (avgSpeedKmH == null) return null
+    return avgSpeedKmH / hrFrac
+  }
 }
 
-export type MetricStatus = 'strength' | 'ok' | 'weak' | 'unknown'
+// ─── Status logic ─────────────────────────────────────────────────────────────
 
-export function statusColor(s: MetricStatus): string {
-  if (s === 'strength') return 'var(--vl-growth)'
-  if (s === 'ok') return 'var(--vl-text)'
-  if (s === 'weak') return 'var(--vl-ember)'
-  return 'var(--vl-text-3)'
+export type BucketStatus = 'strength' | 'ok' | 'weak' | 'unknown'
+
+export function computeClimbStatus(
+  vamMH: number | null,
+  cardioCost: CardioCost,
+  minutesAnalyzed: number
+): { status: BucketStatus; statusReason: string } {
+  if (vamMH == null) {
+    return { status: 'unknown', statusReason: `Peu de données : ${Math.round(minutesAnalyzed)} min analysées.` }
+  }
+  if (vamMH >= 900) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return {
+        status: 'strength',
+        statusReason: `Point fort efficient : VAM ${Math.round(vamMH)}m/h à ${cardioCost === 'low' ? '<70' : '70–84'}% FCmax.`,
+      }
+    }
+    return {
+      status: 'strength',
+      statusReason: `Performance élevée mais coûteuse : FC moyenne élevée pour cette VAM.`,
+    }
+  }
+  if (vamMH >= 600) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return { status: 'ok', statusReason: 'Bonne efficacité : VAM correcte avec FC contrôlée.' }
+    }
+    return { status: 'ok', statusReason: `Performance acceptable mais coûteuse : FC élevée pour cette VAM.` }
+  }
+  if (vamMH >= 500) {
+    if (cardioCost === 'high') {
+      return { status: 'ok', statusReason: `Performance acceptable mais coûteuse : FC élevée pour cette VAM.` }
+    }
+  }
+  if (cardioCost === 'high') {
+    return { status: 'weak', statusReason: 'À renforcer : coût cardio élevé pour une VAM faible.' }
+  }
+  return { status: 'weak', statusReason: 'À renforcer : VAM faible sur ce gradient.' }
 }
 
-export function statusLabel(s: MetricStatus): string {
-  if (s === 'strength') return 'Point fort'
-  if (s === 'ok') return 'Correct'
-  if (s === 'weak') return 'À renforcer'
-  return '—'
+export function computeDescentStatus(
+  avgSpeedKmH: number | null,
+  cardioCost: CardioCost,
+  minutesAnalyzed: number
+): { status: BucketStatus; statusReason: string } {
+  if (avgSpeedKmH == null) {
+    return { status: 'unknown', statusReason: `Peu de données : ${Math.round(minutesAnalyzed)} min analysées.` }
+  }
+  const cautionNote = cardioCost === 'high'
+    ? ' FC en descente peut refléter la fatigue des montées précédentes.'
+    : ''
+  if (avgSpeedKmH >= 14) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return { status: 'strength', statusReason: `Point fort : bonne vitesse en descente avec FC contrôlée.` }
+    }
+    return { status: 'strength', statusReason: `Bonne vitesse en descente.${cautionNote}` }
+  }
+  if (avgSpeedKmH >= 9) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return { status: 'ok', statusReason: 'Descente correcte avec FC maîtrisée.' }
+    }
+    return { status: 'ok', statusReason: `Descente correcte.${cautionNote}` }
+  }
+  if (cardioCost === 'high') {
+    return { status: 'weak', statusReason: `À renforcer : descente lente avec FC élevée.${cautionNote}` }
+  }
+  return { status: 'weak', statusReason: 'À renforcer : vitesse faible en descente.' }
 }
 
-export function confidenceLabel(c: BucketStats['confidence']): string {
-  if (c === 'high') return 'Fiable'
-  if (c === 'medium') return 'Moyen'
-  if (c === 'low') return 'Peu de données'
-  return '—'
+export function computeFlatStatus(
+  avgSpeedKmH: number | null,
+  cardioCost: CardioCost,
+  minutesAnalyzed: number
+): { status: BucketStatus; statusReason: string } {
+  if (avgSpeedKmH == null) {
+    return { status: 'unknown', statusReason: `Peu de données : ${Math.round(minutesAnalyzed)} min analysées.` }
+  }
+  if (avgSpeedKmH >= 12) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return { status: 'strength', statusReason: `Point fort : bonne vitesse sur plat avec FC contrôlée.` }
+    }
+    return { status: 'strength', statusReason: 'Performance élevée sur plat mais coûteuse cardio.' }
+  }
+  if (avgSpeedKmH >= 8) {
+    if (cardioCost === 'low' || cardioCost === 'medium') {
+      return { status: 'ok', statusReason: 'Bonne efficacité sur plat avec FC maîtrisée.' }
+    }
+    return { status: 'ok', statusReason: 'Performance acceptable sur plat mais coûteuse cardio.' }
+  }
+  if (cardioCost === 'high') {
+    return { status: 'weak', statusReason: 'À renforcer : coût cardio élevé pour une vitesse faible sur plat.' }
+  }
+  return { status: 'weak', statusReason: 'À renforcer : vitesse faible sur plat.' }
 }
+
+// ─── Drift status ─────────────────────────────────────────────────────────────
+
+export type HrDriftStatus = 'stable' | 'moderate' | 'marked' | 'unknown'
+
+export function computeDriftStatus(driftPct: number | null): HrDriftStatus {
+  if (driftPct == null) return 'unknown'
+  if (driftPct <= 5) return 'stable'
+  if (driftPct <= 10) return 'moderate'
+  return 'marked'
+}
+
+// ─── Recovery status ──────────────────────────────────────────────────────────
+
+export type PostClimbRecoveryStatus = 'good' | 'moderate' | 'weak' | 'unknown'
+
+export function computePostClimbRecoveryStatus(
+  hrDropBpmPerMin: number | null,
+  hrDropPctFcMax: number | null
+): PostClimbRecoveryStatus {
+  if (hrDropBpmPerMin == null && hrDropPctFcMax == null) return 'unknown'
+  const bpm = hrDropBpmPerMin ?? 0
+  const pct = hrDropPctFcMax ?? 0
+  if (bpm >= 20 || pct >= 10) return 'good'
+  if ((bpm >= 10 && bpm < 20) || (pct >= 5 && pct < 10)) return 'moderate'
+  return 'weak'
+}
+
+// ─── Confidence label helpers ─────────────────────────────────────────────────
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'none'
+
+export function computeConfidenceFromCount(n: number, thresholds = { high: 5, medium: 2 }): ConfidenceLevel {
+  if (n >= thresholds.high) return 'high'
+  if (n >= thresholds.medium) return 'medium'
+  if (n >= 1) return 'low'
+  return 'none'
+}
+
+// ─── UI formatting helpers ────────────────────────────────────────────────────
 
 export function fmtVam(vam: number | null): string {
-  if (vam === null) return '—'
+  if (vam == null) return '—'
   return `${Math.round(vam)} m/h`
 }
 
-export function fmtSpeed(kmh: number | null): string {
-  if (kmh === null) return '—'
-  return `${kmh.toFixed(1)} km/h`
+export function fmtSpeed(speedKmH: number | null): string {
+  if (speedKmH == null) return '—'
+  return `${speedKmH.toFixed(1)} km/h`
 }
 
-export function fmtDuration(sec: number): string {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
+export function fmtDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
   if (h > 0) return `${h}h${String(m).padStart(2, '0')}`
   return `${m} min`
 }
 
-// ── Helper functions (exported for testability) ──────────────────────────────
-
-/** Compute cardio cost based on avgHrPctFcMax */
-export function computeCardioCost(hrPct: number | null): BucketStats['cardioCost'] {
-  if (hrPct === null) return 'unknown'
-  if (hrPct >= 85) return 'high'
-  if (hrPct >= 70) return 'medium'
-  return 'low'
+export function statusColor(status: BucketStatus | PostClimbRecoveryStatus | HrDriftStatus): string {
+  switch (status) {
+    case 'strength':
+    case 'good':
+    case 'stable':
+      return 'var(--vl-growth)'
+    case 'ok':
+    case 'moderate':
+      return 'var(--vl-amber)'
+    case 'weak':
+    case 'marked':
+      return 'var(--vl-ember)'
+    default:
+      return 'var(--vl-text-3)'
+  }
 }
 
-/** Compute efficiency score: vamMH/(hrPct/100) for climbs, speed/(hrPct/100) for flat/descent */
-export function computeEfficiencyScore(
-  metricValue: number | null,
-  hrPct: number | null
-): number | null {
-  if (metricValue === null || hrPct === null || hrPct <= 0) return null
-  return metricValue / (hrPct / 100)
+export function statusLabel(status: BucketStatus | PostClimbRecoveryStatus | HrDriftStatus): string {
+  switch (status) {
+    case 'strength': return 'Point fort'
+    case 'good':     return 'Bonne récupération'
+    case 'stable':   return 'Stable'
+    case 'ok':       return 'Correct'
+    case 'moderate': return 'Modéré'
+    case 'weak':     return 'À renforcer'
+    case 'marked':   return 'Marquée'
+    default:         return 'Inconnu'
+  }
 }
 
-/** Compute HR drift status from drift percentage */
-export function computeDriftStatus(pct: number | null): RunnerProfileComputed['hrDriftStatus'] {
-  if (pct === null) return 'unknown'
-  if (pct <= 5) return 'stable'
-  if (pct <= 10) return 'moderate'
-  return 'marked'
+export function confidenceLabel(conf: ConfidenceLevel): string {
+  switch (conf) {
+    case 'high':   return 'Fiable'
+    case 'medium': return 'Partiel'
+    case 'low':    return 'Faible'
+    default:       return 'Aucune donnée'
+  }
 }
 
-/** Compute post-climb recovery status */
-export function computeRecoveryStatus(
-  bpmPerMin: number | null,
-  pctFcMax: number | null
-): RunnerProfileComputed['postClimbRecoveryStatus'] {
-  if (bpmPerMin === null && pctFcMax === null) return 'unknown'
-  const bpm = bpmPerMin ?? 0
-  const pct = pctFcMax ?? 0
-  if (bpm >= 20 || pct >= 10) return 'good'
-  if (bpm >= 10 || pct >= 5) return 'moderate'
-  return 'weak'
+export function cardioCostColor(cost: CardioCost): string {
+  switch (cost) {
+    case 'low':    return 'var(--vl-growth)'
+    case 'medium': return 'var(--vl-amber)'
+    case 'high':   return 'var(--vl-ember)'
+    default:       return 'var(--vl-text-3)'
+  }
 }
 
-/** Compute confidence level from event count */
-export function computeConfidenceFromCount(n: number): 'high' | 'medium' | 'low' | 'none' {
-  if (n >= 5) return 'high'
-  if (n >= 2) return 'medium'
-  if (n >= 1) return 'low'
-  return 'none'
+export function cardioCostLabel(cost: CardioCost): string {
+  switch (cost) {
+    case 'low':    return 'Faible'
+    case 'medium': return 'Moyen'
+    case 'high':   return 'Élevé'
+    default:       return '—'
+  }
+}
+
+// ─── Bucket stats type ────────────────────────────────────────────────────────
+
+export interface BucketStats {
+  /** Average speed km/h for this bucket */
+  avgSpeedKmH: number | null
+  /** VAM in m/h (climbs only) */
+  vamMH: number | null
+  /** Average HR as % of FCmax */
+  avgHrPctFcMax: number | null
+  /** Number of stream seconds analyzed */
+  totalSeconds: number
+  /** Number of runs contributing */
+  runCount: number
+  /** Confidence level based on total time / run count */
+  confidence: 'high' | 'medium' | 'low' | 'none'
+  /** Inertia: strength / ok / weak / unknown */
+  status: BucketStatus
+  /** Efficiency: VAM or speed per unit cardiac cost */
+  efficiencyScore: number | null
+  /** Cardio cost classification */
+  cardioCost: CardioCost
+  /** Human-readable explanation of status */
+  statusReason: string
+  /** Post-climb relance behavior (optional, only if ≥2 events) */
+  relanceStatus?: 'strong' | 'normal' | 'limited' | 'unknown'
+}
+
+// ─── Full profile type ────────────────────────────────────────────────────────
+
+export interface RunnerProfileComputed {
+  /** Computed at timestamp */
+  _computedAt: string
+  /** FCmax used for computation */
+  fcMax: number
+  /** Total stream seconds analyzed across all runs */
+  totalStreamSeconds: number
+  /** Coverage ratio (stream seconds vs total activity time) */
+  streamCoverage: number
+  /** Per-gradient-bucket stats */
+  buckets: Partial<Record<BucketKey, BucketStats>>
+
+  // ── Post-climb HR recovery ──────────────────────────────────────────────────
+  postClimbHrRecoveryBpmPerMin: number | null
+  postClimbHrDropPctFcMax: number | null
+  postClimbResumeSpeedKmH: number | null
+  postClimbRecoveryConfidence: ConfidenceLevel
+  postClimbRecoveryStatus: PostClimbRecoveryStatus
+
+  // ── Cardiac drift ───────────────────────────────────────────────────────────
+  hrDriftPct: number | null
+  hrDriftConfidence: ConfidenceLevel
+  hrDriftStatus: HrDriftStatus
 }

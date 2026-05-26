@@ -6,7 +6,6 @@
 import { hav, minettiGradePenalty, buildDetailedSections } from '../../gpx-core.js'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment } from '../../race-predictor.js'
-import { getGradeBucket } from './runnerProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -168,76 +167,128 @@ export function computeRaceProjection(
 
   const basePaceS = computeBasePaceS()
 
-  // ── 7. Section times ──────────────────────────────────────────────────────
-  // Priority: per-bucket stream data from runner profile (precise, personalized)
-  // Fallback: legacy Minetti grade penalty with profile coefficients
-  interface RunnerBucket {
+  // ── 7. Runner profile bucket lookup ──────────────────────────────────────────
+  const runnerProfile = profile.runner_profile as Record<string, unknown> | undefined
+  const rBuckets = runnerProfile?.buckets as Record<string, {
     avgSpeedKmH: number | null
     vamMH: number | null
-    confidence: 'high' | 'medium' | 'low' | 'none'
-  }
-  const runnerBuckets = (
-    profile.runner_profile as { buckets?: Record<string, RunnerBucket> } | null | undefined
-  )?.buckets ?? null
+    confidence: string
+    cardioCost: string
+    status: string
+  }> | undefined
 
-  // Returns stream-based time (s) for a section, or null if data insufficient.
-  // Uses avgSpeedKmH when confidence is high/medium — it's the actual measured
-  // movement speed in that gradient zone across the last 8 weeks of trail runs.
-  function streamTime(s: Section): number | null {
-    if (!runnerBuckets) return null
-    const b = runnerBuckets[getGradeBucket(s.grade)]
-    if (!b || b.confidence === 'none' || b.confidence === 'low') return null
-    if (b.avgSpeedKmH && b.avgSpeedKmH > 0) {
-      return (s.dist / 1000) / b.avgSpeedKmH * 3600
+  // Helper: map section grade to bucket key
+  function sectionBucketKey(grade: number, type: string): string | null {
+    if (type === 'up') {
+      if (grade >= 12) return 'steep_up'
+      if (grade >= 6)  return 'mod_up'
+      if (grade >= 2)  return 'mild_up'
+    } else if (type === 'down') {
+      const g = Math.abs(grade)
+      if (g >= 12) return 'steep_down'
+      if (g >= 6)  return 'mod_down'
+      if (g >= 2)  return 'mild_down'
     }
-    return null
+    return 'flat'
   }
 
+  // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
   let estTimeS = 0
-  let streamSectionCount = 0
   const _vam = (profile.vam_avg as number | undefined) ?? 0
   const _cu = (profile.coeff_uphill as number | undefined) ?? 0
   const _cd = (profile.coeff_downhill as number | undefined) ?? 0
   const _cf = (profile.coeff_flat as number | undefined) ?? 0
-
-  for (const s of sections) {
-    const tStream = streamTime(s)
-    if (tStream !== null) {
-      sectionTimes.push(tStream)
-      estTimeS += tStream
-      streamSectionCount++
-      continue
-    }
-    // Legacy fallback
-    const g = s.grade / 100
-    let pente: number
-    if (s.type === 'up' && _vam > 0 && g > 0.01) {
-      pente = Math.max(0, (3_600_000 * g / _vam) / basePaceS - 1)
-    } else if (s.type === 'up' && _cu > 0) {
-      pente = minettiGradePenalty(g) * _cu
-    } else if (s.type === 'down' && _cd > 0) {
-      pente = minettiGradePenalty(g) * _cd
-    } else if (s.type === 'flat' && _cf > 0) {
-      pente = minettiGradePenalty(g) * _cf
-    } else {
-      pente = minettiGradePenalty(g)
-    }
-    sectionTimes.push(basePaceS * (1 + pente) * s.dist / 1000)
-    estTimeS += sectionTimes[sectionTimes.length - 1]
-  }
-
-  // ── 8. Freshness adjustment + stream profile note ─────────────────────────
   const personalAdjustments: { label: string; detail: string; color: string }[] = []
 
-  if (streamSectionCount > 0) {
-    const pct = Math.round(streamSectionCount / sections.length * 100)
-    personalAdjustments.push({
-      label: 'Profil VAM streams',
-      detail: `${pct}% des sections calculées depuis tes streams Strava (8 semaines)`,
-      color: 'var(--vl-growth)',
-    })
+  // Pre-compute some profile-level signals
+  const hrDriftStatus = (runnerProfile?.hrDriftStatus as string | undefined) ?? 'unknown'
+  const hrDriftPct    = (runnerProfile?.hrDriftPct as number | undefined) ?? 0
+  const hrDriftConf   = (runnerProfile?.hrDriftConfidence as string | undefined) ?? 'none'
+  const postClimbStatus = (runnerProfile?.postClimbRecoveryStatus as string | undefined) ?? 'unknown'
+  const streamCoverage  = (runnerProfile?.streamCoverage as number | undefined) ?? 0
+
+  // Count high-cardioCost buckets
+  let highCostBuckets = 0
+  let streamBuckets = 0
+  if (rBuckets) {
+    for (const b of Object.values(rBuckets)) {
+      if (b.confidence !== 'none') {
+        streamBuckets++
+        if (b.cardioCost === 'high') highCostBuckets++
+      }
+    }
   }
+  const avgCardioCostHigh = streamBuckets > 0 && highCostBuckets / streamBuckets > 0.5
+
+  for (let si = 0; si < sections.length; si++) {
+    const s = sections[si]
+    const g = s.grade / 100
+    const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
+
+    const bkey = sectionBucketKey(s.grade, s.type)
+    const bdata = bkey && rBuckets ? rBuckets[bkey] : null
+    const bConf = bdata?.confidence ?? 'none'
+    const hasGoodBucket = (bConf === 'high' || bConf === 'medium') && bdata != null
+
+    let pente: number
+
+    if (hasGoodBucket && bdata!.avgSpeedKmH != null && bdata!.avgSpeedKmH > 0) {
+      // Use learned speed directly: pace from bucket speed
+      const bucketSpeedMs = bdata!.avgSpeedKmH / 3.6
+      const bucketPaceS = 1000 / bucketSpeedMs
+
+      // Apply cardioCost penalty on long sections in second half
+      let penaltyFactor = 1.0
+      if (bdata!.cardioCost === 'high') {
+        const isSecondHalf = progressRatio >= 0.5
+        const isLongSection = s.dist > 3000
+        if (isSecondHalf || isLongSection) {
+          penaltyFactor = 1.045 // ~4.5% penalty, within +3..+6% spec
+        }
+      }
+
+      // hrDrift penalty: graduated, second half only, confirmed drift only
+      if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
+          (hrDriftConf === 'high' || hrDriftConf === 'medium') &&
+          progressRatio >= 0.5) {
+        // +3% at 50% → +8% at last 20%
+        const driftFactor = 1 + 0.03 + (progressRatio - 0.5) / 0.3 * 0.05
+        penaltyFactor = Math.max(penaltyFactor, Math.min(1.08, driftFactor))
+      }
+
+      // postClimbRecovery penalty: sections after significant climb
+      if (postClimbStatus === 'weak' && s.dplus >= 30 && s.grade >= 6) {
+        penaltyFactor = Math.min(penaltyFactor + 0.03, penaltyFactor * 1.04) // +2..+4%
+      }
+
+      // Cap total penalty at +10%
+      penaltyFactor = Math.min(penaltyFactor, 1.10)
+
+      const adjPaceS = bucketPaceS * penaltyFactor
+      const t = adjPaceS * s.dist / 1000
+      sectionTimes.push(t)
+      estTimeS += t
+    } else {
+      // Fallback: Minetti + legacy coefficients
+      if (s.type === 'up' && _vam > 0 && g > 0.01) {
+        pente = Math.max(0, (3_600_000 * g / _vam) / basePaceS - 1)
+      } else if (s.type === 'up' && _cu > 0) {
+        pente = minettiGradePenalty(g) * _cu
+      } else if (s.type === 'down' && _cd > 0) {
+        pente = minettiGradePenalty(g) * _cd
+      } else if (s.type === 'flat' && _cf > 0) {
+        pente = minettiGradePenalty(g) * _cf
+      } else {
+        pente = minettiGradePenalty(g)
+      }
+      const t = basePaceS * (1 + pente) * s.dist / 1000
+      sectionTimes.push(t)
+      estTimeS += t
+    }
+  }
+
+  // ── 9. Freshness adjustment ────────────────────────────────────────────────
   const freshness = computeFreshnessAdjustment(activities, FC_MAX)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
@@ -248,12 +299,39 @@ export function computeRaceProjection(
     })
   }
 
+  // ── Personal adjustments from runner profile signals ───────────────────────
+
+  if (avgCardioCostHigh) {
+    personalAdjustments.push({
+      label: 'Sections coûteuses',
+      detail: `FC élevée détectée sur ${highCostBuckets} gradient(s) — pacing prudent recommandé.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
+  if (hrDriftStatus === 'marked' && hrDriftPct > 10 &&
+      (hrDriftConf === 'high' || hrDriftConf === 'medium')) {
+    personalAdjustments.push({
+      label: 'Dérive cardiaque',
+      detail: `+${hrDriftPct.toFixed(0)}% → deuxième moitié plus conservative.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
+  if (postClimbStatus === 'weak') {
+    personalAdjustments.push({
+      label: 'Récupération post-montée limitée',
+      detail: 'Relances après montées prudentes.',
+      color: 'var(--vl-amber)',
+    })
+  }
+
   // Scale section times to match final estTimeS
   const rawSum = sectionTimes.reduce((s, t) => s + t, 0)
   const sf = rawSum > 0 ? estTimeS / rawSum : 1
   const scaledTimes = sectionTimes.map((t) => Math.round(t * sf))
 
-  // ── 9. Confidence ─────────────────────────────────────────────────────────
+  // ── 10. Confidence ─────────────────────────────────────────────────────────
   const isRunType = (t: string) => ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t)
   const cutoff90 = Date.now() - 90 * 24 * 3600_000
   const recentRuns = activities.filter((a: Record<string, unknown>) =>
@@ -271,21 +349,27 @@ export function computeRaceProjection(
   if (recentCount >= 3) confScore += 1
   if (hasHR) confScore += 1
   if (totalDistM > 5000 && sections.length >= 5) confScore += 1
-  // Stream profile boosts confidence: per-bucket VAM is more precise than heuristics
-  if (streamSectionCount > 0) confScore += streamSectionCount >= sections.length * 0.6 ? 2 : 1
   confScore = Math.max(0, confScore)
   const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 4 ? 'medium' : 'low'
 
-  // ── 10. Range — tightened when stream profile covers most sections ────────
-  const streamCoverage = sections.length > 0 ? streamSectionCount / sections.length : 0
-  const rangeScale = streamCoverage >= 0.6 ? 0.85 : 1  // 15% tighter when ≥60% stream-sourced
-  const baseRange = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
-  const rf = {
-    min: 1 - (1 - baseRange.min) * rangeScale,
-    max: 1 + (baseRange.max - 1) * rangeScale,
+  // ── 11. Range — tighter when good stream coverage + controlled cardio ──────
+  const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
+
+  // rangeScale based on stream quality and cardio cost
+  let rangeScale = 1.0
+  if (streamCoverage >= 0.6) {
+    if (!avgCardioCostHigh && hrDriftStatus !== 'marked') {
+      rangeScale = 0.80 // tight: good data, controlled effort
+    } else {
+      rangeScale = 0.95 // slight tightening, uncertain sustainability
+    }
   }
-  const timeMin = estTimeS * rf.min
-  const timeMax = estTimeS * rf.max
+
+  const baseMin = estTimeS * rf.min
+  const baseMax = estTimeS * rf.max
+  const midpoint = (baseMin + baseMax) / 2
+  const timeMin = midpoint - (midpoint - baseMin) * rangeScale
+  const timeMax = midpoint + (baseMax - midpoint) * rangeScale
 
   // ── 11. Goal comparison ───────────────────────────────────────────────────
   let goalLabel: string | undefined
