@@ -133,7 +133,7 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
       </div>
 
       {stats.statusReason && (
-        <div style={{ fontSize: 11, color: 'var(--vl-text-3)', fontStyle: 'italic', marginBottom: 4 }}>
+        <div style={{ fontSize: 11, color: stats.status === 'walk' ? '#3d8eb9' : 'var(--vl-text-3)', fontStyle: 'italic', marginBottom: 4 }}>
           {stats.statusReason}
         </div>
       )}

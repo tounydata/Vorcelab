@@ -97,10 +97,10 @@ export function computeClimbStatus(
     ? (avgCadence < 130 && avgSpeedKmH != null && avgSpeedKmH < 6.5)
     : (avgSpeedKmH != null && avgSpeedKmH < 5.0)
   if (isWalking) {
-    const cadNote = avgCadence != null ? ` · ${Math.round(avgCadence)} pas/min` : ''
+    const cadNote = avgCadence != null ? ` · cadence ${Math.round(avgCadence)} pas/min` : ''
     return {
       status: 'walk',
-      statusReason: `Marche active (${avgSpeedKmH?.toFixed(1)} km/h${cadNote} · VAM ${Math.round(vamMH)}m/h) — benchmarks running non applicables. VAM utilisée pour la projection.`,
+      statusReason: `Technique marche trail — ${avgSpeedKmH?.toFixed(1)} km/h${cadNote} · VAM ${Math.round(vamMH)} m/h. Intégrée au profil et à la projection.`,
     }
   }
   if (vamMH >= 900) {
@@ -257,7 +257,7 @@ export function statusColor(status: BucketStatus | PostClimbRecoveryStatus | HrD
     case 'marked':
       return 'var(--vl-ember)'
     case 'walk':
-      return 'var(--vl-text-3)'
+      return '#3d8eb9'
     default:
       return 'var(--vl-text-3)'
   }
@@ -272,7 +272,7 @@ export function statusLabel(status: BucketStatus | PostClimbRecoveryStatus | HrD
     case 'moderate': return 'Modéré'
     case 'weak':     return 'À renforcer'
     case 'marked':   return 'Marquée'
-    case 'walk':     return 'Marche active'
+    case 'walk':     return 'Marche trail'
     default:         return 'Inconnu'
   }
 }
