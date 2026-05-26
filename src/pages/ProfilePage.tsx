@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -358,7 +359,11 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
-  const [activeTab, setActiveTab] = useState<'compte' | 'profil' | 'records' | 'nutrition'>('compte')
+  const [searchParams, setSearchParams] = useSearchParams()
+  type TabKey = 'compte' | 'profil' | 'records' | 'nutrition'
+  const activeTab = (searchParams.get('tab') ?? 'compte') as TabKey
+  const setActiveTab = (tab: TabKey) =>
+    setSearchParams(tab === 'compte' ? {} : { tab }, { replace: false })
   const [computing, setComputing] = useState(false)
   const [computeProgress, setComputeProgress] = useState(0)
   const [computeLabel, setComputeLabel] = useState('')
@@ -795,7 +800,7 @@ export default function ProfilePage() {
                   {/* All 7 buckets — always shown */}
                   {GRADE_BUCKETS.map((b) => {
                     const bkey = b.key as BucketKey
-                    const stats = rp.buckets[bkey]
+                    const stats = rp.buckets?.[bkey]
                     if (stats && stats.totalSeconds > 0) {
                       return <BucketCard key={bkey} bucketKey={bkey} stats={stats as BucketStats} />
                     }
