@@ -337,7 +337,16 @@ export default function RenfoSessionPage() {
           })}
         </div>
 
-        <button className="btn-primary" onClick={() => setStageState({ stage: 'active', exoIdx: 0, setIdx: 0 })}>
+        <button className="btn-primary" onClick={() => {
+          // Pré-échauffage AudioContext dès le premier tap (iOS)
+          try {
+            if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+              audioCtxRef.current = new AudioContext()
+            }
+            if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume()
+          } catch { /* ignore */ }
+          setStageState({ stage: 'active', exoIdx: 0, setIdx: 0 })
+        }}>
           LANCER LA SÉANCE →
         </button>
       </>
