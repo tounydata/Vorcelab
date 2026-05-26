@@ -15,6 +15,9 @@ import {
   type BucketKey,
   type BucketStats,
   type CardioCost,
+  type PostClimbRecoveryByBucket,
+  type PostDownhillRecoveryByBucket,
+  type RecoveryBucketStats,
 } from '../lib/runnerProfile'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
@@ -198,6 +201,100 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
           Confiance : {confidenceLabel(rp.hrDriftConfidence)}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Recovery by bucket ───────────────────────────────────────────────────────
+
+function recColor(status: string): string {
+  if (status === 'good') return 'var(--vl-growth)'
+  if (status === 'moderate') return 'var(--vl-amber)'
+  if (status === 'weak') return 'var(--vl-ember)'
+  return 'var(--vl-text-3)'
+}
+
+function RecoveryBucketRow({ label, rec }: { label: string; rec: RecoveryBucketStats }) {
+  if (rec.sampleCount === 0) return null
+  return (
+    <div style={{ marginBottom: 8, paddingLeft: 8, borderLeft: `2px solid ${recColor(rec.status)}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <div style={{ fontSize: 11, color: 'var(--vl-text-2)' }}>{label}</div>
+        <RecoveryStatusBadge status={rec.status} />
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
+        {rec.hrDropBpmPerMin != null && `${rec.hrDropBpmPerMin.toFixed(0)} bpm/min`}
+        {rec.resumeSpeedKmH != null && ` · reprise ${rec.resumeSpeedKmH.toFixed(1)} km/h`}
+        {rec.speedDropVsNormalPct != null && rec.speedDropVsNormalPct > 0 && ` (−${rec.speedDropVsNormalPct.toFixed(0)}%)`}
+        {` · ${rec.sampleCount} événement(s)`}
+        {' · '}{confidenceLabel(rec.confidence)}
+      </div>
+    </div>
+  )
+}
+
+function RecoveryByBucketSection({ rp }: { rp: RunnerProfileComputed }) {
+  const climbKeys: { key: keyof PostClimbRecoveryByBucket; label: string }[] = [
+    { key: 'after_steep_up', label: 'Après montée raide (>12%)' },
+    { key: 'after_mod_up',   label: 'Après montée modérée (6–12%)' },
+    { key: 'after_mild_up',  label: 'Après montée légère (2–6%)' },
+  ]
+  const descentKeys: { key: keyof PostDownhillRecoveryByBucket; label: string }[] = [
+    { key: 'after_steep_down', label: 'Après descente raide (<−12%)' },
+    { key: 'after_mod_down',   label: 'Après descente modérée (−6 à −12%)' },
+    { key: 'after_mild_down',  label: 'Après descente légère (−2 à −6%)' },
+  ]
+
+  const hasClimb = climbKeys.some((k) => rp.postClimbRecoveryByBucket?.[k.key]?.sampleCount)
+  const hasDesc = descentKeys.some((k) => rp.postDownhillRecoveryByBucket?.[k.key]?.sampleCount)
+  if (!hasClimb && !hasDesc) return null
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="clabel" style={{ marginBottom: '0.75rem' }}>RÉCUPÉRATION PAR GRADIENT</div>
+
+      {hasClimb && (
+        <>
+          <div className="mlabel" style={{ marginBottom: 6 }}>Post-montée</div>
+          {climbKeys.map(({ key, label }) => {
+            const rec = rp.postClimbRecoveryByBucket?.[key]
+            return rec ? <RecoveryBucketRow key={key} label={label} rec={rec} /> : null
+          })}
+        </>
+      )}
+
+      {hasDesc && (
+        <>
+          <div className="mlabel" style={{ marginTop: hasClimb ? 10 : 0, marginBottom: 6 }}>Post-descente</div>
+          {descentKeys.map(({ key, label }) => {
+            const rec = rp.postDownhillRecoveryByBucket?.[key]
+            return rec ? <RecoveryBucketRow key={key} label={label} rec={rec} /> : null
+          })}
+        </>
+      )}
+
+      {rp.downhillFatigue && rp.downhillFatigue.status !== 'unknown' && (
+        <div style={{ marginTop: 10, padding: '6px 10px', background: 'var(--vl-bg-2)', borderRadius: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="mlabel" style={{ fontSize: 10 }}>SIGNAL FATIGUE DESCENTE</div>
+            <span style={{
+              display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.04em', textTransform: 'uppercase', color: '#fff',
+              background: rp.downhillFatigue.status === 'high' ? 'var(--vl-ember)' : rp.downhillFatigue.status === 'moderate' ? 'var(--vl-amber)' : 'var(--vl-growth)',
+            }}>
+              {{ low: 'Faible', moderate: 'Modéré', high: 'Élevé' }[rp.downhillFatigue.status] ?? '—'}
+            </span>
+          </div>
+          {rp.downhillFatigue.steepDownLateRaceEfficiencyDrop != null && rp.downhillFatigue.steepDownLateRaceEfficiencyDrop > 0 && (
+            <div style={{ fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>
+              Vitesse reprise estimée {rp.downhillFatigue.steepDownLateRaceEfficiencyDrop.toFixed(0)}% inférieure à la normale après descente
+            </div>
+          )}
+          <div className="mlabel" style={{ marginTop: 3, fontSize: 9, textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
+            Confiance : {confidenceLabel(rp.downhillFatigue.confidence)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -646,6 +743,7 @@ export default function ProfilePage() {
                   )}
 
                   <GlobalAnalysisCard rp={rp} />
+                  <RecoveryByBucketSection rp={rp} />
                   <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
 
                   {/* All 7 buckets — always shown */}
