@@ -16,6 +16,7 @@ import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
 interface Activity2 {
   id: string
+  strava_activity_id?: number | string
   name: string
   distance: number
   total_elevation_gain: number
@@ -498,7 +499,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate')
         .order('start_date', { ascending: false })
         .limit(100)
       if (error) throw error
@@ -591,7 +592,7 @@ export default function DashboardPage() {
       let totalPts = 0, aerobicPts = 0, authError = false
       await Promise.all(runs.map(async (a) => {
         try {
-          const streams = await fetchStreams(String(a.id))
+          const streams = await fetchStreams(String(a.strava_activity_id ?? a.id))
           if (streams._authError) { authError = true; return }
           const hr = streams.heartrate?.data
           if (!hr?.length) return
