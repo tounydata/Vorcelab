@@ -92,7 +92,7 @@ export default function RaceStrategyPage() {
   const [projection, setProjection] = useState<ProjectionResult | null>(null)
   const [isComputing, setIsComputing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const [nutritionOpen, setNutritionOpen] = useState(false)
+  const [nutritionOpen, setNutritionOpen] = useState(true)
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'strategie' | 'assistance'>('strategie')
   const [ravitos, setRavitos] = useState<RavitoPoint[]>([])
@@ -325,12 +325,16 @@ export default function RaceStrategyPage() {
   const athleteName = getAthleteLabel(profileData ?? null)
 
   const TRAIL_TYPES_UI = ['TrailRun', 'Trail Run', 'Trail']
-  const trailActivityCount = (activitiesData ?? []).filter(a =>
-    TRAIL_TYPES_UI.includes((a.type || a.sport_type) as string) && (a.distance as number) > 5000
-  ).length
+  const trailActivityCount = (activitiesData ?? []).filter(a => {
+    const t = a.type as string
+    const st = a.sport_type as string
+    return (TRAIL_TYPES_UI.includes(t) || TRAIL_TYPES_UI.includes(st) || st === 'TrailRun') && (a.distance as number) > 5000
+  }).length
   const recentActivityCount = (activitiesData ?? []).filter(a => {
-    const t = (a.type || a.sport_type) as string
-    return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t) &&
+    const t = a.type as string
+    const st = a.sport_type as string
+    const ALL_RUN = ['Run', 'TrailRun', 'Trail Run', 'Running', 'Trail']
+    return (ALL_RUN.includes(t) || ALL_RUN.includes(st)) &&
       new Date(a.start_date as string).getTime() >= Date.now() - 90 * 24 * 3600_000 &&
       (a.distance as number) > 0
   }).length
@@ -347,7 +351,9 @@ export default function RaceStrategyPage() {
   let riskSection: Section | null = null
   let riskSectionIdx = -1
   let riskSectionTime = 0
+  let riskOrdinal = ''
   let opportunitySection: Section | null = null
+  let opportunityOrdinal = ''
   interface SectionItem { section: Section; time: number; score: number; nutritionMoment?: string }
   let top3Sections: SectionItem[] = []
 
@@ -357,9 +363,28 @@ export default function RaceStrategyPage() {
     riskSection = riskSectionIdx >= 0 ? projection.sections[riskSectionIdx] : null
     riskSectionTime = riskSection ? projection.sectionTimes[riskSectionIdx] : 0
 
-    opportunitySection = [...projection.sections]
+    // Ordinal rank of riskSection among all ascending sections (by km position)
+    if (riskSection) {
+      const upByKm = projection.sections
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => s.type === 'up')
+        .sort((a, b) => a.s.startKm - b.s.startKm)
+      const rank = upByKm.findIndex(({ i }) => i === riskSectionIdx) + 1
+      riskOrdinal = rank === 1 ? '1ère montée' : `${rank}e montée`
+    }
+
+    const downSorted = [...projection.sections]
       .filter(s => s.type === 'down')
-      .sort((a, b) => b.dist - a.dist)[0] ?? null
+      .sort((a, b) => b.dist - a.dist)
+    opportunitySection = downSorted[0] ?? null
+    if (opportunitySection) {
+      const oppIdx = projection.sections
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => s.type === 'down')
+        .sort((a, b) => a.s.startKm - b.s.startKm)
+        .findIndex(({ s }) => s === opportunitySection) + 1
+      opportunityOrdinal = oppIdx === 1 ? '1ère descente' : `${oppIdx}e descente`
+    }
 
     const gradeBucketMultipliers = (profileData?.runner_profile as { gradeBucketMultipliers?: Record<string, number> } | null)?.gradeBucketMultipliers
 
@@ -540,22 +565,26 @@ export default function RaceStrategyPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: riskSection && opportunitySection ? '1fr 1fr' : '1fr', gap: 8 }}>
                   {riskSection && (
                     <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'rgba(214,128,62,0.08)', border: '1px solid rgba(214,128,62,0.3)' }}>
-                      <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>RISQUE</div>
-                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', lineHeight: 1, color: 'var(--vl-ember)', marginBottom: 2 }}>{Math.round(riskSection.grade)}%</div>
-                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
-                        km {riskSection.startKm.toFixed(1)}→{(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · +{Math.round(riskSection.dplus)}m · {fmtTime(riskSectionTime)}
+                      <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>⚠ RISQUE — {riskOrdinal.toUpperCase()}</div>
+                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', lineHeight: 1.1, color: 'var(--vl-ember)', marginBottom: 4 }}>
+                        Montée la plus raide — {Math.round(riskSection.grade)}% sur {(riskSection.dist / 1000).toFixed(1)} km
                       </div>
-                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{riskConseil(riskSection.grade)}</div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
+                        km {riskSection.startKm.toFixed(1)} → {(riskSection.startKm + riskSection.dist / 1000).toFixed(1)} · +{Math.round(riskSection.dplus)} m D+ · {fmtTime(riskSectionTime)}
+                      </div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{riskConseil(riskSection.grade)} Ne brûlez pas vos réserves ici.</div>
                     </div>
                   )}
                   {opportunitySection && (
                     <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.3)' }}>
-                      <div className="mlabel" style={{ color: 'var(--vl-growth)', marginBottom: 4 }}>OPPORTUNITÉ</div>
-                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', lineHeight: 1, color: 'var(--vl-growth)', marginBottom: 2 }}>{(opportunitySection.dist / 1000).toFixed(1)} km</div>
-                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
-                        km {opportunitySection.startKm.toFixed(1)}→{(opportunitySection.startKm + opportunitySection.dist / 1000).toFixed(1)} · -{Math.round(opportunitySection.dminus)}m
+                      <div className="mlabel" style={{ color: 'var(--vl-growth)', marginBottom: 4 }}>✓ RÉCUPÉRATION — {opportunityOrdinal.toUpperCase()}</div>
+                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', lineHeight: 1.1, color: 'var(--vl-growth)', marginBottom: 4 }}>
+                        Descente principale — {(opportunitySection.dist / 1000).toFixed(1)} km favorables
                       </div>
-                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>Récupération — relâchez le haut du corps.</div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-2)', marginBottom: 3 }}>
+                        km {opportunitySection.startKm.toFixed(1)} → {(opportunitySection.startKm + opportunitySection.dist / 1000).toFixed(1)} · -{Math.round(opportunitySection.dminus)} m D-
+                      </div>
+                      <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>Relâchez les épaules, récupérez le souffle. Gérez l'impact quadriceps.</div>
                     </div>
                   )}
                 </div>

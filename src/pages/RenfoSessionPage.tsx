@@ -114,8 +114,30 @@ export default function RenfoSessionPage() {
   const [rpe, setRpe] = useState<number>(8)
   const [sessionDate, setSessionDate] = useState(todayStr())
   const timerRef = useRef<number | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+
+  function playBeep(freq = 880, dur = 0.12, gain = 0.4) {
+    try {
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.connect(g)
+      g.connect(ctx.destination)
+      osc.frequency.value = freq
+      g.gain.setValueAtTime(gain, ctx.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + dur)
+    } catch { /* audio non disponible */ }
+  }
 
   const exoIdx = stageState.stage === 'active' ? stageState.exoIdx : -1
+  const secondsLeft = stageState.stage === 'rest' ? stageState.secondsLeft : null
+  const prevIsRestingRef = useRef(false)
 
   useEffect(() => {
     if (exoIdx < 0 || !session) return
@@ -127,6 +149,23 @@ export default function RenfoSessionPage() {
     setReps(exo.reps)
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
+
+  // Beeps countdown : 3 bips courts à 3, 2, 1 secondes
+  useEffect(() => {
+    if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
+      playBeep(880, 0.10, 0.35)
+    }
+  }, [secondsLeft]) // eslint-disable-line
+
+  // Double bip de fin quand la récupération se termine
+  useEffect(() => {
+    const isResting = stageState.stage === 'rest'
+    if (prevIsRestingRef.current && !isResting && stageState.stage === 'active') {
+      playBeep(1047, 0.22, 0.55)
+      setTimeout(() => playBeep(1047, 0.22, 0.55), 280)
+    }
+    prevIsRestingRef.current = isResting
+  }, [stageState.stage]) // eslint-disable-line
 
   useEffect(() => {
     if (stageState.stage !== 'rest') {

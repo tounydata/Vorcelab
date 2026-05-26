@@ -134,8 +134,9 @@ export function computeRaceProjection(
     if (isTrail) {
       const trailRuns = activities
         .filter((a: Record<string, unknown>) => {
-          const t = (a.type || a.sport_type) as string
-          return (t === 'TrailRun' || TRAIL_TYPES.includes(t)) && (a.distance as number) > 5000 && (a.average_speed as number) > 0
+          const t = a.type as string
+          const st = a.sport_type as string
+          return (TRAIL_TYPES.includes(t) || TRAIL_TYPES.includes(st) || st === 'TrailRun') && (a.distance as number) > 5000 && (a.average_speed as number) > 0
         })
         .sort((a: Record<string, unknown>, b: Record<string, unknown>) => new Date(b.start_date as string).getTime() - new Date(a.start_date as string).getTime())
         .slice(0, 20)
@@ -496,11 +497,13 @@ export function computeRaceProjection(
   const isRunType = (t: string) => ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t)
   const cutoff90 = Date.now() - 90 * 24 * 3600_000
   const recentRuns = activities.filter((a: Record<string, unknown>) =>
-    isRunType((a.type || a.sport_type) as string) && new Date(a.start_date as string).getTime() >= cutoff90 && (a.distance as number) > 0
+    (isRunType(a.type as string) || isRunType(a.sport_type as string)) && new Date(a.start_date as string).getTime() >= cutoff90 && (a.distance as number) > 0
   )
-  const trailCount = activities.filter((a: Record<string, unknown>) =>
-    TRAIL_TYPES.includes((a.type || a.sport_type) as string) && (a.distance as number) > 5000
-  ).length
+  const trailCount = activities.filter((a: Record<string, unknown>) => {
+    const t = a.type as string
+    const st = a.sport_type as string
+    return (TRAIL_TYPES.includes(t) || TRAIL_TYPES.includes(st) || st === 'TrailRun') && (a.distance as number) > 5000
+  }).length
   const recentCount = recentRuns.length
   const hasHR = activities.some((a: Record<string, unknown>) => (a.average_heartrate as number) > 0)
 
