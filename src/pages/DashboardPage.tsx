@@ -10,7 +10,10 @@ import {
 // @ts-ignore
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
 import { fetchStreams } from '../lib/streams'
-import { computeActivityLoad } from '../lib/trainingLoad'
+import {
+  computeActivityLoad, computeDailyPMC, getTsbZone, computeACWR, classifySport,
+  type ActivityForLoad,
+} from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
@@ -84,13 +87,6 @@ function formatDateShort(iso: string) {
 function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
-
-const CYCLE_TYPES = new Set(['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile', 'Handcycle'])
-function isCycling(a: { type?: string; sport_type?: string }) {
-  return CYCLE_TYPES.has(a.type ?? '') || CYCLE_TYPES.has(a.sport_type ?? '')
-}
-
-const LOAD_COLORS = { run: 'var(--vl-ember)', bike: '#3b82f6', renfo: '#7c3aed' }
 
 // ─── 7j Bar Chart (SVG) ───────────────────────────────────────────────────────
 
@@ -213,132 +209,206 @@ function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPc
   )
 }
 
-// ─── Charge combinée 4 semaines (inline SVG) ──────────────────────────────────
+// ─── Statut d'entraînement (PMC : Fitness / Fatigue / Forme) ───────────────────
 
-function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
+// Catmull-Rom spline (tension 0.18) — pour la ligne CTL
+function chargeSpline(pts: { x: number; y: number }[], maxY: number): string {
+  if (pts.length < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? maxY}`
+  const cl = (v: number) => Math.max(0, Math.min(maxY, v))
+  let path = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`
+  const t = 0.18
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]
+    path += ` C${(p1.x + (p2.x - p0.x) * t).toFixed(1)},${cl(p1.y + (p2.y - p0.y) * t).toFixed(1)} ${(p2.x - (p3.x - p1.x) * t).toFixed(1)},${cl(p2.y - (p3.y - p1.y) * t).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`
+  }
+  return path
+}
+
+function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
   const [hover, setHover] = useState<number | null>(null)
-  const now = new Date()
-  const DAYS = 28
-  const dates = Array.from({ length: DAYS }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (DAYS - 1 - i))
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
+  const DISPLAY = 42
 
-  // Charge course / vélo via computeActivityLoad (la course garde le filtre run/trail,
-  // le vélo est compté à part comme cross-training)
-  const runLoads = dates.map((ds) =>
-    activities
-      .filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-      .reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
-  )
-  const bikeLoads = dates.map((ds) =>
-    activities
-      .filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isCycling(a))
-      .reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
-  )
+  // Renfo → pseudo-activités (yoga/pilates colorés à part, sinon renfo)
+  const renfoActs: ActivityForLoad[] = renfoLogs
+    .filter((r) => r.session_date)
+    .map((r) => {
+      const f = r.focus ?? ''
+      const sport = f.includes('yoga') || f.includes('stretching') ? 'Yoga' : f.includes('pilates') ? 'Pilates' : 'WeightTraining'
+      return { start_date: r.session_date! + 'T12:00:00', type: sport, sport_type: sport, moving_time: (r.duration_min ?? 40) * 60 }
+    })
+  const combined: ActivityForLoad[] = [...activities, ...renfoActs]
 
-  // Charge renfo — renfo_session_log n'a pas de RPE, on approx avec duration_min × 4 (RPE=4 par défaut)
-  const renfoMap: Record<string, number> = {}
-  renfoLogs.forEach((r) => {
-    if (r.session_date) renfoMap[r.session_date] = (renfoMap[r.session_date] ?? 0) + (r.duration_min ?? 40) * 4
-  })
-  const renfoLoads = dates.map((ds) => renfoMap[ds] ?? 0)
-
-  const totals = dates.map((_, i) => runLoads[i] + bikeLoads[i] + renfoLoads[i])
-  const hasData = totals.some((v) => v > 0)
+  const pmc = computeDailyPMC(combined, fcMax, { totalDays: 90, displayDays: DISPLAY })
+  if (pmc.length === 0) return null
+  const hasData = pmc.some((d) => d.totalLoad > 0) || pmc.some((d) => d.ctl > 0)
   if (!hasData) return null
 
-  const maxTotal = Math.max(...totals, 1)
-  const VW = 280, H = 80, W_COL = VW / DAYS
-  const GAP = 2.6, BAR_W = W_COL - GAP
-  const scale = (H * 0.92) / maxTotal
+  // Ventilation par sport (couleur précise) pour les barres + tooltip
+  const dateIdx: Record<string, number> = {}
+  pmc.forEach((d, i) => { dateIdx[d.date] = i })
+  type Seg = { color: string; label: string; load: number }
+  const segByDay: Record<number, Record<string, Seg>> = {}
+  for (const a of combined) {
+    const ds = (a.start_date || '').slice(0, 10)
+    const i = dateIdx[ds]
+    if (i === undefined) continue
+    const load = computeActivityLoad(a, fcMax)
+    if (load <= 0) continue
+    const info = classifySport(a.type, a.sport_type)
+    segByDay[i] ??= {}
+    const e = (segByDay[i][info.label] ??= { color: info.color, label: info.label, load: 0 })
+    e.load += load
+  }
+  const daySegs: Seg[][] = pmc.map((_, i) => Object.values(segByDay[i] ?? {}).sort((a, b) => b.load - a.load))
 
-  // Week date labels (like legacy)
-  const weekLabels = [0, 7, 14, 21].map((offset) => {
-    const d = new Date(now)
-    d.setDate(d.getDate() - (DAYS - 1 - offset))
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-  })
+  const today = pmc[pmc.length - 1]
+  const zone = getTsbZone(today.tsb)
+  const acwr = computeACWR(pmc)
 
-  const hoverLeftPct = hover != null ? Math.min(82, Math.max(18, ((hover + 0.5) / DAYS) * 100)) : 0
-  const fmtHoverDate = (ds: string) =>
-    new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+  const maxAxis = Math.max(1, ...pmc.map((d) => Math.max(d.totalLoad, d.ctl))) * 1.05
+  const VW = 420, H = 96, W_COL = VW / DISPLAY
+  const GAP = 2.4, BAR_W = W_COL - GAP
+
+  const ctlPts = pmc.map((d, i) => ({ x: i * W_COL + W_COL / 2, y: H - (d.ctl / maxAxis) * H }))
+  const ctlLine = chargeSpline(ctlPts, H)
+
+  const hoverLeftPct = hover != null ? Math.min(86, Math.max(14, ((hover + 0.5) / DISPLAY) * 100)) : 0
+  const fmtD = (ds: string) => new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+  const labelIdx = [0, 14, 28, DISPLAY - 1]
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
-        <div className="clabel" style={{ margin: 0 }}>Charge combinée — 4 semaines</div>
-        <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--vl-mono)', fontSize: 9 }}>
-          {([['Course', LOAD_COLORS.run], ['Vélo', LOAD_COLORS.bike], ['Renfo', LOAD_COLORS.renfo]] as const).map(([lbl, col]) => (
-            <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 10, height: 3, background: col, borderRadius: 2, display: 'inline-block' }} />
-              <span style={{ color: 'var(--vl-text-3)' }}>{lbl}</span>
-            </span>
-          ))}
+      <div className="clabel" style={{ margin: '0 0 10px' }}>Statut d'entraînement</div>
+
+      {/* ── Badge ÉTAT DU JOUR (info phare) ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        background: `color-mix(in srgb, ${zone.color} 12%, transparent)`,
+        borderLeft: `4px solid ${zone.color}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+      }}>
+        <div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: zone.color, lineHeight: 1, letterSpacing: '.01em' }}>
+            {today.calibrating ? 'CALIBRAGE' : zone.label}
+          </div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-2)', marginTop: 4, textTransform: 'none', letterSpacing: 0 }}>
+            {today.calibrating ? "construction de l'historique (≥ 28 j)" : zone.sub}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 16, textAlign: 'right' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.25rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>{today.ctl}</div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FITNESS</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.25rem', fontWeight: 800, color: zone.color, lineHeight: 1 }}>{today.tsb > 0 ? `+${today.tsb}` : today.tsb}</div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FORME</div>
+          </div>
         </div>
       </div>
 
+      {/* ── Graphe 42 j : fond TSB + barres par sport + ligne CTL ── */}
       <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
-          {/* Week separators */}
-          {[7, 14, 21].map((d) => (
-            <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
-              stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.5} />
+          {/* Fond teinté par zone de forme (TSB) */}
+          {pmc.map((d, i) => (
+            <rect key={`bg${i}`} x={i * W_COL} y={0} width={W_COL} height={H}
+              fill={getTsbZone(d.tsb).color} opacity={0.1} />
           ))}
-          {/* Stacked bars: run (bas) → vélo → renfo (haut) */}
-          {dates.map((_, i) => {
-            const x = i * W_COL + GAP / 2
-            const runH = runLoads[i] * scale
-            const bikeH = bikeLoads[i] * scale
-            const renfoH = renfoLoads[i] * scale
-            const yRun = H - runH
-            const yBike = yRun - bikeH
-            const yRenfo = yBike - renfoH
+          {/* Séparateurs hebdo */}
+          {[7, 14, 21, 28, 35].map((d) => (
+            <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
+              stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.4} />
+          ))}
+          {/* Barres empilées par sport */}
+          {pmc.map((_, i) => {
+            let yTop = H
             const dim = hover != null && hover !== i ? 0.4 : 1
             return (
-              <g key={i} opacity={dim}>
-                {runH > 0 && <rect x={x} y={yRun} width={BAR_W} height={runH} fill={LOAD_COLORS.run} rx={1} />}
-                {bikeH > 0 && <rect x={x} y={yBike} width={BAR_W} height={bikeH} fill={LOAD_COLORS.bike} rx={1} />}
-                {renfoH > 0 && <rect x={x} y={yRenfo} width={BAR_W} height={renfoH} fill={LOAD_COLORS.renfo} rx={1} />}
+              <g key={`bar${i}`} opacity={dim}>
+                {daySegs[i].map((seg, j) => {
+                  const h = (seg.load / maxAxis) * H
+                  yTop -= h
+                  return <rect key={j} x={i * W_COL + GAP / 2} y={yTop} width={BAR_W} height={h} fill={seg.color} rx={1} />
+                })}
               </g>
             )
           })}
-          {/* Overlay transparent pour le survol jour par jour */}
-          {dates.map((_, i) => (
-            <rect key={i} x={i * W_COL} y={0} width={W_COL} height={H} fill="transparent"
+          {/* Ligne CTL (Fitness) */}
+          <path d={ctlLine} fill="none" stroke="var(--vl-text)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+          {/* Overlay survol */}
+          {pmc.map((_, i) => (
+            <rect key={`ov${i}`} x={i * W_COL} y={0} width={W_COL} height={H} fill="transparent"
               onMouseEnter={() => setHover(i)} style={{ cursor: 'pointer' }} />
           ))}
         </svg>
 
         {/* Tooltip jour par jour */}
-        {hover != null && totals[hover] > 0 && (
+        {hover != null && (
           <div style={{
             position: 'absolute', left: `${hoverLeftPct}%`, top: 0, transform: 'translateX(-50%)',
             background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line-2)', borderRadius: 6,
-            padding: '6px 9px', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 5,
+            padding: '7px 10px', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 5, minWidth: 130,
             boxShadow: '0 4px 16px rgba(0,0,0,.35)',
           }}>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 }}>
-              {fmtHoverDate(dates[hover])}
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 2 }}>
+              {fmtD(pmc[hover].date)}
             </div>
-            {([['Course', LOAD_COLORS.run, runLoads[hover]], ['Vélo', LOAD_COLORS.bike, bikeLoads[hover]], ['Renfo', LOAD_COLORS.renfo, renfoLoads[hover]]] as const)
-              .filter(([, , v]) => v > 0)
-              .map(([lbl, col, v]) => (
-                <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9.5 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 2, background: col, display: 'inline-block' }} />
-                  <span style={{ color: 'var(--vl-text-2)' }}>{lbl}</span>
-                  <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto' }}>{Math.round(v)}</span>
-                </div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 2, background: getTsbZone(pmc[hover].tsb).color, display: 'inline-block' }} />
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: getTsbZone(pmc[hover].tsb).color }}>
+                {getTsbZone(pmc[hover].tsb).label}
+              </span>
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)', marginLeft: 'auto' }}>
+                Forme {pmc[hover].tsb > 0 ? `+${pmc[hover].tsb}` : pmc[hover].tsb}
+              </span>
+            </div>
+            {daySegs[hover].length === 0 ? (
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>Repos</div>
+            ) : daySegs[hover].map((seg, j) => (
+              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9.5 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 2, background: seg.color, display: 'inline-block' }} />
+                <span style={{ color: 'var(--vl-text-2)' }}>{seg.label}</span>
+                <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto', paddingLeft: 10 }}>{Math.round(seg.load)}</span>
+              </div>
+            ))}
+            <div style={{ borderTop: '1px solid var(--vl-line)', marginTop: 5, paddingTop: 4, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9 }}>
+              <span style={{ width: 7, height: 3, borderRadius: 2, background: 'var(--vl-text)', display: 'inline-block' }} />
+              <span style={{ color: 'var(--vl-text-3)' }}>Fitness</span>
+              <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto' }}>{pmc[hover].ctl}</span>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Week date labels (like legacy) */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-        {weekLabels.map((l, i) => (
-          <span key={i} style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>{l}</span>
+      {/* Repères dates */}
+      <div style={{ position: 'relative', height: 12, marginTop: 3 }}>
+        {labelIdx.map((i) => (
+          <span key={i} style={{
+            position: 'absolute', left: `${((i + 0.5) / DISPLAY) * 100}%`, transform: 'translateX(-50%)',
+            fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', whiteSpace: 'nowrap',
+          }}>
+            {i === DISPLAY - 1 ? "auj." : new Date(pmc[i].date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          </span>
         ))}
+      </div>
+
+      {/* ── Jauge ACWR (équilibre charge aiguë/chronique) ── */}
+      <div style={{ marginTop: 12 }}>
+        <div style={{ position: 'relative', height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+          <div style={{ flex: 0.3, background: '#3B82F6', opacity: 0.55 }} />
+          <div style={{ flex: 0.5, background: '#22C55E', opacity: 0.55 }} />
+          <div style={{ flex: 0.2, background: '#F97316', opacity: 0.55 }} />
+          <div style={{ flex: 0.5, background: '#EF4444', opacity: 0.55 }} />
+          {acwr.ratio != null && (
+            <div style={{ position: 'absolute', top: -2, left: `${acwr.pct}%`, transform: 'translateX(-50%)', width: 3, height: 12, background: 'var(--vl-text)', borderRadius: 2, boxShadow: '0 0 0 1.5px var(--vl-surf)' }} />
+          )}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>ÉQUILIBRE CHARGE (ACWR)</span>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: acwr.color }}>
+            {acwr.ratio != null ? `${acwr.ratio.toFixed(2)} · ${acwr.label}` : 'calibrage en cours'}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -541,7 +611,7 @@ export default function DashboardPage() {
   const { data: renfoLogs = [] } = useQuery<SessionLog[]>({
     queryKey: ['renfo-session-logs-dashboard'],
     queryFn: async () => {
-      const cutoff = new Date(Date.now() - 28 * 86_400_000).toISOString().slice(0, 10)
+      const cutoff = new Date(Date.now() - 95 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
         .from('renfo_session_log')
         .select('focus,duration_min,session_date')
@@ -551,6 +621,20 @@ export default function DashboardPage() {
       return (data ?? []) as SessionLog[]
     },
     enabled: !!user,
+  })
+
+  // Activités sur 100 j pour le PMC (Fitness/Fatigue/Forme) — fiabilise le CTL
+  const { data: pmcActs = [] } = useQuery<Activity2[]>({
+    queryKey: ['pmc-activities'],
+    queryFn: async () => {
+      const cutoff = new Date(Date.now() - 100 * 86_400_000).toISOString().slice(0, 10)
+      const { data } = await supabase
+        .from('strava_activities')
+        .select('id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate')
+        .gte('start_date', cutoff)
+        .order('start_date', { ascending: false })
+      return (data ?? []) as Activity2[]
+    },
   })
 
   const { data: nextRace } = useQuery<NextRace | null>({
@@ -734,8 +818,8 @@ export default function DashboardPage() {
             {/* Prochaine course */}
             {nextRace && <NextRaceWidget race={nextRace} />}
 
-            {/* Charge combinée 28j */}
-            <ChargeCombinee activities={activities} renfoLogs={renfoLogs} fcMax={fcMax} />
+            {/* Statut d'entraînement (PMC) */}
+            <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
 
             {/* Renfo */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
