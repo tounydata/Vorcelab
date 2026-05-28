@@ -695,7 +695,8 @@ export default function DashboardPage() {
       {isLoading ? (
         <div className="loading"><div className="spinner" /></div>
       ) : (
-        <>
+        <div className="dash-grid">
+          <div className="dash-col">
           {/* Prochaine course */}
           {nextRace && <NextRaceWidget race={nextRace} />}
 
@@ -704,7 +705,9 @@ export default function DashboardPage() {
 
           {/* Charge combinée */}
           <ChargeCombinee activities={activities} renfoLogs={renfoLogs} fcMax={fcMax} />
+          </div>
 
+          <div className="dash-col">
           {/* CE MOIS + DERNIÈRES SORTIES — même card */}
           <div className="card" style={{ marginBottom: '1.5rem' }}>
             {/* CE MOIS header */}
@@ -856,7 +859,8 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
-        </>
+          </div>
+        </div>
       )}
     </>
   )
