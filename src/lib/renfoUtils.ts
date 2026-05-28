@@ -74,6 +74,12 @@ export function applyDeloadModifiers<T extends { sets: number; target_rpe?: numb
 // ── CO-PÉRIODISATION ──────────────────────────────────────────────────────────
 // Logique identique à getCoPerioWarnings() de renfo-program.js sans le fetch Supabase.
 
+const RUN_SPORT_TYPES = new Set(['Run', 'TrailRun', 'Trail Run', 'Running', 'VirtualRun'])
+
+function isRunActivity(a: Activity): boolean {
+  return RUN_SPORT_TYPES.has(a.type ?? '') || RUN_SPORT_TYPES.has(a.sport_type ?? '')
+}
+
 export function computeCoPerioWarnings(activities: Activity[]): CoPerioWarning[] {
   if (!activities || activities.length === 0) return []
 
@@ -82,6 +88,8 @@ export function computeCoPerioWarnings(activities: Activity[]): CoPerioWarning[]
   const cutoffMs = now - 3 * 86400000
 
   for (const act of activities) {
+    if (!isRunActivity(act)) continue  // ignore vélo, marche, etc.
+
     const actMs = new Date(act.start_date_local ?? '').getTime()
     if (!actMs || actMs < cutoffMs) continue
 

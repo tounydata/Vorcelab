@@ -217,7 +217,7 @@ main{padding:1.5rem 2rem;width:100%;max-width:1360px;margin:0 auto;}
 .vl-hk-val{font-family:var(--vl-display);font-size:2.6rem;font-weight:700;letter-spacing:0.01em;line-height:1;margin:4px 0 2px;}
 .vl-hk-delta{font-family:var(--vl-mono);font-size:9px;font-weight:600;padding:2px 6px;background:var(--vl-surf-2);border-radius:4px;display:inline-block;}
 /* ── DASHBOARD GRID ── */
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+.dash-grid{display:grid;grid-template-columns:3fr 2fr;gap:14px;align-items:start;}
 .dash-col{min-width:0;}
 .dash-col>:last-child{margin-bottom:0!important;}
 @media(max-width:900px){.dash-grid{grid-template-columns:1fr;}}

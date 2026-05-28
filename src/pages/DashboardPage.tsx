@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
@@ -85,6 +85,13 @@ function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
 
+const CYCLE_TYPES = new Set(['Ride', 'VirtualRide', 'EBikeRide', 'MountainBikeRide', 'GravelRide', 'Velomobile', 'Handcycle'])
+function isCycling(a: { type?: string; sport_type?: string }) {
+  return CYCLE_TYPES.has(a.type ?? '') || CYCLE_TYPES.has(a.sport_type ?? '')
+}
+
+const LOAD_COLORS = { run: 'var(--vl-ember)', bike: '#3b82f6', renfo: '#7c3aed' }
+
 // ─── 7j Bar Chart (SVG) ───────────────────────────────────────────────────────
 
 function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPct?: number | null; efLoading?: boolean }) {
@@ -93,7 +100,7 @@ function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPc
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
     const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds)
+    const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
     return {
       label: LABELS[(d.getDay() + 6) % 7],
       km: acts.reduce((s, a) => s + a.distance / 1000, 0),
@@ -206,22 +213,10 @@ function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPc
   )
 }
 
-// Catmull-Rom spline — même algo que renderBar7j legacy (tension 0.18)
-function smoothPath(pts: { x: number; y: number }[], maxY: number): string {
-  if (pts.length < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? maxY}`
-  const cl = (v: number) => Math.max(0, Math.min(maxY, v))
-  let path = `M${pts[0].x},${pts[0].y}`
-  const t = 0.18
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]
-    path += ` C${(p1.x + (p2.x - p0.x) * t).toFixed(1)},${cl(p1.y + (p2.y - p0.y) * t).toFixed(1)} ${(p2.x - (p3.x - p1.x) * t).toFixed(1)},${cl(p2.y - (p3.y - p1.y) * t).toFixed(1)} ${p2.x},${p2.y}`
-  }
-  return path
-}
-
 // ─── Charge combinée 4 semaines (inline SVG) ──────────────────────────────────
 
 function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
+  const [hover, setHover] = useState<number | null>(null)
   const now = new Date()
   const DAYS = 28
   const dates = Array.from({ length: DAYS }, (_, i) => {
@@ -229,11 +224,18 @@ function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
 
-  // Charge course via computeActivityLoad (port exact de renderChargeChart legacy)
-  const runLoads = dates.map((ds) => {
-    const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-    return acts.reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
-  })
+  // Charge course / vélo via computeActivityLoad (la course garde le filtre run/trail,
+  // le vélo est compté à part comme cross-training)
+  const runLoads = dates.map((ds) =>
+    activities
+      .filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
+      .reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
+  )
+  const bikeLoads = dates.map((ds) =>
+    activities
+      .filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isCycling(a))
+      .reduce((s, a) => s + computeActivityLoad(a, fcMax), 0)
+  )
 
   // Charge renfo — renfo_session_log n'a pas de RPE, on approx avec duration_min × 4 (RPE=4 par défaut)
   const renfoMap: Record<string, number> = {}
@@ -242,21 +244,14 @@ function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity
   })
   const renfoLoads = dates.map((ds) => renfoMap[ds] ?? 0)
 
-  // Même échelle pour les deux séries (comme legacy renderChargeChart)
-  const maxLoad = Math.max(...runLoads, ...renfoLoads, 1)
-
-  const VW = 280, H = 80, W_COL = VW / DAYS
-
-  const runPts  = runLoads.map((v, i)   => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
-  const renfoPts = renfoLoads.map((v, i) => ({ x: i * W_COL + W_COL / 2, y: H - (v / maxLoad) * H * 0.85 }))
-
-  const hasData = runLoads.some((v) => v > 0) || renfoLoads.some((v) => v > 0)
+  const totals = dates.map((_, i) => runLoads[i] + bikeLoads[i] + renfoLoads[i])
+  const hasData = totals.some((v) => v > 0)
   if (!hasData) return null
 
-  const runLine  = smoothPath(runPts, H)
-  const renfoLine = smoothPath(renfoPts, H)
-  const runArea  = runLine  + ` L${runPts[runPts.length - 1].x.toFixed(1)},${H} L${runPts[0].x.toFixed(1)},${H} Z`
-  const renfoArea = renfoLine + ` L${renfoPts[renfoPts.length - 1].x.toFixed(1)},${H} L${renfoPts[0].x.toFixed(1)},${H} Z`
+  const maxTotal = Math.max(...totals, 1)
+  const VW = 280, H = 80, W_COL = VW / DAYS
+  const GAP = 2.6, BAR_W = W_COL - GAP
+  const scale = (H * 0.92) / maxTotal
 
   // Week date labels (like legacy)
   const weekLabels = [0, 7, 14, 21].map((offset) => {
@@ -265,44 +260,80 @@ function ChargeCombinee({ activities, renfoLogs, fcMax }: { activities: Activity
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
   })
 
+  const hoverLeftPct = hover != null ? Math.min(82, Math.max(18, ((hover + 0.5) / DAYS) * 100)) : 0
+  const fmtHoverDate = (ds: string) =>
+    new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
         <div className="clabel" style={{ margin: 0 }}>Charge combinée — 4 semaines</div>
         <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--vl-mono)', fontSize: 9 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 10, height: 3, background: 'var(--vl-ember)', borderRadius: 2, display: 'inline-block' }} />
-            <span style={{ color: 'var(--vl-text-3)' }}>Course</span>
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 10, height: 3, background: '#7c3aed', borderRadius: 2, display: 'inline-block' }} />
-            <span style={{ color: 'var(--vl-text-3)' }}>Renfo</span>
-          </span>
+          {([['Course', LOAD_COLORS.run], ['Vélo', LOAD_COLORS.bike], ['Renfo', LOAD_COLORS.renfo]] as const).map(([lbl, col]) => (
+            <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 3, background: col, borderRadius: 2, display: 'inline-block' }} />
+              <span style={{ color: 'var(--vl-text-3)' }}>{lbl}</span>
+            </span>
+          ))}
         </div>
       </div>
-      <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
-        <defs>
-          <linearGradient id="runGrad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#E5562A" stopOpacity={0.18} />
-            <stop offset="100%" stopColor="#E5562A" stopOpacity={0.02} />
-          </linearGradient>
-          <linearGradient id="renfoGrad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.14} />
-            <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        {/* Area fills */}
-        <path d={runArea}   fill="url(#runGrad)" />
-        <path d={renfoArea} fill="url(#renfoGrad)" />
-        {/* Smooth lines */}
-        <path d={runLine}   fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
-        <path d={renfoLine} fill="none" stroke="#7c3aed"         strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
-        {/* Week separators */}
-        {[7, 14, 21].map((d) => (
-          <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
-            stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.5} />
-        ))}
-      </svg>
+
+      <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
+          {/* Week separators */}
+          {[7, 14, 21].map((d) => (
+            <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
+              stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.5} />
+          ))}
+          {/* Stacked bars: run (bas) → vélo → renfo (haut) */}
+          {dates.map((_, i) => {
+            const x = i * W_COL + GAP / 2
+            const runH = runLoads[i] * scale
+            const bikeH = bikeLoads[i] * scale
+            const renfoH = renfoLoads[i] * scale
+            const yRun = H - runH
+            const yBike = yRun - bikeH
+            const yRenfo = yBike - renfoH
+            const dim = hover != null && hover !== i ? 0.4 : 1
+            return (
+              <g key={i} opacity={dim}>
+                {runH > 0 && <rect x={x} y={yRun} width={BAR_W} height={runH} fill={LOAD_COLORS.run} rx={1} />}
+                {bikeH > 0 && <rect x={x} y={yBike} width={BAR_W} height={bikeH} fill={LOAD_COLORS.bike} rx={1} />}
+                {renfoH > 0 && <rect x={x} y={yRenfo} width={BAR_W} height={renfoH} fill={LOAD_COLORS.renfo} rx={1} />}
+              </g>
+            )
+          })}
+          {/* Overlay transparent pour le survol jour par jour */}
+          {dates.map((_, i) => (
+            <rect key={i} x={i * W_COL} y={0} width={W_COL} height={H} fill="transparent"
+              onMouseEnter={() => setHover(i)} style={{ cursor: 'pointer' }} />
+          ))}
+        </svg>
+
+        {/* Tooltip jour par jour */}
+        {hover != null && totals[hover] > 0 && (
+          <div style={{
+            position: 'absolute', left: `${hoverLeftPct}%`, top: 0, transform: 'translateX(-50%)',
+            background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line-2)', borderRadius: 6,
+            padding: '6px 9px', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 5,
+            boxShadow: '0 4px 16px rgba(0,0,0,.35)',
+          }}>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 }}>
+              {fmtHoverDate(dates[hover])}
+            </div>
+            {([['Course', LOAD_COLORS.run, runLoads[hover]], ['Vélo', LOAD_COLORS.bike, bikeLoads[hover]], ['Renfo', LOAD_COLORS.renfo, renfoLoads[hover]]] as const)
+              .filter(([, , v]) => v > 0)
+              .map(([lbl, col, v]) => (
+                <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9.5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 2, background: col, display: 'inline-block' }} />
+                  <span style={{ color: 'var(--vl-text-2)' }}>{lbl}</span>
+                  <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto' }}>{Math.round(v)}</span>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
       {/* Week date labels (like legacy) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         {weekLabels.map((l, i) => (
@@ -638,7 +669,7 @@ export default function DashboardPage() {
   const monthCutoffStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const renfoMonthCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= monthCutoffStr).map((r) => r.session_date))].length
 
-  const recent = runs.slice(0, 5)
+  const recent = runs.slice(0, 4)
 
   // Renfo count this week
   const weekCutoff = new Date(now)
@@ -696,169 +727,123 @@ export default function DashboardPage() {
         <div className="loading"><div className="spinner" /></div>
       ) : (
         <div className="dash-grid">
+
+          {/* ── COLONNE GAUCHE 60% : course → charge 28j → renfo ── */}
           <div className="dash-col">
-          {/* Prochaine course */}
-          {nextRace && <NextRaceWidget race={nextRace} />}
 
-          {/* 7j bar chart */}
-          {runs.length > 0 && <Bar7j activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
+            {/* Prochaine course */}
+            {nextRace && <NextRaceWidget race={nextRace} />}
 
-          {/* Charge combinée */}
-          <ChargeCombinee activities={activities} renfoLogs={renfoLogs} fcMax={fcMax} />
-          </div>
+            {/* Charge combinée 28j */}
+            <ChargeCombinee activities={activities} renfoLogs={renfoLogs} fcMax={fcMax} />
 
-          <div className="dash-col">
-          {/* CE MOIS + DERNIÈRES SORTIES — même card */}
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            {/* CE MOIS header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
-              <Link to="/activities" style={{ textDecoration: 'none' }}>
-                <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR TOUT →</div>
-              </Link>
-            </div>
-
-            {/* 3 stats grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              {/* km course */}
-              <div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
-                  {(kmMonth / 1000).toFixed(1)}
+            {/* Renfo */}
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
+                  RENFO · LIBRE · {renfoWeekCount}/{3} SEM.
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>km COURSE</div>
-                {deltaKmPct != null && (
-                  <div style={{
-                    display: 'inline-block',
-                    marginTop: 4,
-                    background: 'var(--vl-surf-2)',
-                    borderRadius: 3,
-                    padding: '2px 6px',
-                    fontFamily: 'var(--vl-mono)',
-                    fontSize: 8,
-                    color: deltaKmPct >= 0 ? 'var(--vl-growth)' : 'var(--vl-ember)',
-                  }}>
-                    {deltaKmPct >= 0 ? '+' : ''}{deltaKmPct}% · vs M-1
+                <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR RENFO →</div>
+                </Link>
+              </div>
+              <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.75rem', marginTop: 2 }}>
+                {DUP4_LABELS[phase]}
+              </div>
+              {warnings.length > 0 && (
+                <div style={{ marginBottom: '0.75rem', padding: '6px 10px', borderLeft: `3px solid ${warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}` }}>
+                  <div className="mlabel" style={{ color: warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)', textTransform: 'none', letterSpacing: 0, fontSize: '0.8rem' }}>
+                    {warnings[0].message}
                   </div>
-                )}
-              </div>
-              {/* m D+ */}
-              <div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>
-                  {Math.round(elevMonth)}
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m D+</div>
-              </div>
-              {/* sess. RENFO */}
-              <div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: '#a78bfa', lineHeight: 1 }}>
-                  {renfoMonthCount}
-                </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>sess. RENFO</div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {sortedFocuses.slice(0, 4).map((focus) => {
+                  const meta = FOCUS_META[focus]
+                  if (!meta) return null
+                  const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
+                  const lastDate = lastDateByFocus[focus]
+                  const isAvoided = avoided.has(focus)
+                  const isPref = preferred.has(focus)
+                  return (
+                    <Link key={focus} to={`/renfo/session/${focus}`} style={{ textDecoration: 'none' }}>
+                      <div style={{ padding: '8px 10px', borderRadius: 6, border: `1px solid var(--vl-line)`, borderLeft: `3px solid ${color}`, opacity: isAvoided ? 0.4 : 1, background: 'var(--vl-card)' }}>
+                        {isPref && <div className="mlabel" style={{ color, fontSize: '0.7rem', marginBottom: 2 }}>★</div>}
+                        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.8rem', color, lineHeight: 1.2 }}>{meta.label}</div>
+                        <div className="mlabel" style={{ fontSize: '0.7rem', color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>
+                          {lastDate ? fmtLastDate(lastDate) : `${meta.duration_min} min`}
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Separator */}
-            <div style={{ borderTop: '1px solid var(--vl-line)', margin: '0.75rem 0' }} />
-
-            {/* DERNIÈRES SORTIES */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <div className="clabel" style={{ margin: 0 }}>DERNIÈRES SORTIES</div>
-            </div>
-            {recent.length === 0 ? (
-              <div className="mlabel">Aucune activité enregistrée</div>
-            ) : (
-              <div className="acts-grid">
-                {recent.map((a) => (
-                  <NavLink key={a.id} to={`/activities/${a.id}`} className="act-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="act-name" style={{ textTransform: 'uppercase', fontWeight: 700 }}>{a.name}</div>
-                      <div className="act-meta">
-                        {(a.distance / 1000).toFixed(1)} km · {formatTime(a.moving_time)} · D+ {Math.round(a.total_elevation_gain ?? 0)}m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
-                        {formatPaceShort(a.distance, a.moving_time)}
-                      </div>
-                      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
-                        /KM · {formatDateShort(a.start_date)}
-                      </div>
-                      <span className="act-badge">{a.sport_type === 'TrailRun' ? 'Trail' : a.type}</span>
-                    </div>
-                  </NavLink>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Renfo */}
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
-                RENFO · LIBRE · {renfoWeekCount}/{3} SEM.
+          {/* ── COLONNE DROITE 40% : graphique 7j → stats mois + activités ── */}
+          <div className="dash-col">
+
+            {/* 7j bar chart */}
+            {runs.length > 0 && <Bar7j activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
+
+            {/* CE MOIS + DERNIÈRES SORTIES */}
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
+                <Link to="/activities" style={{ textDecoration: 'none' }}>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR TOUT →</div>
+                </Link>
               </div>
-              <Link to="/renfo" style={{ textDecoration: 'none' }}>
-                <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR RENFO →</div>
-              </Link>
-            </div>
-
-            {/* DUP phase badge under header */}
-            <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.75rem', marginTop: 2 }}>
-              {DUP4_LABELS[phase]}
-            </div>
-
-            {warnings.length > 0 && (
-              <div style={{
-                marginBottom: '0.75rem',
-                padding: '6px 10px',
-                borderLeft: `3px solid ${warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}`,
-              }}>
-                <div className="mlabel" style={{
-                  color: warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)',
-                  textTransform: 'none', letterSpacing: 0, fontSize: '0.8rem'
-                }}>
-                  {warnings[0].message}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>{(kmMonth / 1000).toFixed(1)}</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>km COURSE</div>
+                  {deltaKmPct != null && (
+                    <div style={{ display: 'inline-block', marginTop: 4, background: 'var(--vl-surf-2)', borderRadius: 3, padding: '2px 6px', fontFamily: 'var(--vl-mono)', fontSize: 8, color: deltaKmPct >= 0 ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>
+                      {deltaKmPct >= 0 ? '+' : ''}{deltaKmPct}% · vs M-1
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>{Math.round(elevMonth)}</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m D+</div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: '#a78bfa', lineHeight: 1 }}>{renfoMonthCount}</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>sess. RENFO</div>
                 </div>
               </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-              {sortedFocuses.slice(0, 4).map((focus) => {
-                const meta = FOCUS_META[focus]
-                if (!meta) return null
-                const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
-                const lastDate = lastDateByFocus[focus]
-                const isAvoided = avoided.has(focus)
-                const isPref = preferred.has(focus)
-                return (
-                  <Link
-                    key={focus}
-                    to={`/renfo/session/${focus}`}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <div style={{
-                      padding: '8px 10px',
-                      borderRadius: 6,
-                      border: `1px solid var(--vl-line)`,
-                      borderLeft: `3px solid ${color}`,
-                      opacity: isAvoided ? 0.4 : 1,
-                      background: 'var(--vl-card)',
-                    }}>
-                      {isPref && (
-                        <div className="mlabel" style={{ color, fontSize: '0.7rem', marginBottom: 2 }}>★</div>
-                      )}
-                      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.8rem', color, lineHeight: 1.2 }}>
-                        {meta.label}
+              <div style={{ borderTop: '1px solid var(--vl-line)', margin: '0.75rem 0' }} />
+              <div className="clabel" style={{ margin: '0 0 0.75rem' }}>DERNIÈRES SORTIES</div>
+              {recent.length === 0 ? (
+                <div className="mlabel">Aucune activité enregistrée</div>
+              ) : (
+                <div className="acts-grid">
+                  {recent.map((a) => (
+                    <NavLink key={a.id} to={`/activities/${a.id}`} className="act-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="act-name" style={{ textTransform: 'uppercase', fontWeight: 700 }}>{a.name}</div>
+                        <div className="act-meta">
+                          {(a.distance / 1000).toFixed(1)} km · {formatTime(a.moving_time)} · D+ {Math.round(a.total_elevation_gain ?? 0)}m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}
+                        </div>
                       </div>
-                      <div className="mlabel" style={{ fontSize: '0.7rem', color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>
-                        {lastDate ? fmtLastDate(lastDate) : `${meta.duration_min} min`}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
+                          {formatPaceShort(a.distance, a.moving_time)}
+                        </div>
+                        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
+                          /KM · {formatDateShort(a.start_date)}
+                        </div>
+                        <span className="act-badge">{a.sport_type === 'TrailRun' ? 'Trail' : a.type}</span>
                       </div>
-                    </div>
-                  </Link>
-                )
-              })}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+
           </div>
         </div>
       )}
