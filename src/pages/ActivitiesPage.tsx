@@ -11,6 +11,16 @@ interface Activity {
   moving_time: number
   start_date: string
   type: string
+  sport_type: string | null
+}
+
+// Seules les sorties course/trail sont analysables (allure, FC, D+, profil coureur).
+const RUN_TYPES = ['Run', 'TrailRun', 'Trail Run', 'Running', 'VirtualRun']
+function isRunOrTrail(a: Activity) {
+  return RUN_TYPES.includes(a.type) || RUN_TYPES.includes(a.sport_type ?? '')
+}
+function runBadge(a: Activity) {
+  return a.sport_type === 'TrailRun' || a.sport_type === 'Trail Run' ? 'Trail' : 'Course'
 }
 
 function formatKm(meters: number) {
@@ -35,15 +45,15 @@ export default function ActivitiesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,start_date,type')
+        .select('id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
         .order('start_date', { ascending: false })
       if (error) throw error
       return (data ?? []) as Activity[]
     },
   })
 
-  const filtered = activities.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = activities.filter(
+    (a) => isRunOrTrail(a) && a.name.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -85,7 +95,7 @@ export default function ActivitiesPage() {
                   </div>
                 </div>
                 <div>
-                  <span className="act-badge">{a.type}</span>
+                  <span className="act-badge">{runBadge(a)}</span>
                 </div>
               </NavLink>
             ))}
