@@ -308,13 +308,11 @@ export interface ACWRResult { ratio: number | null; label: string; color: string
 
 export function computeACWR(pmc: PMCDay[]): ACWRResult {
   if (pmc.length === 0) return { ratio: null, label: 'calibrage', color: 'var(--vl-text-3)', pct: 0 }
-  const last = pmc.slice(-28)
-  const last7 = pmc.slice(-7)
-  const acute = last7.reduce((s, d) => s + d.totalLoad, 0) / 7
-  const chronic = last.reduce((s, d) => s + d.totalLoad, 0) / Math.min(28, last.length)
-  if (chronic <= 0) return { ratio: null, label: 'calibrage', color: 'var(--vl-text-3)', pct: 0 }
-  const ratio = acute / chronic
-  // Position sur la jauge 0.5 → 2.0
+  const today = pmc[pmc.length - 1]
+  // Utilise ATL/CTL (déjà exponentiellement lissés τ=7j/42j) plutôt que des
+  // moyennes brutes 7j/28j — évite les pics artificiels sur une seule grosse sortie trail.
+  if (today.calibrating || today.ctl <= 0) return { ratio: null, label: 'calibrage', color: 'var(--vl-text-3)', pct: 0 }
+  const ratio = today.atl / today.ctl
   const pct = Math.max(0, Math.min(100, ((ratio - 0.5) / 1.5) * 100))
   let label = 'zone optimale'
   let color = '#22C55E'
