@@ -4,6 +4,17 @@ export interface WeatherData {
   precip: number | null
 }
 
+// Prefer Strava average_temp (already in DB) over Open-Meteo for temp.
+// Wind/precip always come from Open-Meteo (Strava doesn't expose them).
+export function mergeStravaTemp(stravaTemp: number | null | undefined, apiWeather: WeatherData | null): WeatherData | null {
+  if (stravaTemp == null) return apiWeather
+  return {
+    temp: stravaTemp,
+    wind: apiWeather?.wind ?? null,
+    precip: apiWeather?.precip ?? null,
+  }
+}
+
 // Open-Meteo historical archive — free, no API key
 export async function fetchActivityWeather(lat: number, lon: number, dateTimeIso: string): Promise<WeatherData | null> {
   const date = dateTimeIso.slice(0, 10)

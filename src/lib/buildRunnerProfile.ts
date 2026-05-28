@@ -20,6 +20,8 @@ import {
   type PostClimbRecoveryByBucket,
   type PostDownhillRecoveryByBucket,
   type DownhillFatigueProfile,
+  type ConditionPenalties,
+  type ConditionPenalty,
 } from './runnerProfile'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'virtualrun', 'hike', 'walk'])
@@ -63,6 +65,11 @@ export async function buildRunnerProfile(
   type RecoveryEvent = { hrDropBpmPerMin: number; resumeSpeedKmH: number; avgHrPctFcMaxAfter: number | null }
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
   const descentRecoveryAccum: Partial<Record<DescentBucket, RecoveryEvent[]>> = {}
+
+  // Condition penalty accumulators: pace (sec/km) per condition bucket
+  const condPace: Record<'neutral' | 'heat' | 'cold' | 'night', number[]> = {
+    neutral: [], heat: [], cold: [], night: [],
+  }
 
   let totalStreamSeconds = 0
   let totalActivitySeconds = 0
@@ -352,6 +359,47 @@ export async function buildRunnerProfile(
     }
   }
 
+  // ── Condition penalties — derived from activity-level data (no stream needed) ──
+  for (const act of runs) {
+    if (!act.average_speed || act.average_speed <= 0) continue
+    const secPerKm = 1000 / act.average_speed
+
+    const localDate = act.start_date_local ?? act.start_date
+    const hour = new Date(localDate).getHours()
+    const isNight = hour >= 20 || hour < 5
+
+    const temp = typeof act.average_temp === 'number' ? act.average_temp : null
+    const isHeat = temp != null && temp > 22
+    const isCold = temp != null && temp < 5
+
+    if (isNight) condPace.night.push(secPerKm)
+    else if (isHeat) condPace.heat.push(secPerKm)
+    else if (isCold) condPace.cold.push(secPerKm)
+    else condPace.neutral.push(secPerKm)
+  }
+
+  const neutralAvg = condPace.neutral.length >= 3
+    ? condPace.neutral.reduce((a, b) => a + b, 0) / condPace.neutral.length
+    : null
+
+  function buildCondPenalty(arr: number[]): ConditionPenalty | undefined {
+    if (arr.length < 2 || neutralAvg == null) return undefined
+    const avg = arr.reduce((a, b) => a + b, 0) / arr.length
+    return {
+      paceImpactPct: ((avg - neutralAvg) / neutralAvg) * 100,
+      sampleCount: arr.length,
+      confidence: computeConfidenceFromCount(arr.length, { high: 5, medium: 2 }),
+    }
+  }
+
+  const conditionPenalties: ConditionPenalties = {}
+  const heatP = buildCondPenalty(condPace.heat)
+  const coldP = buildCondPenalty(condPace.cold)
+  const nightP = buildCondPenalty(condPace.night)
+  if (heatP) conditionPenalties.heat = heatP
+  if (coldP) conditionPenalties.cold = coldP
+  if (nightP) conditionPenalties.night = nightP
+
   onProgress?.(90, 'Finalisation…')
 
   // ── Build bucket stats ────────────────────────────────────────────────────
@@ -547,6 +595,7 @@ export async function buildRunnerProfile(
     postClimbRecoveryByBucket,
     postDownhillRecoveryByBucket,
     downhillFatigue,
+    conditionPenalties: Object.keys(conditionPenalties).length > 0 ? conditionPenalties : undefined,
   }
 }
 
@@ -554,17 +603,20 @@ export interface ProfileActivity {
   id: number | string
   strava_activity_id: number | string
   start_date: string
+  start_date_local?: string | null
   moving_time: number
   total_elevation_gain?: number | null
   type?: string | null
   sport_type?: string | null
   average_heartrate?: number | null
+  average_speed?: number | null
+  average_temp?: number | null
 }
 
 export async function fetchActivitiesForProfile(userId: string, limit = 50): Promise<ProfileActivity[]> {
   const { data } = await supabase
     .from('strava_activities')
-    .select('id,strava_activity_id,start_date,moving_time,total_elevation_gain,type,sport_type,average_heartrate')
+    .select('id,strava_activity_id,start_date,start_date_local,moving_time,total_elevation_gain,type,sport_type,average_heartrate,average_speed,average_temp:raw_data->average_temp')
     .eq('user_id', userId)
     .order('start_date', { ascending: false })
     .limit(limit)

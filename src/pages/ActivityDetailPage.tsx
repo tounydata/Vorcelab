@@ -8,7 +8,7 @@ import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
-import { fetchActivityWeather, type WeatherData } from '../lib/weather'
+import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,7 @@ interface ActivityDetail {
   suffer_score: number | null
   description: string | null
   kudos_count: number | null
+  average_temp: number | null
 }
 
 interface RecentActivity {
@@ -855,7 +856,7 @@ export default function ActivityDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,kudos_count:raw_data->kudos_count')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,kudos_count:raw_data->kudos_count,average_temp:raw_data->average_temp')
         .eq('id', activityId!)
         .single()
       if (error) throw error
@@ -958,7 +959,7 @@ export default function ActivityDetailPage() {
       {/* Analyse de séance */}
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
       <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
-      <RaceContextCard activity={activity} weather={weather} />
+      <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather ?? null)} />
 
       {/* Altitude profile + map + VAM sections */}
       {activityId && stravaActivityIdStr && (
