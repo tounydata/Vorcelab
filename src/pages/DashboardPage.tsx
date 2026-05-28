@@ -420,8 +420,8 @@ function NextRaceWidget({ race }: { race: NextRace }) {
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '.68rem', color: 'var(--vl-text-2)', marginBottom: 10 }}>
                 {dateStr}{race.distance ? ` · ${race.distance} km` : ''}{race.elevation ? ` · D+ ${race.elevation} m` : ''}
               </div>
-              {/* Countdown pushed to bottom */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              {/* Countdown */}
+              <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ fontFamily: 'var(--vl-display)', fontSize: '3.8rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 0.82, letterSpacing: '-.03em' }}>
                   {daysLeft}
                 </div>
@@ -780,7 +780,7 @@ export default function DashboardPage() {
                       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
                         /KM · {formatDateShort(a.start_date)}
                       </div>
-                      <span className="act-badge">{a.type}</span>
+                      <span className="act-badge">{a.sport_type === 'TrailRun' ? 'Trail' : a.type}</span>
                     </div>
                   </NavLink>
                 ))}
