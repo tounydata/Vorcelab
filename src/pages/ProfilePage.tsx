@@ -19,6 +19,7 @@ import {
   type PostClimbRecoveryByBucket,
   type PostDownhillRecoveryByBucket,
   type RecoveryBucketStats,
+  type ConditionPenalties,
 } from '../lib/runnerProfile'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
@@ -174,6 +175,56 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
           Seuil Vorcelab (référence trail)
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Condition penalties card ─────────────────────────────────────────────────
+
+const CONDITION_META: { key: keyof ConditionPenalties; label: string; desc: string }[] = [
+  { key: 'heat',  label: 'Chaleur (>22°C)',    desc: 'Effet mesuré sur tes sorties, terrain normalisé par D+/km' },
+  { key: 'cold',  label: 'Froid (<5°C)',        desc: 'Effet mesuré sur tes sorties hivernales, D+/km normalisé' },
+  { key: 'night', label: 'Nocturne (20h–5h)',   desc: 'Effet mesuré sur tes sorties de nuit, D+/km normalisé' },
+  { key: 'wind',  label: 'Vent (>25 km/h)',     desc: 'Approche isotrope trail — alimenté par les météos vues en détail activité' },
+]
+
+function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
+  const cp = rp.conditionPenalties
+  if (!cp || Object.keys(cp).length === 0) return null
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="clabel" style={{ marginBottom: '0.75rem' }}>CONDITIONS MÉTÉO & CONTEXTE</div>
+      <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+        Impact mesuré sur <em>tes</em> sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Positif = tu es plus lent dans ces conditions. Alimentera l'algorithme de projection.
+      </div>
+
+      {CONDITION_META.map(({ key, label, desc }) => {
+        const p = cp[key]
+        if (!p) return null
+        const isSlower = p.paceImpactPct > 0
+        const abs = Math.abs(p.paceImpactPct)
+        const color = abs < 1.5 ? 'var(--vl-growth)' : abs < 4 ? 'var(--vl-amber)' : 'var(--vl-ember)'
+        return (
+          <div key={key} style={{ marginBottom: 10, paddingLeft: 8, borderLeft: `2px solid ${color}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 13, fontWeight: 700, color }}>
+                {isSlower ? '+' : ''}{p.paceImpactPct.toFixed(1)}%
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--vl-text-3)', lineHeight: 1.4 }}>
+              {desc}
+              {' · '}{p.sampleCount} sortie(s)
+              {' · '}Confiance : {confidenceLabel(p.confidence)}
+            </div>
+          </div>
+        )
+      })}
+
+      <div style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6, fontStyle: 'italic' }}>
+        Pluie à venir · Vent : se remplit au fur et à mesure de tes consultations d'activités.
+      </div>
     </div>
   )
 }
@@ -896,6 +947,7 @@ export default function ProfilePage() {
                   )}
 
                   <GlobalAnalysisCard rp={rp} />
+                  <ConditionPenaltiesCard rp={rp} />
                   <RecoveryByBucketSection rp={rp} />
                   <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
 

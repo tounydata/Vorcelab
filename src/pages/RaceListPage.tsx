@@ -163,7 +163,7 @@ export default function RaceListPage() {
   const DAY_HEADERS = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: '2rem' }}>
+    <div style={{ paddingBottom: '2rem' }}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 700 }}>

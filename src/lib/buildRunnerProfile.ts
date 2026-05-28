@@ -20,6 +20,8 @@ import {
   type PostClimbRecoveryByBucket,
   type PostDownhillRecoveryByBucket,
   type DownhillFatigueProfile,
+  type ConditionPenalties,
+  type ConditionPenalty,
 } from './runnerProfile'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'virtualrun', 'hike', 'walk'])
@@ -63,6 +65,8 @@ export async function buildRunnerProfile(
   type RecoveryEvent = { hrDropBpmPerMin: number; resumeSpeedKmH: number; avgHrPctFcMaxAfter: number | null }
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
   const descentRecoveryAccum: Partial<Record<DescentBucket, RecoveryEvent[]>> = {}
+
+  // (condition penalties computed after main loop)
 
   let totalStreamSeconds = 0
   let totalActivitySeconds = 0
@@ -352,6 +356,101 @@ export async function buildRunnerProfile(
     }
   }
 
+  // ── Condition penalties — last 90 days, normalized by D+/km ────────────────
+  // Approach: linear regression pace ~ a + b·(D+/km) on neutral runs isolates
+  // terrain effect. Each condition's penalty = mean(residual) / neutralMeanPace.
+  // Wind uses activity_weather cache (populated by ActivityDetailPage visits).
+  // Direction du vent ignorée (trail sinueux — approche isotrope, coeff 0.6).
+  const cutoff90 = Date.now() - 90 * 24 * 3600 * 1000
+
+  interface CondEntry { secPerKm: number; dplusPerKm: number }
+  const condData: Record<'neutral' | 'heat' | 'cold' | 'night' | 'wind', CondEntry[]> = {
+    neutral: [], heat: [], cold: [], night: [], wind: [],
+  }
+
+  // Batch-load wind from cache for recent activities
+  const recentIds = runs
+    .filter(a => new Date(a.start_date).getTime() >= cutoff90 && a.strava_activity_id)
+    .map(a => Number(a.strava_activity_id))
+  const windByActId: Record<number, number> = {}
+  if (recentIds.length > 0) {
+    const { data: weatherRows } = await supabase
+      .from('activity_weather')
+      .select('activity_id,wind')
+      .in('activity_id', recentIds)
+    for (const row of weatherRows ?? []) {
+      if (row.wind != null) windByActId[row.activity_id as number] = row.wind as number
+    }
+  }
+
+  for (const act of runs) {
+    if (!act.average_speed || act.average_speed <= 0 || !act.moving_time) continue
+    if (new Date(act.start_date).getTime() < cutoff90) continue
+    const distM = act.average_speed * act.moving_time
+    if (distM < 3000) continue
+
+    const secPerKm = 1000 / act.average_speed
+    const dplusPerKm = (act.total_elevation_gain ?? 0) / (distM / 1000)
+    const entry: CondEntry = { secPerKm, dplusPerKm }
+
+    const localDate = act.start_date_local ?? act.start_date
+    const hour = new Date(localDate).getHours()
+    const isNight = hour >= 20 || hour < 5
+
+    const temp = typeof act.average_temp === 'number' ? act.average_temp : null
+    const isHeat = temp != null && temp > 22
+    const isCold = temp != null && temp < 5
+
+    const windKmh = act.strava_activity_id != null ? (windByActId[Number(act.strava_activity_id)] ?? null) : null
+    const isWindy = windKmh != null && windKmh * 0.6 > 15  // isotrope trail
+
+    if (isNight)       condData.night.push(entry)
+    else if (isWindy)  condData.wind.push(entry)
+    else if (isHeat)   condData.heat.push(entry)
+    else if (isCold)   condData.cold.push(entry)
+    else               condData.neutral.push(entry)
+  }
+
+  // OLS regression on neutral runs: slope = how much D+/km adds to pace
+  function linReg(data: CondEntry[]): { a: number; b: number } | null {
+    const n = data.length
+    if (n < 3) return null
+    const meanX = data.reduce((s, d) => s + d.dplusPerKm, 0) / n
+    const meanY = data.reduce((s, d) => s + d.secPerKm, 0) / n
+    const num = data.reduce((s, d) => s + (d.dplusPerKm - meanX) * (d.secPerKm - meanY), 0)
+    const den = data.reduce((s, d) => s + (d.dplusPerKm - meanX) ** 2, 0)
+    if (den < 1e-9) return { a: meanY, b: 0 }
+    const b = num / den
+    return { a: meanY - b * meanX, b }
+  }
+
+  const neutralModel = linReg(condData.neutral)
+  const neutralMeanPace = condData.neutral.length > 0
+    ? condData.neutral.reduce((s, d) => s + d.secPerKm, 0) / condData.neutral.length
+    : null
+
+  function buildCondPenalty(data: CondEntry[]): ConditionPenalty | undefined {
+    if (data.length < 2 || !neutralModel || !neutralMeanPace) return undefined
+    const meanResidual = data
+      .map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
+      .reduce((s, r) => s + r, 0) / data.length
+    return {
+      paceImpactPct: (meanResidual / neutralMeanPace) * 100,
+      sampleCount: data.length,
+      confidence: computeConfidenceFromCount(data.length, { high: 5, medium: 2 }),
+    }
+  }
+
+  const conditionPenalties: ConditionPenalties = {}
+  const heatP  = buildCondPenalty(condData.heat)
+  const coldP  = buildCondPenalty(condData.cold)
+  const nightP = buildCondPenalty(condData.night)
+  const windP  = buildCondPenalty(condData.wind)
+  if (heatP)  conditionPenalties.heat  = heatP
+  if (coldP)  conditionPenalties.cold  = coldP
+  if (nightP) conditionPenalties.night = nightP
+  if (windP)  conditionPenalties.wind  = windP
+
   onProgress?.(90, 'Finalisation…')
 
   // ── Build bucket stats ────────────────────────────────────────────────────
@@ -547,6 +646,7 @@ export async function buildRunnerProfile(
     postClimbRecoveryByBucket,
     postDownhillRecoveryByBucket,
     downhillFatigue,
+    conditionPenalties: Object.keys(conditionPenalties).length > 0 ? conditionPenalties : undefined,
   }
 }
 
@@ -554,17 +654,20 @@ export interface ProfileActivity {
   id: number | string
   strava_activity_id: number | string
   start_date: string
+  start_date_local?: string | null
   moving_time: number
   total_elevation_gain?: number | null
   type?: string | null
   sport_type?: string | null
   average_heartrate?: number | null
+  average_speed?: number | null
+  average_temp?: number | null
 }
 
 export async function fetchActivitiesForProfile(userId: string, limit = 50): Promise<ProfileActivity[]> {
   const { data } = await supabase
     .from('strava_activities')
-    .select('id,strava_activity_id,start_date,moving_time,total_elevation_gain,type,sport_type,average_heartrate')
+    .select('id,strava_activity_id,start_date,start_date_local,moving_time,total_elevation_gain,type,sport_type,average_heartrate,average_speed,average_temp:raw_data->average_temp')
     .eq('user_id', userId)
     .order('start_date', { ascending: false })
     .limit(limit)

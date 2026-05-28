@@ -8,7 +8,7 @@ import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
-import { fetchActivityWeather, type WeatherData } from '../lib/weather'
+import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,7 @@ interface ActivityDetail {
   suffer_score: number | null
   description: string | null
   kudos_count: number | null
+  average_temp: number | null
 }
 
 interface RecentActivity {
@@ -855,7 +856,7 @@ export default function ActivityDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,kudos_count:raw_data->kudos_count')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,kudos_count:raw_data->kudos_count,average_temp:raw_data->average_temp')
         .eq('id', activityId!)
         .single()
       if (error) throw error
@@ -891,11 +892,29 @@ export default function ActivityDetailPage() {
     staleTime: 30 * 60 * 1000,
   })
 
-  // Météo historique — Open-Meteo, depuis le premier point GPS du stream
+  // Météo historique — Open-Meteo (vent/pluie), cachée dans activity_weather pour le profil
   const startLatLng = streams?.latlng?.data?.[0]
   const { data: weather } = useQuery<WeatherData | null>({
     queryKey: ['activity-weather', activityId, startLatLng?.[0]?.toFixed(3), startLatLng?.[1]?.toFixed(3)],
-    queryFn: () => fetchActivityWeather(startLatLng![0], startLatLng![1], activity!.start_date_local ?? activity!.start_date),
+    queryFn: async () => {
+      const result = await fetchActivityWeather(startLatLng![0], startLatLng![1], activity!.start_date_local ?? activity!.start_date)
+      if (result && activity?.strava_activity_id) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.id) {
+          supabase.from('activity_weather').upsert({
+            user_id: session.user.id,
+            activity_id: Number(activity.strava_activity_id),
+            temp: result.temp,
+            wind: result.wind,
+            precip: result.precip,
+            cached_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,activity_id' }).then(({ error }) => {
+            if (error) console.warn('[VL] weather cache write error:', error.message)
+          })
+        }
+      }
+      return result
+    },
     enabled: !!startLatLng && !!activity,
     staleTime: 24 * 60 * 60 * 1000,
     retry: 1,
@@ -958,7 +977,7 @@ export default function ActivityDetailPage() {
       {/* Analyse de séance */}
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
       <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
-      <RaceContextCard activity={activity} weather={weather} />
+      <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather ?? null)} />
 
       {/* Altitude profile + map + VAM sections */}
       {activityId && stravaActivityIdStr && (

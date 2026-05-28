@@ -221,6 +221,23 @@ export function computePostClimbRecoveryStatus(
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'none'
 
+// ─── Condition penalties ──────────────────────────────────────────────────────
+
+export interface ConditionPenalty {
+  /** % impact on pace vs neutral conditions (positive = slower, negative = faster) */
+  paceImpactPct: number
+  sampleCount: number
+  confidence: ConfidenceLevel
+}
+
+export interface ConditionPenalties {
+  heat?: ConditionPenalty    // temp > 22°C (Ely et al. 2007)
+  cold?: ConditionPenalty    // temp < 5°C
+  night?: ConditionPenalty   // start 20h–5h local time
+  wind?: ConditionPenalty    // wind × 0.6 > 15 km/h (isotrope trail — direction Phase 6+)
+  // precip: future — requires rain data per run
+}
+
 export function computeConfidenceFromCount(n: number, thresholds = { high: 5, medium: 2 }): ConfidenceLevel {
   if (n >= thresholds.high) return 'high'
   if (n >= thresholds.medium) return 'medium'
@@ -413,4 +430,7 @@ export interface RunnerProfileComputed {
 
   // ── Downhill fatigue (optional) ─────────────────────────────────────────────
   downhillFatigue?: DownhillFatigueProfile
+
+  // ── Condition penalties (optional) ───────────────────────────────────────────
+  conditionPenalties?: ConditionPenalties
 }
