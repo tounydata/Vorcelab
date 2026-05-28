@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+
+const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
+
+interface StravaStatus {
+  connected: boolean
+  athlete_firstname?: string | null
+  last_sync_at?: string | null
+}
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -121,6 +130,37 @@ function navClass({ isActive }: { isActive: boolean }) {
 export default function Layout() {
   const user = useVLStore((s) => s.user)
   const { isDark, toggle } = useTheme()
+  const queryClient = useQueryClient()
+  const [stravaStatus, setStravaStatus] = useState<StravaStatus | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token) return
+      fetch(`${SUPA_URL}/functions/v1/strava-status`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).then((r) => r.json()).then((d) => setStravaStatus(d)).catch(() => {})
+    })
+  }, [user])
+
+  async function syncStrava() {
+    setIsSyncing(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const r = await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const d = await r.json()
+      if (d.last_sync_at) setStravaStatus((prev) => prev ? { ...prev, last_sync_at: d.last_sync_at } : prev)
+      queryClient.invalidateQueries()
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   const themeBtn = (
     <button
@@ -158,10 +198,33 @@ export default function Layout() {
         ))}
 
         <div className="sidebar-bottom">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-            <div className="mlabel" style={{ wordBreak: 'break-all', margin: 0 }}>
-              {user?.email?.toLowerCase()}
+          {stravaStatus?.connected && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <div className="dot dot-on" />
+                <span className="mlabel" style={{ margin: 0, color: 'var(--vl-growth)', fontSize: 9 }}>
+                  STRAVA{stravaStatus.athlete_firstname ? ` · ${stravaStatus.athlete_firstname.toUpperCase()}` : ''}
+                </span>
+              </div>
+              <button
+                className="hbtn"
+                style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
+                onClick={syncStrava}
+                disabled={isSyncing}
+              >
+                {isSyncing ? 'SYNC...' : 'FORCER SYNC'}
+              </button>
             </div>
+          )}
+          {stravaStatus && !stravaStatus.connected && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="dot dot-off" />
+                <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
             {themeBtn}
           </div>
           <button
