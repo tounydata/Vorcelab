@@ -2,6 +2,7 @@
 // All stream data comes from the activity_streams DB cache via fetchStreams.
 import { supabase } from './supabase'
 import { fetchStreams } from './streams'
+import { fetchActivityWeather } from './weather'
 import {
   getGradeBucket,
   getBucketType,
@@ -683,6 +684,72 @@ export async function fetchLatestActivityDate(userId: string): Promise<string | 
     .limit(1)
     .maybeSingle()
   return data?.start_date ?? null
+}
+
+// Batch-fetch weather for activities missing from the cache (last 90 days).
+// Called before buildRunnerProfile so condition penalties have wind data.
+export async function fillMissingWeather(
+  userId: string,
+  activities: ProfileActivity[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  const cutoff90 = Date.now() - 90 * 24 * 3600 * 1000
+  const recentActs = activities.filter(a => new Date(a.start_date).getTime() >= cutoff90)
+  if (recentActs.length === 0) return
+
+  const actIds = recentActs.map(a => Number(a.strava_activity_id))
+
+  const { data: cached } = await supabase
+    .from('activity_weather')
+    .select('activity_id')
+    .in('activity_id', actIds)
+
+  const cachedSet = new Set((cached ?? []).map(r => r.activity_id as number))
+  const missingIds = recentActs
+    .filter(a => !cachedSet.has(Number(a.strava_activity_id)))
+    .map(a => Number(a.strava_activity_id))
+
+  if (missingIds.length === 0) return
+
+  // Fetch start_latlng from raw_data for missing activities
+  const { data: rows } = await supabase
+    .from('strava_activities')
+    .select('strava_activity_id,start_date,raw_data')
+    .in('strava_activity_id', missingIds)
+    .eq('user_id', userId)
+
+  type RowInfo = { start_date: string; latlng: [number, number] }
+  const rowMap = new Map<number, RowInfo>()
+  for (const row of rows ?? []) {
+    const raw = row.raw_data as Record<string, unknown> | null
+    const ll = raw?.start_latlng as unknown
+    if (Array.isArray(ll) && ll.length === 2 && typeof ll[0] === 'number') {
+      rowMap.set(Number(row.strava_activity_id), {
+        start_date: row.start_date as string,
+        latlng: ll as [number, number],
+      })
+    }
+  }
+
+  const BATCH = 5
+  let done = 0
+  for (let i = 0; i < missingIds.length; i += BATCH) {
+    const batch = missingIds.slice(i, i + BATCH)
+    await Promise.all(batch.map(async (actId) => {
+      const info = rowMap.get(actId)
+      if (!info) { done++; onProgress?.(done, missingIds.length); return }
+      const [lat, lon] = info.latlng
+      const w = await fetchActivityWeather(lat, lon, info.start_date)
+      if (w) {
+        await supabase.from('activity_weather').upsert(
+          { user_id: userId, activity_id: actId, temp: w.temp, wind: w.wind, precip: w.precip, cached_at: new Date().toISOString() },
+          { onConflict: 'user_id,activity_id' }
+        )
+      }
+      done++
+      onProgress?.(done, missingIds.length)
+    }))
+  }
 }
 
 export async function saveRunnerProfile(userId: string, rp: RunnerProfileComputed): Promise<void> {
