@@ -352,7 +352,35 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </div>
       </div>
 
-      {/* ── Graphe 42 j : fond TSB + barres par sport (pas de courbe CTL) ── */}
+      {/* ── Info survol AU-DESSUS du graphe ── */}
+      <div style={{ minHeight: 22, marginBottom: 5 }}>
+        {hover != null ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', fontWeight: 700, letterSpacing: '.06em' }}>
+              {fmtD(pmc[hover].date)}
+            </span>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: getTsbZone(pmc[hover].tsb).color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>
+              Fraîcheur {pmc[hover].tsb > 0 ? `+${pmc[hover].tsb}` : pmc[hover].tsb}
+            </span>
+            {daySegs[hover].length === 0 ? (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>Repos</span>
+            ) : daySegs[hover].map((seg, j) => (
+              <span key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8.5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 2, background: seg.color, display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ color: 'var(--vl-text-2)' }}>{seg.label}</span>
+                <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{Math.round(seg.load)}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
+            Survoler pour le détail jour par jour
+          </span>
+        )}
+      </div>
+
+      {/* ── Graphe 42 j : fond TSB + barres par sport ── */}
       <div onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
           {pmc.map((d, i) => (
@@ -383,36 +411,8 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </svg>
       </div>
 
-      {/* ── Info strip survol (sous le graphe, ne bloque jamais la vue) ── */}
-      <div style={{ minHeight: 32, marginTop: 4, padding: '4px 0' }}>
-        {hovered ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-              {fmtD(hovered.date)}
-            </span>
-            <span style={{ width: 6, height: 6, borderRadius: 2, background: getTsbZone(hovered.tsb).color, display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>
-              Fraîcheur {hovered.tsb > 0 ? `+${hovered.tsb}` : hovered.tsb}
-            </span>
-            {daySegs[hover!].length === 0 ? (
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>Repos</span>
-            ) : daySegs[hover!].map((seg, j) => (
-              <span key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8.5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: 2, background: seg.color, display: 'inline-block', flexShrink: 0 }} />
-                <span style={{ color: 'var(--vl-text-2)' }}>{seg.label}</span>
-                <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{Math.round(seg.load)}</span>
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
-            Survoler le graphe pour le détail jour par jour
-          </span>
-        )}
-      </div>
-
       {/* Repères dates */}
-      <div style={{ position: 'relative', height: 12, marginTop: 2 }}>
+      <div style={{ position: 'relative', height: 12, marginTop: 4 }}>
         {labelIdx.map((i) => (
           <span key={i} style={{
             position: 'absolute', left: `${((i + 0.5) / DISPLAY) * 100}%`, transform: 'translateX(-50%)',
@@ -421,25 +421,6 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
             {i === DISPLAY - 1 ? 'auj.' : new Date(pmc[i].date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
           </span>
         ))}
-      </div>
-
-      {/* ── Jauge ACWR ── */}
-      <div style={{ marginTop: 12 }}>
-        <div style={{ position: 'relative', height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
-          <div style={{ flex: 0.3, background: '#3B82F6', opacity: 0.55 }} />
-          <div style={{ flex: 0.5, background: '#22C55E', opacity: 0.55 }} />
-          <div style={{ flex: 0.2, background: '#F97316', opacity: 0.55 }} />
-          <div style={{ flex: 0.5, background: '#EF4444', opacity: 0.55 }} />
-          {acwr.ratio != null && (
-            <div style={{ position: 'absolute', top: -2, left: `${acwr.pct}%`, transform: 'translateX(-50%)', width: 3, height: 12, background: 'var(--vl-text)', borderRadius: 2, boxShadow: '0 0 0 1.5px var(--vl-surf)' }} />
-          )}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>ÉQUILIBRE CHARGE (ACWR)</span>
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: acwr.color }}>
-            {acwr.ratio != null ? `${acwr.ratio.toFixed(2)} · ${acwr.label}` : 'calibrage en cours'}
-          </span>
-        </div>
       </div>
     </div>
   )
