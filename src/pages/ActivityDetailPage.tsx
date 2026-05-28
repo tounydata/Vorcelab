@@ -8,6 +8,7 @@ import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
+import { fetchActivityWeather, type WeatherData } from '../lib/weather'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -483,9 +484,34 @@ function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
 
 // ─── Race context (facteurs de course) ────────────────────────────────────────
 
-function RaceContextCard({ activity }: { activity: ActivityDetail }) {
+function RaceContextCard({ activity, weather }: { activity: ActivityDetail; weather?: WeatherData | null }) {
   const factors: { label: string; value: string; adj: string; color: string }[] = []
   let totalAdj = 0
+
+  // Température — Ely et al. 2007 : +0.5% par °C au-dessus de 15°C
+  if (weather?.temp != null) {
+    const a = Math.max(0, (weather.temp - 15) * 0.005)
+    if (a > 0.001) {
+      totalAdj += a
+      factors.push({ label: 'Température', value: `${weather.temp.toFixed(1)}°C`, adj: `+${(a * 100).toFixed(1)}%`, color: a > 0.04 ? 'var(--vl-ember)' : a > 0.02 ? 'var(--vl-amber)' : 'var(--vl-growth)' })
+    }
+  }
+
+  // Pluie — logarithmique, max 3.5%
+  if (weather?.precip != null && weather.precip > 0.5) {
+    const a = Math.min(0.035, Math.log1p(weather.precip) * 0.018)
+    totalAdj += a
+    factors.push({ label: 'Pluie', value: `${weather.precip.toFixed(1)} mm`, adj: `+${(a * 100).toFixed(1)}%`, color: a > 0.02 ? 'var(--vl-amber)' : 'var(--vl-growth)' })
+  }
+
+  // Vent — quadratique (drag ∝ v²), max 4.5%
+  if (weather?.wind != null && weather.wind > 5) {
+    const a = Math.min(0.045, Math.pow(weather.wind / 30, 2) * 0.04)
+    if (a > 0.001) {
+      totalAdj += a
+      factors.push({ label: 'Vent', value: `${Math.round(weather.wind)} km/h`, adj: `+${(a * 100).toFixed(1)}%`, color: a > 0.02 ? 'var(--vl-amber)' : 'var(--vl-growth)' })
+    }
+  }
 
   const dp = activity.total_elevation_gain ?? 0
   const dk = (activity.distance ?? 1) / 1000
@@ -865,6 +891,16 @@ export default function ActivityDetailPage() {
     staleTime: 30 * 60 * 1000,
   })
 
+  // Météo historique — Open-Meteo, depuis le premier point GPS du stream
+  const startLatLng = streams?.latlng?.data?.[0]
+  const { data: weather } = useQuery<WeatherData | null>({
+    queryKey: ['activity-weather', activityId, startLatLng?.[0]?.toFixed(3), startLatLng?.[1]?.toFixed(3)],
+    queryFn: () => fetchActivityWeather(startLatLng![0], startLatLng![1], activity!.start_date_local ?? activity!.start_date),
+    enabled: !!startLatLng && !!activity,
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+  })
+
   const BackLink = () => (
     <Link to="/activities" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
       ← Activités
@@ -922,7 +958,7 @@ export default function ActivityDetailPage() {
       {/* Analyse de séance */}
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
       <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
-      <RaceContextCard activity={activity} />
+      <RaceContextCard activity={activity} weather={weather} />
 
       {/* Altitude profile + map + VAM sections */}
       {activityId && stravaActivityIdStr && (
