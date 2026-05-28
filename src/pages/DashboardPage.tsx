@@ -12,7 +12,7 @@ import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
 import { fetchStreams } from '../lib/streams'
 import {
   computeActivityLoad, computeDailyPMC, getTsbZone, computeACWR, classifySport,
-  type ActivityForLoad,
+  type ActivityForLoad, type PMCDay,
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
@@ -29,6 +29,7 @@ interface Activity2 {
   type: string
   sport_type?: string
   average_heartrate?: number
+  average_speed?: number
 }
 
 interface LastProjection {
@@ -224,11 +225,62 @@ function chargeSpline(pts: { x: number; y: number }[], maxY: number): string {
   return path
 }
 
+// ─── Statut multi-facteurs (ACWR + tendance CTL + tendance EF) ───────────────
+// Source : Gabbett 2016 (ACWR) · Seiler 2010 (EF comme proxy VO₂)
+
+function computeMultiStatus(
+  pmc: PMCDay[],
+  acwr: ReturnType<typeof computeACWR>,
+  activities: Activity2[],
+  fcMax: number,
+): { label: string; sub: string; color: string; key: string } {
+  const today = pmc[pmc.length - 1]
+  if (!today || today.calibrating) {
+    return { label: 'CALIBRAGE', sub: "construction de l'historique (≥ 28 j)", color: 'var(--vl-text-3)', key: 'calibrage' }
+  }
+
+  const ratio = acwr.ratio
+
+  // Tendance CTL sur 28j
+  const idx28 = Math.max(0, pmc.length - 29)
+  const ctlTrendPct = pmc[idx28].ctl > 0 ? (today.ctl - pmc[idx28].ctl) / pmc[idx28].ctl : 0
+
+  // Tendance EF (Efficiency Factor = vitesse / FC) sur 21j vs 21j précédents
+  const now = Date.now()
+  const hasHR = (a: Activity2) => isRunning(a.type) && a.average_heartrate && a.average_speed
+  const recentRuns = activities.filter(a => hasHR(a) && Date.now() - new Date(a.start_date).getTime() < 21 * 86400000)
+  const baseRuns = activities.filter(a => {
+    const age = now - new Date(a.start_date).getTime()
+    return hasHR(a) && age >= 21 * 86400000 && age < 42 * 86400000
+  })
+  const efOf = (arr: Activity2[]) => arr.length >= 2
+    ? arr.reduce((s, a) => s + (a.average_speed! / a.average_heartrate!), 0) / arr.length
+    : null
+  const efRecent = efOf(recentRuns)
+  const efBase = efOf(baseRuns)
+  const efTrend = efRecent != null && efBase != null && efBase > 0 ? (efRecent - efBase) / efBase : null
+
+  // Table de décision — priorité décroissante
+  if (ratio != null && ratio > 1.5)
+    return { label: 'SURMENAGE', sub: 'pic de charge — risque de blessure', color: '#EF4444', key: 'surmenage' }
+  if (ratio != null && ratio < 0.8) {
+    if (ctlTrendPct < -0.05)
+      return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: '#F97316', key: 'desentrainement' }
+    if (today.ctl > 40 && (efTrend == null || efTrend >= 0))
+      return { label: 'PIC', sub: 'affûtage — forme optimale', color: '#34D399', key: 'pic' }
+    return { label: 'RÉCUPÉRATION', sub: 'repos voulu — charge légère', color: '#3B82F6', key: 'recuperation' }
+  }
+  if (efTrend != null && efTrend < -0.05 && ctlTrendPct <= 0.03)
+    return { label: 'IMPRODUCTIF', sub: 'charge sans progression cardio', color: '#EAB308', key: 'improductif' }
+  if (ctlTrendPct > 0.05 && (efTrend == null || efTrend >= -0.03))
+    return { label: 'PRODUCTIF', sub: 'tu progresses', color: '#22C55E', key: 'productif' }
+  return { label: 'MAINTIEN', sub: 'forme stable', color: '#EAB308', key: 'maintien' }
+}
+
 function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
   const [hover, setHover] = useState<number | null>(null)
   const DISPLAY = 42
 
-  // Renfo → pseudo-activités (yoga/pilates colorés à part, sinon renfo)
   const renfoActs: ActivityForLoad[] = renfoLogs
     .filter((r) => r.session_date)
     .map((r) => {
@@ -243,7 +295,6 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
   const hasData = pmc.some((d) => d.totalLoad > 0) || pmc.some((d) => d.ctl > 0)
   if (!hasData) return null
 
-  // Ventilation par sport (couleur précise) pour les barres + tooltip
   const dateIdx: Record<string, number> = {}
   pmc.forEach((d, i) => { dateIdx[d.date] = i })
   type Seg = { color: string; label: string; load: number }
@@ -262,137 +313,117 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
   const daySegs: Seg[][] = pmc.map((_, i) => Object.values(segByDay[i] ?? {}).sort((a, b) => b.load - a.load))
 
   const today = pmc[pmc.length - 1]
-  const zone = getTsbZone(today.tsb)
   const acwr = computeACWR(pmc)
+  const status = computeMultiStatus(pmc, acwr, activities, fcMax ?? 185)
 
-  const maxAxis = Math.max(1, ...pmc.map((d) => Math.max(d.totalLoad, d.ctl))) * 1.05
+  const maxAxis = Math.max(1, ...pmc.map((d) => d.totalLoad)) * 1.1
   const VW = 420, H = 96, W_COL = VW / DISPLAY
   const GAP = 2.4, BAR_W = W_COL - GAP
 
-  const ctlPts = pmc.map((d, i) => ({ x: i * W_COL + W_COL / 2, y: H - (d.ctl / maxAxis) * H }))
-  const ctlLine = chargeSpline(ctlPts, H)
-
-  const hoverLeftPct = hover != null ? Math.min(86, Math.max(14, ((hover + 0.5) / DISPLAY) * 100)) : 0
   const fmtD = (ds: string) => new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
   const labelIdx = [0, 14, 28, DISPLAY - 1]
+
+  const hovered = hover != null ? pmc[hover] : null
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
       <div className="clabel" style={{ margin: '0 0 10px' }}>Statut d'entraînement</div>
 
-      {/* ── Badge ÉTAT DU JOUR (info phare) ── */}
+      {/* ── Badge ÉTAT DU JOUR ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-        background: `color-mix(in srgb, ${zone.color} 12%, transparent)`,
-        borderLeft: `4px solid ${zone.color}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+        background: `color-mix(in srgb, ${status.color} 12%, transparent)`,
+        borderLeft: `4px solid ${status.color}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12,
       }}>
         <div>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: zone.color, lineHeight: 1, letterSpacing: '.01em' }}>
-            {today.calibrating ? 'CALIBRAGE' : zone.label}
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: status.color, lineHeight: 1, letterSpacing: '.01em' }}>
+            {status.label}
           </div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-2)', marginTop: 4, textTransform: 'none', letterSpacing: 0 }}>
-            {today.calibrating ? "construction de l'historique (≥ 28 j)" : zone.sub}
+            {status.sub}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 16, textAlign: 'right' }}>
-          <div>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.25rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>{today.ctl}</div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FITNESS</div>
+        {/* TSB — fraîcheur seulement, sans label "risque blessure" */}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--vl-text-2)', lineHeight: 1 }}>
+            {today.tsb > 0 ? `+${today.tsb}` : today.tsb}
           </div>
-          <div>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.25rem', fontWeight: 800, color: zone.color, lineHeight: 1 }}>{today.tsb > 0 ? `+${today.tsb}` : today.tsb}</div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FORME</div>
-          </div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FRAÎCHEUR</div>
         </div>
       </div>
 
-      {/* ── Graphe 42 j : fond TSB + barres par sport + ligne CTL ── */}
-      <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
+      {/* ── Graphe 42 j : fond TSB + barres par sport (pas de courbe CTL) ── */}
+      <div onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
-          {/* Fond teinté par zone de forme (TSB) */}
           {pmc.map((d, i) => (
             <rect key={`bg${i}`} x={i * W_COL} y={0} width={W_COL} height={H}
-              fill={getTsbZone(d.tsb).color} opacity={0.1} />
+              fill={getTsbZone(d.tsb).color} opacity={0.08} />
           ))}
-          {/* Séparateurs hebdo */}
           {[7, 14, 21, 28, 35].map((d) => (
             <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
               stroke="var(--vl-line)" strokeWidth={0.5} opacity={0.4} />
           ))}
-          {/* Barres empilées par sport */}
           {pmc.map((_, i) => {
             let yTop = H
-            const dim = hover != null && hover !== i ? 0.4 : 1
+            const dim = hover != null && hover !== i ? 0.35 : 1
             return (
               <g key={`bar${i}`} opacity={dim}>
                 {daySegs[i].map((seg, j) => {
-                  const h = (seg.load / maxAxis) * H
-                  yTop -= h
-                  return <rect key={j} x={i * W_COL + GAP / 2} y={yTop} width={BAR_W} height={h} fill={seg.color} rx={1} />
+                  const bh = (seg.load / maxAxis) * H
+                  yTop -= bh
+                  return <rect key={j} x={i * W_COL + GAP / 2} y={yTop} width={BAR_W} height={bh} fill={seg.color} rx={1} />
                 })}
               </g>
             )
           })}
-          {/* Ligne CTL (Fitness) */}
-          <path d={ctlLine} fill="none" stroke="var(--vl-text)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
-          {/* Overlay survol */}
           {pmc.map((_, i) => (
             <rect key={`ov${i}`} x={i * W_COL} y={0} width={W_COL} height={H} fill="transparent"
-              onMouseEnter={() => setHover(i)} style={{ cursor: 'pointer' }} />
+              onMouseEnter={() => setHover(i)} style={{ cursor: 'crosshair' }} />
           ))}
         </svg>
+      </div>
 
-        {/* Tooltip jour par jour */}
-        {hover != null && (
-          <div style={{
-            position: 'absolute', left: `${hoverLeftPct}%`, top: 0, transform: 'translateX(-50%)',
-            background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line-2)', borderRadius: 6,
-            padding: '7px 10px', pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 5, minWidth: 130,
-            boxShadow: '0 4px 16px rgba(0,0,0,.35)',
-          }}>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 2 }}>
-              {fmtD(pmc[hover].date)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: 2, background: getTsbZone(pmc[hover].tsb).color, display: 'inline-block' }} />
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: getTsbZone(pmc[hover].tsb).color }}>
-                {getTsbZone(pmc[hover].tsb).label}
-              </span>
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)', marginLeft: 'auto' }}>
-                Forme {pmc[hover].tsb > 0 ? `+${pmc[hover].tsb}` : pmc[hover].tsb}
-              </span>
-            </div>
-            {daySegs[hover].length === 0 ? (
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>Repos</div>
-            ) : daySegs[hover].map((seg, j) => (
-              <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9.5 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: seg.color, display: 'inline-block' }} />
+      {/* ── Info strip survol (sous le graphe, ne bloque jamais la vue) ── */}
+      <div style={{ minHeight: 32, marginTop: 4, padding: '4px 0' }}>
+        {hovered ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+              {fmtD(hovered.date)}
+            </span>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: getTsbZone(hovered.tsb).color, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>
+              Fraîcheur {hovered.tsb > 0 ? `+${hovered.tsb}` : hovered.tsb}
+            </span>
+            {daySegs[hover!].length === 0 ? (
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>Repos</span>
+            ) : daySegs[hover!].map((seg, j) => (
+              <span key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8.5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 2, background: seg.color, display: 'inline-block', flexShrink: 0 }} />
                 <span style={{ color: 'var(--vl-text-2)' }}>{seg.label}</span>
-                <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto', paddingLeft: 10 }}>{Math.round(seg.load)}</span>
-              </div>
+                <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{Math.round(seg.load)}</span>
+              </span>
             ))}
-            <div style={{ borderTop: '1px solid var(--vl-line)', marginTop: 5, paddingTop: 4, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--vl-mono)', fontSize: 9 }}>
-              <span style={{ width: 7, height: 3, borderRadius: 2, background: 'var(--vl-text)', display: 'inline-block' }} />
-              <span style={{ color: 'var(--vl-text-3)' }}>Fitness</span>
-              <span style={{ color: 'var(--vl-text)', fontWeight: 700, marginLeft: 'auto' }}>{pmc[hover].ctl}</span>
-            </div>
           </div>
+        ) : (
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
+            Survoler le graphe pour le détail jour par jour
+          </span>
         )}
       </div>
 
       {/* Repères dates */}
-      <div style={{ position: 'relative', height: 12, marginTop: 3 }}>
+      <div style={{ position: 'relative', height: 12, marginTop: 2 }}>
         {labelIdx.map((i) => (
           <span key={i} style={{
             position: 'absolute', left: `${((i + 0.5) / DISPLAY) * 100}%`, transform: 'translateX(-50%)',
             fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', whiteSpace: 'nowrap',
           }}>
-            {i === DISPLAY - 1 ? "auj." : new Date(pmc[i].date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+            {i === DISPLAY - 1 ? 'auj.' : new Date(pmc[i].date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
           </span>
         ))}
       </div>
 
-      {/* ── Jauge ACWR (équilibre charge aiguë/chronique) ── */}
+      {/* ── Jauge ACWR ── */}
       <div style={{ marginTop: 12 }}>
         <div style={{ position: 'relative', height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
           <div style={{ flex: 0.3, background: '#3B82F6', opacity: 0.55 }} />
@@ -600,7 +631,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate,average_speed')
         .order('start_date', { ascending: false })
         .limit(100)
       if (error) throw error
@@ -630,7 +661,7 @@ export default function DashboardPage() {
       const cutoff = new Date(Date.now() - 100 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate')
+        .select('id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate,average_speed')
         .gte('start_date', cutoff)
         .order('start_date', { ascending: false })
       return (data ?? []) as Activity2[]
