@@ -182,9 +182,10 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
 // ─── Condition penalties card ─────────────────────────────────────────────────
 
 const CONDITION_META: { key: keyof ConditionPenalties; label: string; desc: string }[] = [
-  { key: 'heat',  label: 'Chaleur (>22°C)',    desc: 'Ely et al. 2007 — effet mesuré sur tes sorties' },
-  { key: 'cold',  label: 'Froid (<5°C)',        desc: 'Allure mesurée sur tes sorties hivernales' },
-  { key: 'night', label: 'Nocturne (20h–5h)',   desc: 'Allure mesurée sur tes sorties de nuit' },
+  { key: 'heat',  label: 'Chaleur (>22°C)',    desc: 'Effet mesuré sur tes sorties, terrain normalisé par D+/km' },
+  { key: 'cold',  label: 'Froid (<5°C)',        desc: 'Effet mesuré sur tes sorties hivernales, D+/km normalisé' },
+  { key: 'night', label: 'Nocturne (20h–5h)',   desc: 'Effet mesuré sur tes sorties de nuit, D+/km normalisé' },
+  { key: 'wind',  label: 'Vent (>25 km/h)',     desc: 'Approche isotrope trail — alimenté par les météos vues en détail activité' },
 ]
 
 function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
@@ -195,7 +196,7 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
     <div className="card" style={{ marginBottom: '1rem' }}>
       <div className="clabel" style={{ marginBottom: '0.75rem' }}>CONDITIONS MÉTÉO & CONTEXTE</div>
       <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-        Impact mesuré sur tes performances réelles vs sorties neutres (5–22°C, journée). Utilisé par l'algorithme de projection course.
+        Impact mesuré sur <em>tes</em> sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Positif = tu es plus lent dans ces conditions. Alimentera l'algorithme de projection.
       </div>
 
       {CONDITION_META.map(({ key, label, desc }) => {
@@ -222,7 +223,7 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
       })}
 
       <div style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6, fontStyle: 'italic' }}>
-        Vent et pluie à venir — nécessitent une météo par sortie.
+        Pluie à venir · Vent : se remplit au fur et à mesure de tes consultations d'activités.
       </div>
     </div>
   )

@@ -66,10 +66,7 @@ export async function buildRunnerProfile(
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
   const descentRecoveryAccum: Partial<Record<DescentBucket, RecoveryEvent[]>> = {}
 
-  // Condition penalty accumulators: pace (sec/km) per condition bucket
-  const condPace: Record<'neutral' | 'heat' | 'cold' | 'night', number[]> = {
-    neutral: [], heat: [], cold: [], night: [],
-  }
+  // (condition penalties computed after main loop)
 
   let totalStreamSeconds = 0
   let totalActivitySeconds = 0
@@ -359,10 +356,42 @@ export async function buildRunnerProfile(
     }
   }
 
-  // ── Condition penalties — derived from activity-level data (no stream needed) ──
+  // ── Condition penalties — last 90 days, normalized by D+/km ────────────────
+  // Approach: linear regression pace ~ a + b·(D+/km) on neutral runs isolates
+  // terrain effect. Each condition's penalty = mean(residual) / neutralMeanPace.
+  // Wind uses activity_weather cache (populated by ActivityDetailPage visits).
+  // Direction du vent ignorée (trail sinueux — approche isotrope, coeff 0.6).
+  const cutoff90 = Date.now() - 90 * 24 * 3600 * 1000
+
+  interface CondEntry { secPerKm: number; dplusPerKm: number }
+  const condData: Record<'neutral' | 'heat' | 'cold' | 'night' | 'wind', CondEntry[]> = {
+    neutral: [], heat: [], cold: [], night: [], wind: [],
+  }
+
+  // Batch-load wind from cache for recent activities
+  const recentIds = runs
+    .filter(a => new Date(a.start_date).getTime() >= cutoff90 && a.strava_activity_id)
+    .map(a => Number(a.strava_activity_id))
+  const windByActId: Record<number, number> = {}
+  if (recentIds.length > 0) {
+    const { data: weatherRows } = await supabase
+      .from('activity_weather')
+      .select('activity_id,wind')
+      .in('activity_id', recentIds)
+    for (const row of weatherRows ?? []) {
+      if (row.wind != null) windByActId[row.activity_id as number] = row.wind as number
+    }
+  }
+
   for (const act of runs) {
-    if (!act.average_speed || act.average_speed <= 0) continue
+    if (!act.average_speed || act.average_speed <= 0 || !act.moving_time) continue
+    if (new Date(act.start_date).getTime() < cutoff90) continue
+    const distM = act.average_speed * act.moving_time
+    if (distM < 3000) continue
+
     const secPerKm = 1000 / act.average_speed
+    const dplusPerKm = (act.total_elevation_gain ?? 0) / (distM / 1000)
+    const entry: CondEntry = { secPerKm, dplusPerKm }
 
     const localDate = act.start_date_local ?? act.start_date
     const hour = new Date(localDate).getHours()
@@ -372,33 +401,55 @@ export async function buildRunnerProfile(
     const isHeat = temp != null && temp > 22
     const isCold = temp != null && temp < 5
 
-    if (isNight) condPace.night.push(secPerKm)
-    else if (isHeat) condPace.heat.push(secPerKm)
-    else if (isCold) condPace.cold.push(secPerKm)
-    else condPace.neutral.push(secPerKm)
+    const windKmh = act.strava_activity_id != null ? (windByActId[Number(act.strava_activity_id)] ?? null) : null
+    const isWindy = windKmh != null && windKmh * 0.6 > 15  // isotrope trail
+
+    if (isNight)       condData.night.push(entry)
+    else if (isWindy)  condData.wind.push(entry)
+    else if (isHeat)   condData.heat.push(entry)
+    else if (isCold)   condData.cold.push(entry)
+    else               condData.neutral.push(entry)
   }
 
-  const neutralAvg = condPace.neutral.length >= 3
-    ? condPace.neutral.reduce((a, b) => a + b, 0) / condPace.neutral.length
+  // OLS regression on neutral runs: slope = how much D+/km adds to pace
+  function linReg(data: CondEntry[]): { a: number; b: number } | null {
+    const n = data.length
+    if (n < 3) return null
+    const meanX = data.reduce((s, d) => s + d.dplusPerKm, 0) / n
+    const meanY = data.reduce((s, d) => s + d.secPerKm, 0) / n
+    const num = data.reduce((s, d) => s + (d.dplusPerKm - meanX) * (d.secPerKm - meanY), 0)
+    const den = data.reduce((s, d) => s + (d.dplusPerKm - meanX) ** 2, 0)
+    if (den < 1e-9) return { a: meanY, b: 0 }
+    const b = num / den
+    return { a: meanY - b * meanX, b }
+  }
+
+  const neutralModel = linReg(condData.neutral)
+  const neutralMeanPace = condData.neutral.length > 0
+    ? condData.neutral.reduce((s, d) => s + d.secPerKm, 0) / condData.neutral.length
     : null
 
-  function buildCondPenalty(arr: number[]): ConditionPenalty | undefined {
-    if (arr.length < 2 || neutralAvg == null) return undefined
-    const avg = arr.reduce((a, b) => a + b, 0) / arr.length
+  function buildCondPenalty(data: CondEntry[]): ConditionPenalty | undefined {
+    if (data.length < 2 || !neutralModel || !neutralMeanPace) return undefined
+    const meanResidual = data
+      .map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
+      .reduce((s, r) => s + r, 0) / data.length
     return {
-      paceImpactPct: ((avg - neutralAvg) / neutralAvg) * 100,
-      sampleCount: arr.length,
-      confidence: computeConfidenceFromCount(arr.length, { high: 5, medium: 2 }),
+      paceImpactPct: (meanResidual / neutralMeanPace) * 100,
+      sampleCount: data.length,
+      confidence: computeConfidenceFromCount(data.length, { high: 5, medium: 2 }),
     }
   }
 
   const conditionPenalties: ConditionPenalties = {}
-  const heatP = buildCondPenalty(condPace.heat)
-  const coldP = buildCondPenalty(condPace.cold)
-  const nightP = buildCondPenalty(condPace.night)
-  if (heatP) conditionPenalties.heat = heatP
-  if (coldP) conditionPenalties.cold = coldP
+  const heatP  = buildCondPenalty(condData.heat)
+  const coldP  = buildCondPenalty(condData.cold)
+  const nightP = buildCondPenalty(condData.night)
+  const windP  = buildCondPenalty(condData.wind)
+  if (heatP)  conditionPenalties.heat  = heatP
+  if (coldP)  conditionPenalties.cold  = coldP
   if (nightP) conditionPenalties.night = nightP
+  if (windP)  conditionPenalties.wind  = windP
 
   onProgress?.(90, 'Finalisation…')
 

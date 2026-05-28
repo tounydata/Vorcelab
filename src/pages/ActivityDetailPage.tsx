@@ -892,11 +892,29 @@ export default function ActivityDetailPage() {
     staleTime: 30 * 60 * 1000,
   })
 
-  // Météo historique — Open-Meteo, depuis le premier point GPS du stream
+  // Météo historique — Open-Meteo (vent/pluie), cachée dans activity_weather pour le profil
   const startLatLng = streams?.latlng?.data?.[0]
   const { data: weather } = useQuery<WeatherData | null>({
     queryKey: ['activity-weather', activityId, startLatLng?.[0]?.toFixed(3), startLatLng?.[1]?.toFixed(3)],
-    queryFn: () => fetchActivityWeather(startLatLng![0], startLatLng![1], activity!.start_date_local ?? activity!.start_date),
+    queryFn: async () => {
+      const result = await fetchActivityWeather(startLatLng![0], startLatLng![1], activity!.start_date_local ?? activity!.start_date)
+      if (result && activity?.strava_activity_id) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.id) {
+          supabase.from('activity_weather').upsert({
+            user_id: session.user.id,
+            activity_id: Number(activity.strava_activity_id),
+            temp: result.temp,
+            wind: result.wind,
+            precip: result.precip,
+            cached_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,activity_id' }).then(({ error }) => {
+            if (error) console.warn('[VL] weather cache write error:', error.message)
+          })
+        }
+      }
+      return result
+    },
     enabled: !!startLatLng && !!activity,
     staleTime: 24 * 60 * 60 * 1000,
     retry: 1,

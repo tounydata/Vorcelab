@@ -234,7 +234,8 @@ export interface ConditionPenalties {
   heat?: ConditionPenalty    // temp > 22°C (Ely et al. 2007)
   cold?: ConditionPenalty    // temp < 5°C
   night?: ConditionPenalty   // start 20h–5h local time
-  // rain/wind: future — requires per-run weather fetch
+  wind?: ConditionPenalty    // wind × 0.6 > 15 km/h (isotrope trail — direction Phase 6+)
+  // precip: future — requires rain data per run
 }
 
 export function computeConfidenceFromCount(n: number, thresholds = { high: 5, medium: 2 }): ConfidenceLevel {
