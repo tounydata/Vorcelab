@@ -133,6 +133,13 @@ async function processWebhookEvent(
         .is('processed_at', null)
 
       // Recompute runner profile when a new trail activity is created
+      // Sync weather for new activities (best-effort, Open-Meteo requires >7 days old)
+      if (event.aspect_type === 'create') {
+        syncActivityWeather(supabase, userId, activity).catch((e) =>
+          console.error('Weather sync error:', (e as Error).message)
+        )
+      }
+
       if (event.aspect_type === 'create' && isTrailActivity(activity.type, activity.sport_type)) {
         refreshRunnerProfile(userId).catch((e) =>
           console.error('Runner profile refresh error:', (e as Error).message)
@@ -156,6 +163,50 @@ const TRAIL_TYPES = new Set([
 
 function isTrailActivity(type: string, sportType: string): boolean {
   return TRAIL_TYPES.has(type) || TRAIL_TYPES.has(sportType)
+}
+
+async function syncActivityWeather(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  activity: { id: number; start_date: string; start_latlng?: [number, number] | [] },
+): Promise<void> {
+  const latlng = activity.start_latlng
+  if (!Array.isArray(latlng) || latlng.length !== 2) return
+
+  const [lat, lon] = latlng as [number, number]
+  const startDate = activity.start_date
+  if (!startDate) return
+
+  // Open-Meteo archive requires data to be at least 7 days old
+  if (Date.now() - new Date(startDate).getTime() < 7 * 24 * 3600 * 1000) return
+
+  const date = startDate.slice(0, 10)
+  const hour = Math.min(23, parseInt(startDate.split('T')[1]?.split(':')[0] ?? '12', 10))
+
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&start_date=${date}&end_date=${date}&hourly=temperature_2m,windspeed_10m,precipitation&timezone=auto`
+
+  const r = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!r.ok) return
+
+  const d = await r.json() as { hourly?: { temperature_2m?: number[]; windspeed_10m?: number[]; precipitation?: number[] } }
+  const temps = d.hourly?.temperature_2m ?? []
+  const winds = d.hourly?.windspeed_10m ?? []
+  const precips = d.hourly?.precipitation ?? []
+  if (!temps.length) return
+
+  const h = Math.min(hour, temps.length - 1)
+
+  await supabase.from('activity_weather').upsert(
+    {
+      user_id: userId,
+      activity_id: activity.id,
+      temp: temps[h] ?? null,
+      wind: winds[h] ?? null,
+      precip: precips[h] ?? null,
+      cached_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,activity_id' }
+  )
 }
 
 async function refreshRunnerProfile(userId: string): Promise<void> {

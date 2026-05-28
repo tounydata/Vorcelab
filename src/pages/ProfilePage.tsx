@@ -21,7 +21,7 @@ import {
   type RecoveryBucketStats,
   type ConditionPenalties,
 } from '../lib/runnerProfile'
-import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import { buildRunnerProfile, fetchActivitiesForProfile, fillMissingWeather, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -492,6 +492,10 @@ export default function ProfilePage() {
     setComputeLabel('Chargement des activités…')
     try {
       const acts = await fetchActivitiesForProfile(user.id, 50)
+      setComputeLabel('Synchronisation météo manquante…')
+      await fillMissingWeather(user.id, acts, (done, total) => {
+        setComputeLabel(`Météo ${done}/${total}…`)
+      })
       const rpNew = await buildRunnerProfile(
         acts,
         profileRow?.fc_max ?? 185,

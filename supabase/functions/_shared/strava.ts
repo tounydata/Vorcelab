@@ -99,6 +99,7 @@ export interface StravaRawActivity {
   average_cadence?: number
   calories?: number
   suffer_score?: number
+  start_latlng?: [number, number] | []
 }
 
 export async function fetchStravaActivitiesPage(
