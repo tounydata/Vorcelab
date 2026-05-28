@@ -32,6 +32,16 @@ interface ActivityDetail {
   kudos_count: number | null
 }
 
+interface RecentActivity {
+  id: string
+  distance: number
+  total_elevation_gain: number | null
+  moving_time: number
+  start_date: string
+  type: string
+  sport_type: string | null
+}
+
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
 function fmtKm(m: number) { return (m / 1000).toFixed(2) }
@@ -44,10 +54,14 @@ function fmtPace(distM: number, timeS: number) {
   const secPerKm = timeS / (distM / 1000)
   return `${Math.floor(secPerKm / 60)}'${String(Math.round(secPerKm % 60)).padStart(2, '0')}/km`
 }
+function fmtPaceFromMps(mps: number | null) {
+  if (!mps || mps <= 0) return '—'
+  const secPerKm = 1000 / mps
+  return `${Math.floor(secPerKm / 60)}'${String(Math.round(secPerKm % 60)).padStart(2, '0')}/km`
+}
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 }
-function fmtSpeed(ms: number | null) { return ms ? `${(ms * 3.6).toFixed(1)} km/h` : '—' }
 function fmtVam(mh: number) { return `${Math.round(mh)} m/h` }
 
 // ─── Sample / downsample ──────────────────────────────────────────────────────
@@ -95,19 +109,16 @@ function DualChart({
     return padT + cH - (range > 0 ? ((bpm - hrMin) / range) * cH : cH / 2)
   }
 
-  // Build altitude path (area fill)
   const altPath = points.map((p, i) =>
     `${i === 0 ? 'M' : 'L'}${xOf(p.distKm).toFixed(1)},${yAlt(p.altM).toFixed(1)}`
   ).join(' ') +
     ` L${xOf(points[points.length - 1].distKm)},${padT + cH} L${padL},${padT + cH} Z`
 
-  // Build HR path (line only)
   const hrPath = points
     .filter(p => p.hrBpm != null)
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${xOf(p.distKm).toFixed(1)},${yHr(p.hrBpm!).toFixed(1)}`)
     .join(' ')
 
-  // X axis ticks
   const tickStep = distMax > 20 ? 5 : distMax > 10 ? 2 : 1
   const ticks: number[] = []
   for (let t = 0; t <= distMax; t += tickStep) ticks.push(t)
@@ -119,7 +130,6 @@ function DualChart({
     const rawX = (e.clientX - rect.left) * scaleX
     if (rawX < padL || rawX > padL + cW) { setHoverX(null); setTooltip(null); onHoverKm(null); return }
     const km = ((rawX - padL) / cW) * distMax
-    // Find closest point
     let best = 0
     for (let i = 1; i < points.length; i++) {
       if (Math.abs(points[i].distKm - km) < Math.abs(points[best].distKm - km)) best = i
@@ -155,24 +165,20 @@ function DualChart({
         </clipPath>
       </defs>
 
-      {/* Grid lines */}
       {[0.25, 0.5, 0.75, 1].map(f => (
         <line key={f} x1={padL} y1={padT + cH * (1 - f)} x2={padL + cW} y2={padT + cH * (1 - f)}
           stroke="var(--vl-line)" strokeWidth="0.5" opacity="0.5" />
       ))}
 
-      {/* Altitude area */}
       <path d={altPath} fill="url(#altGrad)" clipPath="url(#chartClip)" />
       <path d={points.map((p, i) =>
         `${i === 0 ? 'M' : 'L'}${xOf(p.distKm).toFixed(1)},${yAlt(p.altM).toFixed(1)}`
       ).join(' ')} fill="none" stroke="#3b82f6" strokeWidth="1.5" clipPath="url(#chartClip)" />
 
-      {/* HR line */}
       {hrPoints.length > 5 && (
         <path d={hrPath} fill="none" stroke="var(--vl-ember)" strokeWidth="1.5" clipPath="url(#chartClip)" />
       )}
 
-      {/* X axis ticks */}
       {ticks.map(t => (
         <g key={t}>
           <line x1={xOf(t)} y1={padT + cH} x2={xOf(t)} y2={padT + cH + 3} stroke="var(--vl-text-3)" strokeWidth="0.8" />
@@ -180,27 +186,23 @@ function DualChart({
         </g>
       ))}
 
-      {/* Left Y axis (altitude) */}
       {[altMin, Math.round((altMin + altMax) / 2), altMax].map(v => (
         <text key={v} x={padL - 3} y={yAlt(v) + 3} textAnchor="end" fontSize="8" fill="#3b82f6" fontFamily="var(--vl-mono)">
           {Math.round(v)}
         </text>
       ))}
 
-      {/* Right Y axis (HR) */}
       {hrPoints.length > 5 && [hrMin, Math.round((hrMin + hrMax) / 2), hrMax].map(v => (
         <text key={v} x={padL + cW + 3} y={yHr(v) + 3} textAnchor="start" fontSize="8" fill="var(--vl-ember)" fontFamily="var(--vl-mono)">
           {Math.round(v)}
         </text>
       ))}
 
-      {/* Axis labels */}
       <text x={padL - 3} y={padT + cH + 14} textAnchor="end" fontSize="7" fill="#3b82f6" fontFamily="var(--vl-mono)">alt</text>
       {hrPoints.length > 5 && (
         <text x={padL + cW + 3} y={padT + cH + 14} textAnchor="start" fontSize="7" fill="var(--vl-ember)" fontFamily="var(--vl-mono)">fc</text>
       )}
 
-      {/* Hover */}
       {hoverX != null && (
         <line x1={hoverX} y1={padT} x2={hoverX} y2={padT + cH} stroke="var(--vl-text-2)" strokeWidth="1" strokeDasharray="3,3" />
       )}
@@ -270,7 +272,7 @@ function RouteMap({
   )
 }
 
-// ─── VAM sections ─────────────────────────────────────────────────────────────
+// ─── VAM sections table ────────────────────────────────────────────────────────
 
 interface ClimbSection {
   startKm: number; endKm: number; dPlus: number; timeS: number; vam: number
@@ -292,7 +294,6 @@ function extractClimbs(dist: number[], alt: number[], time: number[]): ClimbSect
     if (grade >= 3) {
       if (!inClimb) { inClimb = true; sIdx = i - 1 }
     } else if (inClimb) {
-      // Check if this is a real break or just noise
       const remaining = dist[i] - dist[i - 1]
       if (remaining > MERGE_GAP_M || grade < -5) {
         const dplus = alt[i - 1] - alt[sIdx]
@@ -310,7 +311,6 @@ function extractClimbs(dist: number[], alt: number[], time: number[]): ClimbSect
       }
     }
   }
-  // Close last section
   if (inClimb) {
     const n = dist.length - 1
     const dplus = alt[n] - alt[sIdx]
@@ -371,9 +371,325 @@ function VamSectionsCard({ dist, alt, time }: { dist: number[]; alt: number[]; t
   )
 }
 
-// ─── Streams section (chart + map) ────────────────────────────────────────────
+// ─── FC zones bar ─────────────────────────────────────────────────────────────
 
-function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: string; stravaActivityId: string; fcMax: number }) {
+const FC_ZONE_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#f97316', '#ef4444']
+const FC_ZONE_LABELS = ['Z1 <60%', 'Z2 60–70%', 'Z3 70–80%', 'Z4 80–90%', 'Z5 >90%']
+
+function computeFcZones(hrData: number[], fcMax: number): number[] {
+  const counts = [0, 0, 0, 0, 0]
+  hrData.forEach(h => {
+    const p = h / fcMax
+    if (p < 0.6) counts[0]++
+    else if (p < 0.7) counts[1]++
+    else if (p < 0.8) counts[2]++
+    else if (p < 0.9) counts[3]++
+    else counts[4]++
+  })
+  const tot = hrData.length
+  return counts.map(c => Math.round(c / tot * 100))
+}
+
+function FcZonesCard({ hrData, fcMax }: { hrData: number[]; fcMax: number }) {
+  if (!hrData.length) return null
+  const pcts = computeFcZones(hrData, fcMax)
+  const highPct = pcts[3] + pcts[4]
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div className="clabel" style={{ margin: 0 }}>RÉPARTITION FC</div>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: highPct > 50 ? 'var(--vl-ember)' : highPct > 25 ? 'var(--vl-amber)' : 'var(--vl-growth)' }}>
+          Z4-Z5 : {highPct}%
+        </div>
+      </div>
+      <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
+        {pcts.map((p, i) => p > 0 ? (
+          <div key={i} style={{ flex: p, background: FC_ZONE_COLORS[i], minWidth: 2 }} title={`${FC_ZONE_LABELS[i]} : ${p}%`} />
+        ) : null)}
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
+        {FC_ZONE_LABELS.map((l, i) => (
+          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: FC_ZONE_COLORS[i], display: 'inline-block', flexShrink: 0 }} />
+            {l} <span style={{ color: pcts[i] > 0 ? 'var(--vl-text)' : 'var(--vl-text-3)', fontWeight: pcts[i] > 0 ? 700 : 400 }}>{pcts[i]}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Session summary (lecture de séance) ──────────────────────────────────────
+
+const RUN_TYPES_DETAIL = ['Run', 'TrailRun', 'Trail Run', 'Running', 'VirtualRun']
+
+function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
+  activity: ActivityDetail
+  hrData: number[]
+  fcMax: number
+  recentRuns: RecentActivity[]
+}) {
+  const distKm = activity.distance / 1000
+  const fcPct = activity.average_heartrate ? Math.round(activity.average_heartrate / fcMax * 100) : null
+
+  const actDate = new Date(activity.start_date)
+  const d28ago = new Date(actDate); d28ago.setDate(actDate.getDate() - 28)
+  const d7ago = new Date(actDate); d7ago.setDate(actDate.getDate() - 7)
+
+  const runs28 = recentRuns.filter(a => {
+    const d = new Date(a.start_date)
+    return (RUN_TYPES_DETAIL.includes(a.type) || RUN_TYPES_DETAIL.includes(a.sport_type ?? '')) && d >= d28ago && d < actDate
+  })
+  const runs7 = runs28.filter(a => new Date(a.start_date) >= d7ago)
+  const km28 = runs28.reduce((s, a) => s + a.distance / 1000, 0)
+  const km7 = runs7.reduce((s, a) => s + a.distance / 1000, 0)
+  const dp28 = runs28.reduce((s, a) => s + (a.total_elevation_gain ?? 0), 0)
+
+  let intensityLabel = ''
+  let effortComment = ''
+  if (fcPct !== null) {
+    if (fcPct < 70)      { intensityLabel = `intensité faible (${fcPct}% FCmax)`;      effortComment = 'Sortie facile ou récupératrice.' }
+    else if (fcPct < 80) { intensityLabel = `intensité modérée (${fcPct}% FCmax)`;     effortComment = 'Endurance active, dosage modéré.' }
+    else if (fcPct < 88) { intensityLabel = `intensité élevée (${fcPct}% FCmax)`;      effortComment = 'Séance soutenue — récupération correcte nécessaire.' }
+    else                 { intensityLabel = `intensité très élevée (${fcPct}% FCmax)`; effortComment = 'Séance très intense — à ne pas répéter sans récupération.' }
+  } else {
+    intensityLabel = 'FC non disponible'
+    effortComment = 'Fréquence cardiaque absente — dosage cardio non évaluable.'
+  }
+
+  const zones = hrData.length ? computeFcZones(hrData, fcMax) : null
+  const z45 = zones ? zones[3] + zones[4] : null
+
+  const lines: string[] = [
+    `${distKm.toFixed(2)} km · D+ ${Math.round(activity.total_elevation_gain ?? 0)} m · allure ${fmtPace(activity.distance, activity.moving_time)}.`,
+    activity.average_heartrate
+      ? `FC moy. ${Math.round(activity.average_heartrate)} bpm · max ${activity.max_heartrate ? Math.round(activity.max_heartrate) + ' bpm' : '—'} · ${intensityLabel}.`
+      : `${intensityLabel}.`,
+    ...(zones ? [`Zones FC : Z1 ${zones[0]}% · Z2 ${zones[1]}% · Z3 ${zones[2]}% · Z4 ${zones[3]}% · Z5 ${zones[4]}% — ${z45}% en zones hautes.`] : []),
+    `Contexte récent : ${runs28.length} sortie${runs28.length !== 1 ? 's' : ''} sur 28 j · ${km28.toFixed(0)} km · D+ ${Math.round(dp28)} m — 7 j : ${runs7.length} sortie${runs7.length !== 1 ? 's' : ''} · ${km7.toFixed(0)} km.`,
+    effortComment,
+  ]
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="clabel" style={{ marginBottom: 8 }}>LECTURE DE SÉANCE</div>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.78rem', lineHeight: 1.75, color: 'var(--vl-text-2)' }}>
+        {lines.map((l, i) => <div key={i}>{l}</div>)}
+      </div>
+    </div>
+  )
+}
+
+// ─── Race context (facteurs de course) ────────────────────────────────────────
+
+function RaceContextCard({ activity }: { activity: ActivityDetail }) {
+  const factors: { label: string; value: string; adj: string; color: string }[] = []
+  let totalAdj = 0
+
+  const dp = activity.total_elevation_gain ?? 0
+  const dk = (activity.distance ?? 1) / 1000
+  if (dp > 0 && dk > 0.5) {
+    const ga = Math.min(0.45, dp / (dk * 1000) * 5.5)
+    totalAdj += ga
+    factors.push({ label: 'Dénivelé', value: `+${Math.round(dp)} m`, adj: `+${(ga * 100).toFixed(1)}%`, color: ga > 0.15 ? 'var(--vl-amber)' : 'var(--vl-growth)' })
+  }
+
+  const dateStr = activity.start_date_local ?? activity.start_date
+  const h = parseInt(dateStr.split('T')[1]?.split(':')[0] ?? '12', 10)
+  if (h < 5 || h >= 21) {
+    totalAdj += 0.02
+    factors.push({ label: 'Nuit', value: `${h}h`, adj: '+2.0%', color: '#8b5cf6' })
+  }
+
+  if (['TrailRun', 'Trail Run'].includes(activity.type) || ['TrailRun', 'Trail Run'].includes(activity.sport_type ?? '')) {
+    totalAdj += 0.04
+    factors.push({ label: 'Trail', value: 'Terrain varié', adj: '+4.0%', color: 'var(--vl-amber)' })
+  }
+
+  if (factors.length === 0) return null
+
+  const rawPaceSec = activity.moving_time > 0 && activity.distance > 0
+    ? activity.moving_time / (activity.distance / 1000)
+    : 0
+  const normPaceSec = rawPaceSec > 0 ? rawPaceSec / (1 + totalAdj) : 0
+  const paceNorm = normPaceSec > 0
+    ? `${Math.floor(normPaceSec / 60)}:${String(Math.round(normPaceSec % 60)).padStart(2, '0')}`
+    : '—'
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="clabel" style={{ marginBottom: 10 }}>FACTEURS DE COURSE</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        {factors.map((f, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--vl-surf-2)', borderRadius: 6, padding: '6px 10px' }}>
+            <div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--vl-text-3)' }}>{f.label}</div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)' }}>{f.value}</div>
+            </div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 12, fontWeight: 700, color: f.color }}>{f.adj}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Allure contextualisée</span>
+        <span style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', color: 'var(--vl-text-2)', lineHeight: 1 }}>
+          {paceNorm}<span style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.6rem', color: 'var(--vl-text-3)', marginLeft: 3 }}>/km</span>
+        </span>
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>conditions +{(totalAdj * 100).toFixed(0)}%</span>
+      </div>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7.5, color: 'var(--vl-text-3)', marginTop: 6, fontStyle: 'italic' }}>
+        Minetti et al. 2002 · Lejeune et al. 1998
+      </div>
+    </div>
+  )
+}
+
+// ─── Athlete profile from streams (port of legacy renderAthleteProfile) ───────
+
+interface VAMData {
+  uphillSections: { vam: number; dAlt: number; dist: number; avgHR: number | null }[]
+  downhillSections: { speed: number; grade: number }[]
+  recoveries: { drop: number; hrAtTop: number; hrAfter60: number }[]
+  avgVAM: number | null
+  maxVAM: number | null
+  avgRecovery: number | null
+  avgDownhill: number | null
+}
+
+function computeVAMFromStreams(streams: StreamData): VAMData | null {
+  const altD = streams.altitude?.data ?? []
+  const hrD = streams.heartrate?.data ?? []
+  const velD = streams.velocity_smooth?.data ?? []
+  const distD = streams.distance?.data ?? []
+  const timeD = streams.time?.data ?? []
+  if (!altD.length || !velD.length || !timeD.length || timeD.length !== altD.length) return null
+
+  const uphillSections: VAMData['uphillSections'] = []
+  const downhillSections: VAMData['downhillSections'] = []
+  const recoveries: VAMData['recoveries'] = []
+  let inUphill = false
+  let uphillStart: { idx: number; alt: number; dist: number; time: number } | null = null
+  const WIN = Math.min(30, Math.floor(altD.length / 10))
+
+  for (let i = WIN; i < altD.length - WIN; i++) {
+    const elevN = altD[i + WIN] - altD[i]
+    const distN = distD[i + WIN] - distD[i]
+    const grade = distN > 0 ? (elevN / distN) * 100 : 0
+
+    if (grade > 4 && !inUphill) {
+      inUphill = true
+      uphillStart = { idx: i, alt: altD[i], dist: distD[i], time: timeD[i] }
+    } else if (grade <= 1.5 && inUphill && uphillStart) {
+      inUphill = false
+      const dAlt = altD[i] - uphillStart.alt
+      const dTime = timeD[i] - uphillStart.time
+      if (dAlt > 10 && dTime > 0) {
+        const vam = Math.round((dAlt / dTime) * 3600)
+        const slice = hrD.slice(uphillStart.idx, i)
+        const avgHR = slice.length ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length) : null
+        uphillSections.push({ vam, dAlt: Math.round(dAlt), dist: Math.round(distD[i] - uphillStart.dist), avgHR })
+        if (hrD.length && hrD[i]) {
+          const hrAtTop = hrD[i]
+          const hrAfter60 = hrD[Math.min(i + 60, hrD.length - 1)] ?? 0
+          recoveries.push({ drop: hrAtTop - hrAfter60, hrAtTop, hrAfter60 })
+        }
+      }
+    }
+    if (grade < -5) {
+      const slice = velD.slice(i, i + 30)
+      const avgVel = slice.reduce((a, b) => a + b, 0) / slice.length
+      downhillSections.push({ speed: parseFloat((avgVel * 3.6).toFixed(1)), grade: parseFloat(grade.toFixed(1)) })
+    }
+  }
+
+  if (!uphillSections.length) return null
+
+  const avgDownhillKmh = downhillSections.length
+    ? parseFloat((downhillSections.reduce((a, b) => a + b.speed, 0) / downhillSections.length).toFixed(1))
+    : null
+
+  return {
+    uphillSections,
+    downhillSections,
+    recoveries,
+    avgVAM: uphillSections.length ? Math.round(uphillSections.reduce((a, b) => a + b.vam, 0) / uphillSections.length) : null,
+    maxVAM: uphillSections.length ? Math.max(...uphillSections.map(s => s.vam)) : null,
+    avgRecovery: recoveries.length ? Math.round(recoveries.reduce((a, b) => a + b.drop, 0) / recoveries.length) : null,
+    avgDownhill: avgDownhillKmh,
+  }
+}
+
+function AthleteProfileCard({ streams }: { streams: StreamData }) {
+  const data = computeVAMFromStreams(streams)
+  if (!data || !data.uphillSections.length) return null
+
+  const { avgVAM, maxVAM, avgRecovery, avgDownhill, uphillSections } = data
+
+  const vamLevel = maxVAM == null ? null
+    : maxVAM > 1000 ? { l: 'Excellent', c: 'var(--vl-growth)' }
+    : maxVAM > 700  ? { l: 'Bon',       c: 'var(--vl-growth)' }
+    : maxVAM > 400  ? { l: 'Moyen',     c: 'var(--vl-amber)' }
+    : { l: 'À développer', c: 'var(--vl-ember)' }
+
+  const recovLevel = avgRecovery == null ? null
+    : avgRecovery > 30 ? { l: 'Rapide',    c: 'var(--vl-growth)' }
+    : avgRecovery > 20 ? { l: 'Correct',   c: 'var(--vl-growth)' }
+    : avgRecovery > 10 ? { l: 'Lent',      c: 'var(--vl-amber)' }
+    : { l: 'Très lent', c: 'var(--vl-ember)' }
+
+  // km/h → allure
+  const downhillPace = avgDownhill && avgDownhill > 0
+    ? fmtPaceFromMps(avgDownhill * 1000 / 3600)
+    : null
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="clabel" style={{ marginBottom: '0.75rem' }}>PROFIL ATHLÈTE — SÉANCE</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: '0.75rem' }}>
+        {avgVAM != null && vamLevel && (
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, fontWeight: 700, color: vamLevel.c, lineHeight: 1 }}>{avgVAM}</div>
+            <div className="slbl" style={{ fontSize: 9 }}>VAM moy. montée</div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>{vamLevel.l} · max {maxVAM} m/h</div>
+          </div>
+        )}
+        {avgRecovery != null && recovLevel && (
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, fontWeight: 700, color: recovLevel.c, lineHeight: 1 }}>{avgRecovery}</div>
+            <div className="slbl" style={{ fontSize: 9 }}>Récup FC · bpm/min</div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>{recovLevel.l}</div>
+          </div>
+        )}
+        {downhillPace && (
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, fontWeight: 700, color: 'var(--vl-text-2)', lineHeight: 1 }}>{downhillPace}</div>
+            <div className="slbl" style={{ fontSize: 9 }}>Allure moy. descente</div>
+          </div>
+        )}
+        {uphillSections.length > 0 && (
+          <div>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, fontWeight: 700, color: 'var(--vl-text-2)', lineHeight: 1 }}>{uphillSections.length}</div>
+            <div className="slbl" style={{ fontSize: 9 }}>Montées analysées</div>
+          </div>
+        )}
+      </div>
+      {avgVAM != null && vamLevel && (
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.72rem', color: 'var(--vl-text-2)', lineHeight: 1.65 }}>
+          <strong>Grimpeur :</strong> VAM {avgVAM} m/h —{' '}
+          {avgVAM > 700 ? 'niveau trail compétitif.' : avgVAM > 400 ? 'bon niveau trail loisir.' : 'marge de progression en montée.'}
+          {avgRecovery != null && recovLevel && (
+            <><br /><strong>Récupération cardio :</strong> −{avgRecovery} bpm/min post-montée — {avgRecovery > 25 ? 'excellente capacité.' : avgRecovery > 15 ? 'capacité correcte.' : 'à travailler — programme Récup dans Renfo.'}</>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Streams section (chart + map + VAM) ──────────────────────────────────────
+
+function StreamsSection({ stravaActivityId, fcMax }: { activityId: string; stravaActivityId: string; fcMax: number }) {
   const [hoverKm, setHoverKm] = useState<number | null>(null)
 
   const { data: streams, isLoading } = useQuery<StreamData>({
@@ -399,7 +715,6 @@ function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: s
   const hr = streams.heartrate?.data
   const latlng = streams.latlng?.data
 
-  // Build chart points (downsampled)
   const raw: ChartPoint[] = []
   const n = alt.length
   for (let i = 0; i < n; i++) {
@@ -413,7 +728,6 @@ function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: s
 
   return (
     <>
-      {/* Dual-axis chart */}
       {hasDist && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="clabel" style={{ marginBottom: '0.5rem' }}>
@@ -428,7 +742,6 @@ function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: s
         </div>
       )}
 
-      {/* Leaflet map */}
       {hasLatlng && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="clabel" style={{ marginBottom: '0.5rem' }}>TRACÉ GPS</div>
@@ -436,7 +749,6 @@ function StreamsSection({ activityId, stravaActivityId, fcMax }: { activityId: s
         </div>
       )}
 
-      {/* VAM sections */}
       {hasDist && time.length > 0 && (
         <VamSectionsCard dist={dist} alt={alt} time={time} />
       )}
@@ -526,6 +838,24 @@ export default function ActivityDetailPage() {
     enabled: !!activityId,
   })
 
+  // Context for "Lecture de séance" (28j/7j surrounding the activity date)
+  const { data: recentActivities = [] } = useQuery<RecentActivity[]>({
+    queryKey: ['recent-activities-context', activity?.start_date],
+    queryFn: async () => {
+      const actDate = new Date(activity!.start_date)
+      const cutoff = new Date(actDate); cutoff.setDate(actDate.getDate() - 35)
+      const { data } = await supabase
+        .from('strava_activities')
+        .select('id,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
+        .gte('start_date', cutoff.toISOString().slice(0, 10))
+        .lte('start_date', activity!.start_date)
+        .order('start_date', { ascending: false })
+      return (data ?? []) as RecentActivity[]
+    },
+    enabled: !!activity,
+    staleTime: 10 * 60 * 1000,
+  })
+
   const stravaActivityIdStr = activity?.strava_activity_id != null ? String(activity.strava_activity_id) : undefined
 
   const { data: streams } = useQuery<StreamData>({
@@ -547,6 +877,7 @@ export default function ActivityDetailPage() {
   const load = computeActivityLoad(activity, fcMax)
   const paceStr = fmtPace(activity.distance, activity.moving_time)
   const dpKm = activity.distance > 0 ? (activity.total_elevation_gain ?? 0) / (activity.distance / 1000) : 0
+  const hrData = streams?.heartrate?.data ?? []
 
   return (
     <>
@@ -588,26 +919,32 @@ export default function ActivityDetailPage() {
         </div>
       </div>
 
-      {/* Session quality */}
-      <SessionQCard activity={activity} streams={streams} fcMax={fcMax} />
+      {/* Analyse de séance */}
+      <FcZonesCard hrData={hrData} fcMax={fcMax} />
+      <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
+      <RaceContextCard activity={activity} />
 
-      {/* Altitude profile + map + VAM sections (streams-powered) */}
+      {/* Altitude profile + map + VAM sections */}
       {activityId && stravaActivityIdStr && (
         <StreamsSection activityId={activityId} stravaActivityId={stravaActivityIdStr} fcMax={fcMax} />
       )}
+
+      {/* Athlete profile (VAM + recovery) */}
+      {streams && <AthleteProfileCard streams={streams} />}
+
+      {/* Session quality */}
+      <SessionQCard activity={activity} streams={streams} fcMax={fcMax} />
 
       {/* Metrics card */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="clabel" style={{ marginBottom: '0.75rem' }}>MÉTRIQUES</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           {[
-            { label: 'D+/km', val: `${dpKm.toFixed(0)} m/km` },
-            { label: 'Vitesse moy.', val: fmtSpeed(activity.average_speed) },
-            { label: 'Vitesse max', val: fmtSpeed(activity.max_speed) },
+            { label: 'D+/km',       val: `${dpKm.toFixed(0)} m/km` },
+            { label: 'Allure max',  val: fmtPaceFromMps(activity.max_speed) },
             { label: 'Temps total', val: activity.elapsed_time ? fmtTime(activity.elapsed_time) : '—' },
-            { label: 'FC max', val: activity.max_heartrate ? `${Math.round(activity.max_heartrate)} bpm` : '—' },
+            { label: 'FC max',      val: activity.max_heartrate ? `${Math.round(activity.max_heartrate)} bpm` : '—' },
             { label: 'Suffer score', val: activity.suffer_score != null ? String(activity.suffer_score) : '—' },
-            { label: 'Kudos', val: activity.kudos_count != null ? String(activity.kudos_count) : '—' },
           ].map(({ label, val }) => (
             <div key={label} className="fg" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>{label}</span>
