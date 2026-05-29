@@ -1,12 +1,12 @@
 import { vi, describe, it, expect } from 'vitest';
 
-vi.mock('../app-state.js', () => ({
+vi.mock('../legacy/app-state.js', () => ({
   FC_MAX_DEFAULT: 205,
   VLState: { currentRaceContext: null },
   sb: {},
 }));
 
-import { hav, minettiGradePenalty, buildDetailedSections } from '../gpx-core.js';
+import { hav, minettiGradePenalty, buildDetailedSections } from '../legacy/gpx-core.js';
 
 // ─── hav (haversine distance) ─────────────────────────────────────────────────
 
