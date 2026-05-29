@@ -29,7 +29,9 @@ export default [
 
       // Sécurité / qualité
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'eqeqeq': ['error', 'always'],
+      // 'smart' autorise l'idiome `x == null` (null OU undefined) tout en
+      // flaguant les vraies comparaisons laxistes.
+      'eqeqeq': ['error', 'smart'],
       'no-var': 'error',
       'prefer-const': 'error',
 

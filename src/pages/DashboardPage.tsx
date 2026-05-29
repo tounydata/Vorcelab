@@ -51,22 +51,10 @@ interface NextRace {
   last_projection: LastProjection | null
 }
 
-function formatKm(meters: number) {
-  return (meters / 1000).toFixed(1)
-}
-
 function formatTime(seconds: number) {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}min`
-}
-
-function formatPace(distM: number, timeS: number): string {
-  if (!distM || !timeS) return '—'
-  const secPerKm = timeS / (distM / 1000)
-  const m = Math.floor(secPerKm / 60)
-  const s = Math.round(secPerKm % 60)
-  return `${m}'${s.toString().padStart(2, '0')}"/km`
 }
 
 function formatPaceShort(distM: number, timeS: number): string {
@@ -75,10 +63,6 @@ function formatPaceShort(distM: number, timeS: number): string {
   const m = Math.floor(secPerKm / 60)
   const s = Math.round(secPerKm % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
 function formatDateShort(iso: string) {
@@ -156,7 +140,7 @@ function computeMultiStatus(
   pmc: PMCDay[],
   acwr: ReturnType<typeof computeACWR>,
   activities: Activity2[],
-  fcMax: number,
+  _fcMax: number,
 ): { label: string; sub: string; color: string; key: string } {
   const today = pmc[pmc.length - 1]
   if (!today || today.calibrating) {
@@ -246,8 +230,6 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
 
   const fmtD = (ds: string) => new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
   const labelIdx = [0, 14, 28, DISPLAY - 1]
-
-  const hovered = hover != null ? pmc[hover] : null
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>

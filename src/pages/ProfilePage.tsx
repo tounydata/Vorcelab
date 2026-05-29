@@ -441,7 +441,7 @@ export default function ProfilePage() {
   const [formLoaded, setFormLoaded] = useState(false)
 
   // Records state
-  const PR_KEYS = ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra'] as const
+  const _PR_KEYS = ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra'] as const
   const [prsEdit, setPrsEdit] = useState<Record<string, string>>({})
   const [prsMode, setPrsMode] = useState<'view' | 'edit'>('view')
   const [prsSaveMsg, setPrsSaveMsg] = useState('')
