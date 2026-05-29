@@ -121,6 +121,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('ignores activities older than 3 days', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(4),
       distance: 30000,
       moving_time: 10800,
@@ -131,6 +132,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('triggers avoid_force for run > 15 km within 2 days', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(1),
       distance: 20000,
       moving_time: 6000,
@@ -142,6 +144,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('avoid_force has severity warn', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(1),
       distance: 18000,
       moving_time: 5400,
@@ -153,6 +156,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('triggers post_long for run > 25 km within 3 days', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(2),
       distance: 28000,
       moving_time: 10800,
@@ -164,6 +168,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('triggers post_long for D+ > 1500m within 3 days', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(2),
       distance: 15000,
       moving_time: 7200,
@@ -175,6 +180,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('post_long has severity alert', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(1),
       distance: 30000,
       moving_time: 12000,
@@ -187,6 +193,7 @@ describe('computeCoPerioWarnings', () => {
   it('triggers quality_session for fast run yesterday (pace < 5 min/km)', () => {
     // 10 km in 40 min = 4 min/km pace
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(0),
       distance: 10000,
       moving_time: 2400,
@@ -198,6 +205,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('quality_session has severity info', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(0),
       distance: 10000,
       moving_time: 2400,
@@ -210,8 +218,8 @@ describe('computeCoPerioWarnings', () => {
   it('deduplicates warnings of the same type', () => {
     // Two long runs in 3 days → only one post_long
     const acts: Activity[] = [
-      { start_date_local: daysAgo(1), distance: 30000, moving_time: 11000, total_elevation_gain: 300 },
-      { start_date_local: daysAgo(2), distance: 28000, moving_time: 10800, total_elevation_gain: 200 },
+      { type: 'Run', start_date_local: daysAgo(1), distance: 30000, moving_time: 11000, total_elevation_gain: 300 },
+      { type: 'Run', start_date_local: daysAgo(2), distance: 28000, moving_time: 10800, total_elevation_gain: 200 },
     ]
     const types = computeCoPerioWarnings(acts).map((w) => w.type)
     const counts: Record<string, number> = {}
@@ -221,6 +229,7 @@ describe('computeCoPerioWarnings', () => {
 
   it('does not trigger quality_session for short run (< 3 km)', () => {
     const act: Activity = {
+      type: 'Run',
       start_date_local: daysAgo(0),
       distance: 2000,
       moving_time: 480,
