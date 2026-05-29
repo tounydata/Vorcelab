@@ -9,13 +9,16 @@ import {
 } from '../lib/renfoUtils'
 // @ts-ignore
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
-import { fetchStreams } from '../lib/streams'
 import {
   computeActivityLoad, computeDailyPMC, getTsbZone, computeACWR, classifySport,
   type ActivityForLoad, type PMCDay,
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
+
+interface SessionLog2 extends SessionLog {
+  source?: string | null
+}
 
 interface Activity2 {
   id: string
@@ -71,66 +74,6 @@ function formatDateShort(iso: string) {
 
 function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
-}
-
-// ─── Cette semaine (compact — remplace Bar7j) ────────────────────────────────
-
-function CetteSemanineCompact({ activities, efPct, efLoading }: { activities: Activity2[]; efPct?: number | null; efLoading?: boolean }) {
-  const now = new Date()
-  const DAY_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-    return {
-      label: DAY_LABELS[(d.getDay() + 6) % 7],
-      km: acts.reduce((s, a) => s + a.distance / 1000, 0),
-      dp: acts.reduce((s, a) => s + (a.total_elevation_gain || 0), 0),
-    }
-  })
-  const totalKm = days.reduce((s, d) => s + d.km, 0)
-  const totalDp = days.reduce((s, d) => s + d.dp, 0)
-  const runCount = days.filter((d) => d.km > 0).length
-  const maxKm = Math.max(...days.map((d) => d.km), 0.1)
-  const efColor = efPct == null ? 'var(--vl-text-3)' : efPct >= 75 ? 'var(--vl-growth)' : efPct < 50 ? 'var(--vl-ember)' : 'var(--vl-amber)'
-
-  return (
-    <div className="card" style={{ marginBottom: '1.5rem' }}>
-      <div className="mlabel" style={{ marginBottom: 8, letterSpacing: '.14em' }}>CETTE SEMAINE</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 10, gap: 0 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '2.2rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>
-              {totalKm.toFixed(1)}
-            </div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-2)' }}>km</div>
-          </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 3 }}>
-            {runCount} sortie{runCount > 1 ? 's' : ''} · D+ {Math.round(totalDp)} m
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: efColor, lineHeight: 1 }}>
-            {efLoading ? '…' : efPct != null ? `${efPct}%` : '—'}
-          </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: efColor, marginTop: 2 }}>% EF</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
-        {days.map((d, i) => (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: 2 }}>
-            <div style={{
-              width: '100%',
-              height: d.km > 0 ? `${Math.max(12, (d.km / maxKm) * 80)}%` : 3,
-              background: d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)',
-              borderRadius: 2,
-            }} />
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>{d.label}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 // ─── Statut multi-facteurs (ACWR + tendance CTL + tendance EF) ───────────────
@@ -526,17 +469,17 @@ export default function DashboardPage() {
     },
   })
 
-  const { data: renfoLogs = [] } = useQuery<SessionLog[]>({
+  const { data: renfoLogs = [] } = useQuery<SessionLog2[]>({
     queryKey: ['renfo-session-logs-dashboard'],
     queryFn: async () => {
       const cutoff = new Date(Date.now() - 95 * 86_400_000).toISOString().slice(0, 10)
       const { data } = await supabase
         .from('renfo_session_log')
-        .select('focus,duration_min,session_date')
+        .select('focus,duration_min,session_date,source')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)
         .order('session_date', { ascending: false })
-      return (data ?? []) as SessionLog[]
+      return (data ?? []) as SessionLog2[]
     },
     enabled: !!user,
   })
@@ -570,16 +513,17 @@ export default function DashboardPage() {
     },
   })
 
-  const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null } | null>({
+  const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number } | null>({
     queryKey: ['profile-fcmax-dash', user?.id],
     queryFn: async () => {
       if (!user) return null
-      const { data } = await supabase.from('profiles').select('fc_max,runner_profile').eq('id', user.id).single()
-      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed | null } | null
+      const { data } = await supabase.from('profiles').select('fc_max,runner_profile,renfo_weekly_target').eq('id', user.id).single()
+      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number } | null
     },
     enabled: !!user,
   })
   const fcMax = profileData?.fc_max
+  const renfoWeeklyTarget = profileData?.renfo_weekly_target ?? 3
 
   // Silent background recompute when:
   //   a) latest activity is newer than last profile computation, OR
@@ -612,44 +556,7 @@ export default function DashboardPage() {
 
   const now = new Date()
 
-  // Précompute les IDs des runs 7j pour la query EF (stable key pour TanStack)
-  const ef7jCutoffStr = (() => {
-    const d = new Date(now)
-    d.setDate(d.getDate() - 6)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })()
-  const runs7jIds = activities
-    .filter((a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= ef7jCutoffStr)
-    .map((a) => a.id)
-
-  // % EF réel depuis les streams HR — port exact de loadAerobicStat (dashboard-activities.js)
-  const { data: efData, isLoading: efLoading } = useQuery({
-    queryKey: ['ef-7j', runs7jIds, fcMax ?? 185],
-    queryFn: async () => {
-      const threshold = (fcMax ?? 185) * 0.75
-      const runs = activities.filter((a) => isRunning(a.type) && runs7jIds.includes(a.id))
-      let totalPts = 0, aerobicPts = 0, authError = false
-      await Promise.all(runs.map(async (a) => {
-        try {
-          const streams = await fetchStreams(String(a.strava_activity_id ?? a.id))
-          if (streams._authError) { authError = true; return }
-          const hr = streams.heartrate?.data
-          if (!hr?.length) return
-          totalPts   += hr.length
-          aerobicPts += hr.filter((v) => v < threshold).length
-        } catch { /* ignore */ }
-      }))
-      if (authError && totalPts === 0) return { pct: null as number | null, authError: true }
-      if (totalPts === 0)            return { pct: null as number | null, authError: false }
-      return { pct: Math.round(aerobicPts / totalPts * 100), authError: false }
-    },
-    enabled: runs7jIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  })
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const startOfWeek = new Date(now)
-  startOfWeek.setDate(now.getDate() - now.getDay())
-  startOfWeek.setHours(0, 0, 0, 0)
 
   const runs = activities.filter((a) => isRunning(a.type))
   const monthRuns = runs.filter((a) => new Date(a.start_date) >= startOfMonth)
@@ -673,11 +580,17 @@ export default function DashboardPage() {
 
   const recent = runs.slice(0, 5)
 
-  // Renfo count this week
-  const weekCutoff = new Date(now)
-  weekCutoff.setDate(now.getDate() - 7)
-  const weekCutoffStr = weekCutoff.toISOString().slice(0, 10)
-  const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekCutoffStr).map((r) => r.session_date))].length
+  // Renfo count this week (lun-dim de la semaine en cours)
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+  weekStart.setHours(0, 0, 0, 0)
+  const weekStartStr = weekStart.toISOString().slice(0, 10)
+  const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
+
+  // Renfo monthly progress bar — sessions ce mois / (target × semaines écoulées dans le mois)
+  const weeksElapsed = Math.max(1, Math.ceil((now.getDate()) / 7))
+  const renfoMonthTarget = renfoWeeklyTarget * weeksElapsed
+  const renfoMonthPct = Math.min(100, Math.round((renfoMonthCount / renfoMonthTarget) * 100))
 
   // Mini-calendrier renfo — 7 derniers jours (run + renfo)
   const WCAL_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
@@ -750,18 +663,43 @@ export default function DashboardPage() {
             {/* Statut d'entraînement (PMC) */}
             <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
 
-            {/* Renfo */}
+            {/* ── Widget RENFO complet ── */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
-                  RENFO · LIBRE · {renfoWeekCount}/{3} SEM.
+
+              {/* En-tête */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
+                    RENFO · {renfoWeekCount}/{renfoWeeklyTarget} SEM.
+                  </div>
+                  <div className="mlabel" style={{ margin: 0, fontSize: 8, color: DUP4_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${DUP4_COLORS[phase]}`, paddingLeft: 6 }}>
+                    {DUP4_LABELS[phase]}
+                  </div>
                 </div>
                 <Link to="/renfo" style={{ textDecoration: 'none' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR RENFO →</div>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR →</div>
                 </Link>
               </div>
-              <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.6rem', marginTop: 2 }}>
-                {DUP4_LABELS[phase]}
+
+              {/* Barre de progression mensuelle */}
+              <div style={{ marginBottom: '0.7rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7.5, color: 'var(--vl-text-3)' }}>
+                    CE MOIS · {renfoMonthCount} / ~{renfoMonthTarget} séances
+                  </div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7.5, color: renfoMonthPct >= 80 ? '#a78bfa' : 'var(--vl-text-3)' }}>
+                    {renfoMonthPct}%
+                  </div>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: 'var(--vl-line)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${renfoMonthPct}%`,
+                    background: renfoMonthPct >= 80 ? '#7c3aed' : renfoMonthPct >= 50 ? '#a78bfa' : 'var(--vl-text-3)',
+                    borderRadius: 2,
+                    transition: 'width .4s',
+                  }} />
+                </div>
               </div>
 
               {/* Mini-calendrier 7 derniers jours */}
@@ -782,12 +720,17 @@ export default function DashboardPage() {
 
               {/* Dernière séance renfo */}
               {lastRenfoSession && (
-                <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem' }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, fontWeight: 700, color: '#a78bfa' }}>
-                    {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus}
-                    {' · '}{lastRenfoSession.duration_min ?? '—'} min
+                <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
+                    {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}
+                    {lastRenfoSession.duration_min ? ` · ${lastRenfoSession.duration_min} min` : ''}
                     {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
                   </div>
+                  {(lastRenfoSession as SessionLog2).source === 'strava' && (
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
+                      Strava
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -800,9 +743,9 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* 2 focus suggérés */}
+              {/* 4 focus suggérés 2×2 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                {sortedFocuses.slice(0, 2).map((focus) => {
+                {sortedFocuses.slice(0, 4).map((focus) => {
                   const meta = FOCUS_META[focus]
                   if (!meta) return null
                   const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
@@ -826,11 +769,8 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* ── COLONNE DROITE 40% : graphique 7j → stats mois + activités ── */}
+          {/* ── COLONNE DROITE 40% : stats mois + activités ── */}
           <div className="dash-col">
-
-            {/* Cette semaine — compact */}
-            {runs.length > 0 && <CetteSemanineCompact activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
 
             {/* CE MOIS + DERNIÈRES SORTIES */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>

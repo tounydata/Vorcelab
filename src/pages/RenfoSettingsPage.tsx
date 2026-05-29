@@ -35,6 +35,8 @@ export default function RenfoSettingsPage() {
   const queryClient = useQueryClient()
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState<RenfoProfile>(DEFAULT_PROFILE)
+  const [weeklyTarget, setWeeklyTarget] = useState(3)
+  const [targetSaved, setTargetSaved] = useState(false)
 
   const { data: profile, isLoading } = useQuery<RenfoProfile | null>({
     queryKey: ['renfo-profile'],
@@ -48,6 +50,25 @@ export default function RenfoSettingsPage() {
     },
     enabled: !!user,
   })
+
+  const { data: profileTarget } = useQuery<{ renfo_weekly_target?: number } | null>({
+    queryKey: ['profile-renfo-target', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('renfo_weekly_target')
+        .eq('id', user!.id)
+        .single()
+      return data as { renfo_weekly_target?: number } | null
+    },
+    enabled: !!user,
+  })
+
+  useEffect(() => {
+    if (profileTarget?.renfo_weekly_target != null) {
+      setWeeklyTarget(profileTarget.renfo_weekly_target)
+    }
+  }, [profileTarget])
 
   useEffect(() => {
     if (profile) setForm({ ...DEFAULT_PROFILE, ...profile })
@@ -71,6 +92,15 @@ export default function RenfoSettingsPage() {
     setForm((f) => ({ ...f, equipment: { ...f.equipment, [field]: val } }))
   }
 
+  async function saveWeeklyTarget(val: number) {
+    setWeeklyTarget(val)
+    await supabase.from('profiles').update({ renfo_weekly_target: val }).eq('id', user!.id)
+    queryClient.invalidateQueries({ queryKey: ['profile-renfo-target'] })
+    queryClient.invalidateQueries({ queryKey: ['profile-fcmax-dash'] })
+    setTargetSaved(true)
+    setTimeout(() => setTargetSaved(false), 2000)
+  }
+
   if (isLoading) return <div className="loading"><div className="spinner" /></div>
 
   return (
@@ -79,6 +109,27 @@ export default function RenfoSettingsPage() {
         ← Renfo
       </Link>
       <div className="clabel" style={{ marginBottom: '1.5rem' }}>RÉGLAGES RENFO</div>
+
+      {/* Objectif hebdomadaire (stocké dans profiles) */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="fl" style={{ marginBottom: '0.5rem' }}>Objectif séances / semaine</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[2, 3, 4, 5, 6].map((n) => (
+            <button key={n}
+              className="hbtn"
+              style={weeklyTarget === n
+                ? { background: 'var(--vl-ember)', borderColor: 'var(--vl-ember)', color: 'var(--vl-ink)', minWidth: 36 }
+                : { minWidth: 36 }}
+              onClick={() => saveWeeklyTarget(n)}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <div className="mlabel" style={{ marginTop: 6, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+          Objectif : {weeklyTarget} séance{weeklyTarget > 1 ? 's' : ''}/semaine · affiché sur le dashboard
+        </div>
+        {targetSaved && <div className="mlabel" style={{ color: 'var(--vl-growth)', marginTop: 4 }}>Sauvegardé</div>}
+      </div>
 
       {/* Séances par semaine */}
       <div className="card" style={{ marginBottom: '1rem' }}>
