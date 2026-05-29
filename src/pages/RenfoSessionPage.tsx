@@ -156,7 +156,7 @@ export default function RenfoSessionPage() {
     if (secondsLeft !== null && secondsLeft <= 3 && secondsLeft > 0) {
       playBeep(880, 0.15, 0.50)   // tick court identique à chaque fois
     }
-  }, [secondsLeft]) // eslint-disable-line
+  }, [secondsLeft])  
 
   // GO : même fréquence 880Hz mais beaucoup plus long
   const prevIsRestingRef = useRef(false)
@@ -166,7 +166,7 @@ export default function RenfoSessionPage() {
       playBeep(1200, 0.55, 0.60)  // BEEEP long 1200Hz → signal départ
     }
     prevIsRestingRef.current = isResting
-  }, [stageState.stage]) // eslint-disable-line
+  }, [stageState.stage])  
 
   // Scroll au timer dès que la récup commence — évite de devoir scroller
   useEffect(() => {
@@ -229,7 +229,7 @@ export default function RenfoSessionPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!session) return
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const exerciseInserts = setLogs.map((l) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const targetReps = session.exercises.find((e: any) => e.exercise_id === l.exercise_id)?.reps ?? 0
@@ -374,7 +374,7 @@ export default function RenfoSessionPage() {
   // ── Active ────────────────────────────────────────────────────────────────
   if (stageState.stage === 'active') {
     const { exoIdx: ei, setIdx: si } = stageState
-    const exo = session.exercises[ei] // eslint-disable-line @typescript-eslint/no-explicit-any
+    const exo = session.exercises[ei]  
     const ex = RENFO_EXERCISES[exo.exercise_id]
     const variant = ex?.variants?.find((v: any) => v.id === exo.variant_id) ?? ex?.variants?.[0] // eslint-disable-line @typescript-eslint/no-explicit-any
     const isLoadExo = exo.load_type === 'external_kg'

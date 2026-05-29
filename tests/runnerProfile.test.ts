@@ -178,20 +178,20 @@ describe('computeCardioCost', () => {
     expect(computeCardioCost(null)).toBe('unknown')
   })
 
-  it('returns low for < 70 %FCmax', () => {
+  it('returns low for < 75 %FCmax', () => {
     expect(computeCardioCost(60)).toBe('low')
-    expect(computeCardioCost(69.9)).toBe('low')
+    expect(computeCardioCost(74.9)).toBe('low')
     expect(computeCardioCost(0)).toBe('low')
   })
 
-  it('returns medium for 70–84 %FCmax', () => {
-    expect(computeCardioCost(70)).toBe('medium')
+  it('returns medium for 75–87 %FCmax', () => {
+    expect(computeCardioCost(75)).toBe('medium')
     expect(computeCardioCost(80)).toBe('medium')
-    expect(computeCardioCost(84.9)).toBe('medium')
+    expect(computeCardioCost(87.9)).toBe('medium')
   })
 
-  it('returns high for ≥ 85 %FCmax', () => {
-    expect(computeCardioCost(85)).toBe('high')
+  it('returns high for ≥ 88 %FCmax', () => {
+    expect(computeCardioCost(88)).toBe('high')
     expect(computeCardioCost(95)).toBe('high')
     expect(computeCardioCost(100)).toBe('high')
   })
@@ -208,9 +208,9 @@ describe('cardioCostColor', () => {
 
 describe('cardioCostLabel', () => {
   it('maps to French labels', () => {
-    expect(cardioCostLabel('low')).toBe('Faible')
-    expect(cardioCostLabel('medium')).toBe('Moyen')
-    expect(cardioCostLabel('high')).toBe('Élevé')
+    expect(cardioCostLabel('low')).toBe('FC faible')
+    expect(cardioCostLabel('medium')).toBe('FC modérée')
+    expect(cardioCostLabel('high')).toBe('FC élevée')
     expect(cardioCostLabel('unknown')).toBe('—')
   })
 })

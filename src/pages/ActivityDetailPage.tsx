@@ -716,7 +716,7 @@ function AthleteProfileCard({ streams }: { streams: StreamData }) {
 
 // ─── Streams section (chart + map + VAM) ──────────────────────────────────────
 
-function StreamsSection({ stravaActivityId, fcMax }: { activityId: string; stravaActivityId: string; fcMax: number }) {
+function StreamsSection({ stravaActivityId }: { activityId: string; stravaActivityId: string; fcMax: number }) {
   const [hoverKm, setHoverKm] = useState<number | null>(null)
 
   const { data: streams, isLoading } = useQuery<StreamData>({

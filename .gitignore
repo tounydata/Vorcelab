@@ -62,3 +62,6 @@ playwright/.auth/*.json
 
 # Variables de test (service role key)
 .env.test
+
+# Data dumps / exports (ne jamais committer d'archives de données)
+*.zip
