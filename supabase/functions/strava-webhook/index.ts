@@ -132,11 +132,17 @@ async function processWebhookEvent(
         .eq('owner_id', event.owner_id)
         .is('processed_at', null)
 
-      // Recompute runner profile when a new trail activity is created
-      // Sync weather for new activities (best-effort, Open-Meteo requires >7 days old)
+      // Sync weather (best-effort, Open-Meteo requires >7 days old)
       if (event.aspect_type === 'create') {
         syncActivityWeather(supabase, userId, activity).catch((e) =>
           console.error('Weather sync error:', (e as Error).message)
+        )
+      }
+
+      // Auto-import renfo activities into renfo_session_log
+      if (event.aspect_type === 'create' && isRenfoActivity(activity.type, activity.sport_type)) {
+        syncRenfoActivity(supabase, userId, activity).catch((e) =>
+          console.error('Renfo sync error:', (e as Error).message)
         )
       }
 
@@ -160,9 +166,100 @@ async function processWebhookEvent(
 const TRAIL_TYPES = new Set([
   'Run', 'TrailRun', 'Trail Run', 'VirtualRun', 'run', 'trail', 'trailrun',
 ])
+const RENFO_TYPES = new Set([
+  'WeightTraining', 'Workout', 'CrossTraining', 'Crossfit', 'Yoga', 'Pilates',
+  'weighttraining', 'workout', 'crosstraining', 'crossfit', 'yoga', 'pilates',
+])
 
 function isTrailActivity(type: string, sportType: string): boolean {
   return TRAIL_TYPES.has(type) || TRAIL_TYPES.has(sportType)
+}
+
+function isRenfoActivity(type: string, sportType: string): boolean {
+  return RENFO_TYPES.has(type) || RENFO_TYPES.has(sportType)
+}
+
+// Map Strava exercise_type → renfo focus
+const EXERCISE_FOCUS_MAP: Record<string, string> = {
+  // Force lourde
+  back_squat: 'force_lourde', front_squat: 'force_lourde', goblet_squat: 'force_lourde',
+  deadlift: 'force_lourde', romanian_deadlift: 'force_lourde', sumo_deadlift: 'force_lourde',
+  lunge: 'force_lourde', reverse_lunge: 'force_lourde', split_squat: 'force_lourde',
+  step_up: 'force_lourde', leg_press: 'force_lourde', hip_thrust: 'force_lourde',
+  // Pliométrie
+  box_jump: 'pliometrie', jump_squat: 'pliometrie', broad_jump: 'pliometrie',
+  burpee: 'pliometrie', single_leg_jump: 'pliometrie', jumping_lunge: 'pliometrie',
+  // Excentrique
+  nordic_curl: 'excentrique', single_leg_deadlift: 'excentrique',
+  // Haut du corps
+  bench_press: 'haut_corps', incline_bench_press: 'haut_corps', push_up: 'haut_corps',
+  pull_up: 'haut_corps', chin_up: 'haut_corps', lat_pulldown: 'haut_corps',
+  row: 'haut_corps', seated_row: 'haut_corps', shoulder_press: 'haut_corps',
+  overhead_press: 'haut_corps', dumbbell_row: 'haut_corps',
+  // Tronc
+  plank: 'tronc', side_plank: 'tronc', dead_bug: 'tronc', hollow_body: 'tronc',
+  sit_up: 'tronc', russian_twist: 'tronc', bird_dog: 'tronc', pallof_press: 'tronc',
+}
+
+function inferRenfoFocus(
+  type: string,
+  sportType: string,
+  exerciseSets?: { exercise_type: string }[],
+): string | null {
+  const t = (type + ' ' + sportType).toLowerCase()
+  if (t.includes('yoga')) return 'yoga_coureur'
+  if (t.includes('pilates')) return 'pilates_coureur'
+
+  if (!exerciseSets?.length) return null
+
+  const counts: Record<string, number> = {}
+  for (const s of exerciseSets) {
+    const focus = EXERCISE_FOCUS_MAP[s.exercise_type?.toLowerCase() ?? '']
+    if (focus) counts[focus] = (counts[focus] ?? 0) + 1
+  }
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1])
+  return entries[0]?.[0] ?? null
+}
+
+async function syncRenfoActivity(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  activity: {
+    id: number
+    start_date: string
+    start_date_local?: string
+    moving_time: number
+    type: string
+    sport_type: string
+    exercise_sets?: { exercise_type: string; weight_kg?: number | null; sets?: number | null; reps?: number | null }[]
+  },
+): Promise<void> {
+  const sessionDate = (activity.start_date_local ?? activity.start_date).slice(0, 10)
+  const durationMin = Math.round(activity.moving_time / 60)
+
+  // Avoid duplicates — one log per strava activity id
+  const { data: existing } = await supabase
+    .from('renfo_session_log')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('source', 'strava')
+    .eq('session_date', sessionDate)
+    .maybeSingle()
+
+  if (existing) return
+
+  const focus = inferRenfoFocus(activity.type, activity.sport_type, activity.exercise_sets)
+
+  await supabase.from('renfo_session_log').insert({
+    user_id: userId,
+    session_date: sessionDate,
+    focus,
+    duration_min: durationMin > 0 ? durationMin : null,
+    source: 'strava',
+    completed_exercises: activity.exercise_sets?.length
+      ? activity.exercise_sets.map((s) => s.exercise_type)
+      : [],
+  })
 }
 
 async function syncActivityWeather(

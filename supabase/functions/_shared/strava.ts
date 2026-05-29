@@ -100,6 +100,7 @@ export interface StravaRawActivity {
   calories?: number
   suffer_score?: number
   start_latlng?: [number, number] | []
+  exercise_sets?: { exercise_type: string; weight_kg?: number | null; sets?: number | null; reps?: number | null }[]
 }
 
 export async function fetchStravaActivitiesPage(
