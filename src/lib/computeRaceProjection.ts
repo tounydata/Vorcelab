@@ -3,9 +3,9 @@
 // Imported by RaceStrategyPage via allowJs: true in tsconfig.
 
 // @ts-ignore — JS files typed as any via allowJs; checkJs: false keeps them unchecked
-import { hav, minettiGradePenalty, buildDetailedSections } from '../../gpx-core.js'
+import { hav, minettiGradePenalty, buildDetailedSections } from './gpxCore'
 // @ts-ignore
-import { computeProgressionFactor, computeFreshnessAdjustment } from '../../race-predictor.js'
+import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
@@ -124,7 +124,7 @@ export function computeRaceProjection(
   // ── 6. Base pace ──────────────────────────────────────────────────────────
   const FC_MAX = (profile.fc_max as number | undefined) ?? 205
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
-  const progressionFactor = computeProgressionFactor(activities, FC_MAX, isTrail)
+  const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
@@ -421,7 +421,7 @@ export function computeRaceProjection(
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────
-  const freshness = computeFreshnessAdjustment(activities, FC_MAX)
+  const freshness = computeFreshnessAdjustment(activities as unknown as RaceActivity[], FC_MAX)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
     personalAdjustments.push({
