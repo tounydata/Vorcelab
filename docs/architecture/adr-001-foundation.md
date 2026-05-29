@@ -8,9 +8,17 @@
 
 ## Context
 
-Vorcelab is a personal running and trail analytics application. The current production baseline is still a static frontend built around `index.html`, `app.js`, `style.css`, `renfo.js`, Supabase Auth/Postgres/Edge Functions, and Strava OAuth.
+Vorcelab is a personal running and trail analytics application. The production
+frontend is a **React + Vite + TypeScript** SPA (`index.html` → `src/main.tsx`),
+backed by Supabase Auth/Postgres/Edge Functions and Strava OAuth.
 
-This document describes the current safe baseline after the multi-user and Strava security audit.
+The previous static monolith (`legacy.html` + root-level `.js` files) is kept as a
+deployed backup (`/Vorcelab/_legacy.html`) while the last shared modules are ported
+to `src/`. See `migration-plan.md`.
+
+This document describes the current safe baseline after the multi-user and Strava
+security audit. The security and data-ownership rules below are authoritative
+regardless of frontend.
 
 ---
 
@@ -103,6 +111,17 @@ Before adding major new features such as the renfo module, keep this baseline st
 
 ---
 
-## Future Architecture Option
+## Frontend Architecture (current)
 
-A future migration to React + Vite remains possible, but it is not the current production baseline. Any migration should preserve the same security model and data ownership rules described above.
+The production frontend is a React + Vite + TypeScript SPA. Migration from the
+static monolith is largely complete; the remaining work is tracked in
+`migration-plan.md`:
+
+- A few root `.js` modules are still imported by the React app as shared logic
+  (`gpx-core.js`, `race-predictor.js`, `renfo-program.js`, `renfo-data.js`) and
+  are being ported to typed `src/lib`.
+- `legacy.html` + the remaining root `.js` files are the old monolith, deployed
+  as a backup until the migration is fully retired.
+
+Any further migration must preserve the same security model and data ownership
+rules described above — and must port logic 1-for-1 (no behavior or UI change).
