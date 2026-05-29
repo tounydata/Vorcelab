@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 
 // Les modules legacy importent app-state.js (VLState / sb) — on le mocke.
-vi.mock('../app-state.js', () => ({
+vi.mock('../legacy/app-state.js', () => ({
   FC_MAX_DEFAULT: 205,
   VLState: { currentRaceContext: null, currentUser: null, userProfile: { pain_zones: [] }, allActivities: [], historyActivities: [], races: [] },
   sb: {},
@@ -14,10 +14,10 @@ import { buildSession as tsBuildSession, applyDUP as tsApplyDUP } from '../src/l
 import * as tsData from '../src/lib/renfoData'
 
 // Modules legacy d'origine (référence 1-pour-1)
-import * as jsGpx from '../gpx-core.js'
-import * as jsPred from '../race-predictor.js'
-import { buildSession as jsBuildSession, applyDUP as jsApplyDUP } from '../renfo-program.js'
-import * as jsData from '../renfo-data.js'
+import * as jsGpx from '../legacy/gpx-core.js'
+import * as jsPred from '../legacy/race-predictor.js'
+import { buildSession as jsBuildSession, applyDUP as jsApplyDUP } from '../legacy/renfo-program.js'
+import * as jsData from '../legacy/renfo-data.js'
 
 // ─── gpx-core : équivalence stricte ───────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeHTML, escapeAttr, safeUrl } from '../security.js';
+import { escapeHTML, escapeAttr, safeUrl } from '../legacy/security.js';
 
 describe('escapeHTML', () => {
   it('returns empty string for null', () => expect(escapeHTML(null)).toBe(''));

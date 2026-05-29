@@ -38,14 +38,10 @@ jobs:
           printf '<meta http-equiv="refresh" content="0;url=/Vorcelab/app/"><script>location.replace("/Vorcelab/app/")</script>' > .pages/index.html
           printf '<meta http-equiv="refresh" content="0;url=/Vorcelab/app/"><script>location.replace("/Vorcelab/app/")</script>' > .pages/404.html
 
-          # Assets partagés (legacy + React)
+          # Assets pour la page de redirection racine
           cp style.css  .pages/style.css
-          for f in *.js; do [ -f "$f" ] && cp "$f" ".pages/$f"; done
           [ -f og.svg ]      && cp og.svg      .pages/og.svg      || true
           [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
-
-          # Legacy — backup accessible à /Vorcelab/_legacy.html
-          cp legacy.html .pages/_legacy.html
 
           # React app
           cp -r dist/. .pages/app/
