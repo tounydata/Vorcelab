@@ -89,140 +89,64 @@ function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
 
-// ─── 7j Bar Chart (SVG) ───────────────────────────────────────────────────────
+// ─── Cette semaine (compact — remplace Bar7j) ────────────────────────────────
 
-function Bar7j({ activities, efPct, efLoading }: { activities: Activity2[]; efPct?: number | null; efLoading?: boolean }) {
+function CetteSemanineCompact({ activities, efPct, efLoading }: { activities: Activity2[]; efPct?: number | null; efLoading?: boolean }) {
   const now = new Date()
-  const LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
+  const DAY_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
     const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const acts = activities.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
     return {
-      label: LABELS[(d.getDay() + 6) % 7],
+      label: DAY_LABELS[(d.getDay() + 6) % 7],
       km: acts.reduce((s, a) => s + a.distance / 1000, 0),
       dp: acts.reduce((s, a) => s + (a.total_elevation_gain || 0), 0),
     }
   })
-
-  const maxKm = Math.max(...days.map((d) => d.km), 0.1)
-  const maxDp = Math.max(...days.map((d) => d.dp), 1)
-  const VW = 280, BH = 44, TH = 56, COL = 40
-
-  const dpPts = days.map((d, i) => ({
-    x: i * COL + COL / 2,
-    y: d.dp > 0 ? BH - (d.dp / maxDp) * BH * 0.88 : BH,
-  }))
-
-  const spline = (pts: { x: number; y: number }[]) => {
-    const cl = (v: number) => Math.max(0, Math.min(BH, v))
-    let path = `M${pts[0].x},${pts[0].y}`
-    const t = 0.18
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]
-      path += ` C${(p1.x + (p2.x - p0.x) * t).toFixed(1)},${cl(p1.y + (p2.y - p0.y) * t).toFixed(1)} ${(p2.x - (p3.x - p1.x) * t).toFixed(1)},${cl(p2.y - (p3.y - p1.y) * t).toFixed(1)} ${p2.x},${p2.y}`
-    }
-    return path
-  }
-
-  const lineD = spline(dpPts)
-  const areaD = lineD + ` L${dpPts[dpPts.length - 1].x},${BH} L${dpPts[0].x},${BH} Z`
-  const totalDp = days.reduce((s, d) => s + d.dp, 0)
   const totalKm = days.reduce((s, d) => s + d.km, 0)
+  const totalDp = days.reduce((s, d) => s + d.dp, 0)
   const runCount = days.filter((d) => d.km > 0).length
-
-  // % EF — calculé depuis les vrais streams HR (voir loadAerobicStat legacy)
+  const maxKm = Math.max(...days.map((d) => d.km), 0.1)
   const efColor = efPct == null ? 'var(--vl-text-3)' : efPct >= 75 ? 'var(--vl-growth)' : efPct < 50 ? 'var(--vl-ember)' : 'var(--vl-amber)'
-  const efLabel = efPct == null ? '' : efPct >= 75 ? 'AÉROBIE' : efPct < 50 ? 'TROP INTENSE' : 'MIXTE'
 
   return (
     <div className="card" style={{ marginBottom: '1.5rem' }}>
-      <div className="mlabel" style={{ marginBottom: 8, letterSpacing: '.14em' }}>COURSE · 7 DERNIERS JOURS</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '2.6rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>
-          {totalKm.toFixed(1)}
+      <div className="mlabel" style={{ marginBottom: 8, letterSpacing: '.14em' }}>CETTE SEMAINE</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 10, gap: 0 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '2.2rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>
+              {totalKm.toFixed(1)}
+            </div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-2)' }}>km</div>
+          </div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 3 }}>
+            {runCount} sortie{runCount > 1 ? 's' : ''} · D+ {Math.round(totalDp)} m
+          </div>
         </div>
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.7rem', color: 'var(--vl-text-2)' }}>km</div>
-      </div>
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginBottom: 12 }}>
-        {runCount} sortie{runCount > 1 ? 's' : ''} · D+ {Math.round(totalDp)} m
-      </div>
-      <svg
-        viewBox={`0 0 ${VW} ${TH}`}
-        preserveAspectRatio="none"
-        width="100%"
-        height={TH}
-        style={{ display: 'block', marginBottom: 8 }}
-      >
-        <path d={areaD} fill="var(--vl-growth)" opacity={0.18} />
-        <path d={lineD} fill="none" stroke="var(--vl-growth)" strokeWidth={1.5} opacity={0.5} strokeLinejoin="round" strokeLinecap="round" />
-        {days.map((d, i) => {
-          const h = d.km > 0 ? Math.max(4, (d.km / maxKm) * BH) : 2
-          return (
-            <rect
-              key={i}
-              x={i * COL + COL / 2 - 7}
-              y={BH - h}
-              width={14}
-              height={h}
-              rx={2}
-              fill={d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)'}
-            />
-          )
-        })}
-        {days.map((d, i) => (
-          <text
-            key={i}
-            x={i * COL + COL / 2}
-            y={TH - 1}
-            textAnchor="middle"
-            style={{ fontFamily: "'JetBrains Mono','IBM Plex Mono',monospace", fontSize: 9, fill: 'var(--vl-text-3)', letterSpacing: '.08em' }}
-          >
-            {d.label}
-          </text>
-        ))}
-      </svg>
-      <div style={{ background: 'var(--vl-surf-2)', borderRadius: 6, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        {/* Left: % EF */}
-        <div>
-          <div className="mlabel" style={{ fontSize: 8, margin: 0, letterSpacing: '.1em' }}>% EF · 7J</div>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 700, color: efColor, lineHeight: 1, marginTop: 2 }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: efColor, lineHeight: 1 }}>
             {efLoading ? '…' : efPct != null ? `${efPct}%` : '—'}
           </div>
-          {efLabel && (
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: efColor, marginTop: 2, fontWeight: 700 }}>
-              {efLabel}
-            </div>
-          )}
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: efColor, marginTop: 2 }}>% EF</div>
         </div>
-        {/* Right: D+ total */}
-        {totalDp > 0 && (
-          <div style={{ textAlign: 'right' }}>
-            <div className="mlabel" style={{ fontSize: 8, margin: 0, letterSpacing: '.1em' }}>D+ TOTAL</div>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--vl-growth)', lineHeight: 1, marginTop: 2 }}>
-              {Math.round(totalDp)}
-            </div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
+        {days.map((d, i) => (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: 2 }}>
+            <div style={{
+              width: '100%',
+              height: d.km > 0 ? `${Math.max(12, (d.km / maxKm) * 80)}%` : 3,
+              background: d.km > 0 ? 'var(--vl-ember)' : 'var(--vl-line)',
+              borderRadius: 2,
+            }} />
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>{d.label}</div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )
-}
-
-// ─── Statut d'entraînement (PMC : Fitness / Fatigue / Forme) ───────────────────
-
-// Catmull-Rom spline (tension 0.18) — pour la ligne CTL
-function chargeSpline(pts: { x: number; y: number }[], maxY: number): string {
-  if (pts.length < 2) return `M${pts[0]?.x ?? 0},${pts[0]?.y ?? maxY}`
-  const cl = (v: number) => Math.max(0, Math.min(maxY, v))
-  let path = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`
-  const t = 0.18
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]
-    path += ` C${(p1.x + (p2.x - p0.x) * t).toFixed(1)},${cl(p1.y + (p2.y - p0.y) * t).toFixed(1)} ${(p2.x - (p3.x - p1.x) * t).toFixed(1)},${cl(p2.y - (p3.y - p1.y) * t).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`
-  }
-  return path
 }
 
 // ─── Statut multi-facteurs (ACWR + tendance CTL + tendance EF) ───────────────
@@ -765,13 +689,24 @@ export default function DashboardPage() {
   const monthCutoffStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const renfoMonthCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= monthCutoffStr).map((r) => r.session_date))].length
 
-  const recent = runs.slice(0, 4)
+  const recent = runs.slice(0, 5)
 
   // Renfo count this week
   const weekCutoff = new Date(now)
   weekCutoff.setDate(now.getDate() - 7)
   const weekCutoffStr = weekCutoff.toISOString().slice(0, 10)
   const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekCutoffStr).map((r) => r.session_date))].length
+
+  // Mini-calendrier renfo — 7 derniers jours (run + renfo)
+  const WCAL_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
+  const renfo7days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
+    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const hasRun = activities.some(a => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
+    const hasRenfo = renfoLogs.some(r => r.session_date === ds)
+    return { label: WCAL_LABELS[(d.getDay() + 6) % 7], hasRun, hasRenfo, isToday: i === 6 }
+  })
+  const lastRenfoSession = renfoLogs.find(r => r.session_date && r.focus)
 
   // Co-périodisation
   const recentActs = activities
@@ -843,18 +778,49 @@ export default function DashboardPage() {
                   <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR RENFO →</div>
                 </Link>
               </div>
-              <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.75rem', marginTop: 2 }}>
+              <div className="mlabel" style={{ fontSize: 9, color: DUP4_COLORS[phase], marginBottom: '0.6rem', marginTop: 2 }}>
                 {DUP4_LABELS[phase]}
               </div>
+
+              {/* Mini-calendrier 7 derniers jours */}
+              <div style={{ display: 'flex', gap: 3, marginBottom: '0.6rem' }}>
+                {renfo7days.map((day, i) => (
+                  <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{
+                      height: 16, borderRadius: 3, marginBottom: 2,
+                      background: day.hasRenfo ? '#7c3aed55' : day.hasRun ? 'var(--vl-ember)22' : 'var(--vl-line)',
+                      border: day.isToday ? '1px solid var(--vl-ember)66' : '1px solid transparent',
+                    }} />
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: day.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
+                      {day.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dernière séance renfo */}
+              {lastRenfoSession && (
+                <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem' }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, fontWeight: 700, color: '#a78bfa' }}>
+                    {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus}
+                    {' · '}{lastRenfoSession.duration_min ?? '—'} min
+                    {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
+                  </div>
+                </div>
+              )}
+
+              {/* Avertissement co-périodisation */}
               {warnings.length > 0 && (
-                <div style={{ marginBottom: '0.75rem', padding: '6px 10px', borderLeft: `3px solid ${warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}` }}>
-                  <div className="mlabel" style={{ color: warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)', textTransform: 'none', letterSpacing: 0, fontSize: '0.8rem' }}>
+                <div style={{ marginBottom: '0.6rem', padding: '5px 8px', borderLeft: `3px solid ${warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}` }}>
+                  <div className="mlabel" style={{ color: warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)', textTransform: 'none', letterSpacing: 0, fontSize: '0.75rem' }}>
                     {warnings[0].message}
                   </div>
                 </div>
               )}
+
+              {/* 2 focus suggérés */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                {sortedFocuses.slice(0, 4).map((focus) => {
+                {sortedFocuses.slice(0, 2).map((focus) => {
                   const meta = FOCUS_META[focus]
                   if (!meta) return null
                   const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
@@ -881,8 +847,8 @@ export default function DashboardPage() {
           {/* ── COLONNE DROITE 40% : graphique 7j → stats mois + activités ── */}
           <div className="dash-col">
 
-            {/* 7j bar chart */}
-            {runs.length > 0 && <Bar7j activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
+            {/* Cette semaine — compact */}
+            {runs.length > 0 && <CetteSemanineCompact activities={activities} efPct={efData?.pct} efLoading={efLoading} />}
 
             {/* CE MOIS + DERNIÈRES SORTIES */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
