@@ -52,6 +52,18 @@
 
 **Dépendance structurante** : A est la **fondation** (les allures alimentent B, C, D). À construire en premier.
 
+**Nouveaux modules cibles** (pures fonctions `src/lib`, sans dépendance React ni signal appareil) :
+
+| Module | Épopée | Rôle |
+|---|---|---|
+| `paceEngine.ts` | A | VDOT/VMA/LTHR → allures E/M/T/I/R + zones FC (source de vérité des allures) |
+| `sessionGenerator.ts` | B | Fabrique de séances chiffrées (tempo/cruise/VO2/côte/race-pace…) |
+| `periodization.ts` | C | Macrocycle daté + `getCurrentPhase()` (source de vérité des phases) |
+| `coachContent.ts` | D | Contenu déterministe : motivation, glossaire, débrief, adhérence |
+| `safetyGuards.ts` | E | Douleur, surcharge multi-signaux, bien-être — **évalué en premier** |
+
+> Modules **à brancher** (existants) : `trainingLoad`, `runnerProfile`, `sessionQuality`, `computeRaceProjection`, `renfoUtils`, `crewPlan`, `nutritionPlan`, `streams`, `weather` (cf. tableau de maturité en bas).
+
 ---
 
 ## Épopée A — Moteur d'allures & zones (P0, fondation) 🔴
@@ -91,6 +103,18 @@ Aujourd'hui les séances sont **classées a posteriori** (`sessionQuality.ts`) m
 
 **Réutilise** : `sessionQuality.ts` (classification → boucle de validation post-séance), `runnerProfile.ts` (statut côte pour B3).
 
+### Spécification détaillée — module `src/lib/sessionGenerator.ts`
+
+**Modèle de données** : une séance = `Workout { type, intent, blocks: Block[], totalMin }` ; un bloc = `{ kind: 'warmup'|'main'|'recovery'|'cooldown', reps?, durationOrDistance, targetZone, paceRange, hrRange, rpe }`. Allures issues de **A2**, FC de **A4**, RPE par mapping de zone. Pures fonctions, sérialisable (persistable côté `profiles`/plan).
+
+- **B1 — Catalogue paramétrique.** `WorkoutType = 'easy'|'long'|'tempo'|'cruise'|'vo2_30_30'|'vo2_reps'|'race_pace'|'hill'|'strides'`. Chaque type est une fabrique `(params, paceZones) → Workout`. *AC* : `tempo(2×15min @ T)` rend 4 blocs chiffrés (échauffement + 2 mains + récup + retour).
+- **B2 — Seuil.** Plafond **≤10 % du km hebdo** (table T Couche 1). Si le volume seuil demandé dépasse le continu raisonnable (>~20 min d'un bloc), **auto-conversion en cruise** (5×1000 r1′, 4×6′ r1′30, 3×10′ r2′). *AC* : volume > plafond → fractionné équivalent généré, jamais dépassé.
+- **B3 — Côte + détection GPS.** Détecteur de segments montants sur streams/GPX (réutilise les buckets de pente de `runnerProfile.ts` : grade ≥ seuil, longueur min). Paramètres par objectif : **force** (8-15 %, 8-20 s, récup complète) · **puissance aérobie** (4-8 %, 1-3 min, r≈1:1) · **seuil/endurance-force** (3-6 %, 3-8 min). **Pilotage RPE/FC, jamais à l'allure** (la pente la fausse). *AC* : propose une côte réelle de l'athlète adaptée à l'objectif.
+- **B4 — Strides / hill sprints.** 6-10 × 15-20 s, insérés en fin de footing facile. **Classés « neuromusculaire », hors quota d'intensité 80/20** (C2) — ne comptent pas comme séance dure. *AC* : strides ajoutés sans déclencher l'alerte 80/20.
+- **B5 — « Pourquoi aujourd'hui ».** Génère 1-2 phrases reliant `intent` à la phase courante (**C1**) et à l'objectif ; rendu via le vocabulaire par niveau (**D2/D8**). *AC* : chaque séance générée porte son intention lisible.
+
+**Ordre interne** : B1 → (B2 ∥ B3 ∥ B4) → B5.
+
 ---
 
 ## Épopée C — Périodisation & charge adaptative (P1) 🟡
@@ -106,6 +130,19 @@ La **charge** existe (`trainingLoad.ts` : PMC, ACWR, TSB) ; manque l'**orchestra
 | **C5** | Re-calibrage dynamique | Mise à jour allures (A) après chaque test/course, propagée au plan | Nouveau test → plan recalculé | A, C1 |
 
 **Réutilise** : `trainingLoad.ts` (ACWR/PMC en entrée des alertes), `renfoUtils.ts` (DUP renfo + co-périodisation déjà bâtis → à synchroniser avec C1).
+
+### Spécification détaillée — module `src/lib/periodization.ts` (**source de vérité unique** des phases)
+
+**Modèle de données** : `Plan { goal: {distance, date}, phases: Phase[] }` ; `Phase { kind: 'base'|'build'|'specific'|'taper', weeks: Week[], intensityDistribution }`. Construit **à rebours** depuis la date d'objectif.
+
+- **C1 — Moteur de périodisation.** Entrées : distance cible, date, niveau, heures/sem dispo. Choix du modèle (Couche 1 §1) : **défaut pyramidal** (base/ultra/débutant), **polarisé** (build/athlète entraîné). Pondère les qualités par distance (5 km↔marathon, table Couche 4 vol. 4). **Résout le risque n°1** : expose `getCurrentPhase(date)` que **`renfoUtils.ts` consomme** au lieu de son `Date.now() % 4`. *AC* : un objectif daté génère un macrocycle daté, phases + deloads cohérents ; `renfoUtils` lit la même phase.
+- **C2 — Garde-fou 80/20.** Calcule la part d'intensité hebdo (planifié + réel via classification `sessionQuality.ts`). Détecte la **zone grise** (footing trop rapide vs allure E de A2). *AC* : alerte si intensité > ~20 % du volume.
+- **C3 — Deload auto.** Insertion ~toutes les 3-4 sem (-20/40 % volume) **et** déclenchement réactif si **E2** (ACWR + sRPE) signale une surcharge. *AC* : deload planifié + déclenchable, avec reframing « repos = perf » (D).
+- **C4 — Affûtage auto.** J-21→J-0 : volume -40/60 %, **intensité maintenue** (Bosquet/Mujika, Couche 1 §6). Synchronise le taper mental **D6**. *AC* : taper généré, intensité préservée.
+- **C5 — Re-calibrage dynamique.** Sur nouveau test/course (**A6**) → recalcul des allures → re-dérivation des cibles de **toutes** les séances futures du plan (propagation unique). *AC* : nouveau test → plan recalculé sans réécriture manuelle.
+
+**Action de dette ciblée** : remplacer dans `renfoUtils.ts` le cycle `Math.floor(Date.now()/(7×86400000)) % 4` par un appel à `periodization.getCurrentPhase()`.
+**Ordre interne** : C1 → (C2 ∥ C3) → C4 → C5.
 
 ---
 
@@ -124,6 +161,19 @@ Le matériel neuf de la recherche couche 4. Aucun code aujourd'hui.
 | **D7** | Coach audio (self-talk + segmentation) | Cues aux segments durs, découpage des longues | Injections sur la structure de séance (B) | §2 | B |
 | **D8** | Vocabulaire piloté par niveau | Même message en version simple/technique + déblocage progressif des métriques | Débutant ne voit pas la charge ; mode expert activable | §6 | D2 |
 
+### Spécification détaillée — `src/lib/coachContent.ts` (contenu) + composants UI
+
+Contenu **déterministe** (pas de génération IA — cohérent avec la règle maison). Aucune dépendance aux signaux appareil (🌙).
+
+- **D1 — Onboarding motivationnel.** Persiste `motivation: { why: 'sante'|'perf'|'social'|'bienetre', register }` + `intentions: { days[], time, place }` (implementation intentions). Calibre le **registre des messages**. *AC* : profil motivationnel + créneaux ancrés au plan.
+- **D2 — Glossaire contextuel.** Structure `Term { key, level1_ressenti, level2_analogie, level3_science }` (3 niveaux de lecture, progressive disclosure). *AC* : terme tappable, profondeur réglable.
+- **D3 — Saisie RPE + ressenti.** Formulaire post-séance (RPE 1-10 + plaisir + douleur) **avant** l'analyse. `sRPE = RPE × durée` → **alimente `trainingLoad.ts`** (readiness **active**). *AC* : saisie nourrit charge (C) / forme.
+- **D4 — Débrief formatif 3 temps.** Réutilise les insights de `sessionQuality.ts` → format **objectif → descriptif (data) → 1 seul conseil** (orienté processus). *AC* : un seul focus d'amélioration affiché.
+- **D5 — Adhérence.** Streak **hebdomadaire tolérante** (le repos ne casse pas la série) ; règle **« never miss twice »** : après séance manquée → message bienveillant + séance allégée. Détection de décrochage (baisse de fréquence) → relance empathique. *AC* : repos non puni ; relance au décrochage.
+- **D6 — Préparation mentale de course.** Visualisation du parcours réel (carte/profil via `computeRaceProjection`), constructeur de routine pré-course, **carnet de confiance** (rappel des meilleures séances récentes). Synchronisé au taper **C4**. *AC* : contenus déclenchés en semaine de taper.
+- **D7 — Coach audio.** Cues self-talk + segmentation injectés sur la structure de séance (**B**) aux segments durs. *(Plus lourd — candidat à un sprint ultérieur.)*
+- **D8 — Vocabulaire par niveau.** Paramètre `level` pilotant texte (simple/technique) + **déblocage progressif des métriques** + mode expert. *AC* : débutant ne voit pas la charge ; expert active les données brutes.
+
 ---
 
 ## Épopée E — Sécurité & garde-fous (P0, transversal) 🟡
@@ -134,6 +184,15 @@ Le matériel neuf de la recherche couche 4. Aucun code aujourd'hui.
 | **E2** | Détection surcharge multi-signaux | Croiser ACWR (✅) + RPE auto-déclaré (✅) + bien-être auto-déclaré (E3) — jamais un signal seul. **HRV/readiness = 🌙 dormant**, exclus du croisement | Surcharge → propose deload (C3), pas avant croisement de signaux **actifs** | 1, 4 |
 | **E3** | Check-in bien-être + burnout | Sommeil/humeur/plaisir/stress **auto-déclarés** (saisie manuelle) → signaux psy précoces (passion obsessive). Pas de mesure appareil | Signaux rouges → frein doux + reframing repos | 4 §5 |
 | **E4** | Garde-fous heuristiques exposés | Marquer ACWR / 10 % / cadence comme repères, pas lois (cohérent garde-fou Couche 1) | UI affiche l'incertitude | 1-4 |
+
+### Spécification détaillée — module `src/lib/safetyGuards.ts` (**priorité absolue dans le moteur**)
+
+- **E1 — Check-in douleur.** Échelle 0-10 par zone + **test du lendemain matin**. Seuils (Silbernagel) : 0-2 OK · 3-5 acceptable **si** stable/↓ et normal le lendemain · >5 ou ↑ → réduire/arrêter. **Drapeaux rouges** (douleur focale osseuse, au repos/nuit, boiterie) → **arrêt + orientation pro, non contournable, jamais de diagnostic**. *AC* : drapeau rouge bloque la prescription et oriente.
+- **E2 — Surcharge multi-signaux.** Croise **ACWR (✅) + sRPE auto-déclaré (✅) + bien-être auto-déclaré (E3)**. Exige **≥ 2 signaux concordants** avant d'alerter (jamais un seul). **HRV/readiness = 🌙 dormant, exclus.** Déclenche un deload **C3**. *AC* : pas d'alerte sur signal isolé ; surcharge confirmée → propose décharge.
+- **E3 — Check-in bien-être.** Sommeil/humeur/plaisir/stress **auto-déclarés** → signaux de burnout / passion obsessive (Couche 4 §5). **Aucune mesure appareil.** *AC* : signaux rouges → frein doux + reframing repos.
+- **E4 — Garde-fous heuristiques.** ACWR / règle des 10 % / cadence affichés comme **repères incertains**, pas des lois. *AC* : l'UI affiche l'incertitude.
+
+> **Règle d'ordre moteur** : `safetyGuards` s'évalue **avant** toute logique de performance (génération B, périodisation C). Un drapeau rouge ou une surcharge confirmée **prime** sur le plan.
 
 ---
 
