@@ -10,7 +10,7 @@
 
 | # | Dimension | Constat clé | Sévérité |
 |---|---|---|---|
-| 1 | CI/CD | Aucune CI ne lance tests ni lint (seul `deploy-pages.yml`) → déploiement sans garde-fou | 🔴 |
+| 1 | CI/CD | ~~Aucune CI ne lance tests ni lint~~ → **✅ FAIT** : `ci.yml` (lint + tests + build) sur PR & push | ✅ |
 | 2 | Tests | 219 tests verts, mais 5 modules critiques `src/lib` non couverts en TS | 🟠 |
 | 3 | Archi | ~40 fichiers JS legacy à la racine du dépôt + dossier `apps/web/` vestige | 🟠 |
 | 4 | Sécurité | RLS solide ✅ ; clé **anon** en dur (hygiène de config, **pas** une fuite) ; XSS/CGU à finaliser avant public | 🟡→🟠 |
@@ -62,7 +62,7 @@
 ## Roadmap priorisée
 
 ### Phase 0 — Garde-fous (P0, avant toute ouverture publique)
-1. **CI tests + lint** requise avant merge (#1).
+1. ✅ **CI tests + lint + build** (`.github/workflows/ci.yml`) — à rendre *required* dans les réglages de branche.
 2. **Audit XSS/innerHTML** complet + CSP (#4).
 3. **CGU/confidentialité** + branding Strava (#4).
 
