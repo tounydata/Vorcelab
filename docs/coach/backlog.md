@@ -17,6 +17,29 @@
 
 ---
 
+## Principe transversal — Fonctions dormantes
+
+> **Règle d'architecture** : certains signaux sont **prévus dans l'architecture** (interfaces, schéma de données, points d'extension) mais **le moteur actuel ne s'appuie PAS dessus** tant qu'une source de données réelle n'existe pas. On les marque **🌙 dormant**.
+
+**Pourquoi** : Vorcelab n'a **aujourd'hui aucun accès à l'API Garmin** (ni à un équivalent). Toute logique qui dépendrait de données appareil non disponibles serait du moteur « fantôme » — non testable, non fiable, trompeur.
+
+| Signal | Source | Statut | Règle moteur |
+|---|---|---|---|
+| **HRV** (VFC, Ln-rMSSD) | Appareil (Garmin/montre) | 🌙 **dormant** | Schéma + hook prévus ; **non consommé** par le moteur |
+| **Sommeil** (durée/qualité mesurée) | Appareil | 🌙 **dormant** | idem |
+| **Stress** (score continu) | Appareil | 🌙 **dormant** | idem |
+| **Readiness / Body Battery** | Garmin (propriétaire) | 🌙 **dormant** | idem — pas d'API, pas d'algo possible |
+| RPE, plaisir, douleur **auto-déclarés** | Saisie utilisateur | ✅ **actif** | input manuel, disponible aujourd'hui (D3/E1/E3) |
+| FC, allure, GPS, dénivelé, streams | Strava | ✅ **actif** | source de données réelle actuelle |
+| VO2max, FCmax, seuil **saisis** | Profil manuel | ✅ **actif** | déjà dans `ProfilePage` |
+
+**Implications concrètes :**
+- Le **moteur de surcharge (E2)** croise aujourd'hui **ACWR (✅) + RPE auto-déclaré (✅)** — **pas** HRV ni readiness (🌙). Le 3ᵉ signal « bien-être » de E2/E3 = **auto-déclaré** (sommeil/humeur ressentis saisis à la main), jamais mesuré appareil.
+- Prévoir une **interface `ReadinessSignal`** (ou équivalent) avec un flag `source: 'manual' | 'device'` et un **feature-flag global `DEVICE_SIGNALS_ENABLED = false`**, pour brancher Garmin le jour où l'API existe sans réécrire le moteur.
+- Toute mention de HRV/readiness dans les docs de couches (socle Couche 1, Couche 2/4) doit être **étiquetée 🌙 dormant** tant que la source n'est pas précisée.
+
+---
+
 ## Vue d'ensemble des épopées
 
 | Épopée | Thème | Couche(s) | Priorité | État global |
@@ -33,16 +56,24 @@
 
 ## Épopée A — Moteur d'allures & zones (P0, fondation) 🔴
 
-Le socle absent : sans allures individualisées, B/C/D ne peuvent pas chiffrer leurs prescriptions.
+Le socle absent : sans allures individualisées, B/C/D ne peuvent pas chiffrer leurs prescriptions. **Nouveau module : `src/lib/paceEngine.ts`** (pures fonctions, zéro dépendance React — comme le reste de `src/lib`).
+
+**Entrées (toutes disponibles aujourd'hui)** : course récente (distance + temps), test terrain, profil manuel (`profiles` stocke déjà `vo2max`, `fc_max`, `lactate` + ajouter `fc_repos`), streams Strava (FC/allure/GPS). **Aucune dépendance à des données Garmin** (voir principe « fonctions dormantes »).
+**Sorties** : VDOT, VMA/vVO2max, allures E/M/T/I/R (min/km), zones FC (3 référentiels), allure seuil unique, horodatage + confiance.
 
 | ID | Story | Détail | Critères d'acceptation | Dép. |
 |---|---|---|---|---|
-| **A1** | VDOT/VMA depuis une course récente | Saisie chrono → calcul VDOT (Daniels) → allures E/M/T/I/R | Une course récente produit les 5 plages d'allure + plages FC | — |
-| **A2** | Test terrain guidé | Protocole 30 min CLM (ou demi-Cooper) → allure seuil + LTHR (Friel) | Test complété → seuil & LTHR calés, recalage proposé toutes les 4-6 sem | A1 |
-| **A3** | Zones FC & allure unifiées | Exposer modèle de zones cohérent (Daniels + Friel + %VMA) | Chaque zone affiche allure + %FCmax + RPE | A1 |
-| **A4** | Définition unique du « seuil » | Trancher : T-pace Daniels = seuil 2 (~allure 1 h), info-bulle pédagogique | Terme « seuil » non ambigu dans toute l'UI | A3 |
+| **A1** | VDOT depuis une course récente | Formules Daniels-Gilbert : `VO2(v) = -4.60 + 0.182258·v + 0.000104·v²` (v en m/min) ; `%max(t) = 0.8 + 0.1894393·e^(-0.012778·t) + 0.2989558·e^(-0.1932605·t)` (t en min) ; `VDOT = VO2/%max` | 10 km en 50:00 → VDOT ≈ 40 (±0.5) ; distance hors [1500 m, marathon] → confiance dégradée ; temps incohérent rejeté | — |
+| **A2** | Allures d'entraînement depuis VDOT | Inverse de A1 par zone : résoudre `v` pour le %VDOT cible → allure. Zones Daniels E/M/T/I/R (% issus de la table Couche 1 : E 59-74, M 75-84, T 83-88, I 95-100, R >100 %VO2max) | VDOT 50 → T-pace ≈ 4:15/km (cohérent tables Daniels) ; 5 plages min/km produites | A1 |
+| **A3** | VMA / vVO2max via test terrain guidé | Protocoles : demi-Cooper (6 min → `VMA km/h = d(m)/100`), VAMEVAL (paliers), 30-min CLM. Conversion croisée VMA ↔ VDOT ; **flag si écart > 10 %** | 1500 m en 6 min → VMA 15 km/h ; recalage proposé toutes les 4-6 sem | — |
+| **A4** | LTHR + zones FC (3 référentiels) | Friel : LTHR = moy. FC des 20 dernières min d'un CLM 30 min. Karvonen : `FC = (FCmax−FCrepos)·i% + FCrepos`. Exposer %FCmax, %FCréserve, %LTHR (Friel 7 zones) | FCmax 190 / FCrepos 50 → Z2 60-70 %FCR = 134-148 bpm ; chaque zone affiche allure + FC + RPE | A2 |
+| **A5** | Allure seuil **unique** + extrapolation Riegel | Trancher : **seuil = T-pace Daniels (≈ allure 1 h) = seuil 2** (une seule constante, info-bulle pédagogique). Riegel `T2 = T1·(D2/D1)^1.06` pour prédire d'autres distances (recoupe `computeRaceProjection` sur plat) | Terme « seuil » non ambigu dans toute l'UI ; 10 km → semi extrapolé cohérent | A2 |
+| **A6** | Recalibrage dynamique & fraîcheur | VDOT/VMA/LTHR recalculés à chaque nouvelle course/test ; horodatés ; **flag « à retester » si > 6-8 sem**. Source de vérité unique consommée par B/C/D (= C5) | Nouvelle course → allures propagées au plan ; donnée périmée signalée | A1-A5 |
+| **A7** | Modèle de données & persistance | Étendre `profiles` : `vdot`, `vma`, `lthr`, `fc_repos`, `pace_source`, `measured_at`, `confidence`. Migration Supabase **RLS user-own** (cohérent avec l'existant) | Valeurs persistées + isolées par user ; lecture par le moteur | A1-A5 |
 
-**Réutilise** : `trainingLoad.ts` (FCmax déjà manipulé). **Nouveau module suggéré** : `src/lib/paceEngine.ts`.
+**Réutilise** : `trainingLoad.ts` (FCmax déjà manipulé) · `runnerProfile.ts` (VAM par bucket — orthogonal, le pace engine traite le plat de référence) · les champs `profiles.vo2max/fc_max/lactate` déjà saisis dans `ProfilePage`.
+**Garde-fou (E4)** : zones et VDOT = **repères individualisables**, pas des lois (variabilité inter-individus forte, surtout sur %VMA).
+**Ordre de build interne** : A1 → A2 → (A3 ∥ A4) → A5 → A6 → A7.
 
 ---
 
@@ -86,7 +117,7 @@ Le matériel neuf de la recherche couche 4. Aucun code aujourd'hui.
 |---|---|---|---|---|---|
 | **D1** | Onboarding motivationnel | Capter le « pourquoi » (TAD) + implementation intentions (jours/heures/lieux) | Profil motivationnel + créneaux ancrés au plan | §1, §3 | — |
 | **D2** | Glossaire contextuel + 3 niveaux de lecture | Termes techniques → définition + analogie + « pourquoi ça te concerne » | Chaque terme tappable, profondeur réglable | §6 | — |
-| **D3** | Saisie RPE + ressenti post-séance | RPE 1-10 + plaisir + douleur, **avant** l'analyse machine | Saisie alimente charge (C) / readiness / forme | §2, §6 | A |
+| **D3** | Saisie RPE + ressenti post-séance | RPE 1-10 + plaisir + douleur, **avant** l'analyse machine (sRPE = source de readiness **active**) | Saisie alimente charge (C) / forme (Couche 3) | §2, §6 | A |
 | **D4** | Débrief formatif en 3 temps | Objectif → descriptif (data) → 1 conseil ; orienté processus | Un seul focus d'amélioration par séance | §6 | D3 |
 | **D5** | Adhérence : streaks tolérantes + « never miss twice » | Régularité hebdo, message bienveillant après séance manquée | Repos non puni ; relance empathique au décrochage | §3 | — |
 | **D6** | Préparation mentale de course | Taper mental : visualisation parcours, routine pré-course, carnet de confiance | Synchronisé au taper physique (C4) | §4 | C4 |
@@ -100,8 +131,8 @@ Le matériel neuf de la recherche couche 4. Aucun code aujourd'hui.
 | ID | Story | Détail | Critères d'acceptation | Couche |
 |---|---|---|---|---|
 | **E1** | Check-in douleur + drapeaux rouges | Échelle 0-10 par zone + test du lendemain ; alertes graduées non contournables | Drapeau rouge → arrêt + orientation pro, jamais de diagnostic | 2, 4 |
-| **E2** | Détection surcharge multi-signaux | Croiser ACWR (✅) + RPE (D3) + bien-être (E3) — jamais un signal seul | Surcharge → propose deload (C3), pas avant croisement | 1, 4 |
-| **E3** | Check-in bien-être + burnout | Sommeil/humeur/plaisir → signaux psy précoces (passion obsessive) | Signaux rouges → frein doux + reframing repos | 4 §5 |
+| **E2** | Détection surcharge multi-signaux | Croiser ACWR (✅) + RPE auto-déclaré (✅) + bien-être auto-déclaré (E3) — jamais un signal seul. **HRV/readiness = 🌙 dormant**, exclus du croisement | Surcharge → propose deload (C3), pas avant croisement de signaux **actifs** | 1, 4 |
+| **E3** | Check-in bien-être + burnout | Sommeil/humeur/plaisir/stress **auto-déclarés** (saisie manuelle) → signaux psy précoces (passion obsessive). Pas de mesure appareil | Signaux rouges → frein doux + reframing repos | 4 §5 |
 | **E4** | Garde-fous heuristiques exposés | Marquer ACWR / 10 % / cadence comme repères, pas lois (cohérent garde-fou Couche 1) | UI affiche l'incertitude | 1-4 |
 
 ---
@@ -124,7 +155,7 @@ Maturité confirmée par audit fonctionnel `src/lib` (2026-05-30) :
 
 | Module | Statut | Couvre (vérifié) | Manque clé / à faire | Cible |
 |---|---|---|---|---|
-| `trainingLoad.ts` | ✅ | TRIMP (durée×intensité×D+), ATL τ=7j / CTL τ=42j (Bannister), TSB + 5 zones, ACWR lissé (Gabbett), PMC 90j | Pas de HRV ni readiness subjectif → brancher comme **entrée** de C2/E2 | C, E |
+| `trainingLoad.ts` | ✅ | TRIMP (durée×intensité×D+), ATL τ=7j / CTL τ=42j (Bannister), TSB + 5 zones, ACWR lissé (Gabbett), PMC 90j | HRV/readiness = 🌙 dormant (pas d'API Garmin) ; brancher RPE auto-déclaré (D3) comme **entrée** de C2/E2 | C, E |
 | `runnerProfile.ts` / `buildRunnerProfile.ts` | 🟡 | VAM/vitesse par bucket de pente, dérive cardiaque, recovery post-côte/descente, pénalités conditions (régression) | Fatigue descente = *scaffold* (`accumulatedDminusImpact` non calculé) ; **injury adapt absent** ; VO2max absent | B, 2 |
 | `computeRaceProjection.ts` | ✅ | Pace par bucket, pénalités drift/recovery, ajustement fraîcheur (ATL/CTL), range + score de confiance, comparaison objectif | Pas de critical speed ; **météo jour J non reliée** ; pas de re-planification dynamique | C, D |
 | `sessionQuality.ts` | ✅ | Classification post-hoc (9 types), dérive cardiaque, insights | **Ne génère pas** de séance (≠ Épopée B) ; pas de saisie RPE/débrief | B, D |

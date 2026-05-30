@@ -107,7 +107,7 @@ Cette couche 4 ajoute la **dimension psychologique et pédagogique** absente des
 
 ## 5. Burnout, surmotivation & overtraining psychologique
 
-> Complète la détection physiologique de surcharge (charge/ACWR Couche 1 ; recovery/HRV Couche 2) par ses **signaux psychologiques précoces**, souvent **antérieurs** aux marqueurs physio.
+> Complète la détection physiologique de surcharge (charge/ACWR Couche 1) par ses **signaux psychologiques précoces** — souvent **antérieurs** aux marqueurs physio. *Note : HRV/recovery appareil = 🌙 fonction dormante (pas d'API Garmin aujourd'hui, cf. backlog) ; on s'appuie sur le ressenti auto-déclaré, pas sur la mesure.*
 
 **Burnout athlétique (Raedeke & Smith, ABQ)** — 3 dimensions :
 1. Épuisement émotionnel et physique
@@ -121,7 +121,7 @@ Cette couche 4 ajoute la **dimension psychologique et pédagogique** absente des
 **Signaux psy à monitorer** : baisse de plaisir/motivation, cynisme envers l'entraînement, irritabilité, sommeil dégradé, culpabilité au repos, incapacité à manquer une séance.
 
 **Règles moteur :**
-- **Check-in bien-être** (sommeil, humeur, plaisir, stress) → score subjectif croisé avec ACWR (Couche 1) et HRV/readiness (Couche 2).
+- **Check-in bien-être** (sommeil, humeur, plaisir, stress — **auto-déclarés**, saisie manuelle) → score subjectif croisé avec ACWR (Couche 1). *HRV/readiness appareil = 🌙 dormant tant qu'il n'y a pas d'API Garmin — non utilisés par le moteur.*
 - Si plaisir/sommeil ↓ ou RPE↑ à charge constante → proposer **décharge** ou repos (déclenche le deload du moteur Couche 1).
 - **Reframing du repos comme performance** pour désamorcer la culpabilité.
 - Détection de **passion obsessive** (court malgré signaux rouges répétés, ignore tous les repos) → message éducatif + frein doux + garde-fous de sur-planification.
@@ -179,7 +179,7 @@ Ordre de résolution dans le moteur (la couche 4 **enveloppe** les sorties des c
    - **Avant** la séance → cadrage (« pourquoi aujourd'hui »), routine, niveau de langage adapté.
    - **Pendant** → self-talk, segmentation, cues (sur la structure Couche 1).
    - **Après** → saisie RPE + ressenti + plaisir + douleur, débrief formatif.
-3. Les **signaux subjectifs** (RPE, plaisir, anxiété, bien-être) remontent vers la charge (Couche 1), la readiness (Couche 2) et la forme (Couche 3) → boucle d'adaptation.
+3. Les **signaux subjectifs auto-déclarés** (RPE, plaisir, anxiété, bien-être) remontent vers la charge (Couche 1) et la forme (Couche 3) → boucle d'adaptation. *(Les signaux appareil — HRV, sommeil, readiness, Body Battery — sont 🌙 dormants : prévus dans l'archi, non consommés faute d'API Garmin.)*
 4. **Priorité de sécurité** : un signal psychologique rouge (burnout, passion obsessive, détresse) ou douleur déclenche frein/décharge/orientation **avant** toute logique de performance.
 
 **Trois principes directeurs du produit** (fil rouge) :
