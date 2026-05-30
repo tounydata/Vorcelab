@@ -6,14 +6,14 @@
 
 ## Légende des rattachements
 
-| Couche | Doc | Statut code repéré dans `src/lib` |
+| Couche | Doc | Statut code (vérifié dans `src/lib`) |
 |---|---|---|
-| 1 — Knowledge | `knowledge-base.md` | charge/PMC/ACWR/TSB ✅ · qualité séance ✅ · **allures/VDOT** 🔴 · **générateur séances** 🔴 |
-| 2 — Intelligence | `intelligence-layer.md` | profil coureur/ability ✅ · injury adaptation 🟡 · race strategy 🟡 |
+| 1 — Knowledge | `knowledge-base.md` | charge/PMC/ACWR/TSB ✅ · qualité séance ✅ (classification seule) · **allures/VDOT** 🔴 · **générateur séances** 🔴 |
+| 2 — Intelligence | `intelligence-layer.md` | profil coureur/ability 🟡 (buckets/dérive/recovery ✅, fatigue descente *scaffold*, injury adapt 🔴) · race strategy 🟡 |
 | 3 — Predictive | `predictive-layer.md` | fitness-fatigue ✅ · projection course ✅ · nutrition 🟡 · critical speed 🔴 |
 | 4 — Behavioral | `behavioral-layer.md` | **entièrement** 🔴 (aucun code) |
 
-> ⚠️ Les statuts code sont issus d'une lecture des **signatures** de `src/lib`, pas d'un audit fonctionnel. À confirmer en revue.
+> ✅ **Statuts vérifiés sur pièce** par un audit fonctionnel de `src/lib` (2026-05-30, preuves `fichier:ligne`). L'audit confirme l'alignement des épopées : **A=🔴, B=🔴, C=🟡, D=🔴, E=🟡** — pas de surprise majeure, et le risque d'intégration `renfoUtils` est prouvé (voir plus bas).
 
 ---
 
@@ -118,23 +118,29 @@ Le matériel neuf de la recherche couche 4. Aucun code aujourd'hui.
 
 ---
 
-## Ce qui est déjà bâti (à ne pas refaire — à brancher)
+## Ce qui est déjà bâti (vérifié — à ne pas refaire, à brancher)
 
-| Module existant | Couvre | À faire | Cible |
-|---|---|---|---|
-| `trainingLoad.ts` | PMC, ACWR, TSB, statut charge | Brancher comme **entrée** de C2/E2 | C, E |
-| `runnerProfile.ts` / `buildRunnerProfile.ts` | Efficience, statut côte/descente/plat, dérive | Alimenter B3 (détection côte) et l'ability model | B, 2 |
-| `sessionQuality.ts` | Classification + insights post-séance | Boucler avec D4 (débrief) | B, D |
-| `computeRaceProjection.ts` | Projection depuis GPX | Relier à C5 (recalibrage) et D6 | C, D |
-| `renfoUtils.ts` | DUP renfo, co-périodisation, e1RM, deload | **Synchroniser** avec C1 (éviter deux périodisations divergentes) | C |
-| `crewPlan.ts` / `nutritionPlan.ts` | Crew/ravito + nutrition course | Relier à D6 (plan de course) | D |
+Maturité confirmée par audit fonctionnel `src/lib` (2026-05-30) :
 
-> **Risque d'intégration n°1** : `renfoUtils.ts` porte déjà une périodisation (DUP 4 phases). C1 ne doit pas créer une **seconde** logique de périodisation concurrente — elles doivent partager le même calendrier de phases/deload.
+| Module | Statut | Couvre (vérifié) | Manque clé / à faire | Cible |
+|---|---|---|---|---|
+| `trainingLoad.ts` | ✅ | TRIMP (durée×intensité×D+), ATL τ=7j / CTL τ=42j (Bannister), TSB + 5 zones, ACWR lissé (Gabbett), PMC 90j | Pas de HRV ni readiness subjectif → brancher comme **entrée** de C2/E2 | C, E |
+| `runnerProfile.ts` / `buildRunnerProfile.ts` | 🟡 | VAM/vitesse par bucket de pente, dérive cardiaque, recovery post-côte/descente, pénalités conditions (régression) | Fatigue descente = *scaffold* (`accumulatedDminusImpact` non calculé) ; **injury adapt absent** ; VO2max absent | B, 2 |
+| `computeRaceProjection.ts` | ✅ | Pace par bucket, pénalités drift/recovery, ajustement fraîcheur (ATL/CTL), range + score de confiance, comparaison objectif | Pas de critical speed ; **météo jour J non reliée** ; pas de re-planification dynamique | C, D |
+| `sessionQuality.ts` | ✅ | Classification post-hoc (9 types), dérive cardiaque, insights | **Ne génère pas** de séance (≠ Épopée B) ; pas de saisie RPE/débrief | B, D |
+| `renfoUtils.ts` | 🟡 | DUP 4 phases (force/volume/puissance/deload), co-périodisation (réactive), e1RM, suggestion de charge | **Périodisation autonome non synchronisée** (voir risque ci-dessous) | C |
+| `crewPlan.ts` | ✅ | Extraction waypoints GPX, checkpoints crew, vigilance côtes, estimations temps | Pas de stratégie eau/sucre par phase | D |
+| `nutritionPlan.ts` | 🟡 | Cibles glucides par profil/durée, timing repas, sources citées | Hydratation/sudation, tolérance GI, ajustement météo jour J | D |
+| `streams.ts` / `weather.ts` | ✅ | Cache streams Strava ; météo Open-Meteo + temp Strava | `weather.ts` **non relié à `computeRaceProjection`** (météo jour J) | C, 3 |
+
+> **Risque d'intégration n°1 (prouvé)** : `renfoUtils.ts` porte déjà une périodisation DUP qui tourne **en autonomie** sur un cycle de 4 semaines calé sur l'horloge (`Math.floor(Date.now() / (7×86400000)) % 4`), **sans aucun lien** avec l'ACWR/PMC de `trainingLoad.ts`. Une phase « force » peut donc tomber en pleine surcharge ou en fenêtre de récupération. L'Épopée **C1** ne doit **pas** créer une seconde logique concurrente : le moteur de périodisation course doit devenir la **source de vérité unique** du calendrier de phases/deload, que `renfoUtils` consomme.
+
+> **Branchement rapide repéré** : `weather.ts` existe et est déjà utilisé par `buildRunnerProfile` (pénalités historiques) mais **pas** par `computeRaceProjection` → ajouter l'ajustement météo **jour J** est un quick win à faible coût (rattaché Couche 3 « ajustements environnementaux »).
 
 ---
 
 ## Notes de portée
 
 - Backlog **produit**, pas planning d'ingénierie : pas d'estimation en jours ni d'assignation.
-- Statuts code « ✅/🟡/🔴 » fondés sur les **signatures** de `src/lib` ; un audit fonctionnel (Épopée d'audit séparée) les confirmera.
+- Statuts code « ✅/🟡/🔴 » **vérifiés** par audit fonctionnel de `src/lib` (2026-05-30) ; les statuts d'épopées sont confirmés sans surprise.
 - Toute la couche 4 (D + E3) doit respecter le garde-fou : **accompagnement comportemental, jamais clinique** — orientation pro en cas de détresse réelle.
