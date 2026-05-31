@@ -36,10 +36,11 @@ function Badge({ kind }: { kind: Exclude<BadgeKind, null> }) {
   )
 }
 
-function SessionCard({ entry, badge }: { entry: CatalogEntry; badge: BadgeKind }) {
+function SessionCard({ entry, badge, onSelect }: { entry: CatalogEntry; badge: BadgeKind; onSelect?: (e: CatalogEntry) => void }) {
   return (
     <button
       className="card"
+      onClick={() => onSelect?.(entry)}
       style={{
         display: 'block', width: '100%', textAlign: 'left', marginBottom: '0.75rem',
         cursor: 'pointer', border: badge === 'recommended' ? '1px solid var(--vl-ember)' : undefined,
@@ -64,7 +65,11 @@ function SessionCard({ entry, badge }: { entry: CatalogEntry; badge: BadgeKind }
  * Catalogue de séances (choix-first) : l'athlète parcourt et choisit librement.
  * Les badges (issus de recommendSessions) ne sont qu'une indication douce.
  */
-export default function SessionCatalog({ vdot, ctx }: { vdot: number; ctx: RecommendContext }) {
+export default function SessionCatalog({ vdot, ctx, onSelect }: {
+  vdot: number
+  ctx: RecommendContext
+  onSelect?: (e: CatalogEntry) => void
+}) {
   const entries = buildCatalog(vdot)
   const recs = recommendSessions(entries.map((e) => e.category), ctx)
   const badgeByCat = new Map(recs.map((r) => [r.category, r.badge]))
@@ -72,7 +77,7 @@ export default function SessionCatalog({ vdot, ctx }: { vdot: number; ctx: Recom
   return (
     <div>
       {entries.map((e) => (
-        <SessionCard key={e.category} entry={e} badge={badgeByCat.get(e.category) ?? null} />
+        <SessionCard key={e.category} entry={e} badge={badgeByCat.get(e.category) ?? null} onSelect={onSelect} />
       ))}
     </div>
   )

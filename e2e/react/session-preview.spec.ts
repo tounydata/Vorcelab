@@ -1,23 +1,28 @@
 import { test, expect } from '@playwright/test'
 
-// Écran de séance — aperçu public du profil d'intensité (UI tranche 1)
+// Écran de séance — aperçu public choix-first (catalogue → détail)
 test.describe('Aperçu des séances', () => {
-  test('rend les profils d\'intensité sans erreur JS', async ({ page }) => {
+  test('catalogue choix-first + navigation vers le détail, sans erreur JS', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
     await page.goto('/Vorcelab/app/#/preview/session')
 
     await expect(page.getByRole('heading', { name: 'Aperçu des séances' })).toBeVisible()
-    // Carte « Mes allures » (allures réelles dérivées d'un record)
+    // Allures réelles dérivées d'un record
     await expect(page.getByText('MES ALLURES')).toBeVisible()
-    // Catalogue choix-first + badge de recommandation
+    // Catalogue + badge de recommandation (choix-first)
     await expect(page.getByText('CATALOGUE — TU CHOISIS')).toBeVisible()
     await expect(page.getByText('✦ Recommandée').first()).toBeVisible()
-    // Au moins un profil d'intensité rendu
-    await expect(page.getByRole('img', { name: "Profil d'intensité" }).first()).toBeVisible()
-    // Les 5 séances d'exemple
-    expect(await page.getByRole('img', { name: "Profil d'intensité" }).count()).toBe(5)
+
+    // Carte → détail : on choisit une séance, le profil s'affiche
+    await page.getByText('Footing facile').click()
+    await expect(page.getByRole('button', { name: /Retour au catalogue/ })).toBeVisible()
+    await expect(page.getByRole('img', { name: "Profil d'intensité" })).toBeVisible()
+
+    // Retour au catalogue
+    await page.getByRole('button', { name: /Retour au catalogue/ }).click()
+    await expect(page.getByText('CATALOGUE — TU CHOISIS')).toBeVisible()
 
     expect(pageErrors, 'aucune erreur JS non gérée').toHaveLength(0)
   })
