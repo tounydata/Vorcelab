@@ -3,6 +3,8 @@
 > Vue d'ensemble des modules, des **sources de vérité**, des flux de données et de **l'ordre d'évaluation**.
 > Principe directeur : moteur **déterministe** (aucune IA), pures fonctions `src/lib`, **aucune dépendance aux signaux appareil** (cf. fonctions dormantes). Daté 2026-05-30.
 
+> 🔄 **Consolidation (2026-05-31)** : le moteur s'appuie désormais sur l'engine existant **`src/lib/coach/`** (`workouts.ts` = catalogue source de vérité des séances, `planGenerator.ts` = phases/plan, source de vérité de la périodisation). Les modules redondants `periodization.ts` et `sessionCatalog.ts` ont été **retirés**. Mes apports uniques restent et se branchent dessus : `paceEngine` (allures), `structureWorkout` (template → blocs chiffrés), `sessionRecommender` (badges choix-first sur `WORKOUTS`), `safetyGuards`, `coachContent`.
+
 ---
 
 ## 1. Carte des modules par couche

@@ -13,7 +13,6 @@ import {
   type ExerciseLog,
   type SessionLog,
 } from '../src/lib/renfoUtils'
-import { strengthFocusForPhase } from '../src/lib/periodization'
 
 // ─── get4WeekPhase ────────────────────────────────────────────────────────────
 
@@ -44,11 +43,6 @@ describe('get4WeekPhase', () => {
     expect(get4WeekPhase('deload')).toBe('deload')
     expect(get4WeekPhase('puissance')).toBe('puissance')
     vi.restoreAllMocks()
-  })
-
-  it('la phase de periodization pilote renfo (câblage source de vérité)', () => {
-    const focus = strengthFocusForPhase({ index: 3, startDate: '2026-01-01', phase: 'base', deload: true })
-    expect(get4WeekPhase(focus)).toBe('deload')
   })
 
   it('week 1 → volume', () => {

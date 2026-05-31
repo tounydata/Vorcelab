@@ -16,7 +16,7 @@ test.describe('Aperçu des séances', () => {
     await expect(page.getByText('✦ Recommandée').first()).toBeVisible()
 
     // Carte → détail : on choisit une séance, le profil s'affiche
-    await page.getByText('Footing facile').click()
+    await page.getByText('Endurance fondamentale').click()
     await expect(page.getByRole('button', { name: /Retour au catalogue/ })).toBeVisible()
     await expect(page.getByRole('img', { name: "Profil d'intensité" })).toBeVisible()
 
