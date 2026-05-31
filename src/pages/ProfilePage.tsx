@@ -564,6 +564,8 @@ export default function ProfilePage() {
       {/* ── Tab COMPTE ── */}
       {activeTab === 'compte' && (
         <>
+          <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
+
           {/* Card COMPTE */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div className="clabel" style={{ marginBottom: '0.75rem' }}>COMPTE</div>
@@ -882,8 +884,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
-
-              <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
 
               {rp && (
                 <>
