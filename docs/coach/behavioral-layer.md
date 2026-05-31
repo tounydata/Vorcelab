@@ -182,10 +182,11 @@ Ordre de résolution dans le moteur (la couche 4 **enveloppe** les sorties des c
 3. Les **signaux subjectifs auto-déclarés** (RPE, plaisir, anxiété, bien-être) remontent vers la charge (Couche 1) et la forme (Couche 3) → boucle d'adaptation. *(Les signaux appareil — HRV, sommeil, readiness, Body Battery — sont 🌙 dormants : prévus dans l'archi, non consommés faute d'API Garmin.)*
 4. **Priorité de sécurité** : un signal psychologique rouge (burnout, passion obsessive, détresse) ou douleur déclenche frein/décharge/orientation **avant** toute logique de performance.
 
-**Trois principes directeurs du produit** (fil rouge) :
+**Principes directeurs du produit** (fil rouge) :
 1. **Personnaliser le registre motivationnel** (TAD) selon le « pourquoi » de chaque athlète.
 2. **Feedback fondé sur le subjectif** autant que sur la FC/allure.
 3. **Bienveillance & identité** : écarts, repos et blessures traités sans culpabilisation = meilleur prédicteur d'adhérence et protection anti-burnout.
+4. **Pull, pas push** : l'engagement est *tiré* (info utile consultée dans l'app), jamais *poussé*. **Abandonné** (décision actée — benchmark UX) : célébrations pop-up, notifications « motivantes » automatiques, « chapitre de la semaine » scripté, streaks quotidiens. Ils deviennent du bruit qu'on ignore et sapent la motivation intrinsèque. La couche 4 vit **dans le flux** (le « pourquoi » d'une séance, le débrief à 1 conseil, le ton adapté), pas en interruptions. Détail dans `ui-spec.md`.
 
 ---
 
