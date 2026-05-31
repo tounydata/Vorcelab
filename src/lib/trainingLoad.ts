@@ -1,7 +1,10 @@
 // Port exact de training-load.js
 // Charge d'entraînement — charge aiguë 7j, charge de fond 42j, ratio, tendance
 
-const FC_MAX_DEFAULT = 185
+import { FC_MAX_FALLBACK } from './fcMax'
+
+// FCmax = individuelle ; ce repère n'est qu'un dernier recours (cf. fcMax.ts).
+const FC_MAX_DEFAULT = FC_MAX_FALLBACK
 const TRAIL_TYPES = ['TrailRun', 'Trail Run']
 const MS_7D  =  7 * 86_400_000
 const MS_14D = 14 * 86_400_000

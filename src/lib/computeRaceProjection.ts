@@ -7,6 +7,7 @@ import { hav, minettiGradePenalty, buildDetailedSections } from './gpxCore'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
+import { resolveFcMax } from './fcMax'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -122,7 +123,7 @@ export function computeRaceProjection(
   }
 
   // ── 6. Base pace ──────────────────────────────────────────────────────────
-  const FC_MAX = (profile.fc_max as number | undefined) ?? 205
+  const FC_MAX = resolveFcMax(profile.fc_max, activities)
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 

@@ -1,7 +1,10 @@
 // Port exact de session-quality.js — Étape 4
 // Classification de séance et dérive cardiaque. Algorithmique, sans IA.
 
-const FC_MAX_DEFAULT = 185
+import { FC_MAX_FALLBACK } from './fcMax'
+
+// FCmax = individuelle ; ce repère n'est qu'un dernier recours (cf. fcMax.ts).
+const FC_MAX_DEFAULT = FC_MAX_FALLBACK
 const TRAIL_TYPES = ['TrailRun', 'Trail Run']
 
 export interface ActivityForClassify {
