@@ -108,7 +108,8 @@ export function recommendSessions(
     let reason = ''
     if (i === topIdx) {
       badge = 'recommended'
-      reason = ctx.phase ? `Colle à ta phase « ${ctx.phase} »` : 'Bon choix aujourd’hui'
+      const favored = ctx.phase ? PHASE_FAVORS[ctx.phase].includes(r.category) : false
+      reason = favored ? `Colle à ta phase « ${ctx.phase} »` : 'Bon équilibre pour aujourd’hui'
     } else if (highLoad(ctx) && hardness === 'easy') {
       badge = 'recovery'
       reason = 'Charge élevée — une séance facile fait du bien'

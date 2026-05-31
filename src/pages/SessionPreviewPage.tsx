@@ -1,5 +1,6 @@
 import SessionProfile from '../components/SessionProfile'
 import PaceZonesCard from '../components/PaceZonesCard'
+import SessionCatalog from '../components/SessionCatalog'
 import { easyRun, tempoRun, cruiseIntervals, vo2_30_30, hillSession } from '../lib/sessionGenerator'
 
 // Aperçu public des séances générées (route additive, sans authentification ni données).
@@ -21,6 +22,11 @@ export default function SessionPreviewPage() {
         Profils d'intensité générés (VDOT {VDOT}) — démonstration du moteur de séances.
       </p>
       <PaceZonesCard prs={{ '10k': { timeS: 2400, dist: 10000 } }} fcMax={190} />
+
+      <div className="clabel" style={{ margin: '8px 0 10px' }}>CATALOGUE — TU CHOISIS</div>
+      <SessionCatalog vdot={VDOT} ctx={{ phase: 'build', daysSinceHard: 1, recentCategories: ['tempo'] }} />
+
+      <div className="clabel" style={{ margin: '20px 0 10px' }}>DÉTAIL D'UNE SÉANCE</div>
       {SAMPLES.map((w, i) => (
         <SessionProfile key={i} workout={w} />
       ))}

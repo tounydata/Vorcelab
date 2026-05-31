@@ -3,6 +3,8 @@
 > Issue d'un benchmark (Campus Coach, Runna, Nike Run Club, Garmin Coach, TrainingPeaks, Strava, adidas Running, Wahoo SYSTM, Decathlon Coach) croisé avec la couche comportementale (couche 4).
 > Posture **imposée** : déterministe (aucune IA), **pull-pas-push**, anti-pop-up, anti-fatigue de notifications. Daté 2026-05-31.
 
+> 🎨 **Identité visuelle** : Campus Coach (et les autres apps citées) sont une **référence FONCTIONNELLE uniquement** (ce qui marche). La **direction artistique est 100 % Vorcelab** : identité « laboratoire du coureur », display condensé (Big Shoulders/Bebas), labels mono majuscules, palette sombre+crème / ember-growth-amber, cartes sobres (pas de hero photo plein écran). **Naming des séances : descriptif clair** (« Tempo — seuil », « VO2max 30/30 »), jamais de noms créatifs façon autre app.
+
 ## Principe directeur
 
 L'engagement vient de **l'outil qui est bon**, pas d'un habillage de jeu. Toute information d'engagement est **tirée** (consultée dans l'app), jamais **poussée** (notification/pop-up). Les célébrations scriptées et messages « motivationnels » automatiques sont **bannis** (cf. anti-patterns).
