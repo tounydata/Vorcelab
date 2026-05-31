@@ -20,6 +20,14 @@ test.describe('Aperçu des séances', () => {
     await expect(page.getByRole('button', { name: /Retour au catalogue/ })).toBeVisible()
     await expect(page.getByRole('img', { name: "Profil d'intensité" })).toBeVisible()
 
+    // Feedback post-séance non anxiogène : validation → ressenti → douleur opt-in
+    await page.getByRole('button', { name: 'Valider ma séance' }).click()
+    await expect(page.getByText("Comment c'était ?")).toBeVisible()
+    await page.getByRole('button', { name: /Dur/ }).click()
+    await expect(page.getByText(/Qu'est-ce qui a coincé/)).toBeVisible()
+    await page.getByRole('button', { name: 'Douleur' }).click()
+    await expect(page.getByText(/Niveau de douleur/)).toBeVisible()
+
     // Retour au catalogue
     await page.getByRole('button', { name: /Retour au catalogue/ }).click()
     await expect(page.getByText('CATALOGUE — TU CHOISIS')).toBeVisible()

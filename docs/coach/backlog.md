@@ -29,6 +29,7 @@
 | **Sommeil** (durée/qualité mesurée) | Appareil | 🌙 **dormant** | idem |
 | **Stress** (score continu) | Appareil | 🌙 **dormant** | idem |
 | **Readiness / Body Battery** | Garmin (propriétaire) | 🌙 **dormant** | idem — pas d'API, pas d'algo possible |
+| **Export séance → montre** | API montre (Garmin/Coros) | 🌙 **dormant** | `watchExport.ts` : conversion codée+testée, livraison désactivée (`WATCH_EXPORT_ENABLED=false`), jamais appelée |
 | RPE, plaisir, douleur **auto-déclarés** | Saisie utilisateur | ✅ **actif** | input manuel, disponible aujourd'hui (D3/E1/E3) |
 | FC, allure, GPS, dénivelé, streams | Strava | ✅ **actif** | source de données réelle actuelle |
 | VO2max, FCmax, seuil **saisis** | Profil manuel | ✅ **actif** | déjà dans `ProfilePage` |
