@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fmtP, fmtD, fmtT, isRun } from '../formatters.js';
+import { fmtP, fmtD, fmtT, isRun } from '../legacy/formatters.js';
 
 describe('fmtP (pace formatter — m/s → min:sec/km)', () => {
   it('returns -- for speed 0', () => expect(fmtP(0)).toBe('--'));

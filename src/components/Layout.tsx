@@ -63,6 +63,20 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/coach',
+    label: 'Coach',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" /><polygon points="14.5 9.5 9.5 11.5 9.5 14.5 14.5 12.5" />
+      </svg>
+    ),
+    mobileIcon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" /><polygon points="14.5 9.5 9.5 11.5 9.5 14.5 14.5 12.5" />
+      </svg>
+    ),
+  },
+  {
     to: '/race',
     label: 'Calendrier',
     icon: (

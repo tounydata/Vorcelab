@@ -9,7 +9,7 @@ import {
   type SessionLog,
 } from '../lib/renfoUtils'
 // @ts-ignore
-import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../renfo-data.js'
+import { FOCUS_META, RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
 const ALL_FOCUSES = [
   'force_lourde','pliometrie','excentrique','tronc',

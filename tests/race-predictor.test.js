@@ -1,12 +1,12 @@
 import { vi, describe, it, expect } from 'vitest';
 
-vi.mock('../app-state.js', () => ({
+vi.mock('../legacy/app-state.js', () => ({
   FC_MAX_DEFAULT: 205,
   VLState: { currentUser: null, userProfile: { pain_zones: [] }, allActivities: [], historyActivities: [], races: [] },
   sb: {},
 }));
 
-import { computeFreshnessAdjustment, computeProgressionFactor } from '../race-predictor.js';
+import { computeFreshnessAdjustment, computeProgressionFactor } from '../legacy/race-predictor.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
