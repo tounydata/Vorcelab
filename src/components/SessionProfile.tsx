@@ -27,8 +27,9 @@ function fmtDur(sec: number): string {
 }
 
 function BlockRow({ block }: { block: Block }) {
+  // Allure cible exprimée en fourchette ±15 s/km.
   const detail = block.paceSecPerKm
-    ? `${formatPace(block.paceSecPerKm)}/km`
+    ? `${formatPace(block.paceSecPerKm - 15)}–${formatPace(block.paceSecPerKm + 15)}/km`
     : typeof block.rpe === 'number'
       ? `RPE ${block.rpe}`
       : ''

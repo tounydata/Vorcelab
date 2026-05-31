@@ -10,7 +10,7 @@ import type { RecommendContext } from '../lib/sessionRecommender'
  * choisit une carte → voit le profil → peut valider et donner un ressenti.
  * État local, réutilisable (aperçu public ET page authentifiée).
  */
-export default function SessionBrowser({ vdot, ctx, trail }: { vdot: number; ctx: RecommendContext; trail?: boolean }) {
+export default function SessionBrowser({ entries, ctx }: { entries: CatalogEntry[]; ctx: RecommendContext }) {
   const [selected, setSelected] = useState<CatalogEntry | null>(null)
   const [validated, setValidated] = useState(false)
 
@@ -23,7 +23,7 @@ export default function SessionBrowser({ vdot, ctx, trail }: { vdot: number; ctx
     return (
       <div>
         <button className="hbtn" onClick={() => select(null)} style={{ marginBottom: 12 }}>
-          ← Retour au catalogue
+          ← Retour
         </button>
         <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, color: 'var(--vl-text)', margin: '0 0 4px' }}>
           {selected.template.name}
@@ -41,5 +41,5 @@ export default function SessionBrowser({ vdot, ctx, trail }: { vdot: number; ctx
     )
   }
 
-  return <SessionCatalog vdot={vdot} ctx={ctx} trail={trail} onSelect={select} />
+  return <SessionCatalog entries={entries} ctx={ctx} onSelect={select} />
 }
