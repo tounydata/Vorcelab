@@ -26,4 +26,12 @@ describe('structureWorkout', () => {
     const w = structureWorkout(t, 50)
     expect(w.totalMin).toBe(t.baseDurationMin)
   })
+
+  it('alignement knowledge-base : les types spécifiques sont au catalogue', () => {
+    for (const id of ['block_choc_d1', 'block_choc_d2', 'billat_30_30', 'roche_1_1', 'hill_30_30', 'marathon_pace']) {
+      const t = getWorkout(id)
+      expect(t, `template ${id} manquant`).toBeDefined()
+      expect(structureWorkout(t!, 50).blocks.length).toBeGreaterThan(0)
+    }
+  })
 })

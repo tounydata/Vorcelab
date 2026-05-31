@@ -158,6 +158,55 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     phases: ['race'],
     description: 'Footing très court avec quelques lignes. Active les jambes sans fatiguer.',
   },
+  // ── Alignement knowledge-base §7 : types spécifiques manquants ──
+  {
+    id: 'block_choc_d1',
+    name: 'Bloc choc — jour 1',
+    system: 'long', intensity: 'moderate', terrain: 'uphill',
+    baseDurationMin: 240, climbing: true, trailOnly: true,
+    phases: ['specific'],
+    description: 'Double sortie longue (1/2) : grosse sortie trail. À enchaîner avec le jour 2 sous 72 h. Surcharge spécifique ultra (B2B).',
+  },
+  {
+    id: 'block_choc_d2',
+    name: 'Bloc choc — jour 2',
+    system: 'long', intensity: 'moderate', terrain: 'uphill',
+    baseDurationMin: 150, climbing: true, trailOnly: true,
+    phases: ['specific'],
+    description: 'Double sortie longue (2/2) : le lendemain, sur jambes fatiguées. Durabilité musculaire spécifique ultra.',
+  },
+  {
+    id: 'billat_30_30',
+    name: '30/30 (Billat)',
+    system: 'vo2max', intensity: 'hard', terrain: 'flat',
+    baseDurationMin: 45, climbing: false,
+    phases: ['build', 'specific'],
+    description: 'Ex : 2×(10×30 s à VMA / 30 s footing). Accumule du temps proche de VO2max avec une fatigue gérée.',
+  },
+  {
+    id: 'roche_1_1',
+    name: 'VO2 court 1/1 (Roche)',
+    system: 'vo2max', intensity: 'hard', terrain: 'any',
+    baseDurationMin: 45, climbing: false,
+    phases: ['build', 'specific'],
+    description: '16×[1 min à VMA / 1 min footing flottant]. Puissance aérobie en format fluide, utilisable toute l\'année.',
+  },
+  {
+    id: 'hill_30_30',
+    name: '30/30 en côte',
+    system: 'hills', intensity: 'hard', terrain: 'uphill',
+    baseDurationMin: 45, climbing: true,
+    phases: ['build', 'specific'],
+    description: 'Ex : 12×(30 s intense en côte / 45 s footing lent pour redescendre). Puissance et force spécifique en montée.',
+  },
+  {
+    id: 'marathon_pace',
+    name: 'Spécifique allure marathon',
+    system: 'tempo', intensity: 'moderate', terrain: 'rolling',
+    baseDurationMin: 80, climbing: false,
+    phases: ['specific'],
+    description: 'Blocs à allure marathon (ex : 5×[½ mile seuil + ½ mile allure marathon]). Spécificité course route.',
+  },
 ] as const
 
 const WORKOUT_BY_ID = new Map(WORKOUTS.map((w) => [w.id, w]))
