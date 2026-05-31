@@ -98,6 +98,51 @@ export function detectOverload(s: OverloadSignals): OverloadResult {
   return { level, flagged, suggestDeload: level === 'overload' }
 }
 
+// ── E1bis — Cadence des check-ins douleur (ANTI-ANXIÉTÉ) ───────────────────────────
+// Demander « as-tu mal ? » à chaque séance est anxiogène et nocebo : on ne déclenche
+// le questionnaire détaillé que dans les fenêtres à vrai risque. Par défaut, rien
+// (ou un simple ressenti en un tap). La douleur reste opt-in pour l'athlète.
+
+export type PainPromptLevel = 'none' | 'one_tap' | 'detailed'
+
+export interface PainCheckContext {
+  /** L'athlète a signalé lui-même une gêne (opt-in). */
+  userReportedNiggle?: boolean
+  /** Protocole de reprise après blessure (return-to-run). */
+  returnToRun?: boolean
+  /** Surcharge détectée par detectOverload. */
+  recentOverload?: boolean
+  /** Antécédent de blessure connu. */
+  priorInjuryHistory?: boolean
+  /** La séance qui vient d'être faite était intense/longue. */
+  wasHardSession?: boolean
+  /** Jours depuis le dernier check léger (pour la cadence hebdo). */
+  daysSinceLastCheck?: number
+}
+
+export interface PainPrompt {
+  level: PainPromptLevel
+  reason: string
+}
+
+/**
+ * Décide s'il faut interroger l'athlète sur la douleur, et à quel niveau.
+ * Détaillé uniquement en fenêtre à risque ; sinon un check léger hebdomadaire ;
+ * par défaut rien. Évite l'anxiété et la fatigue de notification.
+ */
+export function painCheckCadence(ctx: PainCheckContext): PainPrompt {
+  if (ctx.userReportedNiggle) return { level: 'detailed', reason: 'gêne signalée par l’athlète' }
+  if (ctx.returnToRun) return { level: 'detailed', reason: 'reprise après blessure' }
+  if (ctx.recentOverload) return { level: 'detailed', reason: 'surcharge détectée' }
+  if (ctx.priorInjuryHistory && ctx.wasHardSession) {
+    return { level: 'detailed', reason: 'séance dure + antécédent de blessure' }
+  }
+  if ((ctx.daysSinceLastCheck ?? 0) >= 7) {
+    return { level: 'one_tap', reason: 'check bien-être hebdomadaire léger' }
+  }
+  return { level: 'none', reason: 'pas de fenêtre à risque — ne pas solliciter' }
+}
+
 // ── E4 — Garde-fous heuristiques exposés (repères, pas des lois) ──────────────────
 
 export const HEURISTIC_CAVEATS: Record<string, string> = {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   assessPain,
   detectOverload,
+  painCheckCadence,
   HEURISTIC_CAVEATS,
 } from '../src/lib/safetyGuards'
 
@@ -58,6 +59,35 @@ describe('detectOverload', () => {
   it('ignore les signaux appareil (non fournis) et se base sur l\'actif', () => {
     const r = detectOverload({ acwr: 1.6, wellness: 'red' })
     expect(r.level).toBe('overload')
+  })
+})
+
+// ─── E1bis — cadence des check-ins douleur (anti-anxiété) ──────────────────────────
+
+describe('painCheckCadence', () => {
+  it('par défaut : ne sollicite PAS (séance normale, check récent)', () => {
+    expect(painCheckCadence({ wasHardSession: true, daysSinceLastCheck: 2 }).level).toBe('none')
+  })
+
+  it('gêne signalée par l\'athlète → questionnaire détaillé', () => {
+    expect(painCheckCadence({ userReportedNiggle: true }).level).toBe('detailed')
+  })
+
+  it('reprise / surcharge → détaillé', () => {
+    expect(painCheckCadence({ returnToRun: true }).level).toBe('detailed')
+    expect(painCheckCadence({ recentOverload: true }).level).toBe('detailed')
+  })
+
+  it('antécédent seul (séance facile) ne suffit pas à déclencher le détaillé', () => {
+    expect(painCheckCadence({ priorInjuryHistory: true, wasHardSession: false, daysSinceLastCheck: 1 }).level).toBe('none')
+  })
+
+  it('antécédent + séance dure → détaillé (ciblé)', () => {
+    expect(painCheckCadence({ priorInjuryHistory: true, wasHardSession: true }).level).toBe('detailed')
+  })
+
+  it('sinon, check léger seulement une fois par semaine', () => {
+    expect(painCheckCadence({ daysSinceLastCheck: 8 }).level).toBe('one_tap')
   })
 })
 
