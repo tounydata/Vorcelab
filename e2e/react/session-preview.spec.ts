@@ -9,6 +9,8 @@ test.describe('Aperçu des séances', () => {
     await page.goto('/Vorcelab/app/#/preview/session')
 
     await expect(page.getByRole('heading', { name: 'Aperçu des séances' })).toBeVisible()
+    // Carte « Mes allures » (allures réelles dérivées d'un record)
+    await expect(page.getByText('MES ALLURES')).toBeVisible()
     // Au moins un profil d'intensité rendu
     await expect(page.getByRole('img', { name: "Profil d'intensité" }).first()).toBeVisible()
     // Les 5 séances d'exemple

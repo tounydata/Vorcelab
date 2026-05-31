@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import PaceZonesCard from '../components/PaceZonesCard'
 import {
   fmtVam,
   fmtSpeed,
@@ -881,6 +882,8 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
+
+              <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
 
               {rp && (
                 <>
