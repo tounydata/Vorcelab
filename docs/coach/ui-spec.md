@@ -7,6 +7,10 @@
 
 L'engagement vient de **l'outil qui est bon**, pas d'un habillage de jeu. Toute information d'engagement est **tirée** (consultée dans l'app), jamais **poussée** (notification/pop-up). Les célébrations scriptées et messages « motivationnels » automatiques sont **bannis** (cf. anti-patterns).
 
+### Choix-first (jamais de prescription)
+
+Vorcelab **ne dira jamais « aujourd'hui tu fais ça »**. L'athlète **choisit librement** sa séance dans un **catalogue** ; le moteur se contente de **recommander** via un **badge** discret (« ✦ Recommandée », « Récup conseillée », « Déjà faite cette semaine »…). Aucune séance n'est imposée ni masquée — l'autonomie (TAD) prime. Implémenté par `sessionRecommender.ts` (`recommendSessions` retourne **toutes** les candidates annotées d'un score + badge, jamais un ordre contraignant).
+
 ---
 
 ## 1. Écran de séance
