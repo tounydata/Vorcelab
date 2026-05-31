@@ -13,7 +13,7 @@
 | 1 | CI/CD | ~~Aucune CI ne lance tests ni lint~~ → **✅ FAIT** : `ci.yml` (lint + tests + build) sur PR & push | ✅ |
 | 2 | Tests | 219 tests verts, mais 5 modules critiques `src/lib` non couverts en TS | 🟠 |
 | 3 | Archi | **✅ partiel** : `apps/web/` vestige + 3 JS orphelins supprimés. ⚠️ Les autres JS racine ne sont **pas morts** (cœur partagé importé par l'app/tests + monolithe chargé par `legacy.html`) → relocalisation = tâche séparée prudente | 🟡 |
-| 4 | Sécurité | RLS solide ✅ ; clé **anon** en dur (hygiène de config, **pas** une fuite) ; XSS/CGU à finaliser avant public | 🟡→🟠 |
+| 4 | Sécurité | RLS solide ✅ · clé **anon** en dur (hygiène, pas une fuite) · **XSS audité ✅** (React zéro innerHTML ; legacy échappe) · reste **CGU/privacy** avant public | 🟡 |
 | 5 | Typage | `Record<string, unknown>` pervasif sur les données Strava | 🟠 |
 | 6 | Lint | 3 warnings mineurs (console.log, exhaustive-deps) | 🟡 |
 
@@ -49,8 +49,8 @@
 **⚠️ Correction d'une surévaluation d'audit** : la clé **anon** Supabase en dur dans `src/lib/supabase.ts` a été qualifiée de « critique » par un agent. **C'est inexact** : une clé anon/publishable est **conçue pour être publique** (elle est de toute façon livrée dans le bundle client) ; la sécurité repose sur la RLS, jugée solide. Ce n'est donc **pas une fuite** et **aucun re-keying n'est nécessaire**. Reste un point d'**hygiène de config** (la passer en `import.meta.env.VITE_*` pour gérer plusieurs environnements) → 🟡.
 
 **Vrais points avant ouverture publique** :
-- **Audit XSS/innerHTML** (🟠) : marqué « à faire » dans la checklist ; le scan React n'a rien trouvé (JSX safe), mais le code legacy et le parsing GPX méritent une passe.
-- **CGU / politique de confidentialité** (🟠) : à finaliser + branding « Powered by Strava ».
+- **Audit XSS/innerHTML — ✅ FAIT** : l'app **React de production a zéro `innerHTML`/`dangerouslySetInnerHTML`** (JSX échappe → sûre par construction). Le **legacy** (backup) utilise `escapeHTML`/`escapeAttr`/`safeUrl` **35×** sur les données utilisateur ; les `innerHTML` interpolés restants ne portent que des **valeurs internes** (couleurs, nombres SVG, enums, texte statique) — risque résiduel faible, confiné au backup. **Reco defense-in-depth** : ajouter un en-tête **CSP** en prod (non bloquant).
+- **CGU / politique de confidentialité** (🟠) : à finaliser + branding « Powered by Strava ». **Tâche de contenu (non-code)** — côté produit/légal.
 - **Signature HMAC des POST webhook Strava** (🟡) : seul le handshake est vérifié (verify token) ; valider si Strava exige la signature sur les events.
 
 ## 5-6. Typage & lint — 🟠 / 🟡
@@ -63,8 +63,8 @@
 
 ### Phase 0 — Garde-fous (P0, avant toute ouverture publique)
 1. ✅ **CI tests + lint + build** (`.github/workflows/ci.yml`) — à rendre *required* dans les réglages de branche.
-2. **Audit XSS/innerHTML** complet + CSP (#4).
-3. **CGU/confidentialité** + branding Strava (#4).
+2. ✅ **Audit XSS/innerHTML FAIT** (React sûr ; legacy échappe). Reste : ajouter un en-tête **CSP** en prod (defense-in-depth, non bloquant).
+3. **CGU/confidentialité** + branding Strava (#4) — tâche de contenu (produit/légal).
 
 ### Phase 1 — Dette structurelle (P1)
 4. ✅ **`apps/web/` supprimé** (vestige orphelin) + **3 JS orphelins supprimés** (`dom-bindings`, `exercise-media`, `vorcelab-global`) + `.prettierignore` mort nettoyé. **Reste** : relocaliser le monolithe `legacy.html`+JS dans `/legacy/` — **tâche prudente séparée** car les fichiers `gpx-core`, `race-predictor`, `renfo-data/program`, `formatters`, `security`, `training-load` sont **partagés et actifs** (importés par l'app React et les tests) ; tout déplacement impose de mettre à jour `src/`, les tests, `legacy.html`, `e2e/legacy-server.mjs`, `playwright.config.ts` et `deploy-pages.yml` (#3).
