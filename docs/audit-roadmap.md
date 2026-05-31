@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 1 | CI/CD | ~~Aucune CI ne lance tests ni lint~~ → **✅ FAIT** : `ci.yml` (lint + tests + build) sur PR & push | ✅ |
 | 2 | Tests | 219 tests verts, mais 5 modules critiques `src/lib` non couverts en TS | 🟠 |
-| 3 | Archi | ~40 fichiers JS legacy à la racine du dépôt + dossier `apps/web/` vestige | 🟠 |
+| 3 | Archi | **✅ partiel** : `apps/web/` vestige + 3 JS orphelins supprimés. ⚠️ Les autres JS racine ne sont **pas morts** (cœur partagé importé par l'app/tests + monolithe chargé par `legacy.html`) → relocalisation = tâche séparée prudente | 🟡 |
 | 4 | Sécurité | RLS solide ✅ ; clé **anon** en dur (hygiène de config, **pas** une fuite) ; XSS/CGU à finaliser avant public | 🟡→🟠 |
 | 5 | Typage | `Record<string, unknown>` pervasif sur les données Strava | 🟠 |
 | 6 | Lint | 3 warnings mineurs (console.log, exhaustive-deps) | 🟡 |
@@ -67,7 +67,7 @@
 3. **CGU/confidentialité** + branding Strava (#4).
 
 ### Phase 1 — Dette structurelle (P1)
-4. Archiver les **JS legacy** dans `/legacy/` ; supprimer **`apps/web/`** (#3).
+4. ✅ **`apps/web/` supprimé** (vestige orphelin) + **3 JS orphelins supprimés** (`dom-bindings`, `exercise-media`, `vorcelab-global`) + `.prettierignore` mort nettoyé. **Reste** : relocaliser le monolithe `legacy.html`+JS dans `/legacy/` — **tâche prudente séparée** car les fichiers `gpx-core`, `race-predictor`, `renfo-data/program`, `formatters`, `security`, `training-load` sont **partagés et actifs** (importés par l'app React et les tests) ; tout déplacement impose de mettre à jour `src/`, les tests, `legacy.html`, `e2e/legacy-server.mjs`, `playwright.config.ts` et `deploy-pages.yml` (#3).
 5. **Tests** des modules cœur non couverts (`computeRaceProjection`, `buildRunnerProfile`) (#2).
 
 ### Phase 2 — Robustesse (P2)
