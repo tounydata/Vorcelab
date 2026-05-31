@@ -62,7 +62,10 @@
 | `coachContent.ts` | D | Contenu déterministe : motivation, glossaire, débrief, adhérence | ✅ cœur + 8 tests |
 | `safetyGuards.ts` | E | Douleur, surcharge multi-signaux, bien-être — **évalué en premier** | ✅ cœur + 11 tests |
 
-> **Reste à câbler (hors logique pure)** : persistance Supabase (A7 : VDOT/allures dans `profiles`), branchement `renfoUtils → periodization.strengthFocusForPhase()` (résolution effective du risque), UI (saisie RPE/douleur D3/E1, glossaire D2), et météo jour J (`weather`→`computeRaceProjection`). La logique métier déterministe, elle, est en place et testée.
+> **Câblage — état :**
+> - ✅ `renfoUtils.get4WeekPhase(override?)` accepte la phase de `periodization` (risque des deux périodisations résolu au niveau API ; reste à fournir l'override depuis une page qui connaît l'objectif).
+> - ✅ Migration `profiles` pour la persistance des allures (`vdot`, `vma_kmh`, `lthr`, `fc_repos`, `pace_source`, `paces_measured_at`, `pace_confidence`) — fichier ajouté, à appliquer via le process de déploiement.
+> - ⏳ **Reste (UI React)** : surface « Mes allures » (paceEngine), retour post-séance **non anxiogène** (ressenti 1-tap + douleur opt-in via `painCheckCadence`), débrief (D4), glossaire (D2) ; + météo jour J (`weather`→`computeRaceProjection`). À faire en tranches vérifiées (build + e2e).
 
 ---
 

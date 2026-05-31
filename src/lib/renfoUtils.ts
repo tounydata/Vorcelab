@@ -42,7 +42,15 @@ export interface SessionLog {
 export type DUPPhase4 = 'force' | 'volume' | 'puissance' | 'deload'
 const DUP4_PHASES: DUPPhase4[] = ['force', 'volume', 'puissance', 'deload']
 
-export function get4WeekPhase(): DUPPhase4 {
+/**
+ * Phase de renforcement de la semaine.
+ * @param override Phase imposée par le plan course (periodization.strengthFocusForPhase,
+ *   la SOURCE DE VÉRITÉ unique). Si fournie, elle prime sur le cycle horloge — c'est
+ *   ainsi que renfo se synchronise avec la périodisation course (évite deux logiques
+ *   concurrentes). Sans argument : comportement historique (cycle autonome 4 semaines).
+ */
+export function get4WeekPhase(override?: DUPPhase4): DUPPhase4 {
+  if (override) return override
   return DUP4_PHASES[Math.floor(Date.now() / (7 * 86400000)) % 4]
 }
 
