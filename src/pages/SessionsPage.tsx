@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import { allocatePhases, weeksUntil, isTrailRace } from '../lib/coach/planGenerator'
+import { buildRecommendContext } from '../lib/coach/recommendContext'
+import type { ActivityForLoad } from '../lib/trainingLoad'
 import PaceZonesCard from '../components/PaceZonesCard'
 import SessionBrowser from '../components/SessionBrowser'
 
@@ -57,6 +59,20 @@ export default function SessionsPage() {
     },
   })
 
+  const { data: activities = [] } = useQuery<ActivityForLoad[]>({
+    queryKey: ['activities'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('strava_activities')
+        .select('moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date')
+        .order('start_date', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return (data ?? []) as ActivityForLoad[]
+    },
+  })
+
   const today = todayISO()
   const targetRace = useMemo(
     () => races.find((r) => r.date.slice(0, 10) >= today) ?? null,
@@ -67,6 +83,7 @@ export default function SessionsPage() {
   const vdot = paces?.vdot ?? FALLBACK_VDOT
   const phase = targetRace ? allocatePhases(weeksUntil(today, targetRace.date.slice(0, 10)))[0] : undefined
   const trail = targetRace ? isTrailRace(targetRace.type, targetRace.elevation ?? 0) : false
+  const ctx = buildRecommendContext(phase, activities, profile?.fc_max)
 
   return (
     <div style={{ maxWidth: 620, margin: '0 auto', paddingBottom: '2rem' }}>
@@ -79,7 +96,7 @@ export default function SessionsPage() {
       <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} />
 
       <div className="clabel" style={{ margin: '8px 0 10px' }}>CATALOGUE — TU CHOISIS</div>
-      <SessionBrowser vdot={vdot} ctx={{ phase }} trail={trail} />
+      <SessionBrowser vdot={vdot} ctx={ctx} trail={trail} />
     </div>
   )
 }

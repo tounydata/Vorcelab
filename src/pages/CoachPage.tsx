@@ -141,6 +141,20 @@ export default function CoachPage() {
         </div>
       </div>
 
+      {/* ── Choix-first : le plan est une structure indicative, l'athlète choisit ── */}
+      <Link
+        to="/sessions"
+        className="card"
+        style={{ display: 'block', textDecoration: 'none', marginBottom: '1.25rem', borderLeft: '3px solid var(--vl-ember)' }}
+      >
+        <div className="clabel" style={{ margin: '0 0 4px' }}>Tu choisis tes séances</div>
+        <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
+          Ce plan est une <strong>structure indicative</strong>, pas une obligation : parcours le
+          catalogue et choisis librement — les recommandations ne sont que des suggestions.{' '}
+          <span style={{ color: 'var(--vl-ember)', fontFamily: 'var(--vl-mono)', fontSize: 11 }}>Ouvrir le catalogue →</span>
+        </div>
+      </Link>
+
       {/* ── Course cible + réglages ── */}
       <div className="card" style={{ padding: '14px 16px', marginBottom: '1.25rem' }}>
         <div className="clabel" style={{ marginBottom: 8 }}>Course cible</div>
