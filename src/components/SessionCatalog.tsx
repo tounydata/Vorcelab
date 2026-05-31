@@ -1,5 +1,6 @@
-import { buildCatalog, type CatalogEntry } from '../lib/sessionCatalog'
-import { recommendSessions, BADGE_LABEL, type BadgeKind, type RecommendContext } from '../lib/sessionRecommender'
+import { buildWorkoutCatalog, type CatalogEntry } from '../lib/coach/catalog'
+import { recommendWorkouts, BADGE_LABEL, type BadgeKind, type RecommendContext } from '../lib/sessionRecommender'
+import type { Intensity } from '../lib/coach/workouts'
 
 // Style des badges (DA Vorcelab : mono, sobre, accents ember/growth/amber).
 const BADGE_COLOR: Record<Exclude<BadgeKind, null>, string> = {
@@ -9,14 +10,13 @@ const BADGE_COLOR: Record<Exclude<BadgeKind, null>, string> = {
   repeat: 'var(--vl-text-3)',
 }
 
+const INTENSITY_DOTS: Record<Intensity, number> = { easy: 1, moderate: 3, hard: 4 }
+
 function DifficultyDots({ level }: { level: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }} aria-label={`Difficulté ${level} sur 5`}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <span
-          key={n}
-          style={{ width: 6, height: 6, borderRadius: 1, background: n <= level ? 'var(--vl-ember)' : 'var(--vl-line)' }}
-        />
+        <span key={n} style={{ width: 6, height: 6, borderRadius: 1, background: n <= level ? 'var(--vl-ember)' : 'var(--vl-line)' }} />
       ))}
     </span>
   )
@@ -48,36 +48,37 @@ function SessionCard({ entry, badge, onSelect }: { entry: CatalogEntry; badge: B
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <span style={{ fontFamily: 'var(--vl-display)', fontSize: 19, color: 'var(--vl-text)', letterSpacing: '.01em' }}>
-          {entry.label}
+          {entry.template.name}
         </span>
         {badge ? <Badge kind={badge} /> : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)' }}>{entry.workout.totalMin} min</span>
-        <DifficultyDots level={entry.difficulty} />
+        <DifficultyDots level={INTENSITY_DOTS[entry.template.intensity]} />
       </div>
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--vl-text-3)', lineHeight: 1.4 }}>{entry.workout.intent}</p>
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--vl-text-3)', lineHeight: 1.4 }}>{entry.template.description}</p>
     </button>
   )
 }
 
 /**
  * Catalogue de séances (choix-first) : l'athlète parcourt et choisit librement.
- * Les badges (issus de recommendSessions) ne sont qu'une indication douce.
+ * Les badges (issus de recommendWorkouts) ne sont qu'une indication douce.
  */
-export default function SessionCatalog({ vdot, ctx, onSelect }: {
+export default function SessionCatalog({ vdot, ctx, trail, onSelect }: {
   vdot: number
   ctx: RecommendContext
+  trail?: boolean
   onSelect?: (e: CatalogEntry) => void
 }) {
-  const entries = buildCatalog(vdot)
-  const recs = recommendSessions(entries.map((e) => e.category), ctx)
-  const badgeByCat = new Map(recs.map((r) => [r.category, r.badge]))
+  const entries = buildWorkoutCatalog(vdot, { trail })
+  const recs = recommendWorkouts(entries.map((e) => e.template), ctx)
+  const badgeById = new Map(recs.map((r) => [r.workoutId, r.badge]))
 
   return (
     <div>
       {entries.map((e) => (
-        <SessionCard key={e.category} entry={e} badge={badgeByCat.get(e.category) ?? null} onSelect={onSelect} />
+        <SessionCard key={e.template.id} entry={e} badge={badgeById.get(e.template.id) ?? null} onSelect={onSelect} />
       ))}
     </div>
   )

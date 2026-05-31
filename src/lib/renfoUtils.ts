@@ -44,9 +44,9 @@ const DUP4_PHASES: DUPPhase4[] = ['force', 'volume', 'puissance', 'deload']
 
 /**
  * Phase de renforcement de la semaine.
- * @param override Phase imposée par le plan course (periodization.strengthFocusForPhase,
- *   la SOURCE DE VÉRITÉ unique). Si fournie, elle prime sur le cycle horloge — c'est
- *   ainsi que renfo se synchronise avec la périodisation course (évite deux logiques
+ * @param override Phase imposée par le plan course (à dériver de la Phase de
+ *   lib/coach/planGenerator). Si fournie, elle prime sur le cycle horloge — c'est
+ *   ainsi que renfo se synchronisera avec la périodisation course (évite deux logiques
  *   concurrentes). Sans argument : comportement historique (cycle autonome 4 semaines).
  */
 export function get4WeekPhase(override?: DUPPhase4): DUPPhase4 {

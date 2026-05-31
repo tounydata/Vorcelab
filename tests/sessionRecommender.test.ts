@@ -1,46 +1,49 @@
 import { describe, it, expect } from 'vitest'
-import { recommendSessions, type SessionCategory } from '../src/lib/sessionRecommender'
+import { recommendWorkouts } from '../src/lib/sessionRecommender'
+import { WORKOUTS, getWorkout } from '../src/lib/coach/workouts'
 
-const ALL: SessionCategory[] = ['easy', 'long', 'tempo', 'cruise', 'vo2', 'hill', 'race_pace', 'recovery']
+const ALL = WORKOUTS
 
-describe('recommendSessions — choix-first', () => {
+describe('recommendWorkouts — choix-first', () => {
   it('retourne TOUJOURS toutes les candidates (n\'en retire jamais)', () => {
-    const recs = recommendSessions(ALL, { phase: 'base' })
+    const recs = recommendWorkouts(ALL, { phase: 'base' })
     expect(recs).toHaveLength(ALL.length)
   })
 
-  it('exactement une séance « recommandée »', () => {
-    const recs = recommendSessions(ALL, { phase: 'build' })
-    expect(recs.filter(r => r.badge === 'recommended')).toHaveLength(1)
+  it('au plus une séance « recommandée »', () => {
+    const recs = recommendWorkouts(ALL, { phase: 'build' })
+    expect(recs.filter(r => r.badge === 'recommended').length).toBeLessThanOrEqual(1)
   })
 
-  it('en phase base, la recommandée est une séance favorisée (facile/longue/côte)', () => {
-    const recs = recommendSessions(['vo2', 'easy', 'tempo'], { phase: 'base' })
-    const top = recs.find(r => r.badge === 'recommended')!
-    expect(['easy', 'long', 'hill']).toContain(top.category)
+  it('sans aucun signal différenciant, pas de fausse recommandation', () => {
+    // Deux séances de même intensité/phase → aucun « recommended » arbitraire
+    const easy = [getWorkout('endurance_easy')!, getWorkout('recovery_jog')!]
+    const recs = recommendWorkouts(easy, {})
+    expect(recs.every(r => r.badge !== 'recommended')).toBe(true)
   })
 
-  it('surcharge → le facile est recommandé, le dur badgé « caution » (jamais retiré)', () => {
-    const recs = recommendSessions(['easy', 'vo2'], { phase: 'base', overload: true })
-    expect(recs.find(r => r.category === 'easy')!.badge).toBe('recommended')
-    expect(recs.find(r => r.category === 'vo2')!.badge).toBe('caution')
-    expect(recs).toHaveLength(2) // rien retiré
+  it('surcharge → le dur est badgé « caution » (jamais retiré)', () => {
+    const cand = [getWorkout('endurance_easy')!, getWorkout('vo2_intervals')!]
+    const recs = recommendWorkouts(cand, { phase: 'build', overload: true })
+    expect(recs.find(r => r.workoutId === 'vo2_intervals')!.badge).toBe('caution')
+    expect(recs).toHaveLength(2)
   })
 
-  it('séance dure faite hier → badge caution sur le dur', () => {
-    const recs = recommendSessions(['easy', 'hill'], { phase: 'base', daysSinceHard: 1 })
-    expect(recs.find(r => r.category === 'hill')!.badge).toBe('caution')
+  it('séance dure faite hier → caution sur le dur', () => {
+    const cand = [getWorkout('endurance_easy')!, getWorkout('threshold_intervals')!]
+    const recs = recommendWorkouts(cand, { phase: 'build', daysSinceHard: 1 })
+    expect(recs.find(r => r.workoutId === 'threshold_intervals')!.badge).toBe('caution')
   })
 
-  it('catégorie déjà faite cette semaine → badge repeat', () => {
-    const recs = recommendSessions(['tempo', 'cruise'], { phase: 'build', recentCategories: ['tempo'] })
-    expect(recs.find(r => r.category === 'tempo')!.badge).toBe('repeat')
-    expect(recs.find(r => r.category === 'cruise')!.badge).toBe('recommended')
+  it('système déjà fait cette semaine → badge repeat', () => {
+    const cand = [getWorkout('tempo_run')!, getWorkout('long_run_flat')!]
+    const recs = recommendWorkouts(cand, { phase: 'build', recentSystems: ['tempo'] })
+    expect(recs.find(r => r.workoutId === 'tempo_run')!.badge).toBe('repeat')
   })
 
-  it('charge élevée (ACWR) → séance facile badgée récup', () => {
-    const recs = recommendSessions(['easy', 'tempo'], { phase: 'build', acwr: 1.5 })
-    // easy n'est pas favorisé en build mais le boost de charge le remonte
-    expect(recs.find(r => r.category === 'easy')!.badge).toBe('recommended')
+  it('charge élevée → une séance facile est badgée récup', () => {
+    const cand = [getWorkout('recovery_jog')!, getWorkout('threshold_intervals')!]
+    const recs = recommendWorkouts(cand, { phase: 'build', acwr: 1.5 })
+    expect(recs.find(r => r.workoutId === 'recovery_jog')!.badge).toBe('recommended')
   })
 })

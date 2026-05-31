@@ -14,7 +14,7 @@ export default function SessionPreviewPage() {
       </p>
       <PaceZonesCard prs={{ '10k': { timeS: 2400, dist: 10000 } }} fcMax={190} />
       <div className="clabel" style={{ margin: '8px 0 10px' }}>CATALOGUE — TU CHOISIS</div>
-      <SessionBrowser vdot={VDOT} ctx={{ phase: 'build', daysSinceHard: 1, recentCategories: ['tempo'] }} />
+      <SessionBrowser vdot={VDOT} ctx={{ phase: 'build', daysSinceHard: 1, recentSystems: ['tempo'] }} />
     </div>
   )
 }
