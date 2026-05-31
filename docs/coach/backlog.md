@@ -52,17 +52,17 @@
 
 **Dépendance structurante** : A est la **fondation** (les allures alimentent B, C, D). À construire en premier.
 
-**Nouveaux modules cibles** (pures fonctions `src/lib`, sans dépendance React ni signal appareil) :
+**Nouveaux modules cibles** (pures fonctions `src/lib`, sans dépendance React ni signal appareil) — **cœurs implémentés ✅ (tests à l'appui)** :
 
-| Module | Épopée | Rôle |
-|---|---|---|
-| `paceEngine.ts` | A | VDOT/VMA/LTHR → allures E/M/T/I/R + zones FC (source de vérité des allures) |
-| `sessionGenerator.ts` | B | Fabrique de séances chiffrées (tempo/cruise/VO2/côte/race-pace…) |
-| `periodization.ts` | C | Macrocycle daté + `getCurrentPhase()` (source de vérité des phases) |
-| `coachContent.ts` | D | Contenu déterministe : motivation, glossaire, débrief, adhérence |
-| `safetyGuards.ts` | E | Douleur, surcharge multi-signaux, bien-être — **évalué en premier** |
+| Module | Épopée | Rôle | État |
+|---|---|---|---|
+| `paceEngine.ts` | A | VDOT/VMA/LTHR → allures E/M/T/I/R + zones FC (source de vérité des allures) | ✅ cœur + 16 tests |
+| `sessionGenerator.ts` | B | Fabrique de séances chiffrées (tempo/cruise/VO2/côte/race-pace…) | ✅ cœur + 8 tests |
+| `periodization.ts` | C | Macrocycle daté + `getCurrentPhase()` (source de vérité des phases) | ✅ cœur + 11 tests |
+| `coachContent.ts` | D | Contenu déterministe : motivation, glossaire, débrief, adhérence | ✅ cœur + 8 tests |
+| `safetyGuards.ts` | E | Douleur, surcharge multi-signaux, bien-être — **évalué en premier** | ✅ cœur + 11 tests |
 
-> Modules **à brancher** (existants) : `trainingLoad`, `runnerProfile`, `sessionQuality`, `computeRaceProjection`, `renfoUtils`, `crewPlan`, `nutritionPlan`, `streams`, `weather` (cf. tableau de maturité en bas).
+> **Reste à câbler (hors logique pure)** : persistance Supabase (A7 : VDOT/allures dans `profiles`), branchement `renfoUtils → periodization.strengthFocusForPhase()` (résolution effective du risque), UI (saisie RPE/douleur D3/E1, glossaire D2), et météo jour J (`weather`→`computeRaceProjection`). La logique métier déterministe, elle, est en place et testée.
 
 ---
 
