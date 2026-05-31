@@ -9,6 +9,7 @@ import ActivitiesPage from './pages/ActivitiesPage'
 import RaceListPage from './pages/RaceListPage'
 import RaceStrategyPage from './pages/RaceStrategyPage'
 import RaceStrategyPublicPage from './pages/RaceStrategyPublicPage'
+import SessionPreviewPage from './pages/SessionPreviewPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 import ActivityDetailPage from './pages/ActivityDetailPage'
@@ -54,8 +55,9 @@ export default function App() {
   return (
     <HashRouter>
       <Routes>
-        {/* Route publique — sans authentification */}
+        {/* Routes publiques — sans authentification */}
         <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />
+        <Route path="preview/session" element={<SessionPreviewPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>
