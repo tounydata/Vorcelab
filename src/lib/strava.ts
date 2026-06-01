@@ -5,8 +5,10 @@ import { supabase } from './supabase'
 
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
+// client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
+// Override possible via VITE_STRAVA_CLIENT_ID. Le secret reste côté edge function.
 export const STRAVA_CLIENT_ID =
-  (import.meta.env.VITE_STRAVA_CLIENT_ID as string | undefined) ?? ''
+  (import.meta.env.VITE_STRAVA_CLIENT_ID as string | undefined) ?? '161609'
 
 export function stravaConfigured(): boolean {
   return STRAVA_CLIENT_ID.length > 0
