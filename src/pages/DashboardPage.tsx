@@ -111,9 +111,17 @@ function computeMultiStatus(
   const efBase = efOf(baseRuns)
   const efTrend = efRecent != null && efBase != null && efBase > 0 ? (efRecent - efBase) / efBase : null
 
+  // Surcharge : on distingue un PIC ponctuel (une seule grosse séance) d'un vrai
+  // SURMENAGE (charge aiguë élevée PLUSIEURS jours d'affilée). Comme Garmin, une
+  // sortie forte isolée = « charge élevée » (informatif), pas une alerte blessure.
+  const daysOver = pmc.slice(-4).filter((d) => d.ctl > 0 && d.atl / d.ctl > 1.5).length
+
   // Table de décision — priorité décroissante
-  if (ratio != null && ratio > 1.5)
-    return { label: 'SURMENAGE', sub: 'pic de charge — risque de blessure', color: '#EF4444', key: 'surmenage' }
+  if (ratio != null && ratio > 1.5) {
+    if (daysOver >= 3)
+      return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: '#EF4444', key: 'surmenage' }
+    return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: '#F97316', key: 'charge_elevee' }
+  }
   if (ratio != null && ratio < 0.8) {
     if (ctlTrendPct < -0.05)
       return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: '#F97316', key: 'desentrainement' }

@@ -268,7 +268,7 @@ function buildRaceWeek(input: PlanInput, weekIndex: number, weekStartISO: string
   sessions.push({
     dayOfWeek: raceDow,
     workoutId: 'race',
-    title: `🏁 ${input.raceName}`,
+    title: input.raceName,
     system: 'race',
     intensity: 'hard',
     targetDurationMin: 0,

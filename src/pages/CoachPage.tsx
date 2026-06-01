@@ -8,10 +8,10 @@ import type { Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
-import type { ActivityForLoad } from '../lib/trainingLoad'
 import PaceZonesCard from '../components/PaceZonesCard'
 import Collapsible from '../components/Collapsible'
 import WeekProgram from '../components/WeekProgram'
+import type { LinkActivity } from '../components/SessionFeedback'
 
 interface Race {
   id: string
@@ -71,17 +71,17 @@ export default function CoachPage() {
     },
   })
 
-  const { data: activities = [] } = useQuery<ActivityForLoad[]>({
+  const { data: activities = [] } = useQuery<LinkActivity[]>({
     queryKey: ['activities'],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date')
+        .select('id,strava_activity_id,name,moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date')
         .order('start_date', { ascending: false })
         .limit(100)
       if (error) throw error
-      return (data ?? []) as ActivityForLoad[]
+      return (data ?? []) as LinkActivity[]
     },
   })
 
