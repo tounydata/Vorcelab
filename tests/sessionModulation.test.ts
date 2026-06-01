@@ -1,20 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { computeAdjustment, applyModulation } from '../src/lib/coach/sessionModulation'
-import { generateTrainingPlan, type PlanInput } from '../src/lib/coach/planGenerator'
-
-function road10k(over: Partial<PlanInput> = {}): PlanInput {
-  return {
-    raceName: '10 km', raceDateISO: '2026-12-13', raceDistanceKm: 10,
-    raceElevationM: 80, raceType: 'Route', todayISO: '2026-06-01',
-    daysPerWeek: 5, currentCTL: null, ...over,
-  }
-}
-
-const QUALITY = new Set(['tempo', 'threshold', 'vo2max', 'speed', 'hills', 'race_pace'])
-const isQuality = (s: { intensity: string; system: string }) => s.intensity === 'hard' || QUALITY.has(s.system)
+import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../src/lib/coach/sessionModulation'
+import { structureWorkout } from '../src/lib/coach/structureWorkout'
+import { getWorkout } from '../src/lib/coach/workouts'
+import { tempoRun } from '../src/lib/sessionGenerator'
 
 describe('computeAdjustment', () => {
-  it('trop_dur → allègement, trop_facile → progression, sinon rien', () => {
+  it('trop_dur → lighten, trop_facile → progress, sinon none', () => {
     expect(computeAdjustment('trop_dur').direction).toBe('lighten')
     expect(computeAdjustment('trop_facile').direction).toBe('progress')
     expect(computeAdjustment('conforme').direction).toBe('none')
@@ -23,37 +14,66 @@ describe('computeAdjustment', () => {
   })
 })
 
-describe('applyModulation', () => {
-  it('allègement : la 1re séance qualité de la semaine devient un footing facile', () => {
-    const plan = generateTrainingPlan(road10k({ weaknesses: ['vo2max'] }))
-    const before = plan.weeks[0].sessions.filter(isQuality).length
-    const { plan: out, applied } = applyModulation(plan, computeAdjustment('trop_dur'))
-    expect(applied?.direction).toBe('lighten')
-    const after = out.weeks[0].sessions.filter(isQuality).length
-    expect(after).toBe(before - 1) // une qualité en moins
-    expect(out.weeks[0].sessions.some((s) => s.workoutId === 'endurance_easy')).toBe(true)
+describe('scaleWorkout — adaptation intra-séance', () => {
+  // VO2max : 12 × 30 s @ VMA (séance fractionnée).
+  const vo2 = structureWorkout(getWorkout('vo2_intervals')!, 50)
+  const mainReps = (w: typeof vo2) => w.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) > 1)?.reps
+  const mainPace = (w: typeof vo2) => w.blocks.find((b) => b.kind === 'main' && b.paceSecPerKm)?.paceSecPerKm
+
+  it('trop dur : −1 répétition ET allure assouplie', () => {
+    const before = mainReps(vo2)!
+    const beforePace = mainPace(vo2)!
+    const { workout, summary } = scaleWorkout(vo2, 'lighten')
+    expect(mainReps(workout)).toBe(before - 1)
+    expect(mainPace(workout)).toBe(beforePace + 8) // +8 s/km = plus lent
+    expect(summary).toContain('reps')
+    expect(summary).toContain('allure')
   })
 
-  it('progression : un footing facile devient un tempo', () => {
-    const plan = generateTrainingPlan(road10k())
-    const { plan: out, applied } = applyModulation(plan, computeAdjustment('trop_facile'))
-    expect(applied?.direction).toBe('progress')
-    expect(out.weeks[0].sessions.some((s) => s.workoutId === 'tempo_run')).toBe(true)
+  it('trop facile : +1 répétition ET allure plus rapide', () => {
+    const before = mainReps(vo2)!
+    const beforePace = mainPace(vo2)!
+    const { workout } = scaleWorkout(vo2, 'progress')
+    expect(mainReps(workout)).toBe(before + 1)
+    expect(mainPace(workout)).toBe(beforePace - 5) // −5 s/km = plus rapide
   })
 
-  it('verdict conforme → plan inchangé', () => {
-    const plan = generateTrainingPlan(road10k())
-    const { plan: out, applied } = applyModulation(plan, computeAdjustment('conforme'))
-    expect(applied).toBeNull()
-    expect(out).toBe(plan)
+  it('le label suit le nombre de reps (12 → 11)', () => {
+    const { workout } = scaleWorkout(vo2, 'lighten')
+    const main = workout.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) > 1)!
+    expect(main.label).toContain('11')
+    expect(main.label).not.toMatch(/\b12\b/)
   })
 
-  it("l'affûtage (taper) n'est jamais modulé", () => {
-    // Course très proche → semaine 0 = taper
-    const plan = generateTrainingPlan(road10k({ raceDateISO: '2026-06-08' }))
-    const { applied } = applyModulation(plan, computeAdjustment('trop_dur'))
-    if (plan.weeks[0].phase === 'taper' || plan.weeks[0].phase === 'race') {
-      expect(applied).toBeNull()
-    }
+  it('plancher : ne descend jamais sous 3 reps', () => {
+    let w = tempoRun(50, 20) // continu — pas de reps : on fabrique un cas fractionné réduit
+    // réduit VO2 jusqu'au plancher
+    w = structureWorkout(getWorkout('vo2_intervals')!, 50)
+    for (let i = 0; i < 20; i++) w = scaleWorkout(w, 'lighten').workout
+    const reps = w.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) >= 1)?.reps ?? 0
+    expect(reps).toBeGreaterThanOrEqual(3)
+  })
+
+  it('séance continue (tempo) trop dure : allure assouplie + durée réduite', () => {
+    const tempo = tempoRun(50, 30)
+    const beforeMain = tempo.blocks.find((b) => b.kind === 'main')!
+    const { workout, summary } = scaleWorkout(tempo, 'lighten')
+    const afterMain = workout.blocks.find((b) => b.kind === 'main')!
+    expect(afterMain.paceSecPerKm!).toBe(beforeMain.paceSecPerKm! + 8)
+    expect(afterMain.durationSec!).toBeLessThan(beforeMain.durationSec!)
+    expect(summary).toContain('durée')
+  })
+})
+
+describe('nextQualityWorkoutId', () => {
+  it('renvoie la 1re séance qualité (hard / système qualité)', () => {
+    const sessions = [
+      { workoutId: 'endurance_easy', system: 'endurance', intensity: 'easy' },
+      { workoutId: 'vo2_intervals', system: 'vo2max', intensity: 'hard' },
+    ]
+    expect(nextQualityWorkoutId(sessions)).toBe('vo2_intervals')
+  })
+  it('null si aucune séance qualité', () => {
+    expect(nextQualityWorkoutId([{ workoutId: 'endurance_easy', system: 'endurance', intensity: 'easy' }])).toBeNull()
   })
 })

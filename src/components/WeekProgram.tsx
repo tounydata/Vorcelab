@@ -4,6 +4,7 @@ import { buildWeekCatalog } from '../lib/coach/catalog'
 import { buildRecommendContext } from '../lib/coach/recommendContext'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import { ChevronLeft, ChevronRight } from './coach/CoachIcons'
+import { scaleWorkout, type ModulationDir } from '../lib/coach/sessionModulation'
 import type { Phase } from '../lib/coach/workouts'
 import type { RecommendContext } from '../lib/sessionRecommender'
 import type { LinkActivity } from './SessionFeedback'
@@ -35,11 +36,13 @@ function weekLabel(offset: number): string {
  * suivantes. Les séances sont décidées par l'algo (plan) et présentées en
  * choix-first (badges = suggestion). Pas de librairie à parcourir.
  */
-export default function WeekProgram({ weeks, vdot, activities, fcMax }: {
+export default function WeekProgram({ weeks, vdot, activities, fcMax, scale }: {
   weeks: ProgramWeek[]
   vdot: number
   activities: LinkActivity[]
   fcMax?: number | null
+  /** Modulation v3 : adapte la séance qualité ciblée de la semaine COURANTE. */
+  scale?: { workoutId: string; dir: ModulationDir }
 }) {
   const [idx, setIdx] = useState(0)
 
@@ -50,6 +53,12 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax }: {
   const clamped = Math.min(Math.max(idx, 0), weeks.length - 1)
   const week = weeks[clamped]
   const entries = buildWeekCatalog(week.sessions, vdot)
+  // Modulation v3 : on adapte la séance qualité ciblée (semaine courante uniquement).
+  const shownEntries = clamped === 0 && scale
+    ? entries.map((e) => e.template.id === scale.workoutId
+        ? { ...e, workout: scaleWorkout(e.workout, scale.dir).workout }
+        : e)
+    : entries
   // Le contexte temps réel (charge/fraîcheur) ne vaut que pour la semaine courante.
   const ctx: RecommendContext =
     clamped === 0 ? buildRecommendContext(week.phase, activities, fcMax) : { phase: week.phase }
@@ -83,7 +92,7 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax }: {
         <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>{week.focus}</p>
       ) : null}
 
-      <SessionBrowser key={clamped} entries={entries} ctx={ctx} link={link} />
+      <SessionBrowser key={clamped} entries={shownEntries} ctx={ctx} link={link} />
     </div>
   )
 }

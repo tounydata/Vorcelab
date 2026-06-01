@@ -4,9 +4,10 @@ import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
-import type { Phase } from '../lib/coach/workouts'
+import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
-import { computeAdjustment, applyModulation } from '../lib/coach/sessionModulation'
+import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
+import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
@@ -140,19 +141,28 @@ export default function CoachPage() {
     setDismissed(!!latestVerdict && localStorage.getItem('vl-modul-dismiss') === latestVerdict.id)
   }, [latestVerdict])
 
-  const { adjustedPlan, applied } = useMemo(() => {
-    if (!plan || !latestVerdict || dismissed) return { adjustedPlan: plan, applied: null }
-    const res = applyModulation(plan, computeAdjustment(latestVerdict.verdict))
-    return { adjustedPlan: res.plan, applied: res.applied }
-  }, [plan, latestVerdict, dismissed])
+  // Cible : la 1re séance qualité de la semaine courante est adaptée DE L'INTÉRIEUR
+  // (reps + allure) selon le verdict. L'affûtage (taper/course) n'est jamais modulé.
+  const modulation = useMemo(() => {
+    if (!plan || !latestVerdict || dismissed) return null
+    const adj = computeAdjustment(latestVerdict.verdict)
+    if (adj.direction === 'none') return null
+    const week0 = plan.weeks[0]
+    if (!week0 || week0.phase === 'taper' || week0.phase === 'race') return null
+    const workoutId = nextQualityWorkoutId(week0.sessions)
+    const t = workoutId ? getWorkout(workoutId) : null
+    if (!workoutId || !t) return null
+    const { summary } = scaleWorkout(structureWorkout(t, vdot), adj.direction)
+    return { workoutId, dir: adj.direction, reason: adj.reason, summary, title: t.name }
+  }, [plan, latestVerdict, dismissed, vdot])
 
   const [splash, setSplash] = useState(false)
   useEffect(() => {
-    if (applied && latestVerdict && localStorage.getItem('vl-modul-splash') !== latestVerdict.id) {
+    if (modulation && latestVerdict && localStorage.getItem('vl-modul-splash') !== latestVerdict.id) {
       localStorage.setItem('vl-modul-splash', latestVerdict.id)
       setSplash(true)
     }
-  }, [applied, latestVerdict])
+  }, [modulation, latestVerdict])
 
   function cancelModulation() {
     if (latestVerdict) localStorage.setItem('vl-modul-dismiss', latestVerdict.id)
@@ -259,19 +269,26 @@ export default function CoachPage() {
         <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} bare />
       </Collapsible>
 
-      {applied ? (
+      {modulation ? (
         <div className="card" style={{ borderLeft: '4px solid var(--vl-ember)', padding: '10px 14px', marginBottom: '1rem', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: 'var(--vl-text-2)' }}>
             <strong style={{ color: 'var(--vl-text)' }}>
-              {applied.direction === 'lighten' ? 'Prochaine séance allégée' : 'Prochaine séance renforcée'}
+              {modulation.dir === 'lighten' ? `${modulation.title} allégée` : `${modulation.title} renforcée`}
             </strong>
-            {' — '}{applied.reason}. <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11 }}>{applied.fromTitle} → {applied.toTitle}</span>.
+            {' — '}{modulation.reason}.{' '}
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text)' }}>{modulation.summary}</span>
           </div>
           <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }} onClick={cancelModulation}>Annuler</button>
         </div>
       ) : null}
 
-      <WeekProgram weeks={(adjustedPlan ?? plan).weeks} vdot={vdot} activities={activities} fcMax={profile?.fc_max} />
+      <WeekProgram
+        weeks={plan.weeks}
+        vdot={vdot}
+        activities={activities}
+        fcMax={profile?.fc_max}
+        scale={modulation ? { workoutId: modulation.workoutId, dir: modulation.dir } : undefined}
+      />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Plan généré localement par un moteur déterministe (aucune IA, aucune donnée envoyée à l'extérieur).
