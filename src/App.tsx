@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { HashRouter, Routes, Route, Outlet } from 'react-router'
+import { HashRouter, Routes, Route, Outlet, useNavigate } from 'react-router'
 import { supabase } from './lib/supabase'
+import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
@@ -21,7 +22,17 @@ import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
 import RenfoSettingsPage from './pages/RenfoSettingsPage'
 
 function PrivateRoutes() {
-  const { user, sessionLoaded } = useVLStore()
+  const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
+  const navigate = useNavigate()
+
+  // Après une connexion depuis l'écran de login → retour au Dashboard (menu
+  // principal), pas sur la dernière page restée dans l'URL (cas navigation privée).
+  useEffect(() => {
+    if (user && loginRedirect) {
+      setLoginRedirect(false)
+      navigate('/', { replace: true })
+    }
+  }, [user, loginRedirect, setLoginRedirect, navigate])
 
   if (!sessionLoaded) {
     return (
@@ -47,6 +58,11 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+    })
+
+    // Retour OAuth Strava (?code=…) : échange le code puis recharge l'app connectée.
+    handleStravaRedirect().then((res) => {
+      if (res === 'connected') window.location.reload()
     })
 
     return () => subscription.unsubscribe()

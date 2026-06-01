@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useVLStore } from '../../store/vlStore'
+import { startStravaOAuth, stravaConfigured } from '../../lib/strava'
 
 // Onboarding global — 1re prise en main (création du profil + objectif + mise en
 // avant de la Stratégie de course). Persistance par étape. AUCUN emoji (SVG only).
@@ -157,8 +158,17 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 En connectant <strong>Strava</strong>, Vorcelab analyse tes sorties (allure, FC, dérive cardiaque, D+)
                 pour estimer ta forme, tes points faibles et adapter ton plan automatiquement.
               </p>
+              {stravaConfigured() ? (
+                <button className="btn-primary" onClick={startStravaOAuth} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <ILink size={16} /> Connecter Strava
+                </button>
+              ) : (
+                <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
+                  Connexion Strava bientôt disponible. Cette étape est optionnelle.
+                </p>
+              )}
               <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                Tu pourras connecter Strava depuis ton profil. Cette étape est optionnelle.
+                Tu pourras aussi (re)connecter Strava plus tard depuis le menu. Étape optionnelle.
               </p>
             </StepShell>
           )}

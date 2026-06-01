@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 import OnboardingGate from './onboarding/OnboardingGate'
 
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
@@ -234,10 +235,19 @@ export default function Layout() {
           )}
           {stravaStatus && !stravaStatus.connected && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <div className="dot dot-off" />
                 <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
               </div>
+              {stravaConfigured() && (
+                <button
+                  className="hbtn"
+                  style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
+                  onClick={startStravaOAuth}
+                >
+                  CONNECTER STRAVA
+                </button>
+              )}
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
