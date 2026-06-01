@@ -48,8 +48,13 @@ export default function LoginPage() {
       return
     }
 
-    if (data.user) {
-      setStatus({ msg: 'Compte créé ! Vérifiez votre email si demandé.', ok: true })
+    if (data.session) {
+      // Confirmation d'email désactivée → session ouverte, connexion immédiate
+      // (onAuthStateChange prend le relais et bascule vers l'app + onboarding).
+      setStatus({ msg: 'Compte créé — connexion…', ok: true })
+    } else if (data.user) {
+      // Confirmation activée → l'utilisateur doit valider son email d'abord.
+      setStatus({ msg: 'Compte créé ! Confirme ton email (pense aux spams), puis reviens te connecter.', ok: true })
     }
   }
 
