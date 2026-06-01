@@ -143,6 +143,18 @@ function navClass({ isActive }: { isActive: boolean }) {
   return 'sidebar-item' + (isActive ? ' active' : '')
 }
 
+/** « il y a X min/h/j » à partir d'un ISO ; « jamais » si absent. */
+function formatSync(iso?: string | null): string {
+  if (!iso) return 'jamais'
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return "à l'instant"
+  if (min < 60) return `il y a ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `il y a ${h} h`
+  return `il y a ${Math.floor(h / 24)} j`
+}
+
 export default function Layout() {
   const user = useVLStore((s) => s.user)
   const { isDark, toggle } = useTheme()
@@ -178,6 +190,18 @@ export default function Layout() {
     }
   }
 
+  async function disconnectStrava() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch(`${SUPA_URL}/functions/v1/strava-disconnect`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => {})
+    setStravaStatus({ connected: false })
+    queryClient.invalidateQueries()
+  }
+
   const themeBtn = (
     <button
       onClick={toggle}
@@ -193,6 +217,44 @@ export default function Layout() {
       <span style={{ display: 'none' }} className="sidebar-theme-label">{isDark ? 'LIGHT' : 'DARK'}</span>
     </button>
   )
+
+  // Panneau Strava réutilisable (sidebar desktop + header mobile) :
+  // statut + connecter / dernière sync / forcer sync / déconnecter.
+  const stravaPanel = stravaStatus ? (
+    stravaStatus.connected ? (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div className="dot dot-on" />
+          <span className="mlabel" style={{ margin: 0, color: 'var(--vl-growth)', fontSize: 9 }}>
+            STRAVA{stravaStatus.athlete_firstname ? ` · ${stravaStatus.athlete_firstname.toUpperCase()}` : ''}
+          </span>
+          <span style={{ marginLeft: 'auto', fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
+            sync {formatSync(stravaStatus.last_sync_at)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={syncStrava} disabled={isSyncing}>
+            {isSyncing ? 'SYNC…' : 'FORCER SYNC'}
+          </button>
+          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={disconnectStrava}>
+            DÉCONNECTER
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div className="dot dot-off" />
+          <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
+        </div>
+        {stravaConfigured() && (
+          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', width: '100%' }} onClick={startStravaOAuth}>
+            CONNECTER STRAVA
+          </button>
+        )}
+      </div>
+    )
+  ) : null
 
   return (
     <div id="appShell" className="show">
@@ -215,41 +277,7 @@ export default function Layout() {
         ))}
 
         <div className="sidebar-bottom">
-          {stravaStatus?.connected && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <div className="dot dot-on" />
-                <span className="mlabel" style={{ margin: 0, color: 'var(--vl-growth)', fontSize: 9 }}>
-                  STRAVA{stravaStatus.athlete_firstname ? ` · ${stravaStatus.athlete_firstname.toUpperCase()}` : ''}
-                </span>
-              </div>
-              <button
-                className="hbtn"
-                style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
-                onClick={syncStrava}
-                disabled={isSyncing}
-              >
-                {isSyncing ? 'SYNC...' : 'FORCER SYNC'}
-              </button>
-            </div>
-          )}
-          {stravaStatus && !stravaStatus.connected && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <div className="dot dot-off" />
-                <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
-              </div>
-              {stravaConfigured() && (
-                <button
-                  className="hbtn"
-                  style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
-                  onClick={startStravaOAuth}
-                >
-                  CONNECTER STRAVA
-                </button>
-              )}
-            </div>
-          )}
+          {stravaPanel && <div style={{ marginBottom: 8 }}>{stravaPanel}</div>}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
             {themeBtn}
           </div>
@@ -262,19 +290,22 @@ export default function Layout() {
         </div>
       </nav>
 
-      <div className="mobile-header">
-        <NavLink to="/" end style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ color: 'var(--vl-text)' }}>
-            <svg width="24" height="24" viewBox="0 0 60 60" fill="none" aria-hidden="true">
-              <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
-              <path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" strokeWidth="3.2" strokeLinejoin="miter" strokeLinecap="square" fill="none" />
-              <circle cx="30" cy="12" r="3.5" fill="#E5562A" />
-              <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" strokeWidth="1.8" />
-            </svg>
-          </div>
-          <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.88rem', letterSpacing: '.06em', color: 'var(--vl-text)' }}>VORCELAB</span>
-        </NavLink>
-        {themeBtn}
+      <div className="mobile-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <NavLink to="/" end style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ color: 'var(--vl-text)' }}>
+              <svg width="24" height="24" viewBox="0 0 60 60" fill="none" aria-hidden="true">
+                <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+                <path d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" strokeWidth="3.2" strokeLinejoin="miter" strokeLinecap="square" fill="none" />
+                <circle cx="30" cy="12" r="3.5" fill="#E5562A" />
+                <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" strokeWidth="1.8" />
+              </svg>
+            </div>
+            <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.88rem', letterSpacing: '.06em', color: 'var(--vl-text)' }}>VORCELAB</span>
+          </NavLink>
+          {themeBtn}
+        </div>
+        {stravaPanel}
       </div>
 
       <div className="app-main">
