@@ -13,6 +13,43 @@ function road10k(over: Partial<PlanInput> = {}): PlanInput {
 const allIds = (input: PlanInput) =>
   generateTrainingPlan(input).weeks.flatMap((w) => w.sessions.map((s) => s.workoutId))
 
+describe('plan — affûtage (périodisation)', () => {
+  it('aucune séance dure (VO2max/seuil/côtes) en semaine d\'affûtage', () => {
+    // Périodisation : la vitesse/VO2max est en base/développement, PAS à J-7.
+    const plan = generateTrainingPlan(road10k({ weaknesses: ['vo2max'] }))
+    const taper = plan.weeks.filter((w) => w.phase === 'taper')
+    expect(taper.length).toBeGreaterThan(0)
+    for (const w of taper) {
+      for (const s of w.sessions) {
+        expect(s.intensity, `${w.weekIndex}:${s.workoutId}`).not.toBe('hard')
+      }
+    }
+  })
+
+  it('VO2max ne fait jamais partie des séances d\'affûtage du catalogue', () => {
+    expect(getWorkout('vo2_intervals')!.phases).not.toContain('taper')
+  })
+
+  it('semi : 2 semaines d\'affûtage → pic de charge ~3 semaines avant la course', () => {
+    // weeksUntil('2026-05-01','2026-09-13') ≈ 19 semaines, distance 21 km.
+    const plan = generateTrainingPlan(road10k({ raceDistanceKm: 21 }))
+    const taper = plan.weeks.filter((w) => w.phase === 'taper')
+    expect(taper).toHaveLength(2)
+    // La dernière semaine d'entraînement « spécifique » (le pic) est à 3 semaines de la course.
+    const specific = plan.weeks.filter((w) => w.phase === 'specific')
+    const lastSpecific = specific[specific.length - 1]
+    const raceWeek = plan.weeks[plan.weeks.length - 1]
+    expect(raceWeek.weekIndex - lastSpecific.weekIndex).toBe(3)
+    // Volume décroissant : avant-dernier taper > dernier taper.
+    expect(taper[0].volumeHours).toBeGreaterThan(taper[1].volumeHours)
+  })
+
+  it('marathon : 3 semaines d\'affûtage', () => {
+    const plan = generateTrainingPlan(road10k({ raceDistanceKm: 42 }))
+    expect(plan.weeks.filter((w) => w.phase === 'taper')).toHaveLength(3)
+  })
+})
+
 describe('plan — adaptation au profil', () => {
   it('un point faible VO2max fait apparaître des séances VO2max dans le plan', () => {
     const ids = allIds(road10k({ weaknesses: ['vo2max'] }))

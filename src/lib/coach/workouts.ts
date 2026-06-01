@@ -246,7 +246,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     name: 'VO2max (intervalles courts)',
     system: 'vo2max', intensity: 'hard', terrain: 'flat',
     baseDurationMin: 50, climbing: false,
-    phases: ['build', 'specific', 'taper'],
+    phases: ['build', 'specific'],
     levels: INT_ADV, distances: ['5k', '10k'], target: 'vo2max',
     description: 'Ex : 6×3 min à allure 3 km, récup 2 min. Développe la puissance aérobie maximale.',
   },

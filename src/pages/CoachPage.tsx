@@ -10,6 +10,7 @@ import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import type { ActivityForLoad } from '../lib/trainingLoad'
 import PaceZonesCard from '../components/PaceZonesCard'
+import Collapsible from '../components/Collapsible'
 import WeekProgram from '../components/WeekProgram'
 
 interface Race {
@@ -192,12 +193,13 @@ export default function CoachPage() {
       </div>
 
       {/* ── Rationale ── */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: '1.25rem' }}>
-        <div className="clabel" style={{ marginBottom: 6 }}>Pourquoi ce plan</div>
+      <Collapsible title="Pourquoi ce plan">
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--vl-text-2)', fontSize: '.82rem', lineHeight: 1.6 }}>
-          {plan.rationale.map((r, i) => <li key={i}>{r}</li>)}
+          {plan.rationale
+            .filter((r) => !r.startsWith('Périodisation'))
+            .map((r, i) => <li key={i}>{r}</li>)}
         </ul>
-      </div>
+      </Collapsible>
 
       {/* ── Frise des phases ── */}
       <div style={{ display: 'flex', gap: 3, marginBottom: '1.5rem' }}>
@@ -215,7 +217,9 @@ export default function CoachPage() {
       </div>
 
       {/* ── Programme hebdomadaire (séances de l'algo, choix-first, navigation ← →) ── */}
-      <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} />
+      <Collapsible title="Mes allures">
+        <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} bare />
+      </Collapsible>
 
       <WeekProgram weeks={plan.weeks} vdot={vdot} activities={activities} fcMax={profile?.fc_max} />
 
