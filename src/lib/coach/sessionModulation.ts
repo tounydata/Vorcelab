@@ -45,56 +45,43 @@ export function nextQualityWorkoutId(
 }
 
 /**
- * Adapte une séance structurée À L'INTÉRIEUR :
- * - lighten : −1 répétition (blocs fractionnés, plancher 3) ET allure +8 s/km ;
- *   séance continue (sans reps) → allure +8 s/km et durée −20 %.
- * - progress : +1 répétition ET allure −5 s/km.
+ * Adapte une séance structurée À L'INTÉRIEUR, avec UN SEUL levier — autorégulation
+ * (Daniels : changer une variable à la fois, « le moins de travail utile ») :
+ * - séance FRACTIONNÉE → levier VOLUME : ±~20 % de répétitions (plancher 3).
+ *   lighten = −reps (ex. 6×400 → 5×400) ; progress = +1 rep.
+ * - séance CONTINUE → levier INTENSITÉ : allure (lighten +8 s/km / progress −5 s/km).
  * Renvoie la séance modifiée + un résumé lisible. Pur (copie).
  */
 export function scaleWorkout(w: Workout, dir: ModulationDir): { workout: Workout; summary: string } {
   const blocks = w.blocks.map((b) => ({ ...b }))
   const repBlock = blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) > 1)
-  const parts: string[] = []
+  let summary: string
 
   if (repBlock) {
+    // Levier VOLUME (le plus lisible) : on coupe ~20 % des reps (plancher 3) ou +1.
     const oldReps = repBlock.reps ?? 1
-    const newReps = dir === 'lighten' ? Math.max(MIN_REPS, oldReps - 1) : oldReps + 1
-    if (newReps !== oldReps) {
-      for (const b of blocks) {
-        if (b.kind === 'main' && (b.reps ?? 1) > 1) {
-          b.reps = newReps
-          b.label = relabelReps(b.label, newReps)
-        } else if (b.kind === 'recovery' && typeof b.reps === 'number') {
-          if (b.reps === oldReps) b.reps = newReps
-          else if (b.reps === oldReps - 1) b.reps = Math.max(0, newReps - 1)
-        }
-      }
-      parts.push(`${oldReps} → ${newReps} reps`)
-    }
-  }
-
-  // Allure des blocs « main » chiffrés.
-  const delta = dir === 'lighten' ? PACE_EASE : -PACE_GAIN
-  let paceChanged = false
-  for (const b of blocks) {
-    if (b.kind === 'main' && typeof b.paceSecPerKm === 'number') {
-      b.paceSecPerKm += delta
-      paceChanged = true
-    }
-  }
-  if (paceChanged) parts.push(dir === 'lighten' ? `allure +${PACE_EASE} s/km` : `allure −${PACE_GAIN} s/km`)
-
-  // Séance continue (sans reps) trop dure : on réduit aussi la durée.
-  if (!repBlock && dir === 'lighten') {
+    const newReps = dir === 'lighten'
+      ? Math.max(MIN_REPS, oldReps - Math.max(1, Math.round(oldReps * 0.2)))
+      : oldReps + 1
     for (const b of blocks) {
-      if (b.kind === 'main' && typeof b.durationSec === 'number') {
-        b.durationSec = Math.max(300, Math.round((b.durationSec * 0.8) / 60) * 60)
+      if (b.kind === 'main' && (b.reps ?? 1) > 1) {
+        b.reps = newReps
+        b.label = relabelReps(b.label, newReps)
+      } else if (b.kind === 'recovery' && typeof b.reps === 'number') {
+        if (b.reps === oldReps) b.reps = newReps
+        else if (b.reps === oldReps - 1) b.reps = Math.max(0, newReps - 1)
       }
     }
-    parts.push('durée réduite')
+    summary = `${oldReps} → ${newReps} reps`
+  } else {
+    // Levier INTENSITÉ (séance continue) : on assouplit / accélère l'allure.
+    const delta = dir === 'lighten' ? PACE_EASE : -PACE_GAIN
+    for (const b of blocks) {
+      if (b.kind === 'main' && typeof b.paceSecPerKm === 'number') b.paceSecPerKm += delta
+    }
+    summary = dir === 'lighten' ? `allure +${PACE_EASE} s/km` : `allure −${PACE_GAIN} s/km`
   }
 
   const workout: Workout = { ...w, blocks, totalMin: recomputeTotalMin(blocks) || w.totalMin }
-  const summary = parts.length ? parts.join(' · ') : dir === 'lighten' ? 'allégée' : 'renforcée'
   return { workout, summary }
 }

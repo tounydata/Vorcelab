@@ -20,48 +20,45 @@ describe('scaleWorkout — adaptation intra-séance', () => {
   const mainReps = (w: typeof vo2) => w.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) > 1)?.reps
   const mainPace = (w: typeof vo2) => w.blocks.find((b) => b.kind === 'main' && b.paceSecPerKm)?.paceSecPerKm
 
-  it('trop dur : −1 répétition ET allure assouplie', () => {
-    const before = mainReps(vo2)!
+  it('fractionné trop dur : UN SEUL levier = on coupe ~20 % des reps (allure inchangée)', () => {
+    const before = mainReps(vo2)! // 12
     const beforePace = mainPace(vo2)!
     const { workout, summary } = scaleWorkout(vo2, 'lighten')
-    expect(mainReps(workout)).toBe(before - 1)
-    expect(mainPace(workout)).toBe(beforePace + 8) // +8 s/km = plus lent
+    expect(mainReps(workout)).toBe(before - Math.round(before * 0.2)) // 12 → 10
+    expect(mainPace(workout)).toBe(beforePace) // allure NON touchée (un seul levier)
     expect(summary).toContain('reps')
-    expect(summary).toContain('allure')
+    expect(summary).not.toContain('allure')
   })
 
-  it('trop facile : +1 répétition ET allure plus rapide', () => {
+  it('fractionné trop facile : +1 répétition (allure inchangée)', () => {
     const before = mainReps(vo2)!
     const beforePace = mainPace(vo2)!
     const { workout } = scaleWorkout(vo2, 'progress')
     expect(mainReps(workout)).toBe(before + 1)
-    expect(mainPace(workout)).toBe(beforePace - 5) // −5 s/km = plus rapide
+    expect(mainPace(workout)).toBe(beforePace)
   })
 
-  it('le label suit le nombre de reps (12 → 11)', () => {
+  it('le label suit le nombre de reps (12 → 10)', () => {
     const { workout } = scaleWorkout(vo2, 'lighten')
     const main = workout.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) > 1)!
-    expect(main.label).toContain('11')
+    expect(main.label).toContain('10')
     expect(main.label).not.toMatch(/\b12\b/)
   })
 
   it('plancher : ne descend jamais sous 3 reps', () => {
-    let w = tempoRun(50, 20) // continu — pas de reps : on fabrique un cas fractionné réduit
-    // réduit VO2 jusqu'au plancher
-    w = structureWorkout(getWorkout('vo2_intervals')!, 50)
+    let w = structureWorkout(getWorkout('vo2_intervals')!, 50)
     for (let i = 0; i < 20; i++) w = scaleWorkout(w, 'lighten').workout
     const reps = w.blocks.find((b) => b.kind === 'main' && (b.reps ?? 1) >= 1)?.reps ?? 0
     expect(reps).toBeGreaterThanOrEqual(3)
   })
 
-  it('séance continue (tempo) trop dure : allure assouplie + durée réduite', () => {
+  it('continu (tempo) trop dur : UN SEUL levier = allure +8 s/km (pas de coupe de reps)', () => {
     const tempo = tempoRun(50, 30)
     const beforeMain = tempo.blocks.find((b) => b.kind === 'main')!
     const { workout, summary } = scaleWorkout(tempo, 'lighten')
     const afterMain = workout.blocks.find((b) => b.kind === 'main')!
     expect(afterMain.paceSecPerKm!).toBe(beforeMain.paceSecPerKm! + 8)
-    expect(afterMain.durationSec!).toBeLessThan(beforeMain.durationSec!)
-    expect(summary).toContain('durée')
+    expect(summary).toContain('allure')
   })
 })
 
