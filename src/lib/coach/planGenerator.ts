@@ -194,6 +194,16 @@ function isQualityTemplate(t: WorkoutTemplate): boolean {
 }
 
 /**
+ * Garde-fou d'affûtage : en taper, on coupe le volume mais on ne place AUCUNE
+ * séance dure (VO2max/seuil/côtes). Seuls les rappels neuromusculaires légers
+ * (strides, accélérations — intensité ≤ moderate) sont autorisés, le temps que
+ * la fatigue tombe sans perdre l'affûtage nerveux (Daniels/Pfitzinger).
+ */
+function isTaperSafe(t: WorkoutTemplate): boolean {
+  return t.intensity !== 'hard'
+}
+
+/**
  * Pool de séances « qualité » de la phase, ADAPTÉ AU PROFIL (niveau × distance ×
  * route/trail × points faibles) via adaptCatalog, trié par pertinence décroissante.
  * Plafonné pour rester focalisé tout en laissant de la variété à la rotation.
@@ -208,6 +218,7 @@ function qualityPool(phase: Phase, isTrail: boolean, input: PlanInput): string[]
   }
   return adaptCatalog(profile)
     .filter((s) => isQualityTemplate(s.template))
+    .filter((s) => phase !== 'taper' || isTaperSafe(s.template))
     .slice(0, 8)
     .map((s) => s.template.id)
 }

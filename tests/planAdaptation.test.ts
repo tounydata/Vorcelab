@@ -13,6 +13,24 @@ function road10k(over: Partial<PlanInput> = {}): PlanInput {
 const allIds = (input: PlanInput) =>
   generateTrainingPlan(input).weeks.flatMap((w) => w.sessions.map((s) => s.workoutId))
 
+describe('plan — affûtage (périodisation)', () => {
+  it('aucune séance dure (VO2max/seuil/côtes) en semaine d\'affûtage', () => {
+    // Périodisation : la vitesse/VO2max est en base/développement, PAS à J-7.
+    const plan = generateTrainingPlan(road10k({ weaknesses: ['vo2max'] }))
+    const taper = plan.weeks.filter((w) => w.phase === 'taper')
+    expect(taper.length).toBeGreaterThan(0)
+    for (const w of taper) {
+      for (const s of w.sessions) {
+        expect(s.intensity, `${w.weekIndex}:${s.workoutId}`).not.toBe('hard')
+      }
+    }
+  })
+
+  it('VO2max ne fait jamais partie des séances d\'affûtage du catalogue', () => {
+    expect(getWorkout('vo2_intervals')!.phases).not.toContain('taper')
+  })
+})
+
 describe('plan — adaptation au profil', () => {
   it('un point faible VO2max fait apparaître des séances VO2max dans le plan', () => {
     const ids = allIds(road10k({ weaknesses: ['vo2max'] }))
