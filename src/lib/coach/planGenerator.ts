@@ -103,9 +103,10 @@ function addDaysISO(iso: string, days: number): string {
 
 /**
  * Répartit les semaines en phases (base → build → specific → taper → race).
- * Les 2 dernières semaines sont toujours affûtage + course (1 seule si horizon court).
+ * L'affûtage dure plusieurs semaines (cf. `taperWeeks`) pour que le PIC de charge
+ * tombe ~3 semaines avant la course, puis réduction progressive jusqu'au jour J.
  */
-export function allocatePhases(n: number): Phase[] {
+export function allocatePhases(n: number, distanceKm = 0): Phase[] {
   if (n <= 1) return ['race']
   if (n === 2) return ['taper', 'race']
   if (n === 3) return ['build', 'taper', 'race']
@@ -113,7 +114,8 @@ export function allocatePhases(n: number): Phase[] {
   if (n === 5) return ['base', 'build', 'specific', 'taper', 'race']
 
   // n >= 6 : proportions (base ≈ 30%, spécifique ≈ 20%, build = reste), + taper + course.
-  const trainingWeeks = n - 2 // hors taper + race
+  const taper = taperWeeks(distanceKm, n)
+  const trainingWeeks = n - taper - 1 // hors taper + course
   let base = Math.max(1, Math.round(n * 0.3))
   let specific = Math.max(1, Math.round(n * 0.2))
   let build = trainingWeeks - base - specific
@@ -124,9 +126,37 @@ export function allocatePhases(n: number): Phase[] {
   for (let i = 0; i < base; i++) phases.push('base')
   for (let i = 0; i < build; i++) phases.push('build')
   for (let i = 0; i < specific; i++) phases.push('specific')
-  phases.push('taper')
+  for (let i = 0; i < taper; i++) phases.push('taper')
   phases.push('race')
   return phases
+}
+
+/**
+ * Durée de l'affûtage selon la distance (périodisation, références grand public) :
+ * courte/semi = 2 semaines, marathon (≥ 35 km) = 3. Le pic de charge tombe ainsi
+ * ~3 semaines avant la course. `distanceKm = 0` (défaut) → 1 (compat. interne).
+ * Plafonné pour toujours laisser base + build + spécifique + course ailleurs.
+ */
+function taperWeeks(distanceKm: number, n: number): number {
+  const wanted = distanceKm >= 35 ? 3 : distanceKm > 0 ? 2 : 1
+  const maxTaper = Math.max(1, n - 4)
+  return Math.min(wanted, maxTaper)
+}
+
+/**
+ * Coefficient d'affûtage selon le nombre de semaines avant la course :
+ * dernière semaine ≈ 55 % du pic, l'avant-dernière ≈ 72 %, une 3e (marathon) ≈ 85 %.
+ * Réduction progressive du volume tout en gardant la fraîcheur (cf. périodisation).
+ */
+function taperVolumeFactor(weeksToGo: number): number {
+  if (weeksToGo <= 1) return 0.55
+  if (weeksToGo === 2) return 0.72
+  return 0.85
+}
+function taperDurationFactor(weeksToGo: number): number {
+  if (weeksToGo <= 1) return 0.6
+  if (weeksToGo === 2) return 0.75
+  return 0.85
 }
 
 /** Volume hebdo cible (heures) selon course, phase, semaine de décharge et CTL. */
@@ -135,6 +165,7 @@ function weekVolumeHours(
   isRecovery: boolean,
   distanceKm: number,
   currentCTL: number | null | undefined,
+  weeksToGo = 0,
 ): number {
   // Volume de pic dérivé de la distance (4 h pour une courte, jusqu'à 14 h pour un ultra).
   let peak = 4 + distanceKm * 0.06
@@ -145,7 +176,8 @@ function weekVolumeHours(
   const phaseFactor: Record<Phase, number> = {
     base: 0.8, build: 0.95, specific: 1.0, taper: 0.6, race: 0.4,
   }
-  let h = peak * phaseFactor[phase]
+  const factor = phase === 'taper' ? taperVolumeFactor(weeksToGo) : phaseFactor[phase]
+  let h = peak * factor
   if (isRecovery) h *= 0.65
   return Math.round(h * 10) / 10
 }
@@ -153,14 +185,15 @@ function weekVolumeHours(
 /** Ordre de placement des séances dans la semaine (1=lun … 7=dim). */
 const DAY_SLOTS = [7, 2, 4, 3, 6, 1, 5] // dimanche=longue, mardi/jeudi=qualité, etc.
 
-function scaleDuration(baseMin: number, phase: Phase, isRecovery: boolean): number {
+function scaleDuration(baseMin: number, phase: Phase, isRecovery: boolean, weeksToGo = 0): number {
   const f: Record<Phase, number> = { base: 0.85, build: 1.0, specific: 1.05, taper: 0.7, race: 0.6 }
-  let m = baseMin * f[phase]
+  const factor = phase === 'taper' ? taperDurationFactor(weeksToGo) : f[phase]
+  let m = baseMin * factor
   if (isRecovery) m *= 0.75
   return Math.round(m / 5) * 5
 }
 
-function toSession(workoutId: string, dayOfWeek: number, phase: Phase, isRecovery: boolean): PlannedSession {
+function toSession(workoutId: string, dayOfWeek: number, phase: Phase, isRecovery: boolean, weeksToGo = 0): PlannedSession {
   const w = getWorkout(workoutId)!
   return {
     dayOfWeek,
@@ -168,7 +201,7 @@ function toSession(workoutId: string, dayOfWeek: number, phase: Phase, isRecover
     title: w.name,
     system: w.system,
     intensity: w.intensity,
-    targetDurationMin: scaleDuration(w.baseDurationMin, phase, isRecovery),
+    targetDurationMin: scaleDuration(w.baseDurationMin, phase, isRecovery, weeksToGo),
     climbing: w.climbing,
     description: w.description,
   }
@@ -261,6 +294,7 @@ function buildTrainingWeek(
   phase: Phase,
   isRecovery: boolean,
   isTrail: boolean,
+  weeksToGo: number,
 ): PlanWeek {
   const days = Math.min(6, Math.max(3, input.daysPerWeek))
   const sessions: PlannedSession[] = []
@@ -275,7 +309,7 @@ function buildTrainingWeek(
 
   // 1) Sortie longue (dimanche) — toujours présente.
   const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
-  sessions.push(toSession(longId, nextSlot(), phase, isRecovery))
+  sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
 
   // 2) Séances de qualité selon la phase (réduites en semaine de décharge).
   const pool = qualityPool(phase, isTrail, input)
@@ -284,13 +318,13 @@ function buildTrainingWeek(
   for (let i = 0; i < nQuality && pool.length > 0; i++) {
     // Rotation par semaine pour varier les stimuli.
     const id = pool[(weekIndex + i) % pool.length]
-    sessions.push(toSession(id, nextSlot(), phase, isRecovery))
+    sessions.push(toSession(id, nextSlot(), phase, isRecovery, weeksToGo))
   }
 
   // 3) Le reste en endurance / récupération.
   while (sessions.length < days) {
     const easyId = sessions.length === days - 1 && isRecovery ? 'recovery_jog' : 'endurance_easy'
-    sessions.push(toSession(easyId, nextSlot(), phase, isRecovery))
+    sessions.push(toSession(easyId, nextSlot(), phase, isRecovery, weeksToGo))
   }
 
   sessions.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
@@ -299,7 +333,7 @@ function buildTrainingWeek(
     base: 'Construction aérobie + force en côte.',
     build: 'Développement seuil/VO2 et spécificité montée.',
     specific: 'Spécificité course : allure objectif sur profil proche.',
-    taper: 'Affûtage : volume en baisse, intensité préservée.',
+    taper: 'Affûtage : volume en forte baisse, seulement de courts rappels d\'allure.',
     race: 'Semaine de course.',
   }
 
@@ -308,7 +342,7 @@ function buildTrainingWeek(
     weekStartISO,
     phase,
     isRecovery,
-    volumeHours: weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL),
+    volumeHours: weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL, weeksToGo),
     focus: isRecovery ? 'Semaine de décharge — récupération et assimilation.' : focusByPhase[phase],
     sessions,
   }
@@ -317,7 +351,7 @@ function buildTrainingWeek(
 export function generateTrainingPlan(input: PlanInput): TrainingPlan {
   const isTrail = isTrailRace(input.raceType, input.raceElevationM)
   const weeksToRace = weeksUntil(input.todayISO, input.raceDateISO)
-  const phases = allocatePhases(weeksToRace)
+  const phases = allocatePhases(weeksToRace, input.raceDistanceKm)
 
   // Lundi de la semaine de course, puis on remonte semaine par semaine.
   const raceWeekMonday = mondayOf(input.raceDateISO)
@@ -326,9 +360,11 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
   const weeks: PlanWeek[] = phases.map((phase, i) => {
     const weekStartISO = addDaysISO(firstWeekMonday, 7 * i)
     if (phase === 'race') return buildRaceWeek(input, i, weekStartISO)
+    // Nombre de semaines avant la course (course = 0) → pilote l'affûtage progressif.
+    const weeksToGo = phases.length - 1 - i
     // Décharge toutes les 4 semaines, jamais en taper/course.
     const isRecovery = (i + 1) % 4 === 0
-    return buildTrainingWeek(input, i, weekStartISO, phase, isRecovery, isTrail)
+    return buildTrainingWeek(input, i, weekStartISO, phase, isRecovery, isTrail, weeksToGo)
   })
 
   const phaseBreakdown = phases.reduce(
