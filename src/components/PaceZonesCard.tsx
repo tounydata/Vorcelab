@@ -14,28 +14,34 @@ const FC_ZONES = [
 ]
 
 /** Carte « Mes allures » — allures d'entraînement réelles + zones FC. Null-safe. */
-export default function PaceZonesCard({ prs, vo2max, fcMax }: {
+export default function PaceZonesCard({ prs, vo2max, fcMax, bare = false }: {
   prs?: Record<string, unknown> | null
   vo2max?: number | null
   fcMax?: number | null
+  /** Rend le contenu sans la carte ni l'en-tête « MES ALLURES » (pour un accordéon). */
+  bare?: boolean
 }) {
   const rp = deriveRunnerPaces(prs, vo2max)
 
   if (!rp && !fcMax) {
+    const empty = (
+      <p style={{ fontSize: 13, color: 'var(--vl-text-3)', margin: 0 }}>
+        Ajoute ta VO2max ou un temps de course récent pour calculer tes allures cibles.
+      </p>
+    )
+    if (bare) return empty
     return (
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="clabel" style={{ margin: '0 0 6px' }}>MES ALLURES</div>
-        <p style={{ fontSize: 13, color: 'var(--vl-text-3)', margin: 0 }}>
-          Ajoute ta VO2max ou un temps de course récent pour calculer tes allures cibles.
-        </p>
+        {empty}
       </div>
     )
   }
 
-  return (
-    <div className="card" style={{ marginBottom: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <div className="clabel" style={{ margin: 0 }}>MES ALLURES</div>
+  const body = (
+    <>
+      <div style={{ display: 'flex', justifyContent: bare ? 'flex-end' : 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+        {bare ? null : <div className="clabel" style={{ margin: 0 }}>MES ALLURES</div>}
         {rp ? (
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
             VDOT {rp.vdot} · {rp.source === 'race_pr' ? "d'après ta course" : 'estimé (VO2max)'}
@@ -73,6 +79,9 @@ export default function PaceZonesCard({ prs, vo2max, fcMax }: {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   )
+
+  if (bare) return body
+  return <div className="card" style={{ marginBottom: '1rem' }}>{body}</div>
 }
