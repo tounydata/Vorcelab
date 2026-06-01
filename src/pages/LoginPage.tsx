@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-type Mode = 'password' | 'magic' | 'reset'
+type Mode = 'password' | 'magic' | 'reset' | 'signup'
 
 const REDIRECT = `${window.location.origin}/Vorcelab/app/#/`
 
@@ -24,6 +24,33 @@ export default function LoginPage() {
     if (error) setStatus({ msg: error.message === 'Invalid login credentials'
       ? 'Email ou mot de passe incorrect.'
       : 'Erreur : ' + error.message, ok: false })
+  }
+
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim() || !password) return
+
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setStatus({ msg: 'Mot de passe : 8 caractères minimum, avec au moins 1 majuscule et 1 chiffre.', ok: false })
+      return
+    }
+
+    setLoading(true); clearStatus()
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { emailRedirectTo: REDIRECT },
+    })
+    setLoading(false)
+
+    if (error) {
+      setStatus({ msg: 'Erreur : ' + error.message, ok: false })
+      return
+    }
+
+    if (data.user) {
+      setStatus({ msg: 'Compte créé ! Vérifiez votre email si demandé.', ok: true })
+    }
   }
 
   async function handleMagicLink(e: React.FormEvent) {
@@ -105,11 +132,62 @@ export default function LoginPage() {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: '1.25rem', alignItems: 'center' }}>
+              <button className="auth-link" onClick={() => goMode('signup')}>
+                Créer un compte
+              </button>
               <button className="auth-link" onClick={() => goMode('reset')}>
                 Mot de passe oublié ?
               </button>
               <button className="auth-link" onClick={() => goMode('magic')}>
                 Connexion sans mot de passe
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Mode : création de compte ── */}
+        {mode === 'signup' && (
+          <>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--vl-text-3)', marginBottom: '1rem' }}>
+              Créer un compte
+            </div>
+            <form onSubmit={handleSignup}>
+              <input
+                className="fi"
+                type="email"
+                placeholder="ton@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+              <input
+                className="fi"
+                type="password"
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+              <button className="btn-primary" type="submit" disabled={loading || !!status?.ok}>
+                {loading ? 'Création…' : 'CRÉER LE COMPTE'}
+              </button>
+            </form>
+
+            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: '.75rem', textAlign: 'center' }}>
+              8 caractères minimum, 1 majuscule et 1 chiffre.
+            </div>
+
+            {status && (
+              <div className="auth-msg" style={{ color: status.ok ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>
+                {status.msg}
+              </div>
+            )}
+
+            <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
+              <button className="auth-link" onClick={() => goMode('password')}>
+                ← Déjà un compte ? Connexion
               </button>
             </div>
           </>
