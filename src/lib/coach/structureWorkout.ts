@@ -4,7 +4,7 @@
 // existant (le moteur lib/coach n'a pas d'allures). Pur, déterministe.
 
 import {
-  easyRun, tempoRun, cruiseIntervals, vo2_30_30, hillSession, type Workout,
+  easyRun, tempoRun, cruiseIntervals, vo2_30_30, hillSession, strides, type Workout,
 } from '../sessionGenerator'
 import type { WorkoutTemplate } from './workouts'
 
@@ -20,8 +20,14 @@ export function structureWorkout(t: WorkoutTemplate, vdot: number): Workout {
       return tempoRun(vdot, Math.min(40, Math.max(15, Math.round(t.baseDurationMin * 0.5))))
     case 'threshold':
       return cruiseIntervals(vdot, 4, 8)
+    case 'race_pace':
+      // Spécifique allure course : bloc continu à effort soutenu (proxy seuil).
+      return tempoRun(vdot, Math.min(40, Math.max(15, Math.round(t.baseDurationMin * 0.4))))
     case 'vo2max':
       return vo2_30_30(vdot, 12)
+    case 'speed':
+      // Vitesse/économie : profil neuromusculaire (lignes droites), hors quota 80/20.
+      return { type: 'strides', intent: 'Vitesse & économie : recrutement neuromusculaire, foulée vive.', blocks: [strides(8)], totalMin: t.baseDurationMin }
     case 'hills':
       return hillSession('force', 10)
     case 'descent':
