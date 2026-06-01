@@ -1,16 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
-import type { Phase } from '../lib/coach/workouts'
+import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
+import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
+import { structureWorkout } from '../lib/coach/structureWorkout'
+import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import PaceZonesCard from '../components/PaceZonesCard'
 import Collapsible from '../components/Collapsible'
 import WeekProgram from '../components/WeekProgram'
+import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import type { LinkActivity } from '../components/SessionFeedback'
 
 interface Race {
@@ -122,6 +126,49 @@ export default function CoachPage() {
     })
   }, [targetRace, daysPerWeek, today, level, weaknesses])
 
+  // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
+  const { data: latestVerdict = null } = useQuery({
+    queryKey: ['latest-verdict', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const rows = await listSessionLog(1)
+      return rows[0] ? { id: rows[0].id, verdict: rows[0].verdict } : null
+    },
+  })
+
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    setDismissed(!!latestVerdict && localStorage.getItem('vl-modul-dismiss') === latestVerdict.id)
+  }, [latestVerdict])
+
+  // Cible : la 1re séance qualité de la semaine courante est adaptée DE L'INTÉRIEUR
+  // (reps + allure) selon le verdict. L'affûtage (taper/course) n'est jamais modulé.
+  const modulation = useMemo(() => {
+    if (!plan || !latestVerdict || dismissed) return null
+    const adj = computeAdjustment(latestVerdict.verdict)
+    if (adj.direction === 'none') return null
+    const week0 = plan.weeks[0]
+    if (!week0 || week0.phase === 'taper' || week0.phase === 'race') return null
+    const workoutId = nextQualityWorkoutId(week0.sessions)
+    const t = workoutId ? getWorkout(workoutId) : null
+    if (!workoutId || !t) return null
+    const { summary } = scaleWorkout(structureWorkout(t, vdot), adj.direction)
+    return { workoutId, dir: adj.direction, reason: adj.reason, summary, title: t.name }
+  }, [plan, latestVerdict, dismissed, vdot])
+
+  const [splash, setSplash] = useState(false)
+  useEffect(() => {
+    if (modulation && latestVerdict && localStorage.getItem('vl-modul-splash') !== latestVerdict.id) {
+      localStorage.setItem('vl-modul-splash', latestVerdict.id)
+      setSplash(true)
+    }
+  }, [modulation, latestVerdict])
+
+  function cancelModulation() {
+    if (latestVerdict) localStorage.setItem('vl-modul-dismiss', latestVerdict.id)
+    setDismissed(true)
+  }
+
   if (isLoading) {
     return <div className="loading"><div className="spinner" /></div>
   }
@@ -143,6 +190,7 @@ export default function CoachPage() {
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
+      {splash ? <SessionAdaptationSplash message="J'ajuste ta prochaine séance selon ton dernier ressenti." onDone={() => setSplash(false)} /> : null}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 700 }}>Coach</div>
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
@@ -221,7 +269,26 @@ export default function CoachPage() {
         <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} bare />
       </Collapsible>
 
-      <WeekProgram weeks={plan.weeks} vdot={vdot} activities={activities} fcMax={profile?.fc_max} />
+      {modulation ? (
+        <div className="card" style={{ borderLeft: '4px solid var(--vl-ember)', padding: '10px 14px', marginBottom: '1rem', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: 'var(--vl-text-2)' }}>
+            <strong style={{ color: 'var(--vl-text)' }}>
+              {modulation.dir === 'lighten' ? `${modulation.title} allégée` : `${modulation.title} renforcée`}
+            </strong>
+            {' — '}{modulation.reason}.{' '}
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text)' }}>{modulation.summary}</span>
+          </div>
+          <button className="hbtn" style={{ fontSize: 10, padding: '3px 8px', flexShrink: 0 }} onClick={cancelModulation}>Annuler</button>
+        </div>
+      ) : null}
+
+      <WeekProgram
+        weeks={plan.weeks}
+        vdot={vdot}
+        activities={activities}
+        fcMax={profile?.fc_max}
+        scale={modulation ? { workoutId: modulation.workoutId, dir: modulation.dir } : undefined}
+      />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Plan généré localement par un moteur déterministe (aucune IA, aucune donnée envoyée à l'extérieur).
