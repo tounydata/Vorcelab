@@ -349,8 +349,8 @@ export const PHASE_LABELS: Record<Phase, string> = {
 
 export const SYSTEM_LABELS: Record<WorkoutSystem, string> = {
   endurance: 'Endurance', recovery: 'Récup', long: 'Sortie longue', tempo: 'Tempo',
-  threshold: 'Seuil', vo2max: 'VO2max', hills: 'Côtes', descent: 'Descente',
-  strength: 'Renfo', race: 'Course',
+  threshold: 'Seuil', vo2max: 'VO2max', speed: 'Vitesse', hills: 'Côtes', descent: 'Descente',
+  race_pace: 'Allure course', strength: 'Renfo', race: 'Course',
 }
 
 // Référence exportée pour vérifier l'intégrité de la bibliothèque dans les tests.

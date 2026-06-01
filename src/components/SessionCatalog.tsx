@@ -1,4 +1,4 @@
-import { buildWorkoutCatalog, type CatalogEntry } from '../lib/coach/catalog'
+import type { CatalogEntry } from '../lib/coach/catalog'
 import { recommendWorkouts, BADGE_LABEL, type BadgeKind, type RecommendContext } from '../lib/sessionRecommender'
 import type { Intensity } from '../lib/coach/workouts'
 
@@ -65,13 +65,11 @@ function SessionCard({ entry, badge, onSelect }: { entry: CatalogEntry; badge: B
  * Catalogue de séances (choix-first) : l'athlète parcourt et choisit librement.
  * Les badges (issus de recommendWorkouts) ne sont qu'une indication douce.
  */
-export default function SessionCatalog({ vdot, ctx, trail, onSelect }: {
-  vdot: number
+export default function SessionCatalog({ entries, ctx, onSelect }: {
+  entries: CatalogEntry[]
   ctx: RecommendContext
-  trail?: boolean
   onSelect?: (e: CatalogEntry) => void
 }) {
-  const entries = buildWorkoutCatalog(vdot, { trail })
   const recs = recommendWorkouts(entries.map((e) => e.template), ctx)
   const badgeById = new Map(recs.map((r) => [r.workoutId, r.badge]))
 

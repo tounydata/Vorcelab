@@ -1,7 +1,7 @@
 // Catalogue de séances proposées (choix-first) construit sur la bibliothèque
 // existante (WORKOUTS) + l'adaptateur de structuration. Pur, testable.
 
-import { WORKOUTS, type WorkoutTemplate } from './workouts'
+import { getWorkout, type WorkoutTemplate } from './workouts'
 import { structureWorkout } from './structureWorkout'
 import type { Workout } from '../sessionGenerator'
 
@@ -11,13 +11,18 @@ export interface CatalogEntry {
 }
 
 /**
- * Séances proposées au choix pour un VDOT donné.
- * Exclut le renfo (module dédié) et le jour de course ; n'inclut le trail-only
- * que si l'objectif est trail.
+ * Séances de LA SEMAINE décidées par l'algo (plan), présentées en choix-first.
+ * Dé-doublonne par workoutId → un menu de séances distinctes à choisir librement.
  */
-export function buildWorkoutCatalog(vdot: number, opts?: { trail?: boolean }): CatalogEntry[] {
-  return WORKOUTS
-    .filter((t) => t.system !== 'strength' && t.system !== 'race')
-    .filter((t) => (opts?.trail ? true : !t.trailOnly))
-    .map((t) => ({ template: t, workout: structureWorkout(t, vdot) }))
+export function buildWeekCatalog(weekSessions: readonly { workoutId: string }[], vdot: number): CatalogEntry[] {
+  const seen = new Set<string>()
+  const entries: CatalogEntry[] = []
+  for (const s of weekSessions) {
+    if (seen.has(s.workoutId)) continue
+    const t = getWorkout(s.workoutId)
+    if (!t) continue
+    seen.add(s.workoutId)
+    entries.push({ template: t, workout: structureWorkout(t, vdot) })
+  }
+  return entries
 }

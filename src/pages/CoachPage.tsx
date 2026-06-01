@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
-import {
-  generateTrainingPlan, PHASE_LABELS, SYSTEM_LABELS,
-  type PlannedSession,
-} from '../lib/coach/planGenerator'
+import { useVLStore } from '../store/vlStore'
+import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
 import type { Phase } from '../lib/coach/workouts'
+import { deriveRunnerPaces } from '../lib/runnerPaces'
+import type { ActivityForLoad } from '../lib/trainingLoad'
+import PaceZonesCard from '../components/PaceZonesCard'
+import WeekProgram from '../components/WeekProgram'
 
 interface Race {
   id: string
@@ -17,7 +19,11 @@ interface Race {
   type: string | null
 }
 
-const DOW_LABELS = ['', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
+interface ProfileRow {
+  prs?: Record<string, unknown> | null
+  vo2max?: number | null
+  fc_max?: number | null
+}
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
@@ -25,12 +31,6 @@ const PHASE_COLORS: Record<Phase, string> = {
   specific: 'var(--vl-ember)',
   taper: '#3B82F6',
   race: 'var(--vl-text)',
-}
-
-const INTENSITY_COLOR: Record<string, string> = {
-  easy: 'var(--vl-growth)',
-  moderate: 'var(--vl-amber)',
-  hard: 'var(--vl-ember)',
 }
 
 function todayISO(): string {
@@ -41,39 +41,8 @@ function fmtRaceDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function SessionRow({ s }: { s: PlannedSession }) {
-  const isRace = s.system === 'race'
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--vl-line)' }}>
-      <div style={{ width: 32, flexShrink: 0, fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', paddingTop: 2 }}>
-        {DOW_LABELS[s.dayOfWeek]}
-      </div>
-      <div
-        style={{ width: 3, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0, background: isRace ? 'var(--vl-ember)' : INTENSITY_COLOR[s.intensity] }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.9rem', fontWeight: 700 }}>{s.title}</span>
-          {!isRace && (
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', border: '1px solid var(--vl-line)', borderRadius: 3, padding: '1px 5px' }}>
-              {SYSTEM_LABELS[s.system]}
-            </span>
-          )}
-          {s.climbing && <span style={{ fontSize: 11 }} title="Dénivelé positif">⛰</span>}
-          {s.targetDurationMin > 0 && (
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-2)' }}>~{s.targetDurationMin} min</span>
-          )}
-        </div>
-        <div style={{ fontSize: '.78rem', color: 'var(--vl-text-2)', marginTop: 2, lineHeight: 1.4 }}>{s.description}</div>
-        {s.system === 'strength' && (
-          <Link to="/renfo" style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)' }}>→ ouvrir le module Renfo</Link>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function CoachPage() {
+  const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
   const [daysPerWeek, setDaysPerWeek] = useState(5)
 
@@ -86,6 +55,29 @@ export default function CoachPage() {
         .order('date', { ascending: true })
       if (error) throw error
       return (data ?? []) as Race[]
+    },
+  })
+
+  const { data: profile } = useQuery<ProfileRow | null>({
+    queryKey: ['profile-sessions'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max').eq('id', user!.id).maybeSingle()
+      return (data ?? null) as ProfileRow | null
+    },
+  })
+
+  const { data: activities = [] } = useQuery<ActivityForLoad[]>({
+    queryKey: ['activities'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('strava_activities')
+        .select('moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date')
+        .order('start_date', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return (data ?? []) as ActivityForLoad[]
     },
   })
 
@@ -117,6 +109,8 @@ export default function CoachPage() {
     return <div className="loading"><div className="spinner" /></div>
   }
 
+  const vdot = deriveRunnerPaces(profile?.prs, profile?.vo2max)?.vdot ?? 45
+
   if (!targetRace || !plan) {
     return (
       <div style={{ paddingBottom: '2rem' }}>
@@ -140,20 +134,6 @@ export default function CoachPage() {
           {plan.weeksToRace} semaine{plan.weeksToRace > 1 ? 's' : ''} avant le jour J
         </div>
       </div>
-
-      {/* ── Choix-first : le plan est une structure indicative, l'athlète choisit ── */}
-      <Link
-        to="/sessions"
-        className="card"
-        style={{ display: 'block', textDecoration: 'none', marginBottom: '1.25rem', borderLeft: '3px solid var(--vl-ember)' }}
-      >
-        <div className="clabel" style={{ margin: '0 0 4px' }}>Tu choisis tes séances</div>
-        <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
-          Ce plan est une <strong>structure indicative</strong>, pas une obligation : parcours le
-          catalogue et choisis librement — les recommandations ne sont que des suggestions.{' '}
-          <span style={{ color: 'var(--vl-ember)', fontFamily: 'var(--vl-mono)', fontSize: 11 }}>Ouvrir le catalogue →</span>
-        </div>
-      </Link>
 
       {/* ── Course cible + réglages ── */}
       <div className="card" style={{ padding: '14px 16px', marginBottom: '1.25rem' }}>
@@ -220,31 +200,14 @@ export default function CoachPage() {
         ))}
       </div>
 
-      {/* ── Semaines ── */}
-      {plan.weeks.map((w) => (
-        <div key={w.weekIndex} className="card" style={{ padding: '12px 16px', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>S{w.weekIndex + 1}</span>
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '.08em', color: PHASE_COLORS[w.phase], border: `1px solid ${PHASE_COLORS[w.phase]}`, borderRadius: 3, padding: '1px 6px' }}>
-                {PHASE_LABELS[w.phase]}
-              </span>
-              {w.isRecovery && (
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>DÉCHARGE</span>
-              )}
-            </div>
-            {w.volumeHours > 0 && (
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)' }}>~{w.volumeHours} h</span>
-            )}
-          </div>
-          <div style={{ fontSize: '.78rem', color: 'var(--vl-text-3)', marginBottom: 6, fontStyle: 'italic' }}>{w.focus}</div>
-          {w.sessions.map((s, i) => <SessionRow key={i} s={s} />)}
-        </div>
-      ))}
+      {/* ── Programme hebdomadaire (séances de l'algo, choix-first, navigation ← →) ── */}
+      <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} />
+
+      <WeekProgram weeks={plan.weeks} vdot={vdot} activities={activities} fcMax={profile?.fc_max} />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Plan généré localement par un moteur déterministe (aucune IA, aucune donnée envoyée à l'extérieur).
-        Prochaine étape : personnalisation par ton CTL réel et tes points faibles du profil, puis adaptation hebdomadaire.
+        Les séances sont une <strong>proposition</strong> : tu restes libre de ton choix.
       </div>
     </div>
   )

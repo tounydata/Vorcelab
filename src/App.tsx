@@ -14,7 +14,6 @@ import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 import ActivityDetailPage from './pages/ActivityDetailPage'
 import CoachPage from './pages/CoachPage'
-import SessionsPage from './pages/SessionsPage'
 import RenfoPage from './pages/RenfoPage'
 import RenfoSessionPage from './pages/RenfoSessionPage'
 import RenfoLibraryPage from './pages/RenfoLibraryPage'
@@ -65,7 +64,6 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="coach" element={<CoachPage />} />
-            <Route path="sessions" element={<SessionsPage />} />
             <Route path="activities" element={<ActivitiesPage />} />
             <Route path="activities/:activityId" element={<ActivityDetailPage />} />
             <Route path="race" element={<RaceListPage />} />
