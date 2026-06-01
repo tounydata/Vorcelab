@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useVLStore } from '../store/vlStore'
 
 type Mode = 'password' | 'magic' | 'reset' | 'signup'
 
@@ -11,6 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null)
+  const setLoginRedirect = useVLStore((s) => s.setLoginRedirect)
+
+  // L'écran de login n'est affiché que déconnecté : toute connexion qui suit doit
+  // ramener au Dashboard (et non sur la dernière page laissée dans l'URL).
+  useEffect(() => { setLoginRedirect(true) }, [setLoginRedirect])
 
   function clearStatus() { setStatus(null) }
   function goMode(m: Mode) { setMode(m); clearStatus() }
@@ -48,8 +54,13 @@ export default function LoginPage() {
       return
     }
 
-    if (data.user) {
-      setStatus({ msg: 'Compte créé ! Vérifiez votre email si demandé.', ok: true })
+    if (data.session) {
+      // Confirmation d'email désactivée → session ouverte, connexion immédiate
+      // (onAuthStateChange prend le relais et bascule vers l'app + onboarding).
+      setStatus({ msg: 'Compte créé — connexion…', ok: true })
+    } else if (data.user) {
+      // Confirmation activée → l'utilisateur doit valider son email d'abord.
+      setStatus({ msg: 'Compte créé ! Confirme ton email (pense aux spams), puis reviens te connecter.', ok: true })
     }
   }
 
