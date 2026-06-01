@@ -4,7 +4,11 @@
 // et de l'état du coureur, produit une périodisation semaine par semaine et
 // sélectionne les séances dans la bibliothèque (workouts.ts).
 
-import { WORKOUTS, getWorkout, type Phase, type WorkoutSystem, type Intensity } from './workouts'
+import {
+  WORKOUTS, getWorkout,
+  type Phase, type WorkoutSystem, type Intensity, type Level, type WorkoutTarget, type WorkoutTemplate,
+} from './workouts'
+import { adaptCatalog, distanceFocusFromKm, type AdaptProfile } from './adaptCatalog'
 
 export interface PlanInput {
   raceName: string
@@ -20,6 +24,10 @@ export interface PlanInput {
   daysPerWeek: number
   /** CTL (fitness) actuel, optionnel — affine le volume si fourni. */
   currentCTL?: number | null
+  /** Niveau d'expérience (gating du choix des séances). Défaut : intermediate. */
+  level?: Level
+  /** Points faibles détectés (runnerProfile) — boostent les séances ciblées. */
+  weaknesses?: WorkoutTarget[]
 }
 
 export interface PlannedSession {
@@ -177,21 +185,31 @@ function qualityCount(phase: Phase): number {
   }
 }
 
-/** Pool de séances « qualité » par phase, filtré trail/route, ordre de priorité. */
-function qualityPool(phase: Phase, isTrail: boolean): string[] {
-  const pools: Record<Phase, string[]> = {
-    base: ['hill_repeats_short', 'fartlek', 'tempo_run', 'progressive_run'],
-    build: ['threshold_intervals', 'hill_repeats_long', 'vo2_intervals', 'downhill_technique', 'tempo_run'],
-    specific: ['race_pace_dplus', 'hill_repeats_long', 'threshold_intervals', 'downhill_technique'],
-    taper: ['vo2_intervals', 'sharpener'],
-    race: [],
+// Systèmes qui ne sont PAS des séances de « qualité » à insérer dans la semaine :
+// la longue, l'easy/récup et le renfo sont placés via leurs propres slots.
+const NON_QUALITY_SYSTEMS: WorkoutSystem[] = ['endurance', 'recovery', 'long', 'strength', 'race']
+
+function isQualityTemplate(t: WorkoutTemplate): boolean {
+  return !NON_QUALITY_SYSTEMS.includes(t.system) && t.target !== 'recovery'
+}
+
+/**
+ * Pool de séances « qualité » de la phase, ADAPTÉ AU PROFIL (niveau × distance ×
+ * route/trail × points faibles) via adaptCatalog, trié par pertinence décroissante.
+ * Plafonné pour rester focalisé tout en laissant de la variété à la rotation.
+ */
+function qualityPool(phase: Phase, isTrail: boolean, input: PlanInput): string[] {
+  const profile: AdaptProfile = {
+    level: input.level ?? 'intermediate',
+    distance: distanceFocusFromKm(input.raceDistanceKm),
+    trail: isTrail,
+    phase,
+    weaknesses: input.weaknesses,
   }
-  return pools[phase].filter((id) => {
-    const w = getWorkout(id)
-    if (!w) return false
-    if (w.trailOnly && !isTrail) return false
-    return true
-  })
+  return adaptCatalog(profile)
+    .filter((s) => isQualityTemplate(s.template))
+    .slice(0, 8)
+    .map((s) => s.template.id)
 }
 
 function buildRaceWeek(input: PlanInput, weekIndex: number, weekStartISO: string): PlanWeek {
@@ -249,7 +267,7 @@ function buildTrainingWeek(
   sessions.push(toSession(longId, nextSlot(), phase, isRecovery))
 
   // 2) Séances de qualité selon la phase (réduites en semaine de décharge).
-  const pool = qualityPool(phase, isTrail)
+  const pool = qualityPool(phase, isTrail, input)
   let nQuality = isRecovery ? Math.min(1, qualityCount(phase)) : qualityCount(phase)
   nQuality = Math.min(nQuality, Math.max(0, days - 1)) // garder au moins de la place
   for (let i = 0; i < nQuality && pool.length > 0; i++) {
