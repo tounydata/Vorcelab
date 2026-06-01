@@ -4,27 +4,29 @@
 > Compare notre bibliothèque (`workouts.ts`, ~47 séances) à la littérature et liste ce qui
 > **manque** + les **méthodes nouvelles** exploitables de façon déterministe. Sources en §6.
 
-## 0. Constats structurants
-- **Pas de demi-fond** : `DistanceFocus = 5k|10k|half|marathon|ultra` → **800 m / 1500 m / mile absents**, et **aucun étage anaérobie/tolérance lactique** (pace_engine bloque < 1500 m). On ne peut pas représenter un coureur de demi-fond.
+## 0. Périmètre (cadrage produit)
+- **Vorcelab = 5K et plus** : route 5k/10k/semi/marathon + trail/ultra. **Le demi-fond et le sprint (100 m → 1500 m/mile) sont HORS périmètre** — donc « pas de bucket 800/1500/mile » et « pas de tier capacité anaérobie/tolérance lactique » **ne sont PAS des gaps** : c'est un choix assumé. `DistanceFocus = 5k|10k|half|marathon|ultra` reste tel quel.
+- On garde malgré tout les qualités **neuromusculaires/économie** utiles dès le 5K (strides, R courts, sprints en côte, overspeed) — sans en faire un moteur de demi-fond.
+
+## 0bis. Constats structurants
 - **Dérive doc↔code** : `session-library.md` annonce 57 séances, le code en a **47** ; ids périmés (`descent_reps`, `hill_long/short`) → source de vérité cassée à réaligner.
 - **Beaucoup de savoir déjà en prose** (`knowledge-base.md`) **non opérationnalisé** en séances/dimensions (descente excentrique, gut 60-120 g/h, chaleur, VAM, durabilité).
 
 ---
 
-## 1. Séances/dimensions manquantes — ROUTE
+## 1. Séances/dimensions manquantes — ROUTE (5K → marathon)
+> Le demi-fond (800/1500) est exclu — les lignes ci-dessous valent pour **5k+**.
+
 | Pri | Ajout | Qualité | Distances | Gabarit 1-ligne |
 |---|---|---|---|---|
-| P0 | **buckets 800/1500/mile + zone allure > R** (dim.) | couverture distance | 800,1500,mile | enum `DistanceFocus` + zone anaérobie ; lever le blocage `<1500 m` |
-| P0 | `lactate_tolerance` | capacité anaérobie | 800-1500 | 3×(3×200 m @ ≥ allure 800) r45 s, 4 min/série |
-| P0 | `speed_endurance` | endurance de vitesse | 800-1500 | 1000 brisés (800 @ −30 s/k + 200 @ allure) ; 200 @ allure r10 s |
-| P1 | `sub_threshold` / `double_threshold` | LT1 vs LT2 (norvégien) | 1500→marathon | sous-seuil 6×6 min @ 2-3 mmol ; double AM 5×6 min + PM 10×1000 |
-| P1 | `specific_endurance` (Canova court) | spécificité course | 1500,5k,10k | 6-8×1000 @ 95-100 % allure, récup décroissante |
-| P1 | `float_recovery` | clairance lactique | 1500-semi | 5-6×1000 @ 5-10k, 400 m « float » sous seuil (pas trot) |
+| P1 | `sub_threshold` / `double_threshold` | LT1 vs LT2 (norvégien, contrôlé) | 5k→marathon | sous-seuil 6×6 min @ 2-3 mmol (ou HR LT1↔LT2) ; double AM 5×6 min + PM 10×1000 |
+| P1 | `specific_endurance` (Canova court) | spécificité course | 5k,10k | 6-8×1000 @ 95-100 % allure course, récup décroissante |
+| P1 | `float_recovery` | clairance lactique | 5k-semi | 5-6×1000 @ 5-10k, 400 m « float » sous seuil (pas trot) |
 | P1 | `time_trial` / test | benchmark + recalibrage VDOT/CS | toutes | 3-5 km all-out ou 30 min CLM, toutes 4-6 sem |
-| P2 | `broken_race_pace`, `special_speed`, `downhill_strides` | spécificité/vitesse/économie | mile→semi | reps brisées allure / 105-110 % / overspeed −3 à −5 % |
-| P2 | **dimension `pacing`** (target) | discipline d'allure | 800→marathon | négatif-split, départ rapide toléré, sit-and-kick |
+| P2 | `downhill_strides` | économie/vitesse de jambe | 5k→semi | overspeed −3 à −5 %, relâché, récup complète |
+| P2 | **dimension `pacing`** (target) | discipline d'allure | 5k→marathon | négatif-split, calibration RPE ; promouvoir `negative_split` ici |
 
-**Nettoyage catalogue** : séparer cible `aerobic_threshold (LT1)` vs `threshold (LT2)` (tempo/threshold conflés) ; re-taguer `fartlek_libre`→aérobie ; renommer `canova_special/extensive`→`canova_marathon_*` ; re-scoper `sprints_alactic` (inclure mile) ; promouvoir `negative_split` en dimension pacing.
+**Nettoyage catalogue** : séparer cible `aerobic_threshold (LT1)` vs `threshold (LT2)` (tempo/threshold conflés) ; re-taguer `fartlek_libre`→aérobie ; renommer `canova_special/extensive`→`canova_marathon_*`.
 
 ---
 
@@ -85,7 +87,7 @@
 ---
 
 ## 6. Feuille de route consolidée (ré-priorisée)
-- **P0 (socle moteur)** : réviser la modulation v3 selon `adaptation-engine-spec.md` §2 ; **CS/D′** ; **durabilité/découplage** sur les longues ; demi-fond (enum + zone + tier anaérobie) ; **retour-de-blessure** ; fixer dérive doc↔code + split LT1/LT2.
+- **P0 (socle moteur)** : réviser la modulation v3 selon `adaptation-engine-spec.md` §2 ; **CS/D′** (ancre de zones + garde-fou d'allure) ; **durabilité/découplage** sur les longues ; **retour-de-blessure** walk-run ; fixer dérive doc↔code + split LT1/LT2. *(Demi-fond hors périmètre.)*
 - **P1** : charge persistée (sRPE-load partout) + spike-guard + décharges 3:1 ; **gut-training + cibles glucides par durée** ; **restauration produits nutrition** ; force périodisée ; TID état-dépendante ; cross-training dans la charge ; séances trail clés (`me_uphill`, `fuel_long`, `vk_specific`, `downhill_eccentric_prep`).
 - **P2** : dimensions trail (VAM/GAP cibles, technicité, type de course, courir/marcher) ; chaleur ; pacing/RPE ; cadence/économie ; populations.
 - **(P3 capteurs — exclu pour l'instant)** : HRV-guided, readiness score, core-temp ; menstruel **non codé en dur**.
