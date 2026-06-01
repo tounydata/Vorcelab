@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
 import type { Phase } from '../lib/coach/workouts'
+import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
+import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import type { ActivityForLoad } from '../lib/trainingLoad'
 import PaceZonesCard from '../components/PaceZonesCard'
@@ -23,6 +25,7 @@ interface ProfileRow {
   prs?: Record<string, unknown> | null
   vo2max?: number | null
   fc_max?: number | null
+  runner_profile?: RunnerProfileComputed | null
 }
 
 const PHASE_COLORS: Record<Phase, string> = {
@@ -62,7 +65,7 @@ export default function CoachPage() {
     queryKey: ['profile-sessions'],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max').eq('id', user!.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile').eq('id', user!.id).maybeSingle()
       return (data ?? null) as ProfileRow | null
     },
   })
@@ -91,6 +94,17 @@ export default function CoachPage() {
     [upcoming, selectedRaceId],
   )
 
+  // Profil réel → signaux d'adaptation : niveau (VDOT) + points faibles (runner_profile).
+  const vdot = useMemo(
+    () => deriveRunnerPaces(profile?.prs, profile?.vo2max)?.vdot ?? 45,
+    [profile?.prs, profile?.vo2max],
+  )
+  const level = useMemo(() => levelFromVdot(vdot), [vdot])
+  const weaknesses = useMemo(
+    () => weaknessesFromRunnerProfile(profile?.runner_profile ?? null),
+    [profile?.runner_profile],
+  )
+
   const plan = useMemo(() => {
     if (!targetRace) return null
     return generateTrainingPlan({
@@ -102,14 +116,14 @@ export default function CoachPage() {
       todayISO: today,
       daysPerWeek,
       currentCTL: null,
+      level,
+      weaknesses,
     })
-  }, [targetRace, daysPerWeek, today])
+  }, [targetRace, daysPerWeek, today, level, weaknesses])
 
   if (isLoading) {
     return <div className="loading"><div className="spinner" /></div>
   }
-
-  const vdot = deriveRunnerPaces(profile?.prs, profile?.vo2max)?.vdot ?? 45
 
   if (!targetRace || !plan) {
     return (
