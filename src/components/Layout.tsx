@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+import OnboardingGate from './onboarding/OnboardingGate'
 
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
@@ -194,6 +195,7 @@ export default function Layout() {
 
   return (
     <div id="appShell" className="show">
+      <OnboardingGate />
       <nav className="sidebar">
         <NavLink to="/" end className="sidebar-logo" style={{ textDecoration: 'none' }}>
           <div style={{ color: 'var(--vl-text)', flexShrink: 0 }}>{VL_LOGO}</div>
