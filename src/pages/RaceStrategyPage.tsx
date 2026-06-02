@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult, type Section } from '../lib/computeRaceProjection'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
+import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import { extractGpxWaypoints, scoreRaceSection, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
@@ -344,6 +345,7 @@ export default function RaceStrategyPage() {
         projection.totalDistM,
         projection.estTimeS,
         profileData?.nutrition_level as string | undefined,
+        resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined),
       )
     : []
 

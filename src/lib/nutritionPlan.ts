@@ -1,3 +1,5 @@
+import type { NutritionProduct } from './nutritionProducts'
+
 export interface NutritionRow {
   moment: string
   action: string
@@ -22,11 +24,21 @@ export function computeNutritionPlan(
   distM: number,
   estTimeS: number,
   nutritionLevel = 'standard',
+  products: NutritionProduct[] = [],
 ): NutritionRow[] {
   const dh = estTimeS / 3600
   const dk = distM / 1000
   const profile = CARBS_PROFILES[nutritionLevel] ?? CARBS_PROFILES.standard
   const rows: NutritionRow[] = []
+
+  // Produits réels de l'athlète (si renseignés) → on personnalise les apports.
+  const gelPlain = products.find((p) => p.type === 'gel' && !p.caffeine)
+    ?? products.find((p) => p.type === 'chew' && !p.caffeine)
+  const gelCaf = products.find((p) => p.type === 'gel' && p.caffeine > 0)
+  const drink = products.find((p) => p.type === 'drink')
+  const lateFuel = products.find((p) => p.type === 'gel' && p.id !== gelPlain?.id) ?? gelPlain
+  const label = (p?: NutritionProduct) => p ? `${p.brand} ${p.name}` : null
+  const carbsOf = (p?: NutritionProduct) => p ? `${p.carbs}g${p.per ? `/${p.per}` : ''}` : null
 
   if (dh < 1.5) {
     rows.push({
@@ -52,8 +64,8 @@ export function computeNutritionPlan(
   const t1km = Math.round(dk * 0.30)
   rows.push({
     moment: `~${t1km} km`,
-    action: 'Gel sans caféine + eau',
-    glucides: '25–30g',
+    action: label(gelPlain) ? `${label(gelPlain)} + eau` : 'Gel sans caféine + eau',
+    glucides: carbsOf(gelPlain) ?? '25–30g',
     note: 'Premier apport après 30min · Jeukendrup, 2004',
   })
 
@@ -61,8 +73,8 @@ export function computeNutritionPlan(
     const t2km = Math.round(dk * 0.50)
     rows.push({
       moment: `~${t2km} km`,
-      action: 'Boisson isotonique 200ml',
-      glucides: '~20g',
+      action: label(drink) ?? 'Boisson isotonique 200ml',
+      glucides: carbsOf(drink) ?? '~20g',
       note: 'Hydratation + glucides',
     })
   }
@@ -70,8 +82,8 @@ export function computeNutritionPlan(
   const t3km = Math.round(dk * 0.65)
   rows.push({
     moment: `~${t3km} km`,
-    action: 'Gel caféiné + eau',
-    glucides: '25–30g',
+    action: label(gelCaf) ? `${label(gelCaf)} (caféine) + eau` : 'Gel caféiné + eau',
+    glucides: carbsOf(gelCaf) ?? '25–30g',
     note: "Pic d'effet 30–45min. À tester à l'entraînement, jamais le jour J",
   })
 
@@ -79,8 +91,8 @@ export function computeNutritionPlan(
     const t4km = Math.round(dk * 0.85)
     rows.push({
       moment: `~${t4km} km`,
-      action: 'Gel + eau ou cola',
-      glucides: '25–30g',
+      action: label(lateFuel) ? `${label(lateFuel)} + eau` : 'Gel + eau ou cola',
+      glucides: carbsOf(lateFuel) ?? '25–30g',
       note: 'Maintien glycémie sur derniers km',
     })
   }
