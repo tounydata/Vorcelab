@@ -3,6 +3,8 @@ import { assessPain } from '../lib/safetyGuards'
 import { matchCandidates } from '../lib/coach/activityMatch'
 import { buildSessionVerdict } from '../lib/coach/verdictFromActivity'
 import { saveSessionLog } from '../lib/coach/sessionLog'
+import { fetchStreams } from '../lib/streams'
+import { computeCardiacDrift } from '../lib/sessionQuality'
 import type { SessionVerdict, VerdictResult } from '../lib/coach/sessionVerdict'
 import type { WorkoutTemplate } from '../lib/coach/workouts'
 import type { ActivityForLoad } from '../lib/trainingLoad'
@@ -74,12 +76,26 @@ export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
     const chosen = chosenActivityId && chosenActivityId !== 'none'
       ? link.activities.find((a) => activityId(a) === chosenActivityId) ?? null
       : null
+
+    setSaving(true)
+    // Streams Strava → dérive cardiaque RÉELLE (1re vs 2e moitié) pour affiner le verdict.
+    let driftPct: number | null = null
+    if (chosen) {
+      const sid = chosen.strava_activity_id ?? chosen.id
+      if (sid != null) {
+        try {
+          const streams = await fetchStreams(sid)
+          driftPct = computeCardiacDrift(streams)?.driftPct ?? null
+        } catch { /* streams indisponibles → dérive non mesurée */ }
+      }
+    }
+    const chosenWithDrift = chosen ? { ...chosen, driftPct } : null
+
     const { result } = buildSessionVerdict(
-      link.template, link.vdot, link.fcMax, chosen,
+      link.template, link.vdot, link.fcMax, chosenWithDrift,
       { feeling, rpe: null, pain: reason === 'Douleur' },
     )
     setVerdict(result)
-    setSaving(true)
     await saveSessionLog({
       plannedWorkoutId: link.workoutId,
       plannedDateISO: link.plannedDateISO,
@@ -89,6 +105,7 @@ export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
       confidence: result.confidence,
       compliancePace: result.signals.find((s) => s.axis === 'allure')?.status ?? null,
       avgHrPctMax: chosen && link.fcMax && chosen.average_heartrate ? +(chosen.average_heartrate / link.fcMax).toFixed(3) : null,
+      hrDriftPct: driftPct,
       dplusM: chosen?.total_elevation_gain ?? null,
       durationMin: chosen?.moving_time ? Math.round(chosen.moving_time / 60) : null,
       feeling,
