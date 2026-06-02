@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+import { NUTRITION_PRODUCTS, NUTRITION_TYPE_LABELS, type NutritionType } from '../lib/nutritionProducts'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
 import {
@@ -396,6 +397,7 @@ interface ProfileRow {
   avatar_url?: string | null
   prs?: Record<string, unknown> | null
   nutrition_level?: string | null
+  nutrition_products?: string[] | null
   runner_profile?: RunnerProfileComputed | null
 }
 
@@ -455,13 +457,32 @@ export default function ProfilePage() {
   // Save state
   const [saveMsg, setSaveMsg] = useState('')
 
+  // Produits nutrition cochés par l'athlète (ids du catalogue) — utilisés par la stratégie de course.
+  const [nutritionProducts, setNutritionProducts] = useState<string[]>([])
+  const [nutritionLoaded, setNutritionLoaded] = useState(false)
+  const [nutritionSaved, setNutritionSaved] = useState(false)
+
+  function toggleNutritionProduct(id: string) {
+    setNutritionProducts((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  async function saveNutritionProducts() {
+    if (!user) return
+    const { error } = await supabase.from('profiles').upsert({ id: user.id, nutrition_products: nutritionProducts })
+    if (!error) {
+      setNutritionSaved(true)
+      setTimeout(() => setNutritionSaved(false), 2500)
+      refetch()
+    }
+  }
+
   const { data: profileRow, isLoading, refetch } = useQuery<ProfileRow | null>({
     queryKey: ['profile-full', user?.id],
     queryFn: async (): Promise<ProfileRow | null> => {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,runner_profile')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,runner_profile')
         .eq('id', user.id)
         .single()
       return data as ProfileRow | null
@@ -482,6 +503,10 @@ export default function ProfilePage() {
     setLactatePace(profileRow.lactate_pace ?? '')
     setGoals(profileRow.goals ?? '')
     setFormLoaded(true)
+  }
+  if (profileRow && !nutritionLoaded) {
+    setNutritionProducts(profileRow.nutrition_products ?? [])
+    setNutritionLoaded(true)
   }
 
   const rp = profileRow?.runner_profile
@@ -843,22 +868,40 @@ export default function ProfilePage() {
       {/* ── Tab NUTRITION ── */}
       {activeTab === 'nutrition' && (
         <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="clabel" style={{ marginBottom: '0.75rem' }}>NUTRITION</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+            <div className="clabel" style={{ margin: 0 }}>MES PRODUITS NUTRITION</div>
+            <button className="hbtn" style={{ fontSize: 10, padding: '4px 10px' }} onClick={saveNutritionProducts}>
+              {nutritionSaved ? 'Enregistré ✓' : 'Enregistrer'}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+            Coche les produits que tu utilises. Ils alimentent ton plan de ravitaillement dans la stratégie de course.
+            <span style={{ color: 'var(--vl-text-2)' }}> {nutritionProducts.length} sélectionné{nutritionProducts.length > 1 ? 's' : ''}.</span>
+          </p>
           {isLoading ? (
             <div className="loading"><div className="spinner" /></div>
-          ) : profileRow?.nutrition_level ? (
-            <div>
-              <div className="fg">
-                <span className="fl">NIVEAU</span>
-                <span className="mlabel" style={{ color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
-                  {profileRow.nutrition_level}
-                </span>
-              </div>
-            </div>
           ) : (
-            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-              Configurer vos préférences nutritionnelles dans vos stratégies de course.
-            </div>
+            (['gel', 'drink', 'bar', 'chew'] as NutritionType[]).map((type) => (
+              <div key={type} style={{ marginBottom: 14 }}>
+                <div className="mlabel" style={{ marginBottom: 6 }}>{NUTRITION_TYPE_LABELS[type]}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {NUTRITION_PRODUCTS.filter((p) => p.type === type).map((p) => {
+                    const checked = nutritionProducts.includes(p.id)
+                    return (
+                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: checked ? 'var(--vl-text)' : 'var(--vl-text-2)' }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleNutritionProduct(p.id)} />
+                        <span style={{ flex: 1 }}>
+                          <strong style={{ fontWeight: 600 }}>{p.brand}</strong> {p.name}
+                        </span>
+                        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', whiteSpace: 'nowrap' }}>
+                          {p.carbs}g{p.per ? `/${p.per}` : ''}{p.caffeine ? ` · ${p.caffeine}mg caf` : ''}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}
