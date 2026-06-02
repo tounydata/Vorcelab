@@ -8,6 +8,7 @@ import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
+import { computeDecoupling, type DurabilityStatus } from '../lib/durability'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -789,7 +790,13 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
   const data = buildSessionInsights(activity, streams ?? {}, fcMax)
   const { type, drift, insights, hasHR } = data
 
-  if (!hasHR && insights.length === 0 && !drift) return null
+  // Durabilité : découplage allure:FC (perte d'efficacité 2e moitié) sur les sorties longues.
+  const decoupling = streams ? computeDecoupling(streams) : null
+  const DURABILITY_COLOR: Record<DurabilityStatus, string> = {
+    strong: 'var(--vl-growth)', moderate: 'var(--vl-amber)', deficit: 'var(--vl-ember)', unknown: 'var(--vl-text-3)',
+  }
+
+  if (!hasHR && insights.length === 0 && !drift && !decoupling) return null
 
   const driftColor = drift && drift.driftPct > 10 ? 'var(--vl-ember)' : drift && drift.driftPct > 5 ? 'var(--vl-amber)' : 'var(--vl-growth)'
 
@@ -811,6 +818,14 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
               {drift.driftPct > 0 ? '+' : ''}{drift.driftPct.toFixed(1)}%
             </div>
             <div className="slbl" style={{ fontSize: 10 }}>Dérive FC</div>
+          </div>
+        )}
+        {decoupling != null && (
+          <div title="Perte d'efficacité allure:FC entre la 1re et la 2e moitié (< 5 % = bonne durabilité)">
+            <div style={{ fontSize: 20, fontWeight: 700, color: DURABILITY_COLOR[decoupling.status] }}>
+              {decoupling.decouplingPct > 0 ? '+' : ''}{decoupling.decouplingPct.toFixed(1)}%
+            </div>
+            <div className="slbl" style={{ fontSize: 10 }}>Durabilité (découplage)</div>
           </div>
         )}
         {insights.map(ins => (
