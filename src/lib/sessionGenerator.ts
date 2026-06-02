@@ -140,6 +140,42 @@ export function vo2_30_30(vdot: number, reps: number): Workout {
   ])
 }
 
+/** VO2max — intervalles longs paramétrables (durée par rép), récup active ~égale. */
+export function vo2Reps(vdot: number, reps: number, repMin: number, recoveryRatio = 1): Workout {
+  const i = Math.round(trainingPaces(vdot).I.fastSecPerKm)
+  return withFraming('vo2_reps', 'VO2max : intervalles longs pour accumuler du temps proche de VO2max.', [
+    { kind: 'main', label: `${reps} × ${repMin} min @ VO2max`, reps, durationSec: Math.round(repMin * 60), zone: 'I', paceSecPerKm: i, rpe: ZONE_RPE.I },
+    { kind: 'recovery', label: 'Récup trot', reps: reps - 1, durationSec: Math.round(repMin * 60 * recoveryRatio), zone: 'E' },
+  ])
+}
+
+/** VO2max — 15/15 : fractions très courtes, beaucoup de répétitions (Billat). */
+export function vo2_15_15(vdot: number, reps: number): Workout {
+  const i = Math.round(trainingPaces(vdot).I.fastSecPerKm)
+  return withFraming('vo2_30_30', 'Puissance aérobie (15/15) : fractions très courtes, fort volume.', [
+    { kind: 'main', label: `${reps} × 15 s @ ~VMA`, reps, durationSec: 15, zone: 'I', paceSecPerKm: i, rpe: ZONE_RPE.I },
+    { kind: 'recovery', label: '15 s récup', reps, durationSec: 15, zone: 'E' },
+  ])
+}
+
+/** Seuil — over/under : alterner juste sous et juste au-dessus du seuil (clairance lactique). */
+export function overUnder(vdot: number, reps: number): Workout {
+  const t = Math.round(thresholdPaceSecPerKm(vdot))
+  return withFraming('cruise', 'Over-under : alterner sous-seuil et sur-seuil pour la clairance lactique.', [
+    { kind: 'main', label: `${reps} × (2 min sous-seuil / 1 min sur-seuil)`, reps, durationSec: 180, zone: 'T', paceSecPerKm: t, rpe: ZONE_RPE.T },
+    { kind: 'recovery', label: 'Récup trot', reps: reps - 1, durationSec: 60, zone: 'E' },
+  ])
+}
+
+/** Spécifique allure course (continu) — ancre le rythme objectif sur fatigue. */
+export function racePaceRun(vdot: number, mainMin: number, zone: PaceZone = 'M'): Workout {
+  const p = Math.round(trainingPaces(vdot)[zone].fastSecPerKm)
+  const label = zone === 'M' ? 'allure marathon' : zone === 'T' ? 'allure semi/seuil' : 'allure course'
+  return withFraming('race_pace', `Spécifique : ${mainMin} min à ${label}, ancrer le rythme objectif.`, [
+    { kind: 'main', label: `${mainMin} min @ ${label}`, durationSec: mainMin * 60, zone, paceSecPerKm: p, rpe: ZONE_RPE[zone] },
+  ])
+}
+
 // ── B3 — Côte (paramétrage par objectif, pilotage RPE/FC, pas allure) ──────────────
 
 export type HillGoal = 'force' | 'puissance_aerobie' | 'seuil'
