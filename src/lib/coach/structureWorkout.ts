@@ -5,7 +5,7 @@
 
 import {
   easyRun, tempoRun, cruiseIntervals, vo2_30_30, vo2_15_15, vo2Reps,
-  overUnder, racePaceRun, hillSession, strides, type Workout,
+  overUnder, racePaceRun, progressiveRun, descentRun, hillSession, strides, type Workout,
 } from '../sessionGenerator'
 import type { WorkoutTemplate } from './workouts'
 
@@ -17,6 +17,7 @@ const BY_ID: Record<string, (vdot: number, t: WorkoutTemplate) => Workout> = {
   threshold_intervals: (v) => cruiseIntervals(v, 4, 8),
   threshold_cruise_short: (v) => cruiseIntervals(v, 5, 5),
   fartlek_seuil: (v) => cruiseIntervals(v, 6, 4, 60),
+  fartlek: (v) => cruiseIntervals(v, 6, 3, 60),
   over_under: (v) => overUnder(v, 5),
   // VO2max — chaque format est distinct
   vo2_intervals: (v) => vo2_30_30(v, 12),
@@ -31,6 +32,22 @@ const BY_ID: Record<string, (vdot: number, t: WorkoutTemplate) => Workout> = {
   race_marathon: (v) => racePaceRun(v, 30, 'M'),
   race_half: (v) => racePaceRun(v, 25, 'T'),
   race_10k: (v) => racePaceRun(v, 20, 'T'),
+  race_5k: (v) => racePaceRun(v, 15, 'I'),
+  canova_special: (v) => racePaceRun(v, 25, 'M'),
+  canova_extensive: (v) => racePaceRun(v, 35, 'M'),
+  // Sorties longues / progressives
+  long_progressive: (v, t) => progressiveRun(v, t.baseDurationMin),
+  progressive_run: (v, t) => progressiveRun(v, Math.min(50, t.baseDurationMin)),
+  long_fast_finish: (v, t) => progressiveRun(v, t.baseDurationMin),
+  // Côtes — objectif distinct selon la séance
+  hill_repeats_short: () => hillSession('force', 8),
+  hill_repeats_long: () => hillSession('puissance_aerobie', 6),
+  hill_30_30: () => hillSession('puissance_aerobie', 10),
+  threshold_hill: () => hillSession('seuil', 5),
+  vo2_hill: () => hillSession('puissance_aerobie', 8),
+  // Descente — durabilité excentrique (pilotée au ressenti)
+  descent_long: (_v, t) => descentRun(t.baseDurationMin),
+  downhill_technique: (_v, t) => descentRun(Math.min(40, t.baseDurationMin)),
 }
 
 /** Structure une séance chiffrée pour un template + le VDOT du coureur. */

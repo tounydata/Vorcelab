@@ -64,3 +64,29 @@ describe('structureWorkout — chaque séance a SA structure (P2 audit)', () => 
     expect(main('race_half').zone).toBe('T')
   })
 })
+
+describe('structureWorkout — tranche 2 (côtes/descente/longues/Canova)', () => {
+  const blocks = (id: string) => structureWorkout(getWorkout(id)!, 50).blocks
+  const mains = (id: string) => blocks(id).filter((b) => b.kind === 'main')
+
+  it('sortie progressive = 3 paliers E → M → T', () => {
+    const z = mains('long_progressive').map((b) => b.zone)
+    expect(z).toEqual(['E', 'M', 'T'])
+  })
+
+  it('descente = piloté au ressenti (RPE, pas d\'allure)', () => {
+    const m = mains('descent_long')[0]
+    expect(m.rpe).toBeGreaterThan(0)
+    expect(m.paceSecPerKm).toBeUndefined()
+  })
+
+  it('les côtes sont différenciées par objectif', () => {
+    expect(mains('hill_repeats_short')[0].reps).toBe(8)
+    expect(mains('hill_repeats_long')[0].reps).toBe(6)
+  })
+
+  it('allures course courtes : 5k à I, Canova à M', () => {
+    expect(mains('race_5k')[0].zone).toBe('I')
+    expect(mains('canova_special')[0].zone).toBe('M')
+  })
+})
