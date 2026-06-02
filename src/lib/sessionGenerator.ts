@@ -258,5 +258,33 @@ export function strides(reps = 6): Block {
   }
 }
 
+/**
+ * Séance de strides « autoportée » (échauffement + lignes droites + retour au calme).
+ * Le rappel neuromusculaire de l'affûtage : pied vif, ZÉRO fatigue, hors quota 80/20.
+ * (Daniels R-pace ; Bosquet 2007 / Mujika : en affûtage on garde l'intensité brève,
+ * on coupe le volume — surtout pas de VO2max.)
+ */
+export function stridesWorkout(reps = 6, totalMin = 30): Workout {
+  return {
+    type: 'strides',
+    intent: 'Affûtage neuromusculaire : foulée vive et système nerveux frais, sans fatigue.',
+    blocks: [warmup(), strides(reps), cooldown()],
+    totalMin,
+  }
+}
+
+/**
+ * Rappels en CÔTE (affûtage trail) : courtes accélérations en montée à l'effort de
+ * la course, récup descente marchée complète. Spécificité terrain + montée sans
+ * traumatisme d'impact ni fatigue (Uphill Athlete / Koop : en affûtage trail on garde
+ * la spécificité montée, pas de VMA à plat ni de descente excentrique). Pilotage RPE.
+ */
+export function hillStrides(reps = 5): Workout {
+  return withFraming('hill', "Rappels en côte : pied vif et spécificité montée, sans fatigue ni impact.", [
+    { kind: 'main', label: `${reps} × 25 s en côte modérée à l'effort course`, reps, durationSec: 25, rpe: 7 },
+    { kind: 'recovery', label: 'Récup descente marchée (complète)', reps, durationSec: 75, zone: 'E' },
+  ])
+}
+
 /** Marqueur : les strides sont exclus du quota d'intensité 80/20. */
 export const STRIDES_COUNT_AS_INTENSITY = false

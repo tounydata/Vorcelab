@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateTrainingPlan, type PlanInput } from '../src/lib/coach/planGenerator'
 import { getWorkout } from '../src/lib/coach/workouts'
+import { structureWorkout } from '../src/lib/coach/structureWorkout'
 
 function road10k(over: Partial<PlanInput> = {}): PlanInput {
   return {
@@ -100,5 +101,60 @@ describe('plan — calibration par CTL réel', () => {
     const peakBase = Math.max(...base.weeks.map((w) => w.volumeHours))
     const peakHigh = Math.max(...high.weeks.map((w) => w.volumeHours))
     expect(peakHigh).toBe(peakBase)
+  })
+})
+
+// Régression : le coach proposait « X × 30 s à VMA » (VO2max à plat) en affûtage
+// d'une course TRAIL — incohérent (Bosquet 2007 ; Koop ; Uphill Athlete). La séance
+// d'affûtage doit être un rappel NEUROMUSCULAIRE, en côte pour le trail.
+describe('plan — affûtage : séances STRUCTURÉES cohérentes (pas de VO2max)', () => {
+  const trailTaper = (over: Partial<PlanInput> = {}) =>
+    generateTrainingPlan({
+      raceName: 'Trail', raceDateISO: '2026-06-12', raceDistanceKm: 30, raceElevationM: 1500,
+      raceType: 'Trail', todayISO: '2026-06-02', daysPerWeek: 5, currentCTL: 40, ...over,
+    })
+  const roadTaper = (over: Partial<PlanInput> = {}) =>
+    generateTrainingPlan({
+      raceName: 'Semi', raceDateISO: '2026-06-14', raceDistanceKm: 21, raceElevationM: 100,
+      raceType: 'Route', todayISO: '2026-06-02', daysPerWeek: 5, currentCTL: 40, ...over,
+    })
+  const taperMains = (plan: ReturnType<typeof generateTrainingPlan>) =>
+    plan.weeks
+      .filter((w) => w.phase === 'taper')
+      .flatMap((w) => w.sessions)
+      .map((s) => structureWorkout(getWorkout(s.workoutId)!, 50))
+
+  it('aucune séance d\'affûtage ne se structure en VO2max (« @ VMA » / 30 s I-zone)', () => {
+    for (const plan of [trailTaper(), roadTaper(), trailTaper({ weaknesses: ['vo2max'] })]) {
+      for (const w of taperMains(plan)) {
+        expect(w.type, JSON.stringify(w.blocks.map((b) => b.label))).not.toBe('vo2_30_30')
+        expect(w.type).not.toBe('vo2_reps')
+        for (const b of w.blocks) {
+          expect(b.label ?? '', `bloc affûtage`).not.toMatch(/VMA/i)
+        }
+      }
+    }
+  })
+
+  it('le rappel d\'affûtage TRAIL est en côte (spécificité montée), pas à plat', () => {
+    const ids = trailTaper().weeks.filter((w) => w.phase === 'taper').flatMap((w) => w.sessions.map((s) => s.workoutId))
+    expect(ids).toContain('sharpener_hill')
+    expect(structureWorkout(getWorkout('sharpener_hill')!, 50).type).toBe('hill')
+  })
+
+  it('le rappel d\'affûtage ROUTE est de simples lignes droites (strides)', () => {
+    const ids = roadTaper().weeks.filter((w) => w.phase === 'taper').flatMap((w) => w.sessions.map((s) => s.workoutId))
+    expect(ids).toContain('sharpener')
+    expect(structureWorkout(getWorkout('sharpener')!, 50).type).toBe('strides')
+  })
+
+  it('aucun système interdit (vo2max/seuil/descente/renfo) en semaine d\'affûtage', () => {
+    for (const plan of [trailTaper(), roadTaper()]) {
+      for (const w of plan.weeks.filter((w) => w.phase === 'taper')) {
+        for (const s of w.sessions) {
+          expect(['vo2max', 'threshold', 'descent', 'strength'], `${s.workoutId}`).not.toContain(s.system)
+        }
+      }
+    }
   })
 })

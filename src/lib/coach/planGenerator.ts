@@ -235,12 +235,27 @@ function isQualityTemplate(t: WorkoutTemplate): boolean {
 }
 
 /**
- * Garde-fou d'affûtage : en taper, on coupe le volume mais on ne place AUCUNE
- * séance dure (VO2max/seuil/côtes). Seuls les rappels neuromusculaires légers
- * (strides, accélérations — intensité ≤ moderate) sont autorisés, le temps que
- * la fatigue tombe sans perdre l'affûtage nerveux (Daniels/Pfitzinger).
+ * Systèmes INTERDITS en affûtage, quelle que soit l'intensité affichée :
+ * - vo2max / threshold : aucun gain de forme en < 2 semaines, ils n'ajoutent que de
+ *   la fatigue qui gâche la surcompensation (Bosquet 2007 ; Mujika & Padilla ;
+ *   PLOS One 2023 — aucune Δ VO2max/économie en affûtage).
+ * - descent : charge excentrique → dommages musculaires ; la fenêtre de protection
+ *   (repeated-bout effect) se construit AVANT, jamais dans les 10 derniers jours
+ *   (Millet/Giandolini ; Uphill Athlete).
+ * - strength : le renfo lourd se réalise ~10 j plus tard et risque la fatigue/courbatures.
+ */
+const TAPER_FORBIDDEN_SYSTEMS: WorkoutSystem[] = ['vo2max', 'threshold', 'descent', 'strength']
+
+/**
+ * Garde-fou d'affûtage : en taper, on coupe le VOLUME mais on garde l'intensité
+ * BRÈVE (règle « cut volume, keep intensity » — Bosquet 2007). Concrètement on ne
+ * place AUCUNE séance de développement (VO2max/seuil), aucune descente (excentrique)
+ * ni renfo : seuls les rappels neuromusculaires légers (strides à plat, rappels en
+ * côte sur terrain trail — système 'speed', intensité ≤ moderate) sont autorisés,
+ * le temps que la fatigue tombe sans perdre l'affûtage nerveux (Daniels/Pfitzinger).
  */
 function isTaperSafe(t: WorkoutTemplate): boolean {
+  if (TAPER_FORBIDDEN_SYSTEMS.includes(t.system)) return false
   return t.intensity !== 'hard'
 }
 

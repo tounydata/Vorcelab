@@ -606,14 +606,27 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
   },
 
   // ── Affûtage / jour J ─────────────────────────────────────────────────────
+  // En affûtage, AUCUNE séance de VO2max/seuil : aucun gain de forme en < 2 sem.
+  // (Bosquet 2007 ; Mujika & Padilla ; PLOS One 2023). On garde seulement de
+  // courts rappels NEUROMUSCULAIRES (système 'speed'), volume coupé, intensité brève.
   {
     id: 'sharpener',
     name: 'Rappels de vitesse',
-    system: 'vo2max', intensity: 'moderate', terrain: 'flat',
+    system: 'speed', intensity: 'moderate', terrain: 'flat',
     baseDurationMin: 35, climbing: false,
     phases: ['taper', 'race'],
     levels: ALL_LEVELS, distances: ALL_DIST, target: 'speed',
-    description: 'Ex : 6×100 m en accélération. Garde le système nerveux affûté pendant l\'affûtage.',
+    description: 'Ex : 6×100 m en accélération, récup complète. Garde le système nerveux affûté pendant l\'affûtage (zéro fatigue).',
+  },
+  {
+    id: 'sharpener_hill',
+    name: 'Rappels en côte (affûtage trail)',
+    system: 'speed', intensity: 'moderate', terrain: 'uphill',
+    baseDurationMin: 35, climbing: true,
+    phases: ['taper', 'race'],
+    levels: ALL_LEVELS, distances: ALL_DIST, target: 'speed',
+    trailOnly: true,
+    description: "Ex : 5×25 s en côte à l'effort de la course, récup descente marchée. Garde le pied vif et la spécificité montée en affûtage trail — pas de VMA à plat (terrain non spécifique), pas de descente (récup excentrique).",
   },
   {
     id: 'shakeout',
