@@ -87,6 +87,11 @@ export function weeksUntil(todayISO: string, raceISO: string): number {
   return Math.max(1, Math.ceil(days / 7))
 }
 
+/** Phase macro de la SEMAINE COURANTE pour une course (sans générer tout le plan). */
+export function currentPlanPhase(raceDateISO: string, distanceKm: number, todayISO: string): Phase {
+  return allocatePhases(weeksUntil(todayISO, raceDateISO), distanceKm)[0]
+}
+
 /** Lundi de la semaine contenant `iso`, au format ISO date. */
 function mondayOf(iso: string): string {
   const d = new Date(iso + 'T00:00:00')

@@ -54,6 +54,22 @@ export function get4WeekPhase(override?: DUPPhase4): DUPPhase4 {
   return DUP4_PHASES[Math.floor(Date.now() / (7 * 86400000)) % 4]
 }
 
+/**
+ * Co-périodisation : mappe la phase du plan COURSE → phase DUP renfo, pour que la
+ * force suive la course (force en base, volume en build, puissance en spécifique,
+ * décharge en taper/course — pas de nouveau stimulus de force lourde près du jour J).
+ */
+export type RunningPhase = 'base' | 'build' | 'specific' | 'taper' | 'race'
+export function runningPhaseToDUP(phase: RunningPhase): DUPPhase4 {
+  switch (phase) {
+    case 'base': return 'force'
+    case 'build': return 'volume'
+    case 'specific': return 'puissance'
+    case 'taper':
+    case 'race': return 'deload'
+  }
+}
+
 export const DUP4_LABELS: Record<DUPPhase4, string> = {
   force:     'FORCE',
   volume:    'VOLUME',

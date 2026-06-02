@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useRunningDUPOverride } from '../lib/coach/useRunningDUPOverride'
 import { useVLStore } from '../store/vlStore'
 import {
   computeCoPerioWarnings, computeImpactZone,
@@ -79,7 +80,8 @@ export default function RenfoPage() {
 
   const warnings = computeCoPerioWarnings(activities as Parameters<typeof computeCoPerioWarnings>[0])
   const impact = computeImpactZone(sessionLogs)
-  const phase = get4WeekPhase()
+  const dupOverride = useRunningDUPOverride()
+  const phase = get4WeekPhase(dupOverride)
 
   // Last session date per focus
   const lastDateByFocus: Record<string, string> = {}

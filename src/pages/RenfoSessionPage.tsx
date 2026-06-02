@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useRunningDUPOverride } from '../lib/coach/useRunningDUPOverride'
 import { useVLStore } from '../store/vlStore'
 // @ts-ignore
 import { buildSession, applyDUP } from '../lib/renfoProgram'
@@ -74,7 +75,8 @@ export default function RenfoSessionPage() {
   })
 
   const profile = renfoProfile ?? DEFAULT_PROFILE
-  const phase = get4WeekPhase()
+  const dupOverride = useRunningDUPOverride()
+  const phase = get4WeekPhase(dupOverride)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = useMemo<any>(() => {
