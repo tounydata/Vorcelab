@@ -170,8 +170,11 @@ function weekVolumeHours(
   // Volume de pic dérivé de la distance (4 h pour une courte, jusqu'à 14 h pour un ultra).
   let peak = 4 + distanceKm * 0.06
   peak = Math.min(14, Math.max(4, peak))
-  // Ajustement prudent si la fitness actuelle est connue et faible.
-  if (currentCTL != null && currentCTL > 0 && currentCTL < 30) peak *= 0.85
+  // Prudence GRADUÉE selon la charge chronique réelle (CTL) : un athlète peu
+  // chargé ne reçoit pas d'emblée le volume de pic théorique (0.8 à CTL≤20 → 1.0 à CTL≥40).
+  if (currentCTL != null && currentCTL > 0) {
+    peak *= Math.max(0.8, Math.min(1, 0.8 + (currentCTL - 20) * (0.2 / 20)))
+  }
 
   const phaseFactor: Record<Phase, number> = {
     base: 0.8, build: 0.95, specific: 1.0, taper: 0.6, race: 0.4,

@@ -85,3 +85,20 @@ describe('plan — adaptation au profil', () => {
     expect(JSON.stringify(generateTrainingPlan(input))).toBe(JSON.stringify(generateTrainingPlan(input)))
   })
 })
+
+describe('plan — calibration par CTL réel', () => {
+  it('un CTL bas réduit le volume de pic (prudence graduée)', () => {
+    const base = generateTrainingPlan(road10k({ raceDistanceKm: 21 }))
+    const low = generateTrainingPlan(road10k({ raceDistanceKm: 21, currentCTL: 15 }))
+    const peakBase = Math.max(...base.weeks.map((w) => w.volumeHours))
+    const peakLow = Math.max(...low.weeks.map((w) => w.volumeHours))
+    expect(peakLow).toBeLessThan(peakBase)
+  })
+  it('un CTL élevé ne pénalise pas le volume', () => {
+    const base = generateTrainingPlan(road10k({ raceDistanceKm: 21 }))
+    const high = generateTrainingPlan(road10k({ raceDistanceKm: 21, currentCTL: 50 }))
+    const peakBase = Math.max(...base.weeks.map((w) => w.volumeHours))
+    const peakHigh = Math.max(...high.weeks.map((w) => w.volumeHours))
+    expect(peakHigh).toBe(peakBase)
+  })
+})
