@@ -112,13 +112,17 @@ function computeMultiStatus(
   const efTrend = efRecent != null && efBase != null && efBase > 0 ? (efRecent - efBase) / efBase : null
 
   // Surcharge : on distingue un PIC ponctuel (une seule grosse séance) d'un vrai
-  // SURMENAGE (charge aiguë élevée PLUSIEURS jours d'affilée). Comme Garmin, une
-  // sortie forte isolée = « charge élevée » (informatif), pas une alerte blessure.
-  const daysOver = pmc.slice(-4).filter((d) => d.ctl > 0 && d.atl / d.ctl > 1.5).length
+  // SURMENAGE. On compte les JOURS de SÉANCE RÉELLE à forte charge (load du jour
+  // > 1.3× le CTL) sur les 7 derniers jours — et non les jours où le ratio lissé
+  // reste haut : l'ATL (τ=7j) décroît lentement, donc UNE seule grosse sortie
+  // maintient atl/ctl>1.5 plusieurs jours d'affilée et serait lue à tort comme une
+  // surcharge « prolongée ». Comme Garmin, un gros effort isolé = « charge élevée »
+  // (informatif), pas une alerte ; le SURMENAGE exige un vrai cumul de séances dures.
+  const hardDays = pmc.slice(-7).filter((d) => d.ctl > 0 && d.totalLoad > 1.3 * d.ctl).length
 
   // Table de décision — priorité décroissante
   if (ratio != null && ratio > 1.5) {
-    if (daysOver >= 3)
+    if (hardDays >= 3)
       return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: '#EF4444', key: 'surmenage' }
     return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: '#F97316', key: 'charge_elevee' }
   }

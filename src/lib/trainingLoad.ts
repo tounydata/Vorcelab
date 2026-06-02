@@ -111,18 +111,33 @@ export function classifySport(type?: string | null, sportType?: string | null): 
   )
 }
 
-// Load = durée_min × facteur_intensité × facteur_dénivelé × facteur_type
+// Rendement décroissant sur la durée (modèle EPOC-like, cf. charge Garmin) : le
+// coût physiologique d'une sortie ne croît pas linéairement avec le temps. Au-delà
+// d'un seuil (~90 min), chaque minute supplémentaire ne compte qu'à moitié — sinon
+// une sortie longue à intensité modérée gonfle artificiellement l'ATL/le ratio
+// (une seule sortie longue ne doit pas se lire comme un « surmenage »).
+const DURATION_CAP_MIN = 90
+function effectiveMinutes(min: number): number {
+  return min <= DURATION_CAP_MIN ? min : DURATION_CAP_MIN + (min - DURATION_CAP_MIN) * 0.5
+}
+
+// Load = minutes_effectives × facteur_intensité × facteur_dénivelé × facteur_type
 export function computeActivityLoad(activity: ActivityForLoad, fcMax?: number | null): number {
   const maxHR = fcMax || FC_MAX_DEFAULT
   const durationMin = (activity.moving_time || 0) / 60
   if (durationMin < 5) return 0
 
-  // Facteur intensité — poids log-croissants inspirés Bannister TRIMP
+  // Facteur intensité — poids log-croissants inspirés Bannister TRIMP.
+  // Palier intermédiaire à z∈[0.80,0.85[ (3.5) : sur une sortie longue/vallonnée,
+  // la FC moyenne est tirée vers le haut par les montées alors que l'effort reste
+  // aérobie — on évite de la classer « seuil » (4.5) comme le faisait l'ancien
+  // saut brutal à 0.80. Cohérent avec la répartition d'intensité Garmin.
   let intensity: number
   if (activity.average_heartrate && maxHR > 0) {
     const z = activity.average_heartrate / maxHR
     if (z >= 0.90)      intensity = 7.5
-    else if (z >= 0.80) intensity = 4.5
+    else if (z >= 0.85) intensity = 4.5
+    else if (z >= 0.80) intensity = 3.5
     else if (z >= 0.70) intensity = 2.5
     else if (z >= 0.60) intensity = 1.5
     else                intensity = 1.0
@@ -156,7 +171,7 @@ export function computeActivityLoad(activity: ActivityForLoad, fcMax?: number | 
   // Facteur type
   const typeFactor = TRAIL_TYPES.includes(activity.sport_type || activity.type || '') ? 1.05 : 1.0
 
-  return Math.round(durationMin * intensity * elev * typeFactor)
+  return Math.round(effectiveMinutes(durationMin) * intensity * elev * typeFactor)
 }
 
 export function computeLoadTrend(activities: ActivityForLoad[], fcMax?: number | null): string {
