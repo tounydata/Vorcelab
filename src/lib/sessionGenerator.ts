@@ -176,6 +176,28 @@ export function racePaceRun(vdot: number, mainMin: number, zone: PaceZone = 'M')
   ])
 }
 
+/** Sortie progressive — finir plus vite que démarrer (E → M → T). */
+export function progressiveRun(vdot: number, mainMin: number): Workout {
+  const p = trainingPaces(vdot)
+  const seg = Math.max(5, Math.round(mainMin / 3))
+  const last = Math.max(5, mainMin - 2 * seg)
+  return withFraming('tempo', 'Sortie progressive : accélérer par paliers (facile → marathon → seuil).', [
+    { kind: 'main', label: `${seg} min facile`, durationSec: seg * 60, zone: 'E', paceSecPerKm: Math.round(p.E.slowSecPerKm), rpe: ZONE_RPE.E },
+    { kind: 'main', label: `${seg} min allure marathon`, durationSec: seg * 60, zone: 'M', paceSecPerKm: Math.round(p.M.fastSecPerKm), rpe: ZONE_RPE.M },
+    { kind: 'main', label: `${last} min au seuil`, durationSec: last * 60, zone: 'T', paceSecPerKm: Math.round(p.T.fastSecPerKm), rpe: ZONE_RPE.T },
+  ])
+}
+
+/** Descente — durabilité musculaire (excentrique), pilotée au ressenti (pas l'allure). */
+export function descentRun(durationMin: number): Workout {
+  return {
+    type: 'easy',
+    intent: 'Descente : durabilité musculaire (excentrique), foulée légère et relâchée, cadence vive.',
+    blocks: [{ kind: 'main', label: `${durationMin} min en descente — relâché, contrôle quadriceps`, durationSec: durationMin * 60, rpe: 6 }],
+    totalMin: durationMin,
+  }
+}
+
 // ── B3 — Côte (paramétrage par objectif, pilotage RPE/FC, pas allure) ──────────────
 
 export type HillGoal = 'force' | 'puissance_aerobie' | 'seuil'
