@@ -40,11 +40,11 @@ const BY_ID: Record<string, (vdot: number, t: WorkoutTemplate) => Workout> = {
   progressive_run: (v, t) => progressiveRun(v, Math.min(50, t.baseDurationMin)),
   long_fast_finish: (v, t) => progressiveRun(v, t.baseDurationMin),
   // Côtes — objectif distinct selon la séance
-  hill_repeats_short: (v) => hillSession('force', 8),
-  hill_repeats_long: (v) => hillSession('puissance_aerobie', 6),
-  hill_30_30: (v) => hillSession('puissance_aerobie', 10),
-  threshold_hill: (v) => hillSession('seuil', 5),
-  vo2_hill: (v) => hillSession('puissance_aerobie', 8),
+  hill_repeats_short: () => hillSession('force', 8),
+  hill_repeats_long: () => hillSession('puissance_aerobie', 6),
+  hill_30_30: () => hillSession('puissance_aerobie', 10),
+  threshold_hill: () => hillSession('seuil', 5),
+  vo2_hill: () => hillSession('puissance_aerobie', 8),
   // Descente — durabilité excentrique (pilotée au ressenti)
   descent_long: (_v, t) => descentRun(t.baseDurationMin),
   downhill_technique: (_v, t) => descentRun(Math.min(40, t.baseDurationMin)),
