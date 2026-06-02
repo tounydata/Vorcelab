@@ -37,6 +37,8 @@ export default function RenfoSettingsPage() {
   const [form, setForm] = useState<RenfoProfile>(DEFAULT_PROFILE)
   const [weeklyTarget, setWeeklyTarget] = useState(3)
   const [targetSaved, setTargetSaved] = useState(false)
+  const [coachDays, setCoachDays] = useState(5)
+  const [coachDaysSaved, setCoachDaysSaved] = useState(false)
 
   const { data: profile, isLoading } = useQuery<RenfoProfile | null>({
     queryKey: ['renfo-profile'],
@@ -51,15 +53,15 @@ export default function RenfoSettingsPage() {
     enabled: !!user,
   })
 
-  const { data: profileTarget } = useQuery<{ renfo_weekly_target?: number } | null>({
+  const { data: profileTarget } = useQuery<{ renfo_weekly_target?: number; coach_days_per_week?: number } | null>({
     queryKey: ['profile-renfo-target', user?.id],
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('renfo_weekly_target')
+        .select('renfo_weekly_target,coach_days_per_week')
         .eq('id', user!.id)
         .single()
-      return data as { renfo_weekly_target?: number } | null
+      return data as { renfo_weekly_target?: number; coach_days_per_week?: number } | null
     },
     enabled: !!user,
   })
@@ -67,6 +69,9 @@ export default function RenfoSettingsPage() {
   useEffect(() => {
     if (profileTarget?.renfo_weekly_target != null) {
       setWeeklyTarget(profileTarget.renfo_weekly_target)
+    }
+    if (profileTarget?.coach_days_per_week != null) {
+      setCoachDays(profileTarget.coach_days_per_week)
     }
   }, [profileTarget])
 
@@ -101,6 +106,15 @@ export default function RenfoSettingsPage() {
     setTimeout(() => setTargetSaved(false), 2000)
   }
 
+  async function saveCoachDays(val: number) {
+    setCoachDays(val)
+    await supabase.from('profiles').update({ coach_days_per_week: val }).eq('id', user!.id)
+    queryClient.invalidateQueries({ queryKey: ['profile-renfo-target'] })
+    queryClient.invalidateQueries({ queryKey: ['profile-coach-days'] })
+    setCoachDaysSaved(true)
+    setTimeout(() => setCoachDaysSaved(false), 2000)
+  }
+
   if (isLoading) return <div className="loading"><div className="spinner" /></div>
 
   return (
@@ -108,7 +122,34 @@ export default function RenfoSettingsPage() {
       <Link to="/renfo" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
         ← Renfo
       </Link>
-      <div className="clabel" style={{ marginBottom: '1.5rem' }}>RÉGLAGES RENFO</div>
+      <div className="clabel" style={{ marginBottom: '1.5rem' }}>RÉGLAGES</div>
+
+      {/* ── COURSE ── */}
+      <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: '0.6rem', letterSpacing: '.12em' }}>COURSE</div>
+
+      {/* Jours de course / semaine (stocké dans profiles, consommé par le Coach) */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="fl" style={{ marginBottom: '0.5rem' }}>Jours de course / semaine</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[3, 4, 5, 6].map((n) => (
+            <button key={n}
+              className="hbtn"
+              style={coachDays === n
+                ? { background: 'var(--vl-ember)', borderColor: 'var(--vl-ember)', color: 'var(--vl-ink)', minWidth: 36 }
+                : { minWidth: 36 }}
+              onClick={() => saveCoachDays(n)}>
+              {n}
+            </button>
+          ))}
+        </div>
+        <div className="mlabel" style={{ marginTop: 6, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+          {coachDays} jour{coachDays > 1 ? 's' : ''} de course/semaine · structure le plan du Coach
+        </div>
+        {coachDaysSaved && <div className="mlabel" style={{ color: 'var(--vl-growth)', marginTop: 4 }}>Sauvegardé</div>}
+      </div>
+
+      {/* ── RENFO ── */}
+      <div className="mlabel" style={{ color: '#a78bfa', margin: '1.25rem 0 0.6rem', letterSpacing: '.12em' }}>RENFO</div>
 
       {/* Objectif hebdomadaire (stocké dans profiles) */}
       <div className="card" style={{ marginBottom: '1rem' }}>
