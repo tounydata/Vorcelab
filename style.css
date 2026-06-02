@@ -222,6 +222,9 @@ main{padding:1.25rem 0.5rem;width:100%;}
 /* Le dernier bloc colle le bas sans s'étirer : évite une carte à moitié vide
    (les colonnes gardent la même hauteur via align-items:stretch sur la grille). */
 .dash-col>:last-child{margin-bottom:0!important;}
+/* Colonne « remplissante » (gauche) : ses cartes se partagent ÉQUITABLEMENT
+   l'espace restant pour arriver au même bas que la colonne de droite. */
+.dash-col--fill>*{flex:1 1 auto;}
 @media(max-width:900px){.dash-grid{grid-template-columns:1fr;}}
 .vl-sat-strip{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-sm);padding:4px 0;display:grid;grid-template-columns:repeat(4,1fr);}
 .vl-sat-cell{padding:12px 10px;text-align:center;border-right:1px solid var(--vl-line);}
