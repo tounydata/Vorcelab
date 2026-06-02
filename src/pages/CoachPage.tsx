@@ -11,6 +11,7 @@ import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
+import { computeDailyPMC } from '../lib/trainingLoad'
 import PaceZonesCard from '../components/PaceZonesCard'
 import Collapsible from '../components/Collapsible'
 import WeekProgram from '../components/WeekProgram'
@@ -110,6 +111,13 @@ export default function CoachPage() {
     [profile?.runner_profile],
   )
 
+  // Charge chronique réelle (CTL/PMC) depuis les activités → calibre volume & prudence.
+  const currentCTL = useMemo(() => {
+    if (!activities.length) return null
+    const pmc = computeDailyPMC(activities, profile?.fc_max ?? null)
+    return pmc.length ? pmc[pmc.length - 1].ctl : null
+  }, [activities, profile?.fc_max])
+
   const plan = useMemo(() => {
     if (!targetRace) return null
     return generateTrainingPlan({
@@ -120,11 +128,11 @@ export default function CoachPage() {
       raceType: targetRace.type,
       todayISO: today,
       daysPerWeek,
-      currentCTL: null,
+      currentCTL,
       level,
       weaknesses,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL])
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
   const { data: latestVerdict = null } = useQuery({
