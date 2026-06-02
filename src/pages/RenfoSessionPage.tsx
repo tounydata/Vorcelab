@@ -272,7 +272,7 @@ export default function RenfoSessionPage() {
         focus: focusKey!,
         duration_min: session.duration_min,
         completed_exercises: completedMap,
-      }, { onConflict: 'user_id,session_date' })
+      }, { onConflict: 'user_id,session_date,focus' })
       if (sErr) throw sErr
     },
     onSuccess: () => {
