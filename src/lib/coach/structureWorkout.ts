@@ -5,7 +5,8 @@
 
 import {
   easyRun, tempoRun, cruiseIntervals, vo2_30_30, vo2_15_15, vo2Reps,
-  overUnder, racePaceRun, progressiveRun, descentRun, hillSession, strides, type Workout,
+  overUnder, racePaceRun, progressiveRun, descentRun, hillSession,
+  strides, stridesWorkout, hillStrides, type Workout,
 } from '../sessionGenerator'
 import type { WorkoutTemplate } from './workouts'
 
@@ -48,6 +49,10 @@ const BY_ID: Record<string, (vdot: number, t: WorkoutTemplate) => Workout> = {
   // Descente — durabilité excentrique (pilotée au ressenti)
   descent_long: (_v, t) => descentRun(t.baseDurationMin),
   downhill_technique: (_v, t) => descentRun(Math.min(40, t.baseDurationMin)),
+  // Affûtage — rappels NEUROMUSCULAIRES (jamais de VO2max en affûtage : Bosquet 2007,
+  // Mujika & Padilla — on garde une intensité brève, on coupe le volume).
+  sharpener: (_v, t) => stridesWorkout(6, t.baseDurationMin),
+  sharpener_hill: () => hillStrides(5),
 }
 
 /** Structure une séance chiffrée pour un template + le VDOT du coureur. */

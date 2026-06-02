@@ -127,12 +127,25 @@
 ### D. Point faible détecté (boost +++, levier le plus fort)
 `aerobic_base`→longues/à jeun ; `threshold`→tempo/cruise/over-under ; `vo2max`→1000/800/30-30/longs I ; `economy`→strides/R/gammes/plio ; `speed`→hill sprints/R400/alactiques/fartlek ; `climbing`→côtes/vert/force [trail] ; `descending`→descente reps/tech/longue **(priorité haute)** [trail] ; `durability`→progressive/fast finish/B2B/block_choc ; `race_specificity`→blocs allure/simulation ; `recovery`→récup + plus de jours faciles.
 
-### E. Phase (filtre temporel)
-- **base** : endurance, récup, longue douce, strides, hill_sprints, force, gammes, fartlek libre. Peu de race_pace.
-- **build** : + vo2max, threshold, fartlek structuré, côtes. Montée du volume qualité.
-- **specific** : + race_pace de la distance, blocs Canova, simulation, B2B/vert (ultra), over-under, longues spé.
-- **taper** : -40-60 % volume, garder intensité (strides, rappels courts), exclure longues/B2B/blocs choc.
-- **race** : récup, hike, strides d'activation seulement.
+### E. Phase (filtre temporel) — quelle séance à quel moment
+
+> **Principe (Friel) :** plus on approche de la course, plus la séance lui ressemble.
+> La spécificité augmente de façon monotone ; on ne rétrograde jamais vers un type
+> MOINS spécifique comme séance dominante à l'approche du jour J.
+
+| Phase | Séances AUTORISÉES | Séances INTERDITES (et pourquoi) |
+|---|---|---|
+| **base** | endurance, récup, longue douce, **strides**, hill_sprints (force), gammes, fartlek libre, côtes force ; intro douce descente [trail] (amorce repeated-bout effect). | VO2max lourd, blocs race_pace, gros volume seuil — corps pas encore prêt, fonde la base aérobie d'abord (Daniels FI ; Friel Base). |
+| **build** | + **vo2max** (à plat route / **en côte `vo2_hill` pour le trail**), **threshold**, fartlek structuré, côtes longues, **pic descente/excentrique [trail]**. | blocs *race-spécifiques* longs (trop tôt pour pointer la forme). |
+| **specific** | + **race_pace** de la distance, blocs Canova, simulation sur terrain de course (D+/D- pour trail), B2B/vert (ultra), over-under, longues spé. | VO2max pur qui évince le race_pace ; descente neuve max trop proche de la course. |
+| **taper** (affûtage) | **−40 à 60 % de volume, intensité gardée mais BRÈVE** : strides à plat (`sharpener`) / **rappels en côte (`sharpener_hill`) pour le trail**, easy sur terrain de course. | **VO2max, seuil (volume), descente/excentrique, renfo lourd, longues/B2B/blocs choc.** Aucun gain de forme en < 2 sem. : ces séances n'ajoutent que de la fatigue qui gâche la surcompensation (Bosquet 2007 ; Mujika & Padilla ; PLOS One 2023). La descente est bannie : la protection excentrique se construit AVANT, jamais dans les 10 derniers jours (Millet/Giandolini). |
+| **race** | récup, hike, strides/rappels d'activation seulement. | toute vraie séance (intervalles, seuil, longue) : zéro bénéfice, pure fatigue. |
+
+**Strides = l'outil universel d'affûtage** : autorisés à TOUTES les phases (y compris taper et semaine de course), coût de fatigue quasi nul (Daniels R-pace).
+
+**Garde-fou code (`isTaperSafe`, planGenerator)** : en `taper`, on rejette d'office tout système ∈ {`vo2max`, `threshold`, `descent`, `strength`} **et** toute intensité `hard`. Le `sharpener` (système `speed`, jamais `vo2max`) se structure en strides — *jamais* en « X × 30 s à VMA ». Pour le trail, le sélecteur (terrain +2) préfère `sharpener_hill` (rappels en côte) au `sharpener` à plat.
+
+**Spécificité trail (VO2max & terrain)** : pour une cible trail, la VO2max/puissance aérobie se fait **en côte** (`vo2_hill`) — même charge cardiaque à vitesse moindre, donc moins d'impact, plus de recrutement musculaire spécifique montée, pilotage à l'effort/puissance (GAP) plutôt qu'à l'allure (Uphill Athlete ; Koop ; Run Baldwin).
 
 ### F. Scoring (pseudo)
 ```
@@ -159,4 +172,8 @@ trier desc → top N en respectant 80/20 (Seiler).
 ---
 
 ## Sources
-Daniels (VDOT, E/M/T/I/R) · Canova (special block, intervalles longs M) · Billat (30/30, vVO2max) · Koop (ultra : B2B, montée/descente, spécificité, faiblesses) · Seiler (80/20) · Pfitzinger (*Advanced Marathoning*) · Magness (*Science of Running* : over-under, hill sprints, plio) · Uphill Athlete (force-endurance, power hiking) · Roche (*Some Work All Play* : 1/1).
+Daniels (VDOT, E/M/T/I/R ; phases FI→EQ→TQ→FQ) · Canova (special block, intervalles longs M) · Billat (30/30, vVO2max) · Koop *Training Essentials for Ultrarunning* (ultra : B2B, montée/descente, spécificité, hiérarchie des besoins) · Seiler (80/20 polarisé) · Friel (périodisation de l'intensité : spécificité croissante) · Pfitzinger (*Advanced Marathoning*) · Magness (*Science of Running* : over-under, hill sprints, plio) · Uphill Athlete (force-endurance, power hiking, affûtage trail) · Roche (*Some Work All Play* : 1/1) · Fitzgerald (*80/20 Running*).
+
+**Affûtage (périodisation des séances) :** Bosquet et al. 2007 — méta-analyse de l'affûtage ([PubMed](https://pubmed.ncbi.nlm.nih.gov/17762369/)) : réduire le volume de 41-60 %, garder intensité et fréquence. Mujika & Padilla — l'entraînement intense, clé avant/pendant l'affûtage. PLOS One 2023 — revue systématique : aucune Δ VO2max/économie en affûtage (le gain vient de la levée de fatigue) ([PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC10171681/)).
+
+**Trail (spécificité & excentrique) :** Millet/Giandolini — fatigue neuromusculaire & dommages excentriques en trail ([PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC6282050/)) ; *repeated-bout effect* : une descente protège plusieurs semaines, dernier gros descente 14-21 j avant la course, zéro excentrique dans les 10 derniers jours. VO2max en côte : spécificité + moindre impact ([Uphill Athlete](https://uphillathlete.com/trail-running/tapering-for-race-event-what-to-do/), [TrainRight/Koop](https://trainright.com/hierarchy-ultramarathon-training-needs-jason-koop/)).
