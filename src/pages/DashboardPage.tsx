@@ -662,7 +662,7 @@ export default function DashboardPage() {
       ) : (
         <div className="dash-grid">
 
-          {/* ── COLONNE GAUCHE 60% : course → charge 28j → renfo ── */}
+          {/* ── COLONNE GAUCHE : prochaine course → statut d'entraînement ── */}
           <div className="dash-col">
 
             {/* Prochaine course */}
@@ -670,6 +670,10 @@ export default function DashboardPage() {
 
             {/* Statut d'entraînement (PMC) */}
             <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
+          </div>
+
+          {/* ── COLONNE DROITE : renfo → stats mois → activités ── */}
+          <div className="dash-col">
 
             {/* ── Widget RENFO complet ── */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -774,11 +778,6 @@ export default function DashboardPage() {
                 })}
               </div>
             </div>
-
-          </div>
-
-          {/* ── COLONNE DROITE 40% : stats mois + activités ── */}
-          <div className="dash-col">
 
             {/* CE MOIS + DERNIÈRES SORTIES */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>

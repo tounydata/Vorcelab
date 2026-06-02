@@ -32,6 +32,7 @@ interface ProfileRow {
   vo2max?: number | null
   fc_max?: number | null
   runner_profile?: RunnerProfileComputed | null
+  coach_days_per_week?: number | null
 }
 
 const PHASE_COLORS: Record<Phase, string> = {
@@ -46,6 +47,54 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+/** Frise de périodisation : phases consécutives regroupées + libellées, semaine courante mise en avant. */
+function PhaseTimeline({ weeks }: { weeks: { weekIndex: number; phase: Phase; isRecovery: boolean }[] }) {
+  if (weeks.length === 0) return null
+  // Regroupe les semaines consécutives de même phase en segments.
+  const groups: { phase: Phase; count: number; isCurrent: boolean }[] = []
+  weeks.forEach((w, i) => {
+    const last = groups[groups.length - 1]
+    if (last && last.phase === w.phase) {
+      last.count += 1
+      if (i === 0) last.isCurrent = true
+    } else {
+      groups.push({ phase: w.phase, count: 1, isCurrent: i === 0 })
+    }
+  })
+  return (
+    <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem' }}>
+      {groups.map((g, i) => {
+        const color = PHASE_COLORS[g.phase]
+        return (
+          <div
+            key={i}
+            title={`${PHASE_LABELS[g.phase]} · ${g.count} semaine${g.count > 1 ? 's' : ''}`}
+            style={{
+              flex: g.count,
+              minWidth: 0,
+              borderRadius: 6,
+              padding: '6px 8px',
+              background: `color-mix(in srgb, ${color} ${g.isCurrent ? 22 : 12}%, transparent)`,
+              border: g.isCurrent ? `1px solid ${color}` : '1px solid transparent',
+              borderTop: `3px solid ${color}`,
+            }}
+          >
+            <div style={{
+              fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
+              color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {PHASE_LABELS[g.phase]}
+            </div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 1 }}>
+              {g.count} sem.{g.isCurrent ? ' · en cours' : ''}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function fmtRaceDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -53,7 +102,6 @@ function fmtRaceDate(iso: string): string {
 export default function CoachPage() {
   const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
-  const [daysPerWeek, setDaysPerWeek] = useState(5)
 
   const { data: races = [], isLoading } = useQuery<Race[]>({
     queryKey: ['races'],
@@ -71,7 +119,7 @@ export default function CoachPage() {
     queryKey: ['profile-sessions'],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile').eq('id', user!.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week').eq('id', user!.id).maybeSingle()
       return (data ?? null) as ProfileRow | null
     },
   })
@@ -117,6 +165,9 @@ export default function CoachPage() {
     const pmc = computeDailyPMC(activities, profile?.fc_max ?? null)
     return pmc.length ? pmc[pmc.length - 1].ctl : null
   }, [activities, profile?.fc_max])
+
+  // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
+  const daysPerWeek = profile?.coach_days_per_week ?? 5
 
   const plan = useMemo(() => {
     if (!targetRace) return null
@@ -227,24 +278,7 @@ export default function CoachPage() {
           {plan.race.distanceKm > 0 ? ` · ${plan.race.distanceKm} km` : ''}
           {plan.race.elevationM > 0 ? ` · ${plan.race.elevationM} m D+` : ''}
           {' · '}{plan.race.isTrail ? 'TRAIL' : 'ROUTE'}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-          <span className="mlabel" style={{ margin: 0 }}>JOURS / SEMAINE</span>
-          {[3, 4, 5, 6].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDaysPerWeek(d)}
-              className="hbtn"
-              style={{
-                padding: '4px 10px', fontSize: 11,
-                background: d === plan.daysPerWeek ? 'var(--vl-ember)' : 'transparent',
-                color: d === plan.daysPerWeek ? 'var(--vl-ink)' : 'var(--vl-text-2)',
-              }}
-            >
-              {d}
-            </button>
-          ))}
+          {' · '}{plan.daysPerWeek} j/sem.
         </div>
       </div>
 
@@ -257,20 +291,8 @@ export default function CoachPage() {
         </ul>
       </Collapsible>
 
-      {/* ── Frise des phases ── */}
-      <div style={{ display: 'flex', gap: 3, marginBottom: '1.5rem' }}>
-        {plan.weeks.map((w) => (
-          <div
-            key={w.weekIndex}
-            title={`S${w.weekIndex + 1} · ${PHASE_LABELS[w.phase]}${w.isRecovery ? ' (décharge)' : ''}`}
-            style={{
-              flex: 1, height: 8, borderRadius: 2,
-              background: PHASE_COLORS[w.phase],
-              opacity: w.isRecovery ? 0.4 : 1,
-            }}
-          />
-        ))}
-      </div>
+      {/* ── Frise des phases (groupée + libellée) ── */}
+      <PhaseTimeline weeks={plan.weeks} />
 
       {/* ── Programme hebdomadaire (séances de l'algo, choix-first, navigation ← →) ── */}
       <Collapsible title="Mes allures">
