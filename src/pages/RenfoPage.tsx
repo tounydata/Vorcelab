@@ -9,7 +9,6 @@ import {
   get4WeekPhase, DUP4_LABELS, DUP4_COLORS,
   type SessionLog,
 } from '../lib/renfoUtils'
-// @ts-ignore
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
 const ALL_FOCUSES = [

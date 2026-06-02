@@ -15,9 +15,37 @@ interface RenfoProfile {
   [k: string]: unknown
 }
 
-// Variantes/exercices proviennent de renfoData (typés Record<string, any>).
-type Variant = any
-type Exercise = any
+// Variantes/exercices : vrais types (les données renfoData arrivent en `any` et
+// « entrent » sans risque ; les accès ci-dessous sont désormais typés).
+export interface RequiredEquipment {
+  has_gym_access?: boolean
+  barbell?: boolean
+  leg_press?: boolean
+  bench?: boolean
+  pullup_bar?: boolean
+  step?: boolean
+  anchor_point?: boolean
+  bands?: unknown[]
+  [k: string]: unknown
+}
+export interface Variant {
+  id: string
+  priority: number
+  required_equipment?: RequiredEquipment
+  required_equipment_any?: Array<Record<string, number>>
+  default_sets: number
+  default_reps: number | string
+  target_rpe: number
+  rest_seconds: number
+  load_type: string
+  unit?: string | null
+  [k: string]: unknown
+}
+export interface Exercise {
+  id?: string
+  variants: Variant[]
+  [k: string]: unknown
+}
 
 export function getBestVariant(exercise: Exercise, profile: RenfoProfile): Variant {
   const eq: Record<string, any> = profile.equipment || {}

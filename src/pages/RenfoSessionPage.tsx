@@ -4,9 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useRunningDUPOverride } from '../lib/coach/useRunningDUPOverride'
 import { useVLStore } from '../store/vlStore'
-// @ts-ignore
 import { buildSession, applyDUP } from '../lib/renfoProgram'
-// @ts-ignore
 import { RENFO_EXERCISES as _RENFO_EXERCISES, FOCUS_META as _FOCUS_META, RENFO_FOCUS_COLORS as _RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
