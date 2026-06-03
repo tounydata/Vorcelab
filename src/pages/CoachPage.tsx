@@ -160,11 +160,13 @@ export default function CoachPage() {
   )
 
   // Charge chronique réelle (CTL/PMC) depuis les activités → calibre volume & prudence.
-  const currentCTL = useMemo(() => {
+  // On expose tout le dernier jour PMC (CTL + TSB) pour le « moteur » du Coach.
+  const pmcToday = useMemo(() => {
     if (!activities.length) return null
     const pmc = computeDailyPMC(activities, profile?.fc_max ?? null)
-    return pmc.length ? pmc[pmc.length - 1].ctl : null
+    return pmc.length ? pmc[pmc.length - 1] : null
   }, [activities, profile?.fc_max])
+  const currentCTL = pmcToday?.ctl ?? null
 
   // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
   const daysPerWeek = profile?.coach_days_per_week ?? 5
@@ -247,6 +249,34 @@ export default function CoachPage() {
     )
   }
 
+  // ── Données « moteur » (ce que l'algo lit du coureur) ──
+  const raceDate = new Date(plan.race.dateISO + 'T00:00:00')
+  const daysLeft = Math.max(0, Math.ceil((raceDate.getTime() - Date.now()) / 86_400_000))
+  const currentPhase: Phase = plan.weeks[0]?.phase ?? 'base'
+  const LEVEL_LABELS: Record<string, string> = { beginner: 'Débutant', intermediate: 'Intermédiaire', advanced: 'Confirmé' }
+  const rp = profile?.runner_profile ?? null
+  const driftVal = rp?.hrDriftPct
+  const durability = driftVal != null
+    ? {
+        v: `${driftVal > 0 ? '+' : ''}${driftVal.toFixed(0)}%`,
+        sub: rp!.hrDriftStatus === 'marked' ? 'Faiblit en fin' : rp!.hrDriftStatus === 'moderate' ? 'Correcte' : 'Solide',
+        color: rp!.hrDriftStatus === 'marked' ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)',
+      }
+    : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
+  const climbWeak = weaknesses.includes('climbing')
+  const climb = rp
+    ? { v: climbWeak ? 'À bosser' : 'OK', sub: climbWeak ? 'Point faible' : 'Point fort', color: climbWeak ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)' }
+    : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
+  const engine: { cl: string; v: string; sub: string; color: string }[] = [
+    { cl: 'VDOT · niveau', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
+    { cl: 'CTL · charge chro.', v: currentCTL != null ? String(currentCTL) : '—', sub: 'Fond', color: 'var(--vl-ember)' },
+    { cl: 'Fraîcheur · TSB', v: pmcToday ? (pmcToday.tsb > 0 ? `+${pmcToday.tsb}` : String(pmcToday.tsb)) : '—', sub: pmcToday ? (pmcToday.tsb > 5 ? 'Frais' : pmcToday.tsb < -10 ? 'Chargé' : 'Stable') : '—', color: 'var(--vl-status-peak)' },
+    { cl: 'Durabilité', v: durability.v, sub: durability.sub, color: durability.color },
+    { cl: 'Côtes · VAM', v: climb.v, sub: climb.sub, color: climb.color },
+  ]
+  // Rationale en prose (hors ligne périodisation, déjà visualisée par la frise).
+  const rationale = plan.rationale.filter((r) => !r.startsWith('Périodisation'))
+
   return (
     <div style={{ paddingBottom: '3rem' }}>
       {splash ? <SessionAdaptationSplash message="J'ajuste ta prochaine séance selon ton dernier ressenti." onDone={() => setSplash(false)} /> : null}
@@ -257,47 +287,78 @@ export default function CoachPage() {
         </div>
       </div>
 
-      {/* ── Course cible + réglages ── */}
-      <div className="card" style={{ padding: '14px 16px', marginBottom: '1.25rem' }}>
-        <div className="clabel" style={{ marginBottom: 8 }}>Course cible</div>
-        {upcoming.length > 1 ? (
-          <select
-            value={targetRace.id}
-            onChange={(e) => setSelectedRaceId(e.target.value)}
-            style={{ width: '100%', padding: '8px 10px', background: 'var(--vl-surf-2)', color: 'var(--vl-text)', border: '1px solid var(--vl-line)', borderRadius: 6, fontFamily: 'var(--vl-display)', fontSize: '.95rem', marginBottom: 8 }}
-          >
-            {upcoming.map((r) => (
-              <option key={r.id} value={r.id}>{r.name} — {fmtRaceDate(r.date.slice(0, 10))}</option>
-            ))}
-          </select>
-        ) : (
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 700 }}>{targetRace.name}</div>
-        )}
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', marginTop: 4 }}>
-          {fmtRaceDate(plan.race.dateISO)}
-          {plan.race.distanceKm > 0 ? ` · ${plan.race.distanceKm} km` : ''}
-          {plan.race.elevationM > 0 ? ` · ${plan.race.elevationM} m D+` : ''}
-          {' · '}{plan.race.isTrail ? 'TRAIL' : 'ROUTE'}
-          {' · '}{plan.daysPerWeek} j/sem.
+      {/* ── 1 · HÉROS : cap sur le jour J (course + countdown + frise + sceau) ── */}
+      <div className="coach-hero">
+        <div className="coach-hero-top">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="coach-kic">Course visée · cap sur le jour J</div>
+            {upcoming.length > 1 ? (
+              <select
+                value={targetRace.id}
+                onChange={(e) => setSelectedRaceId(e.target.value)}
+                style={{ width: '100%', maxWidth: 320, padding: '6px 10px', background: 'var(--vl-surf-2)', color: 'var(--vl-text)', border: '1px solid var(--vl-line-2)', borderRadius: 6, fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '.01em', textTransform: 'uppercase', margin: '6px 0' }}
+              >
+                {upcoming.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} — {fmtRaceDate(r.date.slice(0, 10))}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="coach-race">{targetRace.name}</div>
+            )}
+            <div className="coach-meta">
+              {fmtRaceDate(plan.race.dateISO)}
+              {plan.race.distanceKm > 0 ? ` · ${plan.race.distanceKm} km` : ''}
+              {plan.race.elevationM > 0 ? ` · ${plan.race.elevationM} m D+` : ''}
+              {' · '}{plan.race.isTrail ? 'TRAIL' : 'ROUTE'}
+              {' · '}{plan.daysPerWeek} j/sem.
+            </div>
+          </div>
+          <div className="coach-cd">
+            <div className="coach-cd-n">{daysLeft}</div>
+            <div className="coach-cd-u">jours</div>
+            <div className="coach-cd-ph" style={{ color: PHASE_COLORS[currentPhase] }}>▸ {PHASE_LABELS[currentPhase]}</div>
+          </div>
         </div>
+
+        {/* Frise de périodisation (phases groupées, semaine en cours mise en avant) */}
+        <PhaseTimeline weeks={plan.weeks} />
+
+        <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
 
-      {/* ── Rationale ── */}
-      <Collapsible title="Pourquoi ce plan">
-        <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--vl-text-2)', fontSize: '.82rem', lineHeight: 1.6 }}>
-          {plan.rationale
-            .filter((r) => !r.startsWith('Périodisation'))
-            .map((r, i) => <li key={i}>{r}</li>)}
-        </ul>
-      </Collapsible>
+      {/* ── 2 · TON MOTEUR : ce que l'algo lit du coureur (métriques en vedette) ── */}
+      <div className="coach-block-h">
+        <span className="coach-block-ttl">Ton moteur</span>
+        <span className="coach-block-sub">Ce que l'algo lit de toi</span>
+      </div>
+      <div className="coach-engine">
+        {engine.map((c) => (
+          <div key={c.cl} className="coach-cell">
+            <div className="coach-cell-cl">{c.cl}</div>
+            <div className="coach-cell-v" style={{ color: c.color }}>{c.v}</div>
+            <div className="coach-cell-sub">{c.sub}</div>
+          </div>
+        ))}
+      </div>
 
-      {/* ── Frise des phases (groupée + libellée) ── */}
-      <PhaseTimeline weeks={plan.weeks} />
+      {/* ── 3 · POURQUOI CE PLAN : voix éditoriale (Fraunces assumé, cf. audit) ── */}
+      {rationale.length > 0 && (
+        <div className="coach-why">
+          <div className="coach-why-lab">Pourquoi ce plan</div>
+          {rationale.map((r, i) => <p key={i} className="coach-why-p">{r}</p>)}
+        </div>
+      )}
 
-      {/* ── Programme hebdomadaire (séances de l'algo, choix-first, navigation ← →) ── */}
+      {/* ── Allures (secondaire) ── */}
       <Collapsible title="Mes allures">
         <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} bare />
       </Collapsible>
+
+      {/* ── 4 · CETTE SEMAINE : séances proposées (jamais imposées) ── */}
+      <div className="coach-block-h">
+        <span className="coach-block-ttl">Cette semaine</span>
+        <span className="coach-block-sub">Proposition · tu choisis ta séance du jour</span>
+      </div>
 
       {modulation ? (
         <div className="card" style={{ borderLeft: '4px solid var(--vl-ember)', padding: '10px 14px', marginBottom: '1rem', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -320,9 +381,8 @@ export default function CoachPage() {
         scale={modulation ? { workoutId: modulation.workoutId, dir: modulation.dir } : undefined}
       />
 
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
-        Plan généré localement par un moteur déterministe (aucune IA, aucune donnée envoyée à l'extérieur).
-        Les séances sont une <strong>proposition</strong> : tu restes libre de ton choix.
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
+        Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
       </div>
     </div>
   )
