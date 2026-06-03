@@ -712,7 +712,7 @@ export default function DashboardPage() {
             <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
 
             {/* ── CETTE SEMAINE — widget RENFO (proposition) ── */}
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <div data-tour="dash-renfo" className="card" style={{ marginBottom: '1.5rem' }}>
 
               {/* En-tête */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>

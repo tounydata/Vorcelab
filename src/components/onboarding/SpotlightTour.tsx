@@ -8,7 +8,15 @@ import { PAGE_TOURS, type TourStep } from './spotlightTours'
 // Tuto contextuel à SPOTLIGHT : floute tout sauf l'élément expliqué, se déplace
 // d'étape en étape. Déclenché à l'entrée d'une page (1ʳᵉ visite), rejouable via « ? ».
 const seenKey = (id: string) => `vl-tour-${id}-v1`
+const TOURS_OFF = 'vl-tours-off' // « ne plus afficher » global
 const PAD = 8
+
+function toursOff(): boolean {
+  try { return !!localStorage.getItem(TOURS_OFF) } catch { return false }
+}
+function markSeenPage(id: string) {
+  try { localStorage.setItem(seenKey(id), '1') } catch { /* localStorage indispo */ }
+}
 
 /** Rejoue le tuto de la page courante (bouton « ? »). */
 export function openFeatureTour() {
@@ -43,7 +51,7 @@ export default function SpotlightTour() {
 
   // Auto-déclenchement à l'entrée d'une page non encore vue.
   useEffect(() => {
-    if (!user || onboardingDone !== true) return
+    if (!user || onboardingDone !== true || toursOff()) return
     const tour = currentTour()
     if (!tour) { setSteps(null); return }
     let seen = false
@@ -51,7 +59,10 @@ export default function SpotlightTour() {
     if (seen) return
     // On ne démarre que si la 1ʳᵉ cible est présente (page prête / section dispo).
     const t = setTimeout(() => {
-      if (document.querySelector(tour.steps[0].selector)) start(tour)
+      if (document.querySelector(tour.steps[0].selector)) {
+        markSeenPage(tour.id) // vu = dès l'affichage (sinon re-déclenché à chaque login si on quitte avant la fin)
+        start(tour)
+      }
     }, 650)
     return () => clearTimeout(t)
   }, [pathname, user, onboardingDone, currentTour, start])
@@ -155,9 +166,17 @@ export default function SpotlightTour() {
         </div>
         <div style={{ fontSize: '.86rem', lineHeight: 1.55, color: 'var(--vl-text-2)' }}>{step.body}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, gap: 10 }}>
-          <button onClick={finish} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--vl-text-3)', padding: 0 }}>
-            Passer
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+            <button onClick={finish} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--vl-text-3)', padding: 0 }}>
+              Passer
+            </button>
+            <button
+              onClick={() => { try { localStorage.setItem(TOURS_OFF, '1') } catch { /* ignore */ } finish() }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.02em', color: 'var(--vl-text-3)', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}
+            >
+              Ne plus afficher
+            </button>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {idx > 0 && (
               <button onClick={prev} className="hbtn" style={{ fontSize: 10, padding: '5px 10px' }}>← Précédent</button>

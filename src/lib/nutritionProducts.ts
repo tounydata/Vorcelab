@@ -112,6 +112,11 @@ export const NUTRITION_PRODUCTS: NutritionProduct[] = [
   { id: 'honeystinger-waffle', brand: 'Honey Stinger', name: 'Organic Waffle', type: 'bar', carbs: 21, caffeine: 0, water: false, note: 'Gaufrette au miel bio' },
   { id: 'honeystinger-chews', brand: 'Honey Stinger', name: 'Organic Energy Chews', type: 'chew', carbs: 26, caffeine: 0, water: false, note: 'Sachet, bio' },
   { id: 'clif-shot-bloks-caf', brand: 'Clif', name: 'Shot Bloks Caféine', type: 'chew', carbs: 24, caffeine: 50, water: false, note: 'Par 3 bloks (parfums caféinés)' },
+  // Andros Sport (à base de fruits, fabriqué en France)
+  { id: 'andros-gel', brand: 'Andros Sport', name: 'Gel Énergétique', type: 'gel', carbs: 25, caffeine: 0, water: false, note: 'À base de fruits, sans eau' },
+  { id: 'andros-gourde', brand: 'Andros Sport', name: 'Gourde de Fruits Énergie', type: 'gel', carbs: 22, caffeine: 0, water: false, note: 'Compote énergétique, facile à digérer' },
+  { id: 'andros-pate-fruits', brand: 'Andros Sport', name: 'Pâte de Fruits', type: 'chew', carbs: 23, caffeine: 0, water: false, note: 'Solide, à base de fruits' },
+  { id: 'andros-boisson', brand: 'Andros Sport', name: 'Boisson Énergétique', type: 'drink', carbs: 30, caffeine: 0, water: true, per: '500 ml', note: 'À base de fruits + électrolytes' },
 ]
 
 const BY_ID = new Map(NUTRITION_PRODUCTS.map((p) => [p.id, p]))

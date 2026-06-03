@@ -21,6 +21,7 @@ export const PAGE_TOURS: PageTour[] = [
     steps: [
       { selector: '[data-tour="dash-race"]', title: 'Stratégie de course', body: 'Ta course visée, le compte à rebours et la projection Vorcelab de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
       { selector: '[data-tour="dash-state"]', title: 'Ton état du jour', body: 'Forme, fatigue et fraîcheur calculées depuis tes activités. Le graphe montre ta charge des 6 dernières semaines — survole pour le détail jour par jour.' },
+      { selector: '[data-tour="dash-renfo"]', title: 'Ton renfo de la semaine', body: 'Tes séances de renforcement proposées, co-périodisées avec ta course (force, tronc, mobilité…). Suis ta progression du mois et ouvre le détail avec « Voir ».' },
       { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison).' },
     ],
   },
