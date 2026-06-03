@@ -102,77 +102,125 @@ export default function RenfoPage() {
     return `il y a ${diff}j`
   }
 
+  // ── Données refonte ──
+  // Séance suggérée : préférée par la co-pério d'abord, sinon la plus ancienne.
+  const sortedFocuses = [...ALL_FOCUSES].sort((a, b) => {
+    const ap = preferred.has(a) ? 0 : avoided.has(a) ? 2 : 1
+    const bp = preferred.has(b) ? 0 : avoided.has(b) ? 2 : 1
+    if (ap !== bp) return ap - bp
+    const al = lastDateByFocus[a] ? new Date(lastDateByFocus[a]).getTime() : 0
+    const bl = lastDateByFocus[b] ? new Date(lastDateByFocus[b]).getTime() : 0
+    return al - bl
+  })
+  const suggested = sortedFocuses[0]
+  const weekCount = new Set(sessionLogs.map((s) => s.session_date).filter(Boolean)).size
+  const alertWarning = warnings.find((w) => w.severity === 'alert') ?? warnings[0] ?? null
+
+  const PHASE_DESC: Record<string, string> = {
+    force: 'Charges lourdes, peu de répétitions, longues récup — on entretient la force max sans empiéter sur la course.',
+    volume: 'Plus de répétitions à charge modérée — on construit l’endurance de force.',
+    puissance: 'Mouvements explosifs (pliométrie) — on transforme la force en vitesse.',
+    deload: 'Semaine allégée — on récupère pour assimiler les blocs précédents.',
+  }
+
+  const FORCE_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc'] as const
+  const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+
+  const WCAL = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
+  const now = new Date()
+  const rhythm7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
+    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return { label: WCAL[(d.getDay() + 6) % 7], has: sessionLogs.some((s) => s.session_date === ds), isToday: i === 6 }
+  })
+
+  function renderFocus(focus: string) {
+    const meta = FOCUS_META[focus]
+    if (!meta) return null
+    const color = RENFO_FOCUS_COLORS[focus] ?? 'var(--color-renfo)'
+    const lastDate = lastDateByFocus[focus]
+    const isPreferred = preferred.has(focus)
+    const isAvoided = avoided.has(focus)
+    return (
+      <Link key={focus} to={`/renfo/session/${focus}`} style={{ textDecoration: 'none' }}>
+        <div className="rfoc" style={{ borderTop: `3px solid ${color}`, opacity: isAvoided ? 0.45 : 1 }}>
+          <div className="rfoc-n" style={{ color }}>{meta.label}</div>
+          <div className="rfoc-m">{meta.duration_min} min{lastDate ? ` · ${fmtLastDate(lastDate)}` : ' · jamais'}</div>
+          {isPreferred && <span className="rfoc-rec">★ Recommandé</span>}
+          {isAvoided && <span className="rfoc-avoid">évité cette semaine</span>}
+        </div>
+      </Link>
+    )
+  }
+
   return (
     <>
-      <div className="clabel" style={{ marginBottom: '1.5rem' }}>RENFORCEMENT</div>
+      <div className="clabel" style={{ marginBottom: '1rem' }}>RENFORCEMENT</div>
 
-      {/* ── Co-pério warnings ────────────────────────────────────────────── */}
-      {warnings.map((w, i) => (
-        <div key={i} className="card" style={{
-          marginBottom: '0.75rem',
-          borderLeft: `3px solid ${w.severity === 'alert' ? 'var(--vl-ember)' : w.severity === 'warn' ? 'var(--vl-amber)' : 'var(--vl-growth)'}`,
-        }}>
-          <div className="mlabel" style={{ color: w.severity === 'alert' ? 'var(--vl-ember)' : w.severity === 'warn' ? 'var(--vl-amber)' : 'var(--vl-text-3)' }}>
-            {w.severity === 'alert' ? '⚠ ALERTE' : w.severity === 'warn' ? '⚡ ATTENTION' : 'ℹ INFO'}
+      {/* ── 1 · HÉROS : l'intelligence co-périodisation ── */}
+      <div className="rhero">
+        <div className="rhero-kic">Co-périodisation · semaine en cours</div>
+        <div className="rhero-phase" style={{ color: DUP4_COLORS[phase] }}>Bloc {DUP4_LABELS[phase]}</div>
+        <div className="rhero-desc">{PHASE_DESC[phase] ?? ''}</div>
+        {alertWarning && (
+          <div className="rcoperio" style={{ borderColor: `color-mix(in oklab, ${alertWarning.severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'} 35%, transparent)` }}>
+            <span className="rcoperio-ic" style={{ color: alertWarning.severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)' }}>⚡</span>
+            <span className="rcoperio-tx">{alertWarning.message}</span>
           </div>
-          <div className="mlabel" style={{ marginTop: 4, textTransform: 'none', letterSpacing: 0 }}>{w.message}</div>
-        </div>
-      ))}
-
-      {/* ── DUP badge + impact ────────────────────────────────────────────── */}
-      <div className="strip" style={{ marginBottom: '1.5rem' }}>
-        <div className="scell" style={{ gridColumn: 'span 3' }}>
-          <div className="sval" style={{ color: DUP4_COLORS[phase], fontSize: '1.1rem' }}>{DUP4_LABELS[phase]}</div>
-          <div className="slbl">Phase DUP</div>
-        </div>
-        <div className="scell" style={{ gridColumn: 'span 3' }}>
-          <div className="sval" style={{ color: impact.color, fontSize: '1.1rem' }}>{impact.label}</div>
-          <div className="slbl">Charge 7j</div>
+        )}
+        <div className="rhero-foot">
+          <div className="rstat"><div className="rstat-v" style={{ color: 'var(--color-renfo)' }}>{weekCount}</div><div className="rstat-l">Séances · 7 j</div></div>
+          <div className="rstat"><div className="rstat-v" style={{ color: impact.color }}>{impact.label}</div><div className="rstat-l">Charge 7 j</div></div>
+          <div className="rstat"><div className="rstat-v" style={{ color: DUP4_COLORS[phase] }}>{DUP4_LABELS[phase]}</div><div className="rstat-l">Phase DUP</div></div>
         </div>
       </div>
 
-      {/* ── Focus grid ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: '0.75rem', marginBottom: '2rem' }}>
-        {ALL_FOCUSES.map((focus) => {
-          const meta = FOCUS_META[focus]
-          if (!meta) return null
-          const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
-          const lastDate = lastDateByFocus[focus]
-          const isPreferred = preferred.has(focus)
-          const isAvoided = avoided.has(focus)
-          return (
-            <Link
-              key={focus}
-              to={`/renfo/session/${focus}`}
-              style={{ textDecoration: 'none' }}
-            >
-              <div className="card" style={{
-                borderLeft: `3px solid ${color}`,
-                opacity: isAvoided ? 0.45 : 1,
-                position: 'relative',
-                minHeight: 96,
-              }}>
-                {isPreferred && (
-                  <div className="mlabel" style={{ color, marginBottom: 4 }}>★ Recommandé</div>
-                )}
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.95rem', color, lineHeight: 1.2, marginBottom: 4 }}>
-                  {meta.label}
-                </div>
-                <div className="mlabel">{meta.duration_min} min</div>
-                {lastDate && (
-                  <div className="mlabel" style={{ marginTop: 4, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-                    {fmtLastDate(lastDate)}
-                  </div>
-                )}
+      {/* ── 2 · SUGGÉRÉ MAINTENANT (proposition, pas prescription) ── */}
+      {suggested && FOCUS_META[suggested] && (
+        <div className="rsuggest">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="rsuggest-l">Suggéré maintenant · d'après ta charge</div>
+            <div className="rsuggest-n">{FOCUS_META[suggested].label}</div>
+            <div className="rsuggest-d">{FOCUS_META[suggested].duration_min} min{preferred.has(suggested) ? ' · privilégié par la co-périodisation' : ''}</div>
+          </div>
+          <span className="rsuggest-alt">…ou choisis librement ci-dessous ↓</span>
+          <Link to={`/renfo/session/${suggested}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+            <button className="hbtn hbtn-go">Démarrer</button>
+          </Link>
+        </div>
+      )}
+
+      {/* ── 3 · BIBLIOTHÈQUE par catégorie ── */}
+      <div className="rcat-h">Force &amp; puissance</div>
+      <div className="rfocgrid">{FORCE_FOCUSES.map(renderFocus)}</div>
+      <div className="rcat-h">Mobilité &amp; prévention</div>
+      <div className="rfocgrid">{MOBILITE_FOCUSES.map(renderFocus)}</div>
+
+      {/* ── 4 · RYTHME hebdo ── */}
+      <div className="rrhythm">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="clabel" style={{ marginBottom: 10 }}>7 derniers jours</div>
+          <div className="rcal">
+            {rhythm7.map((d, i) => (
+              <div key={i} className="rcal-c">
+                <div className="rcal-bx" style={{
+                  background: d.has ? 'color-mix(in oklab, var(--color-renfo) 38%, transparent)' : 'transparent',
+                  borderColor: d.isToday ? 'var(--color-renfo)' : 'var(--vl-line)',
+                }} />
+                <div className="rcal-l" style={{ color: d.isToday ? 'var(--color-renfo)' : 'var(--vl-text-3)' }}>{d.label}</div>
               </div>
-            </Link>
-          )
-        })}
+            ))}
+          </div>
+        </div>
+        <div className="rring">
+          <div className="rring-v">{weekCount}</div>
+          <div className="rring-l">séances · 7 j</div>
+        </div>
       </div>
 
-      {/* ── Liens secondaires ────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-        <Link to="/renfo/library"><button className="hbtn">BIBLIOTHÈQUE</button></Link>
+      {/* ── Liens secondaires ── */}
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0 2rem' }}>
+        <Link to="/renfo/library"><button className="hbtn">BIBLIOTHÈQUE COMPLÈTE</button></Link>
         <Link to="/renfo/settings"><button className="hbtn">RÉGLAGES ÉQUIPEMENT</button></Link>
       </div>
 
