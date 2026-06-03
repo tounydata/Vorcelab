@@ -590,7 +590,7 @@ export default function DashboardPage() {
   const monthCutoffStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const renfoMonthCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= monthCutoffStr).map((r) => r.session_date))].length
 
-  const recent = runs.slice(0, 5)
+  const recent = runs.slice(0, 4)
 
   // Renfo count this week (lun-dim de la semaine en cours)
   const weekStart = new Date(now)
@@ -667,7 +667,7 @@ export default function DashboardPage() {
         <div className="dash-grid">
 
           {/* ── COLONNE GAUCHE : prochaine course → statut d'entraînement ── */}
-          <div className="dash-col">
+          <div className="dash-col dash-col--fill">
 
             {/* Prochaine course */}
             {nextRace && <NextRaceWidget race={nextRace} />}
