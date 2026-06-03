@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
-import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
+import { generateTrainingPlan, allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
@@ -47,8 +47,6 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-const PHASE_ORDER: Phase[] = ['base', 'build', 'specific', 'taper', 'race']
-
 /** Durée de prépa « pleine » de référence selon la distance (pour reconstituer
  *  les phases déjà passées même si le plan ne génère que le restant). */
 function standardPrepWeeks(distanceKm: number): number {
@@ -80,24 +78,12 @@ function PeriodizationArc({ weeks, weeksToRace, distanceKm }: {
 }) {
   if (weeks.length === 0) return null
 
-  // Reconstitue les semaines DÉJÀ FAITES : les phases situées avant la phase
-  // courante dans une prépa pleine de référence (réparties par poids).
-  const curPhase = weeks[0].phase
-  const curRank = PHASE_ORDER.indexOf(curPhase)
+  // Prépa COMPLÈTE avec le VRAI modèle de phases (allocatePhases — la même
+  // périodisation sport-science que le plan) : semaines passées = tête du modèle
+  // plein, puis semaines réelles restantes du plan.
   const fullWeeks = Math.max(weeksToRace, standardPrepWeeks(distanceKm))
   const weeksDone = Math.max(0, fullWeeks - weeksToRace)
-  const pool = PHASE_ORDER.slice(0, Math.max(0, curRank)) // phases avant la courante
-  const pastPhases: Phase[] = []
-  if (weeksDone > 0 && pool.length > 0) {
-    const w: Record<string, number> = { base: 0.5, build: 0.32, specific: 0.18 }
-    const sum = pool.reduce((s, p) => s + (w[p] ?? 0.2), 0)
-    let remaining = weeksDone
-    pool.forEach((p, i) => {
-      const cnt = i === pool.length - 1 ? remaining : Math.max(1, Math.round(weeksDone * ((w[p] ?? 0.2) / sum)))
-      for (let j = 0; j < cnt && remaining > 0; j++) { pastPhases.push(p); remaining-- }
-    })
-  }
-
+  const pastPhases: Phase[] = allocatePhases(fullWeeks, distanceKm).slice(0, weeksDone)
   const fullPhases: Phase[] = [...pastPhases, ...weeks.map((x) => x.phase)]
   const boundary = pastPhases.length // index de la semaine en cours
 
@@ -145,23 +131,24 @@ function PeriodizationArc({ weeks, weeksToRace, distanceKm }: {
         )}
         <circle cx={xAt(n - 1)} cy={yAt(vols[n - 1])} r={4} fill="var(--color-victory)" />
       </svg>
-      <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+      {/* Légende = barre connectée colorée par phase (façon maquette HTML) */}
+      <div style={{ display: 'flex', marginTop: 10, border: '1px solid var(--vl-line)', borderRadius: 8, overflow: 'hidden' }}>
         {runs.map((r, i) => {
           const color = PHASE_COLORS[r.phase]
-          const state = r.isCurrent ? ' · en cours' : r.isPast ? ' · faite' : ''
+          const sub = r.phase === 'race' ? 'jour J' : `${r.len} sem.${r.isCurrent ? ' · en cours' : r.isPast ? ' · faite' : ''}`
           return (
-            <div key={i} title={`${PHASE_LABELS[r.phase]} · ${r.len} sem.${state}`}
+            <div key={i} title={`${PHASE_LABELS[r.phase]} · ${sub}`}
               style={{
-                flex: r.len, minWidth: 0, borderRadius: 6, padding: '6px 8px',
-                background: `color-mix(in srgb, ${color} ${r.isCurrent ? 22 : r.isPast ? 6 : 11}%, transparent)`,
-                border: r.isCurrent ? `1px solid ${color}` : '1px solid transparent',
-                borderTop: `3px solid ${color}`, opacity: r.isPast ? 0.7 : 1,
+                flex: r.len, minWidth: 0, padding: '8px 10px',
+                borderRight: i < runs.length - 1 ? '1px solid var(--vl-line)' : 'none',
+                background: r.isCurrent ? `color-mix(in srgb, ${color} 14%, transparent)` : 'transparent',
+                opacity: r.isPast ? 0.78 : 1,
               }}>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {PHASE_LABELS[r.phase]}{r.isCurrent ? ' ◂ ici' : ''}
               </div>
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 1 }}>
-                {r.len} sem.{state}
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {sub}
               </div>
             </div>
           )
