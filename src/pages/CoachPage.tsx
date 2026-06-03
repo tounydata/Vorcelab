@@ -47,50 +47,67 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Frise de périodisation : phases consécutives regroupées + libellées, semaine courante mise en avant. */
-function PhaseTimeline({ weeks }: { weeks: { weekIndex: number; phase: Phase; isRecovery: boolean }[] }) {
+/** Graphe de périodisation : aire du volume hebdo (h) d'aujourd'hui → jour J,
+ *  + légende des phases regroupées (semaine courante mise en avant). */
+function PeriodizationArc({ weeks }: { weeks: { weekIndex: number; phase: Phase; isRecovery: boolean; volumeHours: number }[] }) {
   if (weeks.length === 0) return null
-  // Regroupe les semaines consécutives de même phase en segments.
   const groups: { phase: Phase; count: number; isCurrent: boolean }[] = []
   weeks.forEach((w, i) => {
     const last = groups[groups.length - 1]
-    if (last && last.phase === w.phase) {
-      last.count += 1
-      if (i === 0) last.isCurrent = true
-    } else {
-      groups.push({ phase: w.phase, count: 1, isCurrent: i === 0 })
-    }
+    if (last && last.phase === w.phase) { last.count += 1; if (i === 0) last.isCurrent = true }
+    else groups.push({ phase: w.phase, count: 1, isCurrent: i === 0 })
   })
+
+  const n = weeks.length
+  const maxVol = Math.max(0.5, ...weeks.map((w) => w.volumeHours))
+  const W = 900, H = 88, PAD = 8
+  const xAt = (i: number) => (n === 1 ? W / 2 : (i / (n - 1)) * W)
+  const yAt = (v: number) => H - PAD - (v / maxVol) * (H - PAD * 2 - 6)
+  const pts = weeks.map((w, i) => `${xAt(i).toFixed(1)},${yAt(w.volumeHours).toFixed(1)}`)
+  const line = `M${pts.join(' L')}`
+  const area = `${line} L${xAt(n - 1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`
+  const ACCENT = '#3B82F6' // bleu (validé)
+
   return (
-    <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem' }}>
-      {groups.map((g, i) => {
-        const color = PHASE_COLORS[g.phase]
-        return (
-          <div
-            key={i}
-            title={`${PHASE_LABELS[g.phase]} · ${g.count} semaine${g.count > 1 ? 's' : ''}`}
-            style={{
-              flex: g.count,
-              minWidth: 0,
-              borderRadius: 6,
-              padding: '6px 8px',
-              background: `color-mix(in srgb, ${color} ${g.isCurrent ? 22 : 12}%, transparent)`,
-              border: g.isCurrent ? `1px solid ${color}` : '1px solid transparent',
-              borderTop: `3px solid ${color}`,
-            }}
-          >
-            <div style={{
-              fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
-              color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {PHASE_LABELS[g.phase]}
+    <div style={{ marginBottom: '1.25rem' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 80, display: 'block' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="periG" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={ACCENT} stopOpacity={0.32} />
+            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#periG)" />
+        <path d={line} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {weeks.map((w, i) => (
+          <circle key={i} cx={xAt(i)} cy={yAt(w.volumeHours)} r={2.6}
+            fill={i === 0 ? 'var(--vl-text)' : i === n - 1 ? 'var(--color-victory)' : ACCENT} />
+        ))}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.08em', margin: '3px 2px 10px' }}>
+        <span>AUJOURD'HUI</span><span>VOLUME HEBDO</span><span>JOUR J →</span>
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {groups.map((g, i) => {
+          const color = PHASE_COLORS[g.phase]
+          return (
+            <div key={i} title={`${PHASE_LABELS[g.phase]} · ${g.count} semaine${g.count > 1 ? 's' : ''}`}
+              style={{
+                flex: g.count, minWidth: 0, borderRadius: 6, padding: '6px 8px',
+                background: `color-mix(in srgb, ${color} ${g.isCurrent ? 22 : 10}%, transparent)`,
+                border: g.isCurrent ? `1px solid ${color}` : '1px solid transparent',
+                borderTop: `3px solid ${color}`,
+              }}>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {PHASE_LABELS[g.phase]}
+              </div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 1 }}>
+                {g.count} sem.{g.isCurrent ? ' · en cours' : ''}
+              </div>
             </div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 1 }}>
-              {g.count} sem.{g.isCurrent ? ' · en cours' : ''}
-            </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -265,7 +282,7 @@ export default function CoachPage() {
     : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
   const climbWeak = weaknesses.includes('climbing')
   const climb = rp
-    ? { v: climbWeak ? 'À bosser' : 'OK', sub: climbWeak ? 'Point faible' : 'Point fort', color: climbWeak ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)' }
+    ? { v: climbWeak ? 'À renforcer' : 'OK', sub: climbWeak ? 'Point faible' : 'Point fort', color: climbWeak ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)' }
     : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
   const engine: { cl: string; v: string; sub: string; color: string }[] = [
     { cl: 'VDOT · niveau', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
@@ -321,7 +338,7 @@ export default function CoachPage() {
         </div>
 
         {/* Frise de périodisation (phases groupées, semaine en cours mise en avant) */}
-        <PhaseTimeline weeks={plan.weeks} />
+        <PeriodizationArc weeks={plan.weeks} />
 
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
