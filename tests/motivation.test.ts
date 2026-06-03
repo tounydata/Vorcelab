@@ -40,3 +40,26 @@ describe('plan — l’orientation biaise le volume', () => {
     expect(noMot).toBeCloseTo(totalVol('mix'), 1)
   })
 })
+
+describe('plan — l’orientation biaise l’intensité (séances qualité)', () => {
+  const base = {
+    raceName: 'Test', raceDateISO: '2026-10-01', raceDistanceKm: 21, raceElevationM: 300,
+    raceType: 'Route', todayISO: '2026-06-01', daysPerWeek: 5, currentCTL: 45, level: 'intermediate' as const,
+  }
+  const HARD_OR_QUALITY = ['threshold', 'vo2max', 'speed', 'tempo', 'hills', 'descent', 'race_pace']
+  // nb total de séances "qualité" sur le plan
+  const qualityTotal = (motivation: 'plaisir' | 'mix' | 'performance') =>
+    generateTrainingPlan({ ...base, motivation }).weeks
+      .reduce((s, w) => s + w.sessions.filter((x) => HARD_OR_QUALITY.includes(x.system)).length, 0)
+  // séances dures hors la course elle-même (le jour J est toujours « hard »)
+  const hardTotal = (motivation: 'plaisir' | 'mix' | 'performance') =>
+    generateTrainingPlan({ ...base, motivation }).weeks
+      .reduce((s, w) => s + w.sessions.filter((x) => x.intensity === 'hard' && x.system !== 'race').length, 0)
+
+  it('plaisir a moins (ou autant) de séances qualité que performance', () => {
+    expect(qualityTotal('plaisir')).toBeLessThan(qualityTotal('performance'))
+  })
+  it('plaisir ne programme aucune séance d’intensité dure', () => {
+    expect(hardTotal('plaisir')).toBe(0)
+  })
+})
