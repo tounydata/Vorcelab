@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useSearchParams, Link } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
 import {
   fmtVam,
@@ -399,6 +400,9 @@ interface ProfileRow {
   nutrition_level?: string | null
   nutrition_products?: string[] | null
   runner_profile?: RunnerProfileComputed | null
+  coach_days_per_week?: number | null
+  renfo_weekly_target?: number | null
+  coach_motivation?: string | null
 }
 
 // ─── Tab styles ───────────────────────────────────────────────────────────────
@@ -421,8 +425,8 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
 export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
   const [searchParams, setSearchParams] = useSearchParams()
-  type TabKey = 'compte' | 'analyse' | 'records' | 'nutrition'
-  const activeTab = (searchParams.get('tab') ?? 'compte') as TabKey
+  type TabKey = 'reglages' | 'compte' | 'analyse' | 'records' | 'nutrition'
+  const activeTab = (searchParams.get('tab') ?? 'reglages') as TabKey
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'compte' ? {} : { tab }, { replace: false })
   const [computing, setComputing] = useState(false)
@@ -483,12 +487,21 @@ export default function ProfilePage() {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,runner_profile')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation')
         .eq('id', user.id)
         .single()
       return data as ProfileRow | null
     },
     enabled: !!user,
+  })
+
+  // Réglages coach/renfo (onglet Paramètres) — patch partiel sur profiles.
+  const settingsMut = useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { error } = await supabase.from('profiles').update(patch).eq('id', user!.id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile-full', user?.id] }),
   })
 
   // Populate form once data loads
@@ -580,7 +593,8 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div data-tour="profile-data" style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
+      <div data-tour="profile-data" style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <button style={tabStyle(activeTab === 'reglages')} onClick={() => setActiveTab('reglages')}>PARAMÈTRES</button>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
         <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>ANALYSE</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
@@ -588,6 +602,68 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Tab COMPTE ── */}
+      {activeTab === 'reglages' && (() => {
+        const motivation = (profileRow?.coach_motivation ?? 'mix') as CoachMotivation
+        const days = profileRow?.coach_days_per_week ?? 5
+        const renfoTarget = profileRow?.renfo_weekly_target ?? 3
+        const segWrap: React.CSSProperties = { display: 'flex', gap: 1, background: 'var(--vl-line)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', flexWrap: 'wrap' }
+        const seg = (on: boolean): React.CSSProperties => ({
+          border: 'none', cursor: on ? 'default' : 'pointer', padding: '7px 14px', minWidth: 0,
+          background: on ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: on ? 'var(--vl-ink)' : 'var(--vl-text-2)',
+          fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '.8rem', letterSpacing: '.04em', textTransform: 'uppercase',
+        })
+        return (
+          <>
+            {/* Orientation coach */}
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <div className="clabel" style={{ marginBottom: 4 }}>ORIENTATION COACH</div>
+              <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Comment tu veux t'entraîner — ça ajuste le volume et l'intensité de ton plan.
+              </p>
+              <div style={segWrap}>
+                {(['plaisir', 'mix', 'performance'] as CoachMotivation[]).map((m) => (
+                  <button key={m} style={seg(motivation === m)} onClick={() => motivation !== m && settingsMut.mutate({ coach_motivation: m })}>
+                    {MOTIVATION_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Course */}
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <div className="clabel" style={{ marginBottom: 4 }}>COURSE</div>
+              <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Jours de course disponibles par semaine — calibre le nombre de séances du plan.
+              </p>
+              <div style={segWrap}>
+                {[3, 4, 5, 6].map((n) => (
+                  <button key={n} style={seg(days === n)} onClick={() => days !== n && settingsMut.mutate({ coach_days_per_week: n })}>{n} j</button>
+                ))}
+              </div>
+              <Link to="/race" style={{ textDecoration: 'none' }}>
+                <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 14, fontSize: 11 }}>Calendrier des courses →</div>
+              </Link>
+            </div>
+
+            {/* Renfo */}
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <div className="clabel" style={{ marginBottom: 4 }}>RENFORCEMENT</div>
+              <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Objectif de séances de renfo par semaine.
+              </p>
+              <div style={segWrap}>
+                {[2, 3, 4, 5].map((n) => (
+                  <button key={n} style={seg(renfoTarget === n)} onClick={() => renfoTarget !== n && settingsMut.mutate({ renfo_weekly_target: n })}>{n}/sem</button>
+                ))}
+              </div>
+              <Link to="/renfo/settings" style={{ textDecoration: 'none' }}>
+                <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 14, fontSize: 11 }}>Équipement & détails renfo →</div>
+              </Link>
+            </div>
+          </>
+        )
+      })()}
+
       {activeTab === 'compte' && (
         <>
           <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
