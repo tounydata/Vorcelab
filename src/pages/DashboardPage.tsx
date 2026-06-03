@@ -199,7 +199,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
     : { word: 'Élevé', color: 'var(--vl-status-over)' }
 
   return (
-    <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
+    <div data-tour="dash-state" className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
       <div className="clabel" style={{ margin: '0 0 10px' }}>Statut d'entraînement</div>
 
       {/* ── Badge ÉTAT DU JOUR ── */}
@@ -402,7 +402,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
 
   return (
     <Link to={`/race/${race.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-      <div className="card" style={{ marginBottom: '1.5rem', padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
+      <div data-tour="dash-race" className="card" style={{ marginBottom: '1.5rem', padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
         {/* clickable wrapper */}
         <div style={{ position: 'relative', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
@@ -820,7 +820,7 @@ export default function DashboardPage() {
           </div>{/* /dash-row */}
 
           {/* ── 4 · CE MOIS + DERNIÈRES SORTIES (contexte, démoté) ── */}
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
                 <Link to="/activities" style={{ textDecoration: 'none' }}>

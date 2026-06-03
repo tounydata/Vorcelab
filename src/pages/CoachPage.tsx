@@ -418,7 +418,7 @@ export default function CoachPage() {
       </Collapsible>
 
       {/* ── 4 · CETTE SEMAINE : séances proposées (jamais imposées) ── */}
-      <div className="coach-block-h">
+      <div data-tour="coach-week" className="coach-block-h">
         <span className="coach-block-ttl">Cette semaine</span>
         <span className="coach-block-sub">Proposition · tu choisis ta séance du jour</span>
       </div>

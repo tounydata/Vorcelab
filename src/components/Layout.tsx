@@ -5,7 +5,7 @@ import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 import OnboardingGate from './onboarding/OnboardingGate'
-import FeatureTour, { openFeatureTour } from './onboarding/FeatureTour'
+import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
 
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
@@ -260,7 +260,7 @@ export default function Layout() {
   return (
     <div id="appShell" className="show">
       <OnboardingGate />
-      <FeatureTour />
+      <SpotlightTour />
       <nav className="sidebar">
         <NavLink to="/" end className="sidebar-logo" style={{ textDecoration: 'none' }}>
           <div style={{ color: 'var(--vl-text)', flexShrink: 0 }}>{VL_LOGO}</div>
