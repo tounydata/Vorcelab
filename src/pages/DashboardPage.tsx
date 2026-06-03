@@ -213,6 +213,22 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </div>
       </div>
 
+      {/* ── Triad Forme / Fatigue / Ratio (métriques en vedette, cf. refonte) ── */}
+      <div className="dash-triad" style={{ marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>{today.ctl}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>FORME · CTL</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--vl-amber)', lineHeight: 1 }}>{today.atl}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>FATIGUE · ATL</div>
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: acwr.color, lineHeight: 1 }}>{acwr.ratio != null ? acwr.ratio.toFixed(2) : '—'}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>RATIO · ACWR</div>
+        </div>
+      </div>
+
       {/* ── Info survol AU-DESSUS du graphe ── */}
       <div style={{ minHeight: 22, marginBottom: 5 }}>
         {hover != null ? (
@@ -664,22 +680,17 @@ export default function DashboardPage() {
       {isLoading ? (
         <div className="loading"><div className="spinner" /></div>
       ) : (
-        <div className="dash-grid">
+        <>
+          {/* ── 1 · HÉROS : stratégie de course, en proue, pleine largeur ── */}
+          {nextRace && <NextRaceWidget race={nextRace} />}
 
-          {/* ── COLONNE GAUCHE : prochaine course → statut d'entraînement ── */}
-          <div className="dash-col dash-col--fill">
+          {/* ── 2 · TON ÉTAT | 3 · CETTE SEMAINE ── */}
+          <div className="dash-row">
 
-            {/* Prochaine course */}
-            {nextRace && <NextRaceWidget race={nextRace} />}
-
-            {/* Statut d'entraînement (PMC) */}
+            {/* Statut d'entraînement (PMC) — métriques en vedette */}
             <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
-          </div>
 
-          {/* ── COLONNE DROITE : renfo → stats mois → activités ── */}
-          <div className="dash-col">
-
-            {/* ── Widget RENFO complet ── */}
+            {/* ── CETTE SEMAINE — widget RENFO (proposition) ── */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
 
               {/* En-tête */}
@@ -786,9 +797,10 @@ export default function DashboardPage() {
                 })}
               </div>
             </div>
+          </div>{/* /dash-row */}
 
-            {/* CE MOIS + DERNIÈRES SORTIES */}
-            <div className="card" style={{ marginBottom: '1.5rem' }}>
+          {/* ── 4 · CE MOIS + DERNIÈRES SORTIES (contexte, démoté) ── */}
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
                 <Link to="/activities" style={{ textDecoration: 'none' }}>
@@ -842,9 +854,7 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-
-          </div>
-        </div>
+        </>
       )}
     </>
   )
