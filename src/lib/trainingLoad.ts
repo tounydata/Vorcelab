@@ -314,11 +314,11 @@ export function computeDailyPMC(
 export interface TsbZone { key: string; label: string; sub: string; color: string }
 
 export function getTsbZone(tsb: number): TsbZone {
-  if (tsb < -30) return { key: 'surcharge', label: 'SURCHARGE', sub: 'risque blessure', color: '#EF4444' }
-  if (tsb < -10) return { key: 'optimal', label: 'OPTIMAL', sub: 'tu progresses', color: '#22C55E' }
-  if (tsb <= 5)  return { key: 'maintien', label: 'MAINTIEN', sub: 'forme stable', color: '#EAB308' }
-  if (tsb <= 25) return { key: 'recuperation', label: 'RÉCUPÉRATION', sub: 'frais & reposé', color: '#3B82F6' }
-  return { key: 'desentrainement', label: 'DÉSENTRAÎNEMENT', sub: 'tu perds en forme', color: '#F97316' }
+  if (tsb < -30) return { key: 'surcharge', label: 'SURCHARGE', sub: 'risque blessure', color: 'var(--vl-status-over)' }
+  if (tsb < -10) return { key: 'optimal', label: 'OPTIMAL', sub: 'tu progresses', color: 'var(--vl-status-prod)' }
+  if (tsb <= 5)  return { key: 'maintien', label: 'MAINTIEN', sub: 'forme stable', color: 'var(--vl-status-watch)' }
+  if (tsb <= 25) return { key: 'recuperation', label: 'RÉCUPÉRATION', sub: 'frais & reposé', color: 'var(--vl-status-rest)' }
+  return { key: 'desentrainement', label: 'DÉSENTRAÎNEMENT', sub: 'tu perds en forme', color: 'var(--vl-status-load)' }
 }
 
 // ── ACWR multi-sport (Gabbett 2016) — aigu 7j / chronique 28j ───────────────────
@@ -333,11 +333,11 @@ export function computeACWR(pmc: PMCDay[]): ACWRResult {
   const ratio = today.atl / today.ctl
   const pct = Math.max(0, Math.min(100, ((ratio - 0.5) / 1.5) * 100))
   let label = 'zone optimale'
-  let color = '#22C55E'
-  if (ratio < 0.8)       { label = 'sous-charge';    color = '#3B82F6' }
-  else if (ratio <= 1.3) { label = 'zone optimale';  color = '#22C55E' }
-  else if (ratio <= 1.5) { label = 'charge élevée';  color = '#F97316' }
-  else                   { label = 'risque blessure'; color = '#EF4444' }
+  let color = 'var(--vl-status-prod)'
+  if (ratio < 0.8)       { label = 'sous-charge';    color = 'var(--vl-status-rest)' }
+  else if (ratio <= 1.3) { label = 'zone optimale';  color = 'var(--vl-status-prod)' }
+  else if (ratio <= 1.5) { label = 'charge élevée';  color = 'var(--vl-status-load)' }
+  else                   { label = 'risque blessure'; color = 'var(--vl-status-over)' }
   return { ratio, label, color, pct }
 }
 

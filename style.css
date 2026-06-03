@@ -23,6 +23,15 @@
   --color-victory:   #34d399;
   --color-renfo:     #a78bfa;
   --color-alert:     #e07c5e;
+  /* Statut d'entraînement — famille chaude tokenisée (cf. audit DA P0) */
+  --vl-status-rest:  #7c95b8;   /* récup · sous-charge · affûtage */
+  --vl-status-prod:  #5da084;   /* productif · zone optimale */
+  --vl-status-peak:  #34d399;   /* pic · forme */
+  --vl-status-watch: #d4a843;   /* maintien · vigilance · improductif */
+  --vl-status-load:  #d6803e;   /* charge élevée · désentraînement */
+  --vl-status-over:  #d1583a;   /* surmenage · surcharge · risque blessure */
+  /* Surface de carte (alias) */
+  --vl-card:         var(--vl-surf-2);
   /* Type */
   --vl-display:  'Big Shoulders Display','Bebas Neue',sans-serif;
   --vl-body:     'Inter',system-ui,sans-serif;
@@ -76,6 +85,13 @@
   --color-victory:   #1f9460;
   --color-renfo:     #6b4d96;
   --color-alert:     #ad4530;
+  /* Statut d'entraînement — variantes light */
+  --vl-status-rest:  #5b748f;
+  --vl-status-prod:  #2d6a4f;
+  --vl-status-peak:  #1f9460;
+  --vl-status-watch: #b8882a;
+  --vl-status-load:  #b96527;
+  --vl-status-over:  #b3472a;
   --bg: #f4f1e8; --bg2: #fafaf7; --bg3: #efead9; --bg4: #e4decc;
   --border: rgba(28,28,26,0.08); --border2: rgba(28,28,26,0.18);
   --text: #1c1c1a; --text2: #5e5b52; --text3: #828079;
