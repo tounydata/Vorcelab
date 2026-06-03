@@ -208,6 +208,35 @@ durabilité faible (fade)  → volume aérobie long + travail de résistance à 
 
 ---
 
+## 10. Objectifs (hiérarchie A/B/C) & orientation d'entraînement
+
+### 10.1 Objectif principal / secondaire — priorisation A/B/C (Friel, Daniels, CTS)
+
+- **Course A (objectif principal)** : on périodise **à rebours** depuis elle, affûtage complet, pic de forme calé dessus. **2-3 max par an** (le pic ne se tient que ~2-3 sem).
+- **Course B (objectif secondaire important)** : courue « pour de vrai » mais **sans casser le macrocycle** → **mini-affûtage 3-5 j** (volume réduit, intensité gardée), pas de taper complet.
+- **Course C (préparation / rodage)** : **aucun affûtage** → comptée comme **la séance qualité de la semaine** (test allure / ravito / matériel), on enchaîne la semaine normale.
+- **Règle codable** :
+  - `principal` = la course ciblée → plan complet, taper plein.
+  - course `secondaire` dans le bloc → si **B** : mini-taper 3-5 j + semaine à volume réduit ; si **C** : remplace la séance qualité de sa semaine, **pas** de taper ni de décharge.
+  - jamais deux pics rapprochés : 2ᵉ course A < 4-6 sem après la 1ʳᵉ → rétrograder en B.
+
+### 10.2 Orientation d'entraînement — plaisir / performance / mix
+
+Cadre : **théorie de l'autodétermination** (Deci & Ryan ; Teixeira 2012) — l'adhésion durable vient de l'**autonomie + compétence + lien**, pas de la contrainte. On biaise donc volume, distribution d'intensité et nombre de séances qualité selon ce que cherche le coureur.
+
+| Orientation | Volume cible (×) | Qualités/sem | Distribution intensité | Séances très dures | Ton / souplesse |
+| --- | --- | --- | --- | --- | --- |
+| **Plaisir / santé** | ~0.8 (plafonné) | ≤ 1 | très majoritaire Z1-Z2 (aérobie facile), variété | **évitées** (jamais de VO2max « à l'arrache ») | flexible, zéro culpabilité si séance sautée |
+| **Mix / équilibre** *(défaut)* | ~1.0 | 1-2 | polarisé **souple** (~85/15) | modérées | structuré mais adaptable |
+| **Performance** | ~1.0-1.1 (selon dispo) | 2 | polarisé **strict** ~80/20 (Seiler) | pleines (seuil + VO2max/spécifique) | rigueur, allures cibles respectées |
+
+- **Plaisir** : priorité adhésion/plaisir → protéger l'envie de revenir (volume modéré, beaucoup d'easy, nouveauté, pas de séance « qui dégoûte »).
+- **Performance** : priorité progression mesurable → volume plein, 80/20 polarisé, 2 qualités structurées, allures respectées.
+- **Mix** : compromis sain (volume modéré-élevé, 1-2 qualités, polarisé souple) — défaut.
+- **Codable** : un paramètre `orientation ∈ {plaisir, mix, performance}` qui module `volumeScale`, `qualitySessionsPerWeek` et l'autorisation des systèmes durs (VO2max/seuil). N'altère **pas** la périodisation des phases ni la sécurité (ACWR, interférence, taper) — seulement l'emphase.
+
+---
+
 ## Sources principales
 
 **Périodisation/zones** : Seiler (Fast Talk Labs ; ResearchGate "Best Practice…") · Friel (TrainingPeaks zones) · Daniels (Coach Ray, RunDNA, VDOT O2) · Stöggl & Sperlich 2014 (Frontiers) · méta POL 2024 (PMC11329428) · Uphill Athlete (AeT/AnT).
@@ -215,5 +244,6 @@ durabilité faible (fade)  → volume aérobie long + travail de résistance à 
 **Trail/ultra/durabilité** : Vernillo & Millet (Sports Med 2017 ; économie pentes PMC8281813) · dommages descente PMC11129977 · repeated-bout (MDPI 12/6/169) · durabilité Maunder (PMC9977827) · nutrition (Jeukendrup PMC5371619, Precision Hydration) · chaleur (PMC12122934, PMC6543994) · VAM (cyclingcoachai).
 **Affûtage** : Bosquet 2007 (PubMed 17762369) · méta 2023 (PMC10171681) · Mujika (INSEP HAL) · Friel.
 **Adaptation/renfo** : Gabbett/IOC (PMC7047972) · TSB Friel · decoupling (TrainingPeaks) · HRV Kiviniemi/Vesterinen (PubMed 26909534, AER, MDPI 17/21/7999) · Koop (faiblesses) · interférence Hickson (PubMed 7193134), revue concurrent (Frontiers fspor 2025.1692399) · Blagrove (force coureurs) · taper force (RunnersConnect, Central Performance).
+**Objectifs/orientation** : priorisation A/B/C — Friel *Training Bible* / TrainingPeaks · Daniels *Running Formula* · Koop/CTS (trainright) · autodétermination — Deci & Ryan (SDT) · Teixeira et al. 2012, *IJBNPA* (motivation & adhésion à l'exercice, PMC3441783) · distribution polarisée (Seiler, déjà cité).
 
 > Liste d'URLs complète conservée dans l'historique de recherche (5 rapports d'agents, 2026-05-29). Re-vérifier toute constante "load-bearing" contre la source primaire avant de la coder en dur (notamment coefficients Minetti et magnitudes ACWR).
