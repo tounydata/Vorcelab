@@ -5,6 +5,7 @@ import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 import OnboardingGate from './onboarding/OnboardingGate'
+import FeatureTour, { openFeatureTour } from './onboarding/FeatureTour'
 
 const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
@@ -259,6 +260,7 @@ export default function Layout() {
   return (
     <div id="appShell" className="show">
       <OnboardingGate />
+      <FeatureTour />
       <nav className="sidebar">
         <NavLink to="/" end className="sidebar-logo" style={{ textDecoration: 'none' }}>
           <div style={{ color: 'var(--vl-text)', flexShrink: 0 }}>{VL_LOGO}</div>
@@ -279,6 +281,7 @@ export default function Layout() {
         <div className="sidebar-bottom">
           {stravaPanel && <div style={{ marginBottom: 8 }}>{stravaPanel}</div>}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+            <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
             {themeBtn}
           </div>
           <button
@@ -303,7 +306,10 @@ export default function Layout() {
             </div>
             <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.88rem', letterSpacing: '.06em', color: 'var(--vl-text)' }}>VORCELAB</span>
           </NavLink>
-          {themeBtn}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
+            {themeBtn}
+          </div>
         </div>
         {stravaPanel}
       </div>
