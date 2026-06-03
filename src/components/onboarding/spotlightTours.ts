@@ -42,4 +42,21 @@ export const PAGE_TOURS: PageTour[] = [
       { selector: '.rfocgrid', title: 'Ta bibliothèque', body: 'Tes séances par catégorie (force & puissance, mobilité & prévention), avec ce qui est recommandé ★ ou à éviter cette semaine.' },
     ],
   },
+  {
+    id: 'strategy',
+    match: (p) => p.startsWith('/race/'),
+    steps: [
+      { selector: '[data-tour="strat-plan"]', title: 'Ton plan de course', body: 'Ta projection de temps (prudent · cible · agressif) et le découpage du parcours. Le plan est calculé depuis le GPX et ton profil par gradient.' },
+      { selector: '[data-tour="strat-sections"]', title: 'Sections clés', body: 'Les portions qui comptent (grosses montées, technique, final) avec l’effort attendu — pour savoir où pousser et où gérer.' },
+      { selector: '[data-tour="strat-nutrition"]', title: 'Plan nutrition', body: 'Ton ravitaillement section par section (glucides · hydratation), basé sur les produits cochés dans ton profil. Déplie pour le détail.' },
+    ],
+  },
+  {
+    id: 'profile',
+    match: (p) => p === '/profile',
+    steps: [
+      { selector: '[data-tour="profile-data"]', title: 'Tes données', body: 'Renseigne ton compte et tes données physio (FC max, VO2max), tes records par onglet. C’est ce qui calibre tes allures et ton coach — plus c’est complet, plus c’est juste.' },
+      { selector: '[data-tour="profile-nutrition"]', title: 'Tes produits nutrition', body: 'Coche ici tes gels / boissons / barres par marque : ils alimentent automatiquement ton plan de ravitaillement en stratégie de course.' },
+    ],
+  },
 ]

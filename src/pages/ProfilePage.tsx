@@ -580,11 +580,11 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
+      <div data-tour="profile-data" style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem' }}>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
         <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>ANALYSE</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
-        <button style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
+        <button data-tour="profile-nutrition" style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
       </div>
 
       {/* ── Tab COMPTE ── */}

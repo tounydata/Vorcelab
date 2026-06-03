@@ -24,7 +24,9 @@ const DISTANCES = [
 ]
 
 type StepKey = 'intro' | 'profil' | 'perfs' | 'strava' | 'objectif' | 'strategie'
-const STEPS: StepKey[] = ['intro', 'profil', 'perfs', 'strava', 'objectif', 'strategie']
+// Strava en 2ᵉ (juste après l'intro) : connecter sa montre est l'action clé à
+// faire dès la 1ʳᵉ ouverture (alimente toute l'analyse). Le reste suit.
+const STEPS: StepKey[] = ['intro', 'strava', 'profil', 'perfs', 'objectif', 'strategie']
 
 export default function Onboarding({ onDone }: { onDone: () => void }) {
   const { user } = useVLStore()
@@ -147,7 +149,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <input className="fi" type="number" placeholder="FC max (bpm)" value={fcMax} onChange={(e) => setFcMax(e.target.value)} />
               </div>
               <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                Pas de VO2max ? Connecte Strava (étape suivante) : Vorcelab l'estime à partir de tes courses.
+                Pas de VO2max ? Si Strava est connecté, Vorcelab l'estime à partir de tes courses.
               </p>
             </StepShell>
           )}

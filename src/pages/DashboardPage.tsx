@@ -419,7 +419,8 @@ function NextRaceWidget({ race }: { race: NextRace }) {
             {/* LEFT column — tracé GPX en fond, sous le titre */}
             <div style={{ position: 'relative', flex: 1.1, padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
               {gpxPts && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                /* bottom: laisse respirer le bouton « Ouvrir la stratégie » — sinon le tracé passe dessous */
+                <div style={{ position: 'absolute', top: 4, left: 0, right: 0, bottom: 72, zIndex: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
                   <GpxTrace gpxData={gpxPts} />
                 </div>
               )}
