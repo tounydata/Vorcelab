@@ -460,9 +460,10 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                   )}
                 </div>
               )}
-              {/* 2D route trace */}
+              {/* 2D route trace — hauteur fixe : sinon le SVG (height:100%) gonfle
+                  via son ratio d'aspect en pleine largeur et étire toute la carte. */}
               {gpxPts && (
-                <div style={{ flex: 1, overflow: 'hidden', minHeight: 40 }}>
+                <div style={{ height: 120, overflow: 'hidden', flexShrink: 0 }}>
                   <GpxTrace gpxData={gpxPts} />
                 </div>
               )}
