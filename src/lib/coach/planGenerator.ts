@@ -31,6 +31,16 @@ export interface PlanInput {
   weaknesses?: WorkoutTarget[]
   /** Orientation d'entraînement (plaisir/mix/performance) — biaise volume & intensité. */
   motivation?: CoachMotivation
+  /** Courses secondaires (B/C) tombant dans la fenêtre du plan — intégrées comme
+   *  rodage (C) ou mini-affûtage (B), sans casser la prépa de la course principale. */
+  secondaryRaces?: SecondaryRace[]
+}
+
+/** Course secondaire dans la fenêtre du plan (priorité B = objectif secondaire, C = rodage). */
+export interface SecondaryRace {
+  name: string
+  dateISO: string
+  priority: 'B' | 'C'
 }
 
 export interface PlannedSession {
@@ -323,6 +333,7 @@ function buildTrainingWeek(
   isRecovery: boolean,
   isTrail: boolean,
   weeksToGo: number,
+  weekRace?: SecondaryRace,
 ): PlanWeek {
   const days = Math.min(6, Math.max(3, input.daysPerWeek))
   const sessions: PlannedSession[] = []
@@ -335,9 +346,26 @@ function buildTrainingWeek(
     return s
   }
 
-  // 1) Sortie longue (dimanche) — toujours présente.
-  const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
-  sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
+  // 0) Course secondaire dans la semaine (B = objectif secondaire, C = rodage) :
+  //    on réserve son jour et on l'intègre comme séance dure de la semaine.
+  if (weekRace) {
+    const dow = (new Date(weekRace.dateISO + 'T00:00:00').getDay() + 6) % 7 + 1
+    usedSlots.add(dow)
+    sessions.push({
+      dayOfWeek: dow, workoutId: 'secondary_race',
+      title: `${weekRace.name} (course ${weekRace.priority})`,
+      system: 'race', intensity: 'hard', targetDurationMin: 0, climbing: isTrail,
+      description: weekRace.priority === 'C'
+        ? 'Course de préparation — à courir comme une grosse séance qualité (test allure, ravito, matériel). Pas d’affûtage.'
+        : 'Course objectif secondaire — mini-affûtage cette semaine, sans casser la prépa principale.',
+    })
+  }
+
+  // 1) Sortie longue (sauf B : mini-affûtage → pas de charge en plus de la course).
+  if (weekRace?.priority !== 'B') {
+    const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
+    sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
+  }
 
   // 2) Séances de qualité selon la phase (réduites en semaine de décharge),
   //    biaisées par l'ORIENTATION (plaisir = moins de qualité, pas d'intensité dure).
@@ -346,6 +374,7 @@ function buildTrainingWeek(
   const pool = bias.allowHardIntensity ? pool0 : pool0.filter((id) => getWorkout(id)?.intensity !== 'hard')
   let nQuality = isRecovery ? Math.min(1, qualityCount(phase)) : qualityCount(phase)
   nQuality = Math.min(nQuality, bias.maxQualityPerWeek) // orientation plaisir/perf
+  if (weekRace) nQuality = weekRace.priority === 'B' ? 0 : Math.max(0, nQuality - 1) // la course EST une séance dure
   nQuality = Math.min(nQuality, Math.max(0, days - 1)) // garder au moins de la place
   for (let i = 0; i < nQuality && pool.length > 0; i++) {
     // Rotation par semaine pour varier les stimuli.
@@ -369,15 +398,16 @@ function buildTrainingWeek(
     race: 'Semaine de course.',
   }
 
-  return {
-    weekIndex,
-    weekStartISO,
-    phase,
-    isRecovery,
-    volumeHours: weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL, weeksToGo, motivationBias(input.motivation).volumeScale),
-    focus: isRecovery ? 'Semaine de décharge — récupération et assimilation.' : focusByPhase[phase],
-    sessions,
+  let volumeHours = weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL, weeksToGo, bias.volumeScale)
+  let focus = isRecovery ? 'Semaine de décharge — récupération et assimilation.' : focusByPhase[phase]
+  if (weekRace) {
+    if (weekRace.priority === 'B') volumeHours = Math.round(volumeHours * 0.7 * 10) / 10 // mini-affûtage
+    focus = weekRace.priority === 'C'
+      ? `Course de prépa (${weekRace.name}) intégrée comme séance qualité.`
+      : `Objectif secondaire (${weekRace.name}) — mini-affûtage cette semaine.`
   }
+
+  return { weekIndex, weekStartISO, phase, isRecovery, volumeHours, focus, sessions }
 }
 
 export function generateTrainingPlan(input: PlanInput): TrainingPlan {
@@ -396,7 +426,10 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
     const weeksToGo = phases.length - 1 - i
     // Décharge toutes les 4 semaines, jamais en taper/course.
     const isRecovery = (i + 1) % 4 === 0
-    return buildTrainingWeek(input, i, weekStartISO, phase, isRecovery, isTrail, weeksToGo)
+    // Course secondaire (B/C) tombant dans cette semaine ?
+    const weekEndISO = addDaysISO(weekStartISO, 6)
+    const weekRace = (input.secondaryRaces ?? []).find((r) => r.dateISO >= weekStartISO && r.dateISO <= weekEndISO)
+    return buildTrainingWeek(input, i, weekStartISO, phase, isRecovery, isTrail, weeksToGo, weekRace)
   })
 
   const phaseBreakdown = phases.reduce(
@@ -419,6 +452,13 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
     rationale.push('Course route → priorité au seuil, VO2max et allure spécifique sur terrain roulant.')
   }
   rationale.push('Une semaine de décharge toutes les 4 semaines pour assimiler la charge.')
+  const secs = (input.secondaryRaces ?? []).filter((r) => r.dateISO > input.todayISO && r.dateISO < input.raceDateISO)
+  if (secs.length > 0) {
+    rationale.push(
+      `Course${secs.length > 1 ? 's' : ''} secondaire${secs.length > 1 ? 's' : ''} intégrée${secs.length > 1 ? 's' : ''} : ` +
+      `${secs.map((r) => `${r.name} (${r.priority})`).join(', ')} — rodage (C) ou mini-affûtage (B), sans casser la prépa de la course principale.`,
+    )
+  }
   if (input.motivation && input.motivation !== 'mix') {
     const b = motivationBias(input.motivation)
     rationale.push(`Orientation ${b.label} : ${b.note}`)

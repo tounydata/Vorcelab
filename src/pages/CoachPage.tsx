@@ -26,6 +26,7 @@ interface Race {
   distance: number | null
   elevation: number | null
   type: string | null
+  priority?: string | null
 }
 
 interface ProfileRow {
@@ -173,7 +174,7 @@ export default function CoachPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type')
+        .select('id,name,date,distance,elevation,type,priority')
         .order('date', { ascending: true })
       if (error) throw error
       return (data ?? []) as Race[]
@@ -208,10 +209,22 @@ export default function CoachPage() {
     () => races.filter((r) => r.date.slice(0, 10) >= today),
     [races, today],
   )
+  // Cible = choix manuel, sinon la prochaine course A (objectif principal),
+  // sinon la prochaine course tout court.
   const targetRace = useMemo(
-    () => upcoming.find((r) => r.id === selectedRaceId) ?? upcoming[0] ?? null,
+    () => upcoming.find((r) => r.id === selectedRaceId)
+      ?? upcoming.find((r) => (r.priority ?? 'A') === 'A')
+      ?? upcoming[0] ?? null,
     [upcoming, selectedRaceId],
   )
+  // Courses secondaires (B/C) entre aujourd'hui et la cible → intégrées au plan.
+  const secondaryRaces = useMemo(() => {
+    if (!targetRace) return []
+    return upcoming
+      .filter((r) => r.id !== targetRace.id && r.date.slice(0, 10) < targetRace.date.slice(0, 10)
+        && (r.priority === 'B' || r.priority === 'C'))
+      .map((r) => ({ name: r.name, dateISO: r.date.slice(0, 10), priority: r.priority as 'B' | 'C' }))
+  }, [upcoming, targetRace])
 
   // Profil réel → signaux d'adaptation : niveau (VDOT) + points faibles (runner_profile).
   const vdot = useMemo(
@@ -247,6 +260,15 @@ export default function CoachPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['profile-sessions'] }),
   })
 
+  // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
+  const priorityMut = useMutation({
+    mutationFn: async ({ id, p }: { id: string; p: string }) => {
+      const { error } = await supabase.from('race_calendar').update({ priority: p }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['races'] }),
+  })
+
   const plan = useMemo(() => {
     if (!targetRace) return null
     return generateTrainingPlan({
@@ -261,8 +283,9 @@ export default function CoachPage() {
       level,
       weaknesses,
       motivation,
+      secondaryRaces,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces])
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
   const { data: latestVerdict = null } = useQuery({
@@ -388,6 +411,24 @@ export default function CoachPage() {
               {plan.race.elevationM > 0 ? ` · ${plan.race.elevationM} m D+` : ''}
               {' · '}{plan.race.isTrail ? 'TRAIL' : 'ROUTE'}
               {' · '}{plan.daysPerWeek} j/sem.
+            </div>
+            {/* Priorité A/B/C de la course */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--vl-text-3)' }}>Objectif</span>
+              <div style={{ display: 'flex', gap: 1, background: 'var(--vl-line)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden' }}>
+                {(['A', 'B', 'C'] as const).map((p) => {
+                  const on = (targetRace.priority ?? 'A') === p
+                  const lbl = p === 'A' ? 'Principal' : p === 'B' ? 'Secondaire' : 'Rodage'
+                  return (
+                    <button key={p} title={lbl} onClick={() => !on && priorityMut.mutate({ id: targetRace.id, p })}
+                      style={{ border: 'none', cursor: on ? 'default' : 'pointer', padding: '4px 10px',
+                        background: on ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: on ? 'var(--vl-ink)' : 'var(--vl-text-2)',
+                        fontFamily: 'var(--vl-mono)', fontWeight: 700, fontSize: 9.5, letterSpacing: '.06em' }}>
+                      {p} · {lbl}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
           <div className="coach-cd">
