@@ -186,6 +186,18 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
   const fmtD = (ds: string) => new Date(ds + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
   const labelIdx = [0, 14, 28, DISPLAY - 1]
 
+  // ── État parlant (sans sigle) pour le triad ──
+  const formeWord = today.ctl > 55 ? 'Solide' : today.ctl >= 35 ? 'Correcte' : 'À construire'
+  const fatigueWord = today.ctl > 0 && today.atl > today.ctl * 1.15 ? 'Élevée'
+    : today.ctl > 0 && today.atl < today.ctl * 0.85 ? 'Basse' : 'Modérée'
+  const fatigueColor = fatigueWord === 'Élevée' ? 'var(--vl-status-load)'
+    : fatigueWord === 'Basse' ? 'var(--vl-status-prod)' : 'var(--vl-amber)'
+  const equil = acwr.ratio == null ? { word: '—', color: 'var(--vl-text-3)' }
+    : acwr.ratio < 0.8 ? { word: 'Léger', color: 'var(--vl-status-rest)' }
+    : acwr.ratio <= 1.3 ? { word: 'Optimal', color: 'var(--vl-status-prod)' }
+    : acwr.ratio <= 1.5 ? { word: 'Soutenu', color: 'var(--vl-status-watch)' }
+    : { word: 'Élevé', color: 'var(--vl-status-over)' }
+
   return (
     <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px', overflow: 'hidden' }}>
       <div className="clabel" style={{ margin: '0 0 10px' }}>Statut d'entraînement</div>
@@ -213,19 +225,22 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </div>
       </div>
 
-      {/* ── Triad Forme / Fatigue / Ratio (métriques en vedette, cf. refonte) ── */}
+      {/* ── Triad parlant : libellé clair + état (chiffre brut en secondaire) ── */}
       <div className="dash-triad" style={{ marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>{today.ctl}</div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>FORME · CTL</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FORME</div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--vl-status-prod)', lineHeight: 1.05, marginTop: 3 }}>{formeWord}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>fond {today.ctl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--vl-amber)', lineHeight: 1 }}>{today.atl}</div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>FATIGUE · ATL</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FATIGUE</div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: fatigueColor, lineHeight: 1.05, marginTop: 3 }}>{fatigueWord}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>récente {today.atl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: acwr.color, lineHeight: 1 }}>{acwr.ratio != null ? acwr.ratio.toFixed(2) : '—'}</div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.08em' }}>RATIO · ACWR</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>ÉQUILIBRE</div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: equil.color, lineHeight: 1.05, marginTop: 3 }}>{equil.word}</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>{acwr.ratio != null ? `charge ×${acwr.ratio.toFixed(2)}` : 'calibrage'}</div>
         </div>
       </div>
 
@@ -260,9 +275,11 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
       {/* ── Graphe 42 j : fond TSB + barres par sport ── */}
       <div onMouseLeave={() => setHover(null)}>
         <svg viewBox={`0 0 ${VW} ${H}`} preserveAspectRatio="none" width="100%" height={H} style={{ display: 'block' }}>
-          {pmc.map((d, i) => (
+          {/* Fond uniforme à la couleur du STATUT du jour (cohérent avec le badge) :
+              évite un fond rouge « surcharge » sous un badge vert « productif ». */}
+          {pmc.map((_, i) => (
             <rect key={`bg${i}`} x={i * W_COL} y={0} width={W_COL} height={H}
-              fill={getTsbZone(d.tsb).color} opacity={0.08} />
+              fill={status.color} opacity={0.05} />
           ))}
           {[7, 14, 21, 28, 35].map((d) => (
             <line key={d} x1={(d * W_COL).toFixed(1)} y1={0} x2={(d * W_COL).toFixed(1)} y2={H}
@@ -399,8 +416,14 @@ function NextRaceWidget({ race }: { race: NextRace }) {
           {/* Two-column body */}
           <div style={{ position: 'relative', flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
 
-            {/* LEFT column */}
-            <div style={{ flex: 1.1, padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+            {/* LEFT column — tracé GPX en fond, sous le titre */}
+            <div style={{ position: 'relative', flex: 1.1, padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+              {gpxPts && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                  <GpxTrace gpxData={gpxPts} />
+                </div>
+              )}
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
                 {race.type ?? 'COURSE'} · COURSE VISÉE
               </div>
@@ -424,6 +447,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                 <div style={{ background: 'var(--vl-ember)', color: 'var(--vl-ink)', borderRadius: 'var(--vl-r-sm)', padding: '9px 14px', fontFamily: 'var(--vl-display)', fontSize: '.9rem', fontWeight: 700, letterSpacing: '.08em', textAlign: 'center', userSelect: 'none' }}>
                   OUVRIR LA STRATÉGIE →
                 </div>
+              </div>
               </div>
             </div>
 
@@ -460,13 +484,8 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                   )}
                 </div>
               )}
-              {/* 2D route trace — hauteur fixe : sinon le SVG (height:100%) gonfle
-                  via son ratio d'aspect en pleine largeur et étire toute la carte. */}
-              {gpxPts && (
-                <div style={{ height: 120, overflow: 'hidden', flexShrink: 0 }}>
-                  <GpxTrace gpxData={gpxPts} />
-                </div>
-              )}
+              {/* Spacer pour pousser l'altimétrie en bas (le tracé GPX est passé à gauche) */}
+              {gpxPts && <div style={{ flex: 1, minHeight: 12 }} />}
               {/* Mini altimetry at bottom */}
               {gpxPts && <MiniAlti gpxData={gpxPts} />}
             </div>
