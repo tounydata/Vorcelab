@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router'
-import { useQueryClient } from '@tanstack/react-query'
-import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
-import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 import OnboardingGate from './onboarding/OnboardingGate'
 import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
-
-const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
-
-interface StravaStatus {
-  connected: boolean
-  athlete_firstname?: string | null
-  last_sync_at?: string | null
-}
+import StravaConnection from './StravaConnection'
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -145,64 +135,8 @@ function navClass({ isActive }: { isActive: boolean }) {
   return 'sidebar-item' + (isActive ? ' active' : '')
 }
 
-/** « il y a X min/h/j » à partir d'un ISO ; « jamais » si absent. */
-function formatSync(iso?: string | null): string {
-  if (!iso) return 'jamais'
-  const diff = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return "à l'instant"
-  if (min < 60) return `il y a ${min} min`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `il y a ${h} h`
-  return `il y a ${Math.floor(h / 24)} j`
-}
-
 export default function Layout() {
-  const user = useVLStore((s) => s.user)
   const { isDark, toggle } = useTheme()
-  const queryClient = useQueryClient()
-  const [stravaStatus, setStravaStatus] = useState<StravaStatus | null>(null)
-  const [isSyncing, setIsSyncing] = useState(false)
-
-  useEffect(() => {
-    if (!user) return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.access_token) return
-      fetch(`${SUPA_URL}/functions/v1/strava-status`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      }).then((r) => r.json()).then((d) => setStravaStatus(d)).catch(() => {})
-    })
-  }, [user])
-
-  async function syncStrava() {
-    setIsSyncing(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) return
-      const r = await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const d = await r.json()
-      if (d.last_sync_at) setStravaStatus((prev) => prev ? { ...prev, last_sync_at: d.last_sync_at } : prev)
-      queryClient.invalidateQueries()
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
-  async function disconnectStrava() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) return
-    await fetch(`${SUPA_URL}/functions/v1/strava-disconnect`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }).catch(() => {})
-    setStravaStatus({ connected: false })
-    queryClient.invalidateQueries()
-  }
 
   const themeBtn = (
     <button
@@ -219,44 +153,6 @@ export default function Layout() {
       <span style={{ display: 'none' }} className="sidebar-theme-label">{isDark ? 'LIGHT' : 'DARK'}</span>
     </button>
   )
-
-  // Panneau Strava réutilisable (sidebar desktop + header mobile) :
-  // statut + connecter / dernière sync / forcer sync / déconnecter.
-  const stravaPanel = stravaStatus ? (
-    stravaStatus.connected ? (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <div className="dot dot-on" />
-          <span className="mlabel" style={{ margin: 0, color: 'var(--vl-growth)', fontSize: 9 }}>
-            STRAVA{stravaStatus.athlete_firstname ? ` · ${stravaStatus.athlete_firstname.toUpperCase()}` : ''}
-          </span>
-          <span style={{ marginLeft: 'auto', fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
-            sync {formatSync(stravaStatus.last_sync_at)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={syncStrava} disabled={isSyncing}>
-            {isSyncing ? 'SYNC…' : 'FORCER SYNC'}
-          </button>
-          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={disconnectStrava}>
-            DÉCONNECTER
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <div className="dot dot-off" />
-          <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
-        </div>
-        {stravaConfigured() && (
-          <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', width: '100%' }} onClick={startStravaOAuth}>
-            CONNECTER STRAVA
-          </button>
-        )}
-      </div>
-    )
-  ) : null
 
   return (
     <div id="appShell" className="show">
@@ -280,7 +176,7 @@ export default function Layout() {
         ))}
 
         <div className="sidebar-bottom">
-          {stravaPanel && <div style={{ marginBottom: 8 }}>{stravaPanel}</div>}
+          <div style={{ marginBottom: 8 }}><StravaConnection variant="full" /></div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
             <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
             {themeBtn}
@@ -308,11 +204,11 @@ export default function Layout() {
             <span style={{ fontFamily: 'var(--vl-display)', fontSize: '.88rem', letterSpacing: '.06em', color: 'var(--vl-text)' }}>VORCELAB</span>
           </NavLink>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <StravaConnection variant="compact" />
             <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
             {themeBtn}
           </div>
         </div>
-        {stravaPanel}
       </div>
 
       <div className="app-main">
