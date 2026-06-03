@@ -89,6 +89,29 @@ export const NUTRITION_PRODUCTS: NutritionProduct[] = [
   { id: 'powerbar-shots', brand: 'PowerBar', name: 'PowerGel Shots', type: 'chew', carbs: 48, caffeine: 0, water: false, note: 'Pochette ~6 (cola caféiné)' },
   { id: 'overstims-gums', brand: 'Overstim.s', name: 'Energy Gums Bio', type: 'chew', carbs: 23, caffeine: 0, water: false, note: 'Sachet 8 gommes, 50% fruit bio' },
   { id: 'veloforte-chews', brand: 'Veloforte', name: 'Energy Chews', type: 'chew', carbs: 42, caffeine: 0, water: false, note: 'Par sachet, +électrolytes' },
+
+  // ── Ajouts (specs publiques marques/revendeurs) ──
+  // Gels
+  { id: 'pfh-pf60', brand: 'PF&H', name: 'PF 60 Gel', type: 'gel', carbs: 60, caffeine: 0, water: false, note: 'Goût neutre, 1:0.8' },
+  { id: 'high5-aqua-gel', brand: 'High5', name: 'Aqua Energy Gel', type: 'gel', carbs: 23, caffeine: 0, water: false, note: 'Texture liquide, sans eau' },
+  { id: 'high5-gel-caf', brand: 'High5', name: 'Energy Gel Caffeine', type: 'gel', carbs: 23, caffeine: 30, water: false, note: 'Caféiné' },
+  { id: 'torq-gel', brand: 'TORQ', name: 'Energy Gel', type: 'gel', carbs: 30, caffeine: 0, water: false, note: '2:1 malto:fructose (variantes guarana 89mg)' },
+  { id: 'hammer-gel', brand: 'Hammer', name: 'Hammer Gel', type: 'gel', carbs: 21, caffeine: 0, water: true, note: 'Maltodextrine, peu sucré' },
+  { id: 'honeystinger-gel', brand: 'Honey Stinger', name: 'Organic Energy Gel', type: 'gel', carbs: 24, caffeine: 0, water: false, note: 'Miel bio (variantes caféine)' },
+  { id: 'clif-shot-gel', brand: 'Clif', name: 'Shot Energy Gel', type: 'gel', carbs: 24, caffeine: 0, water: true, note: 'Bio (variantes caféine 25/50mg)' },
+  { id: 'powerbar-original-gel', brand: 'PowerBar', name: 'PowerGel Original', type: 'gel', carbs: 27, caffeine: 0, water: false, note: 'C2MAX 2:1 (variantes caféine)' },
+  // Boissons
+  { id: 'tailwind-endurance', brand: 'Tailwind', name: 'Endurance Fuel', type: 'drink', carbs: 25, caffeine: 0, water: true, per: 'portion', note: 'Glucides + électrolytes, léger' },
+  { id: 'tailwind-caf', brand: 'Tailwind', name: 'Endurance Fuel Caféine', type: 'drink', carbs: 25, caffeine: 35, water: true, per: 'portion', note: 'Version caféinée' },
+  { id: 'skratch-hydration', brand: 'Skratch', name: 'Sport Hydration Mix', type: 'drink', carbs: 21, caffeine: 0, water: true, per: '500 ml', note: 'Léger, bien toléré' },
+  { id: 'skratch-superfuel', brand: 'Skratch', name: 'Super High-Carb Mix', type: 'drink', carbs: 100, caffeine: 0, water: true, per: 'portion', note: 'Cluster dextrin, très haute énergie' },
+  { id: 'torq-drink', brand: 'TORQ', name: 'Energy Drink', type: 'drink', carbs: 30, caffeine: 0, water: true, per: '500 ml', note: '2:1, 5 électrolytes' },
+  { id: 'high5-drink', brand: 'High5', name: 'Energy Drink', type: 'drink', carbs: 47, caffeine: 0, water: true, per: '500 ml', note: 'Glucides + électrolytes' },
+  // Barres / gommes
+  { id: 'gu-stroopwafel', brand: 'GU', name: 'Energy Stroopwafel', type: 'bar', carbs: 21, caffeine: 0, water: false, note: 'Gaufrette, ~30g' },
+  { id: 'honeystinger-waffle', brand: 'Honey Stinger', name: 'Organic Waffle', type: 'bar', carbs: 21, caffeine: 0, water: false, note: 'Gaufrette au miel bio' },
+  { id: 'honeystinger-chews', brand: 'Honey Stinger', name: 'Organic Energy Chews', type: 'chew', carbs: 26, caffeine: 0, water: false, note: 'Sachet, bio' },
+  { id: 'clif-shot-bloks-caf', brand: 'Clif', name: 'Shot Bloks Caféine', type: 'chew', carbs: 24, caffeine: 50, water: false, note: 'Par 3 bloks (parfums caféinés)' },
 ]
 
 const BY_ID = new Map(NUTRITION_PRODUCTS.map((p) => [p.id, p]))
@@ -105,4 +128,21 @@ export function resolveNutritionProducts(ids: readonly string[] | null | undefin
 
 export const NUTRITION_TYPE_LABELS: Record<NutritionType, string> = {
   gel: 'Gels', drink: 'Boissons', bar: 'Barres', chew: 'Gommes',
+}
+
+/** Marques triées alpha (insensible à la casse), avec leurs produits (triés par type puis nom). */
+export function nutritionBrands(): { brand: string; products: NutritionProduct[] }[] {
+  const order: Record<NutritionType, number> = { gel: 0, drink: 1, bar: 2, chew: 3 }
+  const map = new Map<string, NutritionProduct[]>()
+  for (const p of NUTRITION_PRODUCTS) {
+    const arr = map.get(p.brand) ?? []
+    arr.push(p)
+    map.set(p.brand, arr)
+  }
+  return [...map.entries()]
+    .map(([brand, products]) => ({
+      brand,
+      products: products.sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.brand.localeCompare(b.brand, 'fr', { sensitivity: 'base' }))
 }

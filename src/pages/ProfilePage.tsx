@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
-import { NUTRITION_PRODUCTS, NUTRITION_TYPE_LABELS, type NutritionType } from '../lib/nutritionProducts'
+import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
 import {
@@ -461,6 +461,7 @@ export default function ProfilePage() {
   const [nutritionProducts, setNutritionProducts] = useState<string[]>([])
   const [nutritionLoaded, setNutritionLoaded] = useState(false)
   const [nutritionSaved, setNutritionSaved] = useState(false)
+  const [openBrand, setOpenBrand] = useState<string | null>(null)
 
   function toggleNutritionProduct(id: string) {
     setNutritionProducts((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
@@ -881,27 +882,56 @@ export default function ProfilePage() {
           {isLoading ? (
             <div className="loading"><div className="spinner" /></div>
           ) : (
-            (['gel', 'drink', 'bar', 'chew'] as NutritionType[]).map((type) => (
-              <div key={type} style={{ marginBottom: 14 }}>
-                <div className="mlabel" style={{ marginBottom: 6 }}>{NUTRITION_TYPE_LABELS[type]}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {NUTRITION_PRODUCTS.filter((p) => p.type === type).map((p) => {
-                    const checked = nutritionProducts.includes(p.id)
-                    return (
-                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: checked ? 'var(--vl-text)' : 'var(--vl-text-2)' }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleNutritionProduct(p.id)} />
-                        <span style={{ flex: 1 }}>
-                          <strong style={{ fontWeight: 600 }}>{p.brand}</strong> {p.name}
-                        </span>
-                        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', whiteSpace: 'nowrap' }}>
-                          {p.carbs}g{p.per ? `/${p.per}` : ''}{p.caffeine ? ` · ${p.caffeine}mg caf` : ''}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ))
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {nutritionBrands().map(({ brand, products }) => {
+                const open = openBrand === brand
+                const selCount = products.filter((p) => nutritionProducts.includes(p.id)).length
+                return (
+                  <div key={brand} style={{ border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden' }}>
+                    <button
+                      onClick={() => setOpenBrand(open ? null : brand)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                        background: open ? 'var(--vl-surf-2)' : 'transparent', border: 'none', cursor: 'pointer',
+                        padding: '11px 13px', textAlign: 'left', color: 'var(--vl-text)',
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ fontFamily: 'var(--vl-display)', fontSize: '1.05rem', fontWeight: 700, letterSpacing: '.01em' }}>{brand}</span>
+                        {selCount > 0 && (
+                          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', background: 'color-mix(in oklab, var(--vl-ember) 12%, transparent)', borderRadius: 4, padding: '1px 6px' }}>
+                            {selCount} ✓
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>{products.length} produit{products.length > 1 ? 's' : ''}</span>
+                        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-text-3)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                      </span>
+                    </button>
+                    {open && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 13px 10px' }}>
+                        {products.map((p) => {
+                          const checked = nutritionProducts.includes(p.id)
+                          return (
+                            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', padding: '4px 0', color: checked ? 'var(--vl-text)' : 'var(--vl-text-2)' }}>
+                              <input type="checkbox" checked={checked} onChange={() => toggleNutritionProduct(p.id)} />
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                {p.name}
+                                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>{NUTRITION_TYPE_LABELS[p.type]}</span>
+                              </span>
+                              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', whiteSpace: 'nowrap' }}>
+                                {p.carbs}g{p.per ? `/${p.per}` : ''}{p.caffeine ? ` · ${p.caffeine}mg caf` : ''}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       )}
