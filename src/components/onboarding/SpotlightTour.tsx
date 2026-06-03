@@ -49,7 +49,10 @@ export default function SpotlightTour() {
     let seen = false
     try { seen = !!localStorage.getItem(seenKey(tour.id)) } catch { /* localStorage indispo */ }
     if (seen) return
-    const t = setTimeout(() => start(tour), 650) // laisse la page se rendre
+    // On ne démarre que si la 1ʳᵉ cible est présente (page prête / section dispo).
+    const t = setTimeout(() => {
+      if (document.querySelector(tour.steps[0].selector)) start(tour)
+    }, 650)
     return () => clearTimeout(t)
   }, [pathname, user, onboardingDone, currentTour, start])
 
@@ -73,7 +76,14 @@ export default function SpotlightTour() {
       } else if (tries++ < 25) {
         raf = requestAnimationFrame(locate)
       } else {
-        setRect(null) // cible introuvable → tooltip centrée
+        // Cible absente (section conditionnelle) → on saute cette étape.
+        if (idx >= steps.length - 1) {
+          const id = tourIdRef.current
+          if (id) { try { localStorage.setItem(seenKey(id), '1') } catch { /* ignore */ } }
+          setSteps(null); setRect(null)
+        } else {
+          setIdx((i) => i + 1)
+        }
       }
     }
     locate()

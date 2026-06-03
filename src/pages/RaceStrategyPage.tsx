@@ -510,7 +510,7 @@ export default function RaceStrategyPage() {
           <div className={`strategie-section${tab !== 'strategie' ? ' tab-screen-hidden' : ''}`}>
 
             {/* Section A — Plan de course */}
-            <div className="card" style={{ marginBottom: '1rem' }}>
+            <div data-tour="strat-plan" className="card" style={{ marginBottom: '1rem' }}>
               <div className="clabel">PLAN DE COURSE DE {athleteName.toUpperCase()}</div>
 
               {/* Hero time */}
@@ -653,7 +653,7 @@ export default function RaceStrategyPage() {
 
             {/* Section C — Sections clés */}
             {top3Sections.length > 0 && (
-              <div className="card" style={{ marginBottom: '1rem' }}>
+              <div data-tour="strat-sections" className="card" style={{ marginBottom: '1rem' }}>
                 <div className="clabel" style={{ marginBottom: '0.75rem' }}>SECTIONS CLÉS</div>
                 {top3Sections.map((item, i) => {
                   const isUp = item.section.type === 'up'
@@ -825,7 +825,7 @@ export default function RaceStrategyPage() {
               </div>
 
               {/* Nutrition accordion */}
-              <div className="card" style={{ marginBottom: '2rem' }}>
+              <div data-tour="strat-nutrition" className="card" style={{ marginBottom: '2rem' }}>
                 <button
                   className="hbtn"
                   style={{ width: '100%', textAlign: 'left' }}
