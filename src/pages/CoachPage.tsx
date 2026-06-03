@@ -47,9 +47,12 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Graphe de périodisation : aire du volume hebdo (h) d'aujourd'hui → jour J,
- *  + légende des phases regroupées (semaine courante mise en avant). */
-function PeriodizationArc({ weeks }: { weeks: { weekIndex: number; phase: Phase; isRecovery: boolean; volumeHours: number }[] }) {
+/** Graphe d'avancement : volume hebdo RÉALISÉ (semaines passées, depuis les
+ *  activités) → PRÉVU (jour J), marqueur « aujourd'hui » + légende des phases. */
+function PeriodizationArc({ past, weeks }: {
+  past: { volumeHours: number }[]
+  weeks: { weekIndex: number; phase: Phase; isRecovery: boolean; volumeHours: number }[]
+}) {
   if (weeks.length === 0) return null
   const groups: { phase: Phase; count: number; isCurrent: boolean }[] = []
   weeks.forEach((w, i) => {
@@ -58,15 +61,22 @@ function PeriodizationArc({ weeks }: { weeks: { weekIndex: number; phase: Phase;
     else groups.push({ phase: w.phase, count: 1, isCurrent: i === 0 })
   })
 
-  const n = weeks.length
-  const maxVol = Math.max(0.5, ...weeks.map((w) => w.volumeHours))
+  const vols = [...past.map((p) => p.volumeHours), ...weeks.map((w) => w.volumeHours)]
+  const n = vols.length
+  const bound = past.length // index du 1er point PRÉVU (= semaine en cours)
+  const maxVol = Math.max(0.5, ...vols)
   const W = 900, H = 88, PAD = 8
   const xAt = (i: number) => (n === 1 ? W / 2 : (i / (n - 1)) * W)
   const yAt = (v: number) => H - PAD - (v / maxVol) * (H - PAD * 2 - 6)
-  const pts = weeks.map((w, i) => `${xAt(i).toFixed(1)},${yAt(w.volumeHours).toFixed(1)}`)
-  const line = `M${pts.join(' L')}`
-  const area = `${line} L${xAt(n - 1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`
-  const ACCENT = '#3B82F6' // bleu (validé)
+  const pts = vols.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)
+  const ACCENT = '#3B82F6'       // prévu (bleu)
+  const DONE = 'var(--vl-text-2)' // réalisé (neutre)
+
+  const pastPts = bound > 0 ? pts.slice(0, bound) : []
+  const futStart = Math.max(0, bound - 1) // chevauche 1 point pour relier réalisé↔prévu
+  const futPts = pts.slice(futStart)
+  const pastArea = pastPts.length > 1 ? `M${pastPts.join(' L')} L${xAt(bound - 1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z` : ''
+  const futArea = futPts.length > 1 ? `M${futPts.join(' L')} L${xAt(n - 1).toFixed(1)},${H} L${xAt(futStart).toFixed(1)},${H} Z` : ''
 
   return (
     <div style={{ marginBottom: '1.25rem' }}>
@@ -77,17 +87,31 @@ function PeriodizationArc({ weeks }: { weeks: { weekIndex: number; phase: Phase;
             <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <path d={area} fill="url(#periG)" />
-        <path d={line} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {weeks.map((w, i) => (
-          <circle key={i} cx={xAt(i)} cy={yAt(w.volumeHours)} r={2.6}
-            fill={i === 0 ? 'var(--vl-text)' : i === n - 1 ? 'var(--color-victory)' : ACCENT} />
+        {pastArea && <path d={pastArea} fill="var(--vl-text)" opacity={0.05} />}
+        {futArea && <path d={futArea} fill="url(#periG)" />}
+        {pastPts.length > 1 && <path d={`M${pastPts.join(' L')}`} fill="none" stroke={DONE} strokeWidth={2} strokeDasharray="4 3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+        {futPts.length > 1 && <path d={`M${futPts.join(' L')}`} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+        {vols.map((v, i) => (
+          <circle key={i} cx={xAt(i)} cy={yAt(v)} r={2.6}
+            fill={i < bound ? DONE : i === bound ? 'var(--vl-text)' : i === n - 1 ? 'var(--color-victory)' : ACCENT} />
         ))}
+        {bound > 0 && bound < n && (
+          <line x1={xAt(bound).toFixed(1)} y1={0} x2={xAt(bound).toFixed(1)} y2={H} stroke="var(--vl-text)" strokeWidth={0.6} strokeDasharray="3 3" opacity={0.6} />
+        )}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.08em', margin: '3px 2px 10px' }}>
-        <span>AUJOURD'HUI</span><span>VOLUME HEBDO</span><span>JOUR J →</span>
+        <span>{past.length > 0 ? `RÉALISÉ · ${past.length} SEM.` : 'DÉBUT'}</span>
+        <span>VOLUME HEBDO (H)</span>
+        <span>JOUR J →</span>
       </div>
       <div style={{ display: 'flex', gap: 4 }}>
+        {past.length > 0 && (
+          <div title={`Réalisé · ${past.length} semaine${past.length > 1 ? 's' : ''}`}
+            style={{ flex: Math.min(past.length, weeks.length * 1.5), minWidth: 0, borderRadius: 6, padding: '6px 8px', background: 'color-mix(in srgb, var(--vl-text-2) 8%, transparent)', borderTop: '3px solid var(--vl-text-3)' }}>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color: 'var(--vl-text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>RÉALISÉ</div>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 1 }}>{past.length} sem.</div>
+          </div>
+        )}
         {groups.map((g, i) => {
           const color = PHASE_COLORS[g.phase]
           return (
@@ -294,6 +318,29 @@ export default function CoachPage() {
   // Rationale en prose (hors ligne périodisation, déjà visualisée par la frise).
   const rationale = plan.rationale.filter((r) => !r.startsWith('Périodisation'))
 
+  // Volume hebdo RÉALISÉ des semaines passées (depuis les vraies activités) —
+  // visualise l'avancement de la prépa et reflète la charge qui alimente déjà
+  // l'algo (CTL → calibrage du volume ; verdicts de séance → modulation).
+  const PAST_WEEKS = 8
+  const pastWeeks = (() => {
+    const mon = new Date()
+    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7))
+    mon.setHours(0, 0, 0, 0)
+    const out: { volumeHours: number }[] = []
+    for (let k = PAST_WEEKS; k >= 1; k--) {
+      const ws = new Date(mon); ws.setDate(mon.getDate() - k * 7)
+      const we = new Date(ws); we.setDate(ws.getDate() + 7)
+      const sec = activities.reduce((s, a) => {
+        const t = new Date(a.start_date)
+        return t >= ws && t < we ? s + (a.moving_time ?? 0) : s
+      }, 0)
+      out.push({ volumeHours: Math.round(sec / 360) / 10 })
+    }
+    let i = 0
+    while (i < out.length && out[i].volumeHours === 0) i++ // retire les semaines vides en tête
+    return out.slice(i)
+  })()
+
   return (
     <div style={{ paddingBottom: '3rem' }}>
       {splash ? <SessionAdaptationSplash message="J'ajuste ta prochaine séance selon ton dernier ressenti." onDone={() => setSplash(false)} /> : null}
@@ -338,7 +385,7 @@ export default function CoachPage() {
         </div>
 
         {/* Frise de périodisation (phases groupées, semaine en cours mise en avant) */}
-        <PeriodizationArc weeks={plan.weeks} />
+        <PeriodizationArc past={pastWeeks} weeks={plan.weeks} />
 
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
