@@ -31,6 +31,16 @@ export interface PlanInput {
   weaknesses?: WorkoutTarget[]
   /** Orientation d'entraînement (plaisir/mix/performance) — biaise volume & intensité. */
   motivation?: CoachMotivation
+  /** Courses secondaires (B/C) tombant dans la fenêtre du plan — intégrées comme
+   *  rodage (C) ou mini-affûtage (B), sans casser la prépa de la course principale. */
+  secondaryRaces?: SecondaryRace[]
+}
+
+/** Course secondaire dans la fenêtre du plan (priorité B = objectif secondaire, C = rodage). */
+export interface SecondaryRace {
+  name: string
+  dateISO: string
+  priority: 'B' | 'C'
 }
 
 export interface PlannedSession {
@@ -323,6 +333,7 @@ function buildTrainingWeek(
   isRecovery: boolean,
   isTrail: boolean,
   weeksToGo: number,
+  weekRace?: SecondaryRace,
 ): PlanWeek {
   const days = Math.min(6, Math.max(3, input.daysPerWeek))
   const sessions: PlannedSession[] = []
@@ -335,9 +346,26 @@ function buildTrainingWeek(
     return s
   }
 
-  // 1) Sortie longue (dimanche) — toujours présente.
-  const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
-  sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
+  // 0) Course secondaire dans la semaine (B = objectif secondaire, C = rodage) :
+  //    on réserve son jour et on l'intègre comme séance dure de la semaine.
+  if (weekRace) {
+    const dow = (new Date(weekRace.dateISO + 'T00:00:00').getDay() + 6) % 7 + 1
+    usedSlots.add(dow)
+    sessions.push({
+      dayOfWeek: dow, workoutId: 'secondary_race',
+      title: `${weekRace.name} (course ${weekRace.priority})`,
+      system: 'race', intensity: 'hard', targetDurationMin: 0, climbing: isTrail,
+      description: weekRace.priority === 'C'
+        ? 'Course de préparation — à courir comme une grosse séance qualité (test allure, ravito, matériel). Pas d’affûtage.'
+        : 'Course objectif secondaire — mini-affûtage cette semaine, sans casser la prépa principale.',
+    })
+  }
+
+  // 1) Sortie longue (sauf B : mini-affûtage → pas de charge en plus de la course).
+  if (weekRace?.priority !== 'B') {
+    const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
+    sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
+  }
 
   // 2) Séances de qualité selon la phase (réduites en semaine de décharge).
   const pool = qualityPool(phase, isTrail, input)
