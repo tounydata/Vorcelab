@@ -9,6 +9,7 @@ import {
   type Phase, type WorkoutSystem, type Intensity, type Level, type WorkoutTarget, type WorkoutTemplate,
 } from './workouts'
 import { adaptCatalog, distanceFocusFromKm, type AdaptProfile } from './adaptCatalog'
+import { motivationBias, type CoachMotivation } from './motivation'
 
 export interface PlanInput {
   raceName: string
@@ -28,6 +29,8 @@ export interface PlanInput {
   level?: Level
   /** Points faibles détectés (runnerProfile) — boostent les séances ciblées. */
   weaknesses?: WorkoutTarget[]
+  /** Orientation d'entraînement (plaisir/mix/performance) — biaise volume & intensité. */
+  motivation?: CoachMotivation
 }
 
 export interface PlannedSession {
@@ -171,6 +174,7 @@ function weekVolumeHours(
   distanceKm: number,
   currentCTL: number | null | undefined,
   weeksToGo = 0,
+  volumeScale = 1,
 ): number {
   // Volume de pic dérivé de la distance (4 h pour une courte, jusqu'à 14 h pour un ultra).
   let peak = 4 + distanceKm * 0.06
@@ -187,6 +191,7 @@ function weekVolumeHours(
   const factor = phase === 'taper' ? taperVolumeFactor(weeksToGo) : phaseFactor[phase]
   let h = peak * factor
   if (isRecovery) h *= 0.65
+  h *= volumeScale // orientation plaisir/perf
   return Math.round(h * 10) / 10
 }
 
@@ -304,7 +309,7 @@ function buildRaceWeek(input: PlanInput, weekIndex: number, weekStartISO: string
     weekStartISO,
     phase: 'race',
     isRecovery: false,
-    volumeHours: weekVolumeHours('race', false, input.raceDistanceKm, input.currentCTL),
+    volumeHours: weekVolumeHours('race', false, input.raceDistanceKm, input.currentCTL, 0, motivationBias(input.motivation).volumeScale),
     focus: 'Semaine de course — fraîcheur et logistique.',
     sessions,
   }
@@ -365,7 +370,7 @@ function buildTrainingWeek(
     weekStartISO,
     phase,
     isRecovery,
-    volumeHours: weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL, weeksToGo),
+    volumeHours: weekVolumeHours(phase, isRecovery, input.raceDistanceKm, input.currentCTL, weeksToGo, motivationBias(input.motivation).volumeScale),
     focus: isRecovery ? 'Semaine de décharge — récupération et assimilation.' : focusByPhase[phase],
     sessions,
   }
@@ -410,6 +415,10 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
     rationale.push('Course route → priorité au seuil, VO2max et allure spécifique sur terrain roulant.')
   }
   rationale.push('Une semaine de décharge toutes les 4 semaines pour assimiler la charge.')
+  if (input.motivation && input.motivation !== 'mix') {
+    const b = motivationBias(input.motivation)
+    rationale.push(`Orientation ${b.label} : ${b.note}`)
+  }
   if (input.currentCTL == null) {
     rationale.push('Volume basé sur la distance de la course ; il s\'affinera avec ton CTL (charge chronique) réel.')
   }

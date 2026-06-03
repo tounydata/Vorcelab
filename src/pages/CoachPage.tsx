@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { generateTrainingPlan, allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
+import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
@@ -33,6 +34,7 @@ interface ProfileRow {
   fc_max?: number | null
   runner_profile?: RunnerProfileComputed | null
   coach_days_per_week?: number | null
+  coach_motivation?: string | null
 }
 
 const PHASE_COLORS: Record<Phase, string> = {
@@ -182,7 +184,7 @@ export default function CoachPage() {
     queryKey: ['profile-sessions'],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week').eq('id', user!.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation').eq('id', user!.id).maybeSingle()
       return (data ?? null) as ProfileRow | null
     },
   })
@@ -233,6 +235,17 @@ export default function CoachPage() {
 
   // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
   const daysPerWeek = profile?.coach_days_per_week ?? 5
+  const motivation = (profile?.coach_motivation ?? 'mix') as CoachMotivation
+
+  // Orientation d'entraînement (plaisir/mix/performance) → persistée, recalcule le plan.
+  const qc = useQueryClient()
+  const motivationMut = useMutation({
+    mutationFn: async (m: CoachMotivation) => {
+      const { error } = await supabase.from('profiles').update({ coach_motivation: m }).eq('id', user!.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile-sessions'] }),
+  })
 
   const plan = useMemo(() => {
     if (!targetRace) return null
@@ -247,8 +260,9 @@ export default function CoachPage() {
       currentCTL,
       level,
       weaknesses,
+      motivation,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation])
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
   const { data: latestVerdict = null } = useQuery({
@@ -387,6 +401,32 @@ export default function CoachPage() {
         <PeriodizationArc weeks={plan.weeks} weeksToRace={plan.weeksToRace} distanceKm={plan.race.distanceKm} />
 
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
+      </div>
+
+      {/* ── Orientation d'entraînement (plaisir / équilibre / performance) ── */}
+      <div className="card" style={{ marginTop: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div className="clabel" style={{ marginBottom: 2 }}>Orientation</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>Comment tu veux t'entraîner — ça ajuste volume & intensité.</div>
+        </div>
+        <div style={{ display: 'flex', gap: 1, background: 'var(--vl-line)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden' }}>
+          {(['plaisir', 'mix', 'performance'] as CoachMotivation[]).map((m) => {
+            const on = motivation === m
+            return (
+              <button
+                key={m}
+                onClick={() => !on && motivationMut.mutate(m)}
+                style={{
+                  border: 'none', cursor: on ? 'default' : 'pointer', padding: '7px 14px',
+                  background: on ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: on ? 'var(--vl-ink)' : 'var(--vl-text-2)',
+                  fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '.82rem', letterSpacing: '.04em', textTransform: 'uppercase',
+                }}
+              >
+                {MOTIVATION_LABELS[m]}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── 2 · TON MOTEUR : ce que l'algo lit du coureur (métriques en vedette) ── */}
