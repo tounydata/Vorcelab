@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
-import { generateTrainingPlan, PHASE_LABELS } from '../lib/coach/planGenerator'
+import { generateTrainingPlan, allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
@@ -47,86 +47,108 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Graphe d'avancement : volume hebdo RÉALISÉ (semaines passées, depuis les
- *  activités) → PRÉVU (jour J), marqueur « aujourd'hui » + légende des phases. */
-function PeriodizationArc({ past, weeks }: {
-  past: { volumeHours: number }[]
-  weeks: { weekIndex: number; phase: Phase; isRecovery: boolean; volumeHours: number }[]
+/** Durée de prépa « pleine » de référence selon la distance (pour reconstituer
+ *  les phases déjà passées même si le plan ne génère que le restant). */
+function standardPrepWeeks(distanceKm: number): number {
+  if (distanceKm >= 42) return 16
+  if (distanceKm >= 21) return 12
+  if (distanceKm >= 10) return 10
+  return 8
+}
+
+/** Forme de la charge par phase (0..1) — montée en base/développement, pic en
+ *  spécifique, décrue en affûtage. Donne l'arc « périodisation » du HTML. */
+function phaseShape(phase: Phase, k: number, len: number): number {
+  const f = len > 1 ? k / (len - 1) : 0.5
+  switch (phase) {
+    case 'base': return 0.50 + 0.25 * f
+    case 'build': return 0.78 + 0.18 * f
+    case 'specific': return 0.97 + 0.03 * f
+    case 'taper': return 0.72 - 0.32 * f
+    case 'race': return 0.20
+  }
+}
+
+/** Graphe de périodisation : la prépa complète (phases passées « faite » →
+ *  en cours « ◂ ici » → à venir), arc de charge + dégradé, comme la maquette. */
+function PeriodizationArc({ weeks, weeksToRace, distanceKm }: {
+  weeks: { phase: Phase }[]
+  weeksToRace: number
+  distanceKm: number
 }) {
   if (weeks.length === 0) return null
-  const groups: { phase: Phase; count: number; isCurrent: boolean }[] = []
-  weeks.forEach((w, i) => {
-    const last = groups[groups.length - 1]
-    if (last && last.phase === w.phase) { last.count += 1; if (i === 0) last.isCurrent = true }
-    else groups.push({ phase: w.phase, count: 1, isCurrent: i === 0 })
+
+  // Prépa COMPLÈTE avec le VRAI modèle de phases (allocatePhases — la même
+  // périodisation sport-science que le plan) : semaines passées = tête du modèle
+  // plein, puis semaines réelles restantes du plan.
+  const fullWeeks = Math.max(weeksToRace, standardPrepWeeks(distanceKm))
+  const weeksDone = Math.max(0, fullWeeks - weeksToRace)
+  const pastPhases: Phase[] = allocatePhases(fullWeeks, distanceKm).slice(0, weeksDone)
+  const fullPhases: Phase[] = [...pastPhases, ...weeks.map((x) => x.phase)]
+  const boundary = pastPhases.length // index de la semaine en cours
+
+  // Regroupe en segments contigus de même phase.
+  type Run = { phase: Phase; start: number; len: number; isPast: boolean; isCurrent: boolean }
+  const runs: Run[] = []
+  fullPhases.forEach((ph, i) => {
+    const last = runs[runs.length - 1]
+    if (last && last.phase === ph) last.len += 1
+    else runs.push({ phase: ph, start: i, len: 1, isPast: false, isCurrent: false })
+  })
+  runs.forEach((r) => {
+    const end = r.start + r.len - 1
+    r.isCurrent = r.start <= boundary && boundary <= end
+    r.isPast = end < boundary
   })
 
-  const vols = [...past.map((p) => p.volumeHours), ...weeks.map((w) => w.volumeHours)]
+  const vols: number[] = []
+  runs.forEach((r) => { for (let k = 0; k < r.len; k++) vols.push(phaseShape(r.phase, k, r.len)) })
   const n = vols.length
-  const bound = past.length // index du 1er point PRÉVU (= semaine en cours)
-  const maxVol = Math.max(0.5, ...vols)
-  const W = 900, H = 88, PAD = 8
+  const W = 900, H = 92, PAD = 8
   const xAt = (i: number) => (n === 1 ? W / 2 : (i / (n - 1)) * W)
-  const yAt = (v: number) => H - PAD - (v / maxVol) * (H - PAD * 2 - 6)
+  const yAt = (v: number) => H - PAD - v * (H - PAD * 2)
   const pts = vols.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)
-  const ACCENT = '#3B82F6'       // prévu (bleu)
-  const DONE = 'var(--vl-text-2)' // réalisé (neutre)
-
-  const pastPts = bound > 0 ? pts.slice(0, bound) : []
-  const futStart = Math.max(0, bound - 1) // chevauche 1 point pour relier réalisé↔prévu
-  const futPts = pts.slice(futStart)
-  const pastArea = pastPts.length > 1 ? `M${pastPts.join(' L')} L${xAt(bound - 1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z` : ''
-  const futArea = futPts.length > 1 ? `M${futPts.join(' L')} L${xAt(n - 1).toFixed(1)},${H} L${xAt(futStart).toFixed(1)},${H} Z` : ''
+  const line = `M${pts.join(' L')}`
+  const area = `${line} L${xAt(n - 1).toFixed(1)},${H} L${xAt(0).toFixed(1)},${H} Z`
 
   return (
     <div style={{ marginBottom: '1.25rem' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 80, display: 'block' }} aria-hidden="true">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 92, display: 'block' }} aria-hidden="true">
         <defs>
           <linearGradient id="periG" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor={ACCENT} stopOpacity={0.32} />
-            <stop offset="1" stopColor={ACCENT} stopOpacity={0} />
+            <stop offset="0" stopColor="var(--vl-ember)" stopOpacity={0.34} />
+            <stop offset="1" stopColor="var(--vl-ember)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        {pastArea && <path d={pastArea} fill="var(--vl-text)" opacity={0.05} />}
-        {futArea && <path d={futArea} fill="url(#periG)" />}
-        {pastPts.length > 1 && <path d={`M${pastPts.join(' L')}`} fill="none" stroke={DONE} strokeWidth={2} strokeDasharray="4 3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-        {futPts.length > 1 && <path d={`M${futPts.join(' L')}`} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-        {vols.map((v, i) => (
-          <circle key={i} cx={xAt(i)} cy={yAt(v)} r={2.6}
-            fill={i < bound ? DONE : i === bound ? 'var(--vl-text)' : i === n - 1 ? 'var(--color-victory)' : ACCENT} />
-        ))}
-        {bound > 0 && bound < n && (
-          <line x1={xAt(bound).toFixed(1)} y1={0} x2={xAt(bound).toFixed(1)} y2={H} stroke="var(--vl-text)" strokeWidth={0.6} strokeDasharray="3 3" opacity={0.6} />
+        <path d={area} fill="url(#periG)" />
+        <path d={line} fill="none" stroke="var(--vl-ember)" strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {/* marqueur « tu es ici » */}
+        {boundary > 0 && boundary < n && (
+          <>
+            <line x1={xAt(boundary).toFixed(1)} y1={0} x2={xAt(boundary).toFixed(1)} y2={H} stroke="var(--vl-text)" strokeWidth={0.7} strokeDasharray="3 3" opacity={0.55} />
+            <circle cx={xAt(boundary)} cy={yAt(vols[boundary])} r={4} fill="var(--vl-text)" />
+          </>
         )}
+        <circle cx={xAt(n - 1)} cy={yAt(vols[n - 1])} r={4} fill="var(--color-victory)" />
       </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.08em', margin: '3px 2px 10px' }}>
-        <span>{past.length > 0 ? `RÉALISÉ · ${past.length} SEM.` : 'DÉBUT'}</span>
-        <span>VOLUME HEBDO (H)</span>
-        <span>JOUR J →</span>
-      </div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {past.length > 0 && (
-          <div title={`Réalisé · ${past.length} semaine${past.length > 1 ? 's' : ''}`}
-            style={{ flex: Math.min(past.length, weeks.length * 1.5), minWidth: 0, borderRadius: 6, padding: '6px 8px', background: 'color-mix(in srgb, var(--vl-text-2) 8%, transparent)', borderTop: '3px solid var(--vl-text-3)' }}>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color: 'var(--vl-text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>RÉALISÉ</div>
-            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 1 }}>{past.length} sem.</div>
-          </div>
-        )}
-        {groups.map((g, i) => {
-          const color = PHASE_COLORS[g.phase]
+      {/* Légende = barre connectée colorée par phase (façon maquette HTML) */}
+      <div style={{ display: 'flex', marginTop: 10, border: '1px solid var(--vl-line)', borderRadius: 8, overflow: 'hidden' }}>
+        {runs.map((r, i) => {
+          const color = PHASE_COLORS[r.phase]
+          const sub = r.phase === 'race' ? 'jour J' : `${r.len} sem.${r.isCurrent ? ' · en cours' : r.isPast ? ' · faite' : ''}`
           return (
-            <div key={i} title={`${PHASE_LABELS[g.phase]} · ${g.count} semaine${g.count > 1 ? 's' : ''}`}
+            <div key={i} title={`${PHASE_LABELS[r.phase]} · ${sub}`}
               style={{
-                flex: g.count, minWidth: 0, borderRadius: 6, padding: '6px 8px',
-                background: `color-mix(in srgb, ${color} ${g.isCurrent ? 22 : 10}%, transparent)`,
-                border: g.isCurrent ? `1px solid ${color}` : '1px solid transparent',
-                borderTop: `3px solid ${color}`,
+                flex: r.len, minWidth: 0, padding: '8px 10px',
+                borderRight: i < runs.length - 1 ? '1px solid var(--vl-line)' : 'none',
+                background: r.isCurrent ? `color-mix(in srgb, ${color} 14%, transparent)` : 'transparent',
+                opacity: r.isPast ? 0.78 : 1,
               }}>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {PHASE_LABELS[g.phase]}
+                {PHASE_LABELS[r.phase]}{r.isCurrent ? ' ◂ ici' : ''}
               </div>
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 1 }}>
-                {g.count} sem.{g.isCurrent ? ' · en cours' : ''}
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {sub}
               </div>
             </div>
           )
@@ -318,29 +340,6 @@ export default function CoachPage() {
   // Rationale en prose (hors ligne périodisation, déjà visualisée par la frise).
   const rationale = plan.rationale.filter((r) => !r.startsWith('Périodisation'))
 
-  // Volume hebdo RÉALISÉ des semaines passées (depuis les vraies activités) —
-  // visualise l'avancement de la prépa et reflète la charge qui alimente déjà
-  // l'algo (CTL → calibrage du volume ; verdicts de séance → modulation).
-  const PAST_WEEKS = 8
-  const pastWeeks = (() => {
-    const mon = new Date()
-    mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7))
-    mon.setHours(0, 0, 0, 0)
-    const out: { volumeHours: number }[] = []
-    for (let k = PAST_WEEKS; k >= 1; k--) {
-      const ws = new Date(mon); ws.setDate(mon.getDate() - k * 7)
-      const we = new Date(ws); we.setDate(ws.getDate() + 7)
-      const sec = activities.reduce((s, a) => {
-        const t = new Date(a.start_date)
-        return t >= ws && t < we ? s + (a.moving_time ?? 0) : s
-      }, 0)
-      out.push({ volumeHours: Math.round(sec / 360) / 10 })
-    }
-    let i = 0
-    while (i < out.length && out[i].volumeHours === 0) i++ // retire les semaines vides en tête
-    return out.slice(i)
-  })()
-
   return (
     <div style={{ paddingBottom: '3rem' }}>
       {splash ? <SessionAdaptationSplash message="J'ajuste ta prochaine séance selon ton dernier ressenti." onDone={() => setSplash(false)} /> : null}
@@ -385,7 +384,7 @@ export default function CoachPage() {
         </div>
 
         {/* Frise de périodisation (phases groupées, semaine en cours mise en avant) */}
-        <PeriodizationArc past={pastWeeks} weeks={plan.weeks} />
+        <PeriodizationArc weeks={plan.weeks} weeksToRace={plan.weeksToRace} distanceKm={plan.race.distanceKm} />
 
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
