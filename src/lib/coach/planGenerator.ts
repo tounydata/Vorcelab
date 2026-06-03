@@ -367,9 +367,13 @@ function buildTrainingWeek(
     sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
   }
 
-  // 2) Séances de qualité selon la phase (réduites en semaine de décharge).
-  const pool = qualityPool(phase, isTrail, input)
+  // 2) Séances de qualité selon la phase (réduites en semaine de décharge),
+  //    biaisées par l'ORIENTATION (plaisir = moins de qualité, pas d'intensité dure).
+  const bias = motivationBias(input.motivation)
+  const pool0 = qualityPool(phase, isTrail, input)
+  const pool = bias.allowHardIntensity ? pool0 : pool0.filter((id) => getWorkout(id)?.intensity !== 'hard')
   let nQuality = isRecovery ? Math.min(1, qualityCount(phase)) : qualityCount(phase)
+  nQuality = Math.min(nQuality, bias.maxQualityPerWeek) // orientation plaisir/perf
   nQuality = Math.min(nQuality, Math.max(0, days - 1)) // garder au moins de la place
   for (let i = 0; i < nQuality && pool.length > 0; i++) {
     // Rotation par semaine pour varier les stimuli.
