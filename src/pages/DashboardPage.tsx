@@ -123,21 +123,21 @@ function computeMultiStatus(
   // Table de décision — priorité décroissante
   if (ratio != null && ratio > 1.5) {
     if (hardDays >= 3)
-      return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: '#EF4444', key: 'surmenage' }
-    return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: '#F97316', key: 'charge_elevee' }
+      return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: 'var(--vl-status-over)', key: 'surmenage' }
+    return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: 'var(--vl-status-load)', key: 'charge_elevee' }
   }
   if (ratio != null && ratio < 0.8) {
     if (ctlTrendPct < -0.05)
-      return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: '#F97316', key: 'desentrainement' }
+      return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: 'var(--vl-status-load)', key: 'desentrainement' }
     if (today.ctl > 40 && (efTrend == null || efTrend >= 0))
-      return { label: 'PIC', sub: 'affûtage — forme optimale', color: '#34D399', key: 'pic' }
-    return { label: 'RÉCUPÉRATION', sub: 'repos voulu — charge légère', color: '#3B82F6', key: 'recuperation' }
+      return { label: 'PIC', sub: 'affûtage — forme optimale', color: 'var(--vl-status-peak)', key: 'pic' }
+    return { label: 'RÉCUPÉRATION', sub: 'repos voulu — charge légère', color: 'var(--vl-status-rest)', key: 'recuperation' }
   }
   if (efTrend != null && efTrend < -0.05 && ctlTrendPct <= 0.03)
-    return { label: 'IMPRODUCTIF', sub: 'charge sans progression cardio', color: '#EAB308', key: 'improductif' }
+    return { label: 'IMPRODUCTIF', sub: 'charge sans progression cardio', color: 'var(--vl-status-watch)', key: 'improductif' }
   if (ctlTrendPct > 0.05 && (efTrend == null || efTrend >= -0.03))
-    return { label: 'PRODUCTIF', sub: 'tu progresses', color: '#22C55E', key: 'productif' }
-  return { label: 'MAINTIEN', sub: 'forme stable', color: '#EAB308', key: 'maintien' }
+    return { label: 'PRODUCTIF', sub: 'tu progresses', color: 'var(--vl-status-prod)', key: 'productif' }
+  return { label: 'MAINTIEN', sub: 'forme stable', color: 'var(--vl-status-watch)', key: 'maintien' }
 }
 
 function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Activity2[]; renfoLogs: SessionLog[]; fcMax?: number | null }) {
@@ -200,7 +200,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, color: status.color, lineHeight: 1, letterSpacing: '.01em' }}>
             {status.label}
           </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-2)', marginTop: 4, textTransform: 'none', letterSpacing: 0 }}>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', marginTop: 4, textTransform: 'none', letterSpacing: 0 }}>
             {status.sub}
           </div>
         </div>
@@ -209,7 +209,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--vl-text-2)', lineHeight: 1 }}>
             {today.tsb > 0 ? `+${today.tsb}` : today.tsb}
           </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>FRAÎCHEUR</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>FRAÎCHEUR</div>
         </div>
       </div>
 
@@ -217,17 +217,17 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
       <div style={{ minHeight: 22, marginBottom: 5 }}>
         {hover != null ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-2)', fontWeight: 700, letterSpacing: '.06em' }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', fontWeight: 700, letterSpacing: '.06em' }}>
               {fmtD(pmc[hover].date)}
             </span>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: getTsbZone(pmc[hover].tsb).color, display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
               Fraîcheur {pmc[hover].tsb > 0 ? `+${pmc[hover].tsb}` : pmc[hover].tsb}
             </span>
             {daySegs[hover].length === 0 ? (
-              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, color: 'var(--vl-text-3)' }}>Repos</span>
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>Repos</span>
             ) : daySegs[hover].map((seg, j) => (
-              <span key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8.5 }}>
+              <span key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 10 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 2, background: seg.color, display: 'inline-block', flexShrink: 0 }} />
                 <span style={{ color: 'var(--vl-text-2)' }}>{seg.label}</span>
                 <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{Math.round(seg.load)}</span>
@@ -235,7 +235,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
             ))}
           </div>
         ) : (
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
             Survoler pour le détail jour par jour
           </span>
         )}
@@ -277,7 +277,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         {labelIdx.map((i) => (
           <span key={i} style={{
             position: 'absolute', left: `${((i + 0.5) / DISPLAY) * 100}%`, transform: 'translateX(-50%)',
-            fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', whiteSpace: 'nowrap',
+            fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', whiteSpace: 'nowrap',
           }}>
             {i === DISPLAY - 1 ? 'auj.' : new Date(pmc[i].date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
           </span>
@@ -375,7 +375,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
 
           {/* Header label */}
           <div style={{ position: 'relative', padding: '10px 14px 0', flexShrink: 0 }}>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '8.5px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '10px', fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>
               STRATÉGIE DE COURSE
             </span>
           </div>
@@ -385,7 +385,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
 
             {/* LEFT column */}
             <div style={{ flex: 1.1, padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 4 }}>
                 {race.type ?? 'COURSE'} · COURSE VISÉE
               </div>
               <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(1.8rem,3.5vw,2.6rem)', fontWeight: 800, letterSpacing: '.02em', textTransform: 'uppercase', lineHeight: 0.88, marginBottom: 6 }}>
@@ -399,10 +399,10 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                 <div style={{ fontFamily: 'var(--vl-display)', fontSize: '3.8rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 0.82, letterSpacing: '-.03em' }}>
                   {daysLeft}
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'uppercase', letterSpacing: '.16em', marginTop: 4 }}>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', textTransform: 'uppercase', letterSpacing: '.16em', marginTop: 4 }}>
                   JOURS
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '8.5px', color: phase.color, letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginTop: 4, marginBottom: 12 }}>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '10px', color: phase.color, letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600, marginTop: 4, marginBottom: 12 }}>
                   {phase.label}
                 </div>
                 <div style={{ background: 'var(--vl-ember)', color: 'var(--vl-ink)', borderRadius: 'var(--vl-r-sm)', padding: '9px 14px', fontFamily: 'var(--vl-display)', fontSize: '.9rem', fontWeight: 700, letterSpacing: '.08em', textAlign: 'center', userSelect: 'none' }}>
@@ -416,7 +416,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
               {/* Projection block */}
               {proj && (
                 <div style={{ padding: '12px 12px 8px', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '9.5px', color: 'var(--vl-text-2)', letterSpacing: '.16em', marginBottom: 5, textTransform: 'uppercase', fontWeight: 700 }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '10px', color: 'var(--vl-text-2)', letterSpacing: '.16em', marginBottom: 5, textTransform: 'uppercase', fontWeight: 700 }}>
                     PROJECTION VORCELAB
                   </div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82 }}>
@@ -431,13 +431,13 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                   </div>
                   {proj.prudent && proj.agressif && (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
                         PRUDENT <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.prudent)}</span>
                       </span>
-                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--color-victory)', fontWeight: 700 }}>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--color-victory)', fontWeight: 700 }}>
                         CIBLE {fmtTimeS(proj.cible)}
                       </span>
-                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: 'var(--vl-text-3)' }}>
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
                         AGRESSIF <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.agressif)}</span>
                       </span>
                     </div>
@@ -688,22 +688,22 @@ export default function DashboardPage() {
                   <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
                     RENFO · {renfoWeekCount}/{renfoWeeklyTarget} SEM.
                   </div>
-                  <div className="mlabel" style={{ margin: 0, fontSize: 8, color: DUP4_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${DUP4_COLORS[phase]}`, paddingLeft: 6 }}>
+                  <div className="mlabel" style={{ margin: 0, fontSize: 10, color: DUP4_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${DUP4_COLORS[phase]}`, paddingLeft: 6 }}>
                     {DUP4_LABELS[phase]}
                   </div>
                 </div>
                 <Link to="/renfo" style={{ textDecoration: 'none' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR →</div>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>VOIR →</div>
                 </Link>
               </div>
 
               {/* Barre de progression mensuelle */}
               <div style={{ marginBottom: '0.7rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7.5, color: 'var(--vl-text-3)' }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
                     CE MOIS · {renfoMonthCount} / ~{renfoMonthTarget} séances
                   </div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7.5, color: renfoMonthPct >= 80 ? '#a78bfa' : 'var(--vl-text-3)' }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: renfoMonthPct >= 80 ? '#a78bfa' : 'var(--vl-text-3)' }}>
                     {renfoMonthPct}%
                   </div>
                 </div>
@@ -724,10 +724,14 @@ export default function DashboardPage() {
                   <div key={i} style={{ flex: 1, textAlign: 'center' }}>
                     <div style={{
                       height: 16, borderRadius: 3, marginBottom: 2,
-                      background: day.hasRenfo ? '#7c3aed55' : day.hasRun ? 'var(--vl-ember)22' : 'var(--vl-line)',
-                      border: day.isToday ? '1px solid var(--vl-ember)66' : '1px solid transparent',
+                      background: day.hasRenfo
+                        ? 'color-mix(in oklab, var(--color-renfo) 40%, transparent)'
+                        : day.hasRun
+                          ? 'color-mix(in oklab, var(--vl-ember) 13%, transparent)'
+                          : 'var(--vl-line)',
+                      border: day.isToday ? '1px solid color-mix(in oklab, var(--vl-ember) 40%, transparent)' : '1px solid transparent',
                     }} />
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: day.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: day.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
                       {day.label}
                     </div>
                   </div>
@@ -737,13 +741,13 @@ export default function DashboardPage() {
               {/* Dernière séance renfo */}
               {lastRenfoSession && (
                 <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
                     {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}
                     {lastRenfoSession.duration_min ? ` · ${lastRenfoSession.duration_min} min` : ''}
                     {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
                   </div>
                   {(lastRenfoSession as SessionLog2).source === 'strava' && (
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 7, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
                       Strava
                     </div>
                   )}
@@ -770,7 +774,7 @@ export default function DashboardPage() {
                   const isPref = preferred.has(focus)
                   return (
                     <Link key={focus} to={`/renfo/session/${focus}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '8px 10px', borderRadius: 6, border: `1px solid var(--vl-line)`, borderLeft: `3px solid ${color}`, opacity: isAvoided ? 0.4 : 1, background: 'var(--vl-card)' }}>
+                      <div style={{ padding: '8px 10px', borderRadius: 6, border: `1px solid var(--vl-line)`, borderLeft: `3px solid ${color}`, opacity: isAvoided ? 0.4 : 1, background: 'var(--vl-surf-2)' }}>
                         {isPref && <div className="mlabel" style={{ color, fontSize: '0.7rem', marginBottom: 2 }}>★</div>}
                         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.8rem', color, lineHeight: 1.2 }}>{meta.label}</div>
                         <div className="mlabel" style={{ fontSize: '0.7rem', color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>
@@ -788,26 +792,26 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
                 <Link to="/activities" style={{ textDecoration: 'none' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 9, letterSpacing: '.1em' }}>VOIR TOUT →</div>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>VOIR TOUT →</div>
                 </Link>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>{(kmMonth / 1000).toFixed(1)}</div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>km COURSE</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>km COURSE</div>
                   {deltaKmPct != null && (
-                    <div style={{ display: 'inline-block', marginTop: 4, background: 'var(--vl-surf-2)', borderRadius: 3, padding: '2px 6px', fontFamily: 'var(--vl-mono)', fontSize: 8, color: deltaKmPct >= 0 ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>
+                    <div style={{ display: 'inline-block', marginTop: 4, background: 'var(--vl-surf-2)', borderRadius: 3, padding: '2px 6px', fontFamily: 'var(--vl-mono)', fontSize: 10, color: deltaKmPct >= 0 ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>
                       {deltaKmPct >= 0 ? '+' : ''}{deltaKmPct}% · vs M-1
                     </div>
                   )}
                 </div>
                 <div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-growth)', lineHeight: 1 }}>{Math.round(elevMonth)}</div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>m D+</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>m D+</div>
                 </div>
                 <div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: '#a78bfa', lineHeight: 1 }}>{renfoMonthCount}</div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', marginTop: 2 }}>sess. RENFO</div>
+                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>sess. RENFO</div>
                 </div>
               </div>
               <div style={{ borderTop: '1px solid var(--vl-line)', margin: '0.75rem 0' }} />
@@ -828,7 +832,7 @@ export default function DashboardPage() {
                         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
                           {formatPaceShort(a.distance, a.moving_time)}
                         </div>
-                        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
+                        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
                           /KM · {formatDateShort(a.start_date)}
                         </div>
                         <span className="act-badge">{a.sport_type === 'TrailRun' ? 'Trail' : a.type}</span>
