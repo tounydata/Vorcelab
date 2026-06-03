@@ -4,6 +4,7 @@ import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
 import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
+import StravaConnection from '../components/StravaConnection'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
 import {
@@ -614,6 +615,15 @@ export default function ProfilePage() {
         })
         return (
           <>
+            {/* Connexion Strava */}
+            <div data-tour="settings-strava" className="card" style={{ marginBottom: '1rem' }}>
+              <div className="clabel" style={{ marginBottom: 8 }}>CONNEXION STRAVA</div>
+              <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Connecte ta montre : Vorcelab analyse tes sorties et estime ta VO2max. Tu peux forcer une synchro ou te déconnecter ici.
+              </p>
+              <StravaConnection variant="full" />
+            </div>
+
             {/* Orientation coach */}
             <div className="card" style={{ marginBottom: '1rem' }}>
               <div className="clabel" style={{ marginBottom: 4 }}>ORIENTATION COACH</div>
