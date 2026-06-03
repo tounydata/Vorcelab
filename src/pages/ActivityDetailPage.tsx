@@ -8,6 +8,7 @@ import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
+import { buildSessionDebrief } from '../lib/sessionDebrief'
 import { computeDecoupling, type DurabilityStatus } from '../lib/durability'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 
@@ -43,6 +44,8 @@ interface RecentActivity {
   start_date: string
   type: string
   sport_type: string | null
+  average_heartrate: number | null
+  average_speed: number | null
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -484,6 +487,38 @@ function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
   )
 }
 
+// ─── Débrief de séance (récap vs autres sorties + impact + conseil) ────────────
+
+function SessionDebriefCard({ activity, fcMax, recentRuns }: {
+  activity: ActivityDetail
+  fcMax: number
+  recentRuns: RecentActivity[]
+}) {
+  const debrief = buildSessionDebrief(activity, recentRuns, fcMax)
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--vl-ember)' }}>
+      <div className="clabel" style={{ marginBottom: 8 }}>DÉBRIEF</div>
+      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.05rem', lineHeight: 1.25, marginBottom: 10 }}>
+        {debrief.headline}
+      </div>
+      {debrief.comparisons.length > 0 && (
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.78rem', lineHeight: 1.7, color: 'var(--vl-text-2)', marginBottom: 10 }}>
+          {debrief.comparisons.map((c, i) => <div key={i}>· {c}</div>)}
+        </div>
+      )}
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: 'var(--vl-text)', marginBottom: debrief.tip ? 8 : 0 }}>
+        {debrief.impact}
+      </div>
+      {debrief.tip && (
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.78rem', lineHeight: 1.6, color: 'var(--vl-text-3)', fontStyle: 'italic' }}>
+          💡 {debrief.tip}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Race context (facteurs de course) ────────────────────────────────────────
 
 function RaceContextCard({ activity, weather }: { activity: ActivityDetail; weather?: WeatherData | null }) {
@@ -880,15 +915,15 @@ export default function ActivityDetailPage() {
     enabled: !!activityId,
   })
 
-  // Context for "Lecture de séance" (28j/7j surrounding the activity date)
+  // Contexte pour « Lecture de séance » (28j/7j) et « Débrief » (comparaison 90 j).
   const { data: recentActivities = [] } = useQuery<RecentActivity[]>({
     queryKey: ['recent-activities-context', activity?.start_date],
     queryFn: async () => {
       const actDate = new Date(activity!.start_date)
-      const cutoff = new Date(actDate); cutoff.setDate(actDate.getDate() - 35)
+      const cutoff = new Date(actDate); cutoff.setDate(actDate.getDate() - 90)
       const { data } = await supabase
         .from('strava_activities')
-        .select('id,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
+        .select('id,distance,total_elevation_gain,moving_time,start_date,type,sport_type,average_heartrate,average_speed')
         .gte('start_date', cutoff.toISOString().slice(0, 10))
         .lte('start_date', activity!.start_date)
         .order('start_date', { ascending: false })
@@ -990,6 +1025,7 @@ export default function ActivityDetailPage() {
       </div>
 
       {/* Analyse de séance */}
+      <SessionDebriefCard activity={activity} fcMax={fcMax} recentRuns={recentActivities} />
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
       <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
       <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather ?? null)} />
