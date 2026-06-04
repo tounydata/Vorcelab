@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { generateTrainingPlan, allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
-import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
+import { type CoachMotivation } from '../lib/coach/motivation'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
@@ -246,19 +246,11 @@ export default function CoachPage() {
 
   // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
   const daysPerWeek = profile?.coach_days_per_week ?? 5
+  // Orientation lue depuis le profil (réglée dans Profil › Paramètres) → pilote le plan.
   const motivation = (profile?.coach_motivation ?? 'mix') as CoachMotivation
 
-  // Orientation d'entraînement (plaisir/mix/performance) → persistée, recalcule le plan.
-  const qc = useQueryClient()
-  const motivationMut = useMutation({
-    mutationFn: async (m: CoachMotivation) => {
-      const { error } = await supabase.from('profiles').update({ coach_motivation: m }).eq('id', user!.id)
-      if (error) throw error
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile-sessions'] }),
-  })
-
   // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
+  const qc = useQueryClient()
   const priorityMut = useMutation({
     mutationFn: async ({ id, p }: { id: string; p: string }) => {
       const { error } = await supabase.from('race_calendar').update({ priority: p }).eq('id', id)
@@ -442,31 +434,8 @@ export default function CoachPage() {
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
 
-      {/* ── Orientation d'entraînement (plaisir / équilibre / performance) ── */}
-      <div className="card" style={{ marginTop: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div className="clabel" style={{ marginBottom: 2 }}>Orientation</div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>Comment tu veux t'entraîner — ça ajuste volume & intensité.</div>
-        </div>
-        <div style={{ display: 'flex', gap: 1, background: 'var(--vl-line)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden' }}>
-          {(['plaisir', 'mix', 'performance'] as CoachMotivation[]).map((m) => {
-            const on = motivation === m
-            return (
-              <button
-                key={m}
-                onClick={() => !on && motivationMut.mutate(m)}
-                style={{
-                  border: 'none', cursor: on ? 'default' : 'pointer', padding: '7px 14px',
-                  background: on ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: on ? 'var(--vl-ink)' : 'var(--vl-text-2)',
-                  fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '.82rem', letterSpacing: '.04em', textTransform: 'uppercase',
-                }}
-              >
-                {MOTIVATION_LABELS[m]}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* L'orientation d'entraînement (plaisir / équilibre / performance) se règle
+          désormais uniquement dans Profil › Paramètres. Elle pilote ce plan en arrière-plan. */}
 
       {/* ── 2 · TON MOTEUR : ce que l'algo lit du coureur (métriques en vedette) ── */}
       <div className="coach-block-h">

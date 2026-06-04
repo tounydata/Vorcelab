@@ -10,6 +10,7 @@ import {
   type SessionLog,
 } from '../lib/renfoUtils'
 import { FOCUS_META, RENFO_FOCUS_COLORS } from '../lib/renfoData'
+import { syncStravaRenfo } from '../lib/syncStravaRenfo'
 
 const ALL_FOCUSES = [
   'force_lourde','pliometrie','excentrique','tronc',
@@ -34,6 +35,23 @@ export default function RenfoPage() {
   })
 
   const queryClient = useQueryClient()
+
+  // Rattrapage : importe les séances de renfo déjà sur Strava (musculation, yoga…)
+  // que le webhook n'a jamais vues. Idempotent — ne ré-importe jamais une date loggée.
+  useQuery({
+    queryKey: ['renfo-strava-backfill', user?.id],
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const n = await syncStravaRenfo(user!.id)
+      if (n > 0) {
+        queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+        queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-dashboard'] })
+      }
+      return n
+    },
+  })
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
