@@ -1053,7 +1053,18 @@ export default function ProfilePage() {
                       background: 'rgba(229,86,42,0.08)', border: '1px solid var(--vl-ember)',
                       fontSize: 11, color: 'var(--vl-ember)', lineHeight: 1.6,
                     }}>
-                      ⚠ FCmax non renseignée — calcul basé sur <strong>185 bpm par défaut</strong>. Les pourcentages FCmax et l'efficacité cardio sont inexacts. Renseignez votre FCmax dans l'onglet <strong>COMPTE</strong> puis recalculez.
+                      ⚠ FCmax non renseignée — calcul basé sur <strong>185 bpm par défaut</strong>. Les pourcentages FCmax et l'efficacité cardio sont inexacts. Renseignez votre FCmax dans l'onglet <strong>PROFIL</strong> puis recalculez.
+                    </div>
+                  )}
+
+                  {/* Stale FCmax: profile FCmax changed since the analysis was computed */}
+                  {!!profileRow?.fc_max && rp.fcMax !== profileRow.fc_max && (
+                    <div style={{
+                      marginBottom: '0.75rem', padding: '8px 12px', borderRadius: 6,
+                      background: 'rgba(229,86,42,0.08)', border: '1px solid var(--vl-ember)',
+                      fontSize: 11, color: 'var(--vl-ember)', lineHeight: 1.6,
+                    }}>
+                      ⚠ Ta FCmax ({profileRow.fc_max} bpm) a changé depuis le dernier calcul — l'analyse ci-dessous utilise encore <strong>{rp.fcMax} bpm</strong>. Clique sur <strong>↺ Recalculer</strong> pour la rafraîchir.
                     </div>
                   )}
 
@@ -1073,8 +1084,10 @@ export default function ProfilePage() {
                     <div className="mlabel" style={{ fontSize: 9, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
                       Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')}
                       {' · '}FCmax&nbsp;
-                      <span style={{ color: profileRow?.fc_max ? 'var(--vl-text-2)' : 'var(--vl-ember)' }}>
-                        {rp.fcMax} bpm{!profileRow?.fc_max && ' (défaut)'}
+                      <span style={{ color: !profileRow?.fc_max || rp.fcMax !== profileRow.fc_max ? 'var(--vl-ember)' : 'var(--vl-text-2)' }}>
+                        {profileRow?.fc_max ?? rp.fcMax} bpm
+                        {!profileRow?.fc_max && ' (défaut)'}
+                        {!!profileRow?.fc_max && rp.fcMax !== profileRow.fc_max && ` (analyse : ${rp.fcMax})`}
                       </span>
                       {rp.analyzedRuns != null && ` · ${rp.analyzedRuns} sorties`}
                       {' · '}{Math.round(rp.totalStreamSeconds / 3600)}h analysées
