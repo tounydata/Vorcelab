@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildRenfoRows, isRenfo, type StravaActLite } from '../src/lib/syncStravaRenfo'
+import { buildRenfoRows, isRenfo, type StravaActLite } from '../src/lib/renfoBackfill'
 
 const U = 'user-1'
 
