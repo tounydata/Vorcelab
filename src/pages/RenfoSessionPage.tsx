@@ -72,16 +72,35 @@ export default function RenfoSessionPage() {
     enabled: !!user,
   })
 
-  const profile = renfoProfile ?? DEFAULT_PROFILE
   const dupOverride = useRunningDUPOverride()
   const phase = get4WeekPhase(dupOverride)
+
+  // Lieu choisi pour CETTE séance → sélectionne le bon jeu de matériel (maison vs salle)
+  // et donc les variantes proposées. Mémorisé pour ne pas le redemander à chaque fois.
+  const [location, setLocation] = useState<'maison' | 'salle'>(
+    () => (localStorage.getItem('vl-renfo-location') as 'maison' | 'salle') || 'maison',
+  )
+  useEffect(() => { localStorage.setItem('vl-renfo-location', location) }, [location])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const effectiveProfile = useMemo<any>(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p: any = renfoProfile ?? DEFAULT_PROFILE
+    const eqHome = p.equipment_home ?? p.equipment ?? {}
+    const eqGym = p.equipment_gym ?? p.equipment ?? {}
+    return {
+      ...p,
+      equipment: location === 'salle' ? eqGym : eqHome,
+      has_gym_access: location === 'salle',
+    }
+  }, [renfoProfile, location])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = useMemo<any>(() => {
     if (!focusKey) return null
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let s: any = buildSession(focusKey, profile)
+      let s: any = buildSession(focusKey, effectiveProfile)
       if (phase === 'deload') {
         s = { ...s, exercises: applyDeloadModifiers(s.exercises) }
       } else {
@@ -96,7 +115,7 @@ export default function RenfoSessionPage() {
       console.error('[RenfoSession] buildSession error for', focusKey, err)
       return { exercises: [], focus: focusKey, label: focusKey, duration_min: 30, timing_notes: [], _buildError: String(err) }
     }
-  }, [focusKey, phase, renfoProfile]) // eslint-disable-line
+  }, [focusKey, phase, effectiveProfile])
 
   const logsByExo = useMemo(() => {
     const map: Record<string, ExerciseLog[]> = {}
@@ -296,6 +315,25 @@ export default function RenfoSessionPage() {
   const meta = FOCUS_META[focusKey!] ?? {}
   const color: string = RENFO_FOCUS_COLORS[focusKey!] ?? 'var(--vl-ember)'
 
+  // Sélecteur de lieu (affiché à l'intro de séance) — pilote le matériel → les variantes.
+  const locationToggle = (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <div className="fl" style={{ marginBottom: '0.5rem' }}>Où t'entraînes-tu aujourd'hui ?</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {(['maison', 'salle'] as const).map((loc) => (
+          <button key={loc} className="hbtn" style={{ flex: 1,
+            ...(location === loc ? { background: 'var(--vl-ember)', borderColor: 'var(--vl-ember)', color: 'var(--vl-ink)' } : {}) }}
+            onClick={() => setLocation(loc)}>
+            {loc === 'maison' ? '🏠 Maison' : '🏋️ Salle'}
+          </button>
+        ))}
+      </div>
+      <div className="mlabel" style={{ marginTop: 6, color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+        Variantes adaptées à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Configurable dans Réglages équipement.
+      </div>
+    </div>
+  )
+
   // ── Warmup ────────────────────────────────────────────────────────────────
   if (stageState.stage === 'warmup' && session.exercises.length === 0) {
     return (
@@ -304,10 +342,14 @@ export default function RenfoSessionPage() {
           ← Renfo
         </Link>
         <div className="clabel" style={{ marginBottom: '1rem', color }}>{meta.label ?? focusKey}</div>
+        {locationToggle}
         <div className="card" style={{ borderLeft: '3px solid var(--vl-ember)' }}>
           <div className="mlabel" style={{ color: 'var(--vl-ember)', marginBottom: 4 }}>Aucun exercice disponible</div>
+          <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 4 }}>
+            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l'autre lieu, ou ajoute du matériel dans Réglages équipement.
+          </div>
           {session._buildError && (
-            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, fontSize: '0.75rem' }}>
+            <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, fontSize: '0.75rem', marginTop: 4 }}>
               {session._buildError}
             </div>
           )}
@@ -323,6 +365,8 @@ export default function RenfoSessionPage() {
           ← Renfo
         </Link>
         <div className="clabel" style={{ marginBottom: '1.5rem', color }}>{meta.label ?? focusKey}</div>
+
+        {locationToggle}
 
         {/* Échauffement block — shown when warmup_text is defined in FOCUS_META */}
         {meta.warmup_text && (
