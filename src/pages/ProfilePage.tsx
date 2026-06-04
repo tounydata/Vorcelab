@@ -213,8 +213,11 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
           <div key={key} style={{ marginBottom: 10, paddingLeft: 8, borderLeft: `2px solid ${color}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
               <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 13, fontWeight: 700, color }}>
-                {isSlower ? '+' : ''}{p.paceImpactPct.toFixed(1)}%
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, color }}>
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 13, fontWeight: 700 }}>
+                  {isSlower ? '+' : '−'}{abs.toFixed(1)}%
+                </span>
+                <span style={{ fontSize: 10 }}>{abs < 1 ? 'sans effet' : isSlower ? 'plus lent' : 'plus rapide'}</span>
               </div>
             </div>
             <div style={{ fontSize: 10, color: 'var(--vl-text-3)', lineHeight: 1.4 }}>
