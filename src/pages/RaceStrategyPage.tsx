@@ -236,7 +236,11 @@ export default function RaceStrategyPage() {
     ? computeWeatherImpact(forecast, (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties)
     : null
 
-  function runAnalysis(pts: GpxPoint[], shouldSave: boolean) {
+  // `shouldSave` : import GPX explicite → on persiste + affiche le statut « enregistré ».
+  // `silentSync` : recalcul auto au chargement → on re-persiste la projection fraîche
+  // (sans flash de statut) UNIQUEMENT si elle a dérivé de celle stockée, pour que le
+  // dashboard (qui lit last_projection) reste raccord avec la vraie projection.
+  function runAnalysis(pts: GpxPoint[], shouldSave: boolean, silentSync = false) {
     setIsComputing(true)
     setTimeout(() => {
       try {
@@ -247,21 +251,31 @@ export default function RaceStrategyPage() {
           race ? { type: race.type, goal_time: race.goal_time } : null,
         )
         setProjection(result)
-        if (shouldSave) {
-          setSaveStatus('saving')
+
+        const fresh = {
+          cible:      Math.round(result.estTimeS),
+          prudent:    Math.round(result.timeMax),
+          agressif:   Math.round(result.timeMin),
+          confidence: result.confidence,
+        }
+        const stored = race?.last_projection as typeof fresh | null
+        const drifted = !stored
+          || stored.cible !== fresh.cible
+          || stored.prudent !== fresh.prudent
+          || stored.agressif !== fresh.agressif
+          || stored.confidence !== fresh.confidence
+
+        if (shouldSave || (silentSync && drifted)) {
+          if (!silentSync) setSaveStatus('saving')
           supabase
             .from('race_calendar')
-            .update({
-              gpx_data: pts,
-              last_projection: {
-                cible:      Math.round(result.estTimeS),
-                prudent:    Math.round(result.timeMax),
-                agressif:   Math.round(result.timeMin),
-                confidence: result.confidence,
-              },
-            })
+            .update({ gpx_data: pts, last_projection: fresh })
             .eq('id', raceId!)
-            .then(() => setSaveStatus('saved'))
+            .then(() => {
+              if (!silentSync) setSaveStatus('saved')
+              // Le dashboard relira la projection à jour.
+              queryClient.invalidateQueries({ queryKey: ['next-race-dashboard'] })
+            })
         }
       } catch (err) {
         console.error('GPX projection error:', err)
@@ -276,7 +290,7 @@ export default function RaceStrategyPage() {
     if (projection) return
     const pts = race.gpx_data as GpxPoint[]
     if (!Array.isArray(pts) || pts.length < 2) return
-    runAnalysis(pts, false)
+    runAnalysis(pts, false, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race, activitiesData, profileData])
 
