@@ -393,9 +393,11 @@ export async function buildRunnerProfile(
     // Filtre d'intensité : on ne compare que des sorties d'endurance (effort comparable).
     // Les efforts intenses (séances, courses) — souvent estivales et rapides — fausseraient
     // la mesure de l'effet condition (ex. « chaleur = plus rapide » alors que c'est l'allure).
+    // Seuil à 90% FCmax pour éviter de filtrer trop agressivement les sorties chaudes
+    // où la fréquence cardiaque naturelle est élevée même en effort modéré.
     const hrFrac = (typeof act.average_heartrate === 'number' && act.average_heartrate > 0 && fcMax > 0)
       ? act.average_heartrate / fcMax : null
-    if (hrFrac != null && hrFrac > 0.85) continue
+    if (hrFrac != null && hrFrac > 0.90) continue
 
     const secPerKm = 1000 / act.average_speed
     const dplusPerKm = (act.total_elevation_gain ?? 0) / (distM / 1000)
