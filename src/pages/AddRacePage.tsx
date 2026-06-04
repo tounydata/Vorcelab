@@ -26,6 +26,7 @@ export default function AddRacePage() {
   const [type, setType] = useState<RaceType>('Trail')
   const [distance, setDistance] = useState('')
   const [elevation, setElevation] = useState('')
+  const [startTime, setStartTime] = useState('')
   const [priority, setPriority] = useState<Priority>('A')
 
   const km = parseFloat(distance.replace(',', '.'))
@@ -42,6 +43,7 @@ export default function AddRacePage() {
         elevation: elevation ? parseInt(elevation, 10) : 0,
         type,
         priority,
+        start_time: startTime || null,
       })
       if (error) throw error
     },
@@ -123,6 +125,14 @@ export default function AddRacePage() {
             <input id="race-elev" type="number" inputMode="numeric" min="0" step="10" style={inputStyle}
               value={elevation} onChange={(e) => setElevation(e.target.value)} placeholder="0" />
           </div>
+        </div>
+
+        {/* Heure de départ */}
+        <div>
+          <label style={labelStyle} htmlFor="race-start">Heure de départ <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optionnel)</span></label>
+          <input id="race-start" type="time" style={inputStyle}
+            value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <div style={{ fontSize: 12, color: 'var(--vl-text-3)', marginTop: 4 }}>Affine la météo à J-10 (chaleur, nuit, vent).</div>
         </div>
 
         {/* Priorité */}

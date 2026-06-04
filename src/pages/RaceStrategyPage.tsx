@@ -5,6 +5,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult, type Section } from '../lib/computeRaceProjection'
+import { fetchRaceForecast, computeWeatherImpact } from '../lib/raceWeather'
+import type { ConditionPenalties } from '../lib/runnerProfile'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import { extractGpxWaypoints, scoreRaceSection, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
@@ -19,6 +21,7 @@ interface Race {
   elevation: number | null
   type: string | null
   goal_time: string | null
+  start_time: string | null
   gpx_data: unknown | null
   last_projection: unknown | null
   share_token: string | null
@@ -107,6 +110,7 @@ export default function RaceStrategyPage() {
   const [editDate, setEditDate] = useState('')
   const [editDistance, setEditDistance] = useState('')
   const [editElevation, setEditElevation] = useState('')
+  const [editStartTime, setEditStartTime] = useState('')
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -142,6 +146,7 @@ export default function RaceStrategyPage() {
           date: editDate,
           distance: Number.isFinite(km) ? km : null,
           elevation: editElevation ? parseInt(editElevation, 10) : null,
+          start_time: editStartTime || null,
         })
         .eq('id', raceId!)
       if (error) throw error
@@ -159,6 +164,7 @@ export default function RaceStrategyPage() {
     setEditDate(race.date?.slice(0, 10) ?? '')
     setEditDistance(race.distance != null ? String(race.distance) : '')
     setEditElevation(race.elevation != null ? String(race.elevation) : '')
+    setEditStartTime(race.start_time ?? '')
     setSettingsOpen(false)
     setEditOpen(true)
   }
@@ -176,7 +182,7 @@ export default function RaceStrategyPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,gpx_data,last_projection,share_token')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -212,6 +218,23 @@ export default function RaceStrategyPage() {
       return (data ?? {}) as Record<string, unknown>
     },
   })
+
+  // ── Météo J-10 : prévision sur la fenêtre de course (départ → arrivée estimée) ──
+  const startPt = projection?.points?.[0]
+  const { data: forecast } = useQuery({
+    queryKey: ['race-forecast', raceId, race?.date, race?.start_time, projection?.estTimeS, startPt?.lat, startPt?.lon],
+    enabled: !!startPt && !!race?.date && !!projection,
+    staleTime: 30 * 60 * 1000,
+    queryFn: () => fetchRaceForecast({
+      lat: startPt!.lat, lon: startPt!.lon,
+      dateISO: race!.date.slice(0, 10),
+      startTime: race!.start_time ?? null,
+      estDurationS: projection!.estTimeS,
+    }),
+  })
+  const weather = forecast
+    ? computeWeatherImpact(forecast, (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties)
+    : null
 
   function runAnalysis(pts: GpxPoint[], shouldSave: boolean) {
     setIsComputing(true)
@@ -561,6 +584,12 @@ export default function RaceStrategyPage() {
                     style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
                 </div>
               </div>
+              <div>
+                <label className="mlabel" htmlFor="edit-start" style={{ display: 'block', marginBottom: 5 }}>Heure de départ</label>
+                <input id="edit-start" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+                <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 4 }}>Affine la météo à J-10 (chaleur, nuit, vent).</div>
+              </div>
             </div>
 
             {editMutation.isError && (
@@ -643,6 +672,52 @@ export default function RaceStrategyPage() {
                   <div className="slbl" style={{ fontSize: '0.65rem' }}>prudent</div>
                 </div>
               </div>
+
+              {/* Météo J-10 — ajuste la projection selon les conditions du jour J */}
+              {forecast && (
+                <div style={{ margin: '0.25rem 0 0.85rem', padding: '10px 12px', borderRadius: 'var(--vl-r-sm)', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)' }}>
+                  {!forecast.available ? (
+                    <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
+                      ☁ {forecast.reason}
+                      {forecast.daysToRace > 10 && ` (J-${forecast.daysToRace})`}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <span className="clabel" style={{ margin: 0 }}>CONDITIONS LE JOUR J · J-{forecast.daysToRace}</span>
+                        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)' }}>
+                          {forecast.tempC != null && `${Math.round(forecast.tempC)}°C`}
+                          {forecast.windKmh != null && ` · vent ${Math.round(forecast.windKmh)} km/h`}
+                          {forecast.precipMm ? ` · ${forecast.precipMm} mm` : ''}
+                          {forecast.isNight && ' · 🌙 nuit'}
+                        </span>
+                      </div>
+                      {weather && weather.items.length > 0 ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem' }}>{fmtTime(Math.round(projection.estTimeS * weather.factor))}</span>
+                            <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-ember)' }}>
+                              cible ajustée météo (+{weather.totalPct}%)
+                            </span>
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
+                            {weather.items.map((it, k) => (
+                              <span key={it.key}>
+                                {k > 0 && ' · '}
+                                {it.label} +{it.pct}% <span style={{ opacity: 0.7 }}>({it.source})</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--vl-growth)' }}>
+                          Conditions favorables — aucun impact attendu sur ta cible.
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Confiance pill */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: '0.5rem' }}>
