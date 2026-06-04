@@ -427,7 +427,7 @@ export default function ProfilePage() {
   const user = useVLStore((s) => s.user)
   const [searchParams, setSearchParams] = useSearchParams()
   type TabKey = 'reglages' | 'compte' | 'analyse' | 'records' | 'nutrition'
-  const activeTab = (searchParams.get('tab') ?? 'reglages') as TabKey
+  const activeTab = (searchParams.get('tab') ?? 'compte') as TabKey
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'compte' ? {} : { tab }, { replace: false })
   const [computing, setComputing] = useState(false)
@@ -594,9 +594,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <div data-tour="profile-data" style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <button style={tabStyle(activeTab === 'reglages')} onClick={() => setActiveTab('reglages')}>PARAMÈTRES</button>
-        <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <button data-tour="profile-account" style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>PROFIL</button>
+        <button data-tour="profile-settings" style={tabStyle(activeTab === 'reglages')} onClick={() => setActiveTab('reglages')}>PARAMÈTRES</button>
         <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>LABO</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
         <button data-tour="profile-nutrition" style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
