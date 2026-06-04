@@ -22,5 +22,8 @@ export default function OnboardingGate() {
 
   // On n'affiche QUE si on sait avec certitude que l'onboarding n'est pas fait.
   if (!user || data !== false) return null
-  return <Onboarding onDone={() => qc.invalidateQueries({ queryKey: ['onboarding-done', user.id] })} />
+  return <Onboarding onDone={() => {
+    qc.invalidateQueries({ queryKey: ['onboarding-done', user.id] })
+    qc.invalidateQueries({ queryKey: ['tour-state', user.id] }) // débloque l'auto-tuto post-onboarding
+  }} />
 }

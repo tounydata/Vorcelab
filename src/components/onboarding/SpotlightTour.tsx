@@ -7,15 +7,35 @@ import { PAGE_TOURS, type TourStep } from './spotlightTours'
 
 // Tuto contextuel à SPOTLIGHT : floute tout sauf l'élément expliqué, se déplace
 // d'étape en étape. Déclenché à l'entrée d'une page (1ʳᵉ visite), rejouable via « ? ».
+// L'état « vu » est persisté côté serveur (profiles.tours_seen / tours_off) afin de
+// ne pas se rejouer en navigation privée ou sur un autre appareil ; localStorage sert
+// de cache synchrone pour la session courante.
 const seenKey = (id: string) => `vl-tour-${id}-v1`
 const TOURS_OFF = 'vl-tours-off' // « ne plus afficher » global
 const PAD = 8
 
-function toursOff(): boolean {
+function localOff(): boolean {
   try { return !!localStorage.getItem(TOURS_OFF) } catch { return false }
 }
-function markSeenPage(id: string) {
+function localSeen(id: string): boolean {
+  try { return !!localStorage.getItem(seenKey(id)) } catch { return false }
+}
+function markSeenLocal(id: string) {
   try { localStorage.setItem(seenKey(id), '1') } catch { /* localStorage indispo */ }
+}
+
+// Persistance serveur best-effort (n'empêche jamais l'affichage du tuto).
+async function persistSeenServer(userId: string, id: string) {
+  try {
+    const { data } = await supabase.from('profiles').select('tours_seen').eq('id', userId).maybeSingle()
+    const arr: string[] = data?.tours_seen ?? []
+    if (!arr.includes(id)) {
+      await supabase.from('profiles').update({ tours_seen: [...arr, id] }).eq('id', userId)
+    }
+  } catch { /* hors-ligne : le cache localStorage suffit pour la session */ }
+}
+async function persistOffServer(userId: string) {
+  try { await supabase.from('profiles').update({ tours_off: true }).eq('id', userId) } catch { /* ignore */ }
 }
 
 /** Rejoue le tuto de la page courante (bouton « ? »). */
@@ -34,14 +54,34 @@ export default function SpotlightTour() {
   const currentTour = useCallback(() => PAGE_TOURS.find((t) => t.match(pathname)) ?? null, [pathname])
 
   // On n'auto-déclenche qu'une fois le setup profil terminé (pas de superposition).
-  const { data: onboardingDone } = useQuery({
-    queryKey: ['onboarding-done', user?.id],
+  // On lit aussi l'état des tutos persisté côté serveur (vu / désactivés).
+  const { data: tourState } = useQuery({
+    queryKey: ['tour-state', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('onboarding_done').eq('id', user!.id).maybeSingle()
-      return data?.onboarding_done ?? null
+      const { data } = await supabase.from('profiles')
+        .select('onboarding_done, tours_seen, tours_off').eq('id', user!.id).maybeSingle()
+      return {
+        onboardingDone: data?.onboarding_done ?? null,
+        toursSeen: (data?.tours_seen ?? []) as string[],
+        toursOff: !!data?.tours_off,
+      }
     },
   })
+  const onboardingDone = tourState?.onboardingDone
+
+  // « vu » = cache local OU persistance serveur (couvre navigation privée / multi-appareil).
+  const isSeen = useCallback(
+    (id: string) => localSeen(id) || (tourState?.toursSeen.includes(id) ?? false),
+    [tourState],
+  )
+  const isOff = useCallback(() => localOff() || (tourState?.toursOff ?? false), [tourState])
+
+  // Marque un tuto comme vu : cache local immédiat + persistance serveur best-effort.
+  const markSeen = useCallback((id: string) => {
+    markSeenLocal(id)
+    if (user) persistSeenServer(user.id, id)
+  }, [user])
 
   const start = useCallback((tour: { id: string; steps: TourStep[] }) => {
     tourIdRef.current = tour.id
@@ -51,21 +91,19 @@ export default function SpotlightTour() {
 
   // Auto-déclenchement à l'entrée d'une page non encore vue.
   useEffect(() => {
-    if (!user || onboardingDone !== true || toursOff()) return
+    if (!user || onboardingDone !== true || isOff()) return
     const tour = currentTour()
     if (!tour) { setSteps(null); return }
-    let seen = false
-    try { seen = !!localStorage.getItem(seenKey(tour.id)) } catch { /* localStorage indispo */ }
-    if (seen) return
+    if (isSeen(tour.id)) return
     // On ne démarre que si la 1ʳᵉ cible est présente (page prête / section dispo).
     const t = setTimeout(() => {
       if (document.querySelector(tour.steps[0].selector)) {
-        markSeenPage(tour.id) // vu = dès l'affichage (sinon re-déclenché à chaque login si on quitte avant la fin)
+        markSeen(tour.id) // vu = dès l'affichage (sinon re-déclenché à chaque login si on quitte avant la fin)
         start(tour)
       }
     }, 650)
     return () => clearTimeout(t)
-  }, [pathname, user, onboardingDone, currentTour, start])
+  }, [pathname, user, onboardingDone, currentTour, start, isOff, isSeen, markSeen])
 
   // Rejeu manuel (bouton « ? ») sur la page courante.
   useEffect(() => {
@@ -90,7 +128,7 @@ export default function SpotlightTour() {
         // Cible absente (section conditionnelle) → on saute cette étape.
         if (idx >= steps.length - 1) {
           const id = tourIdRef.current
-          if (id) { try { localStorage.setItem(seenKey(id), '1') } catch { /* ignore */ } }
+          if (id) markSeen(id)
           setSteps(null); setRect(null)
         } else {
           setIdx((i) => i + 1)
@@ -109,7 +147,7 @@ export default function SpotlightTour() {
       window.removeEventListener('resize', onMove)
       window.removeEventListener('scroll', onMove, true)
     }
-  }, [steps, idx])
+  }, [steps, idx, markSeen])
 
   if (!steps) return null
   const step = steps[idx]
@@ -117,7 +155,7 @@ export default function SpotlightTour() {
 
   const finish = () => {
     const id = tourIdRef.current
-    if (id) { try { localStorage.setItem(seenKey(id), '1') } catch { /* ignore */ } }
+    if (id) markSeen(id)
     setSteps(null); setRect(null)
   }
   const next = () => { if (isLast) finish(); else setIdx((i) => i + 1) }
@@ -182,7 +220,7 @@ export default function SpotlightTour() {
               Passer
             </button>
             <button
-              onClick={() => { try { localStorage.setItem(TOURS_OFF, '1') } catch { /* ignore */ } finish() }}
+              onClick={() => { try { localStorage.setItem(TOURS_OFF, '1') } catch { /* ignore */ } if (user) persistOffServer(user.id); finish() }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.02em', color: 'var(--vl-text-3)', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}
             >
               Ne plus afficher
