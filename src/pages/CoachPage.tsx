@@ -13,8 +13,6 @@ import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import { computeDailyPMC } from '../lib/trainingLoad'
-import PaceZonesCard from '../components/PaceZonesCard'
-import Collapsible from '../components/Collapsible'
 import WeekProgram from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import type { LinkActivity } from '../components/SessionFeedback'
@@ -493,10 +491,6 @@ export default function CoachPage() {
         </div>
       )}
 
-      {/* ── Allures (secondaire) ── */}
-      <Collapsible title="Mes allures">
-        <PaceZonesCard prs={profile?.prs} vo2max={profile?.vo2max} fcMax={profile?.fc_max} bare />
-      </Collapsible>
 
       {/* ── 4 · CETTE SEMAINE : séances proposées (jamais imposées) ── */}
       <div data-tour="coach-week" className="coach-block-h">

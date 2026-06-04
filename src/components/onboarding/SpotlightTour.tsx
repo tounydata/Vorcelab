@@ -126,17 +126,28 @@ export default function SpotlightTour() {
   const vw = window.innerWidth, vh = window.innerHeight
   const panel: React.CSSProperties = { position: 'fixed', background: 'rgba(15,15,18,.62)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', zIndex: 3000 }
 
-  // Position de la bulle : sous la cible si place en bas, sinon au-dessus (via `bottom`).
+  // Position de la bulle : sous la cible si la place existe, sinon au-dessus, sinon
+  // centrée — et jamais plus haute que le viewport (sinon crop hors écran sur mobile).
   const W = Math.min(340, vw - 24)
+  const GAP = PAD + 12
+  const EST = 200 // hauteur estimée de la bulle pour décider du placement
   let tip: React.CSSProperties
   if (rect) {
-    const below = rect.bottom < vh * 0.6
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - W / 2, vw - 12 - W))
-    tip = below
-      ? { position: 'fixed', top: rect.bottom + PAD + 12, left, width: W, zIndex: 3002 }
-      : { position: 'fixed', bottom: vh - rect.top + PAD + 12, left, width: W, zIndex: 3002 }
+    const roomBelow = vh - rect.bottom - GAP
+    const roomAbove = rect.top - GAP
+    if (roomBelow >= Math.min(EST, roomAbove) || roomBelow >= EST) {
+      // sous la cible
+      tip = { position: 'fixed', top: rect.bottom + GAP, left, width: W, maxHeight: Math.max(120, roomBelow - 8), overflowY: 'auto', zIndex: 3002 }
+    } else if (roomAbove >= 120) {
+      // au-dessus de la cible
+      tip = { position: 'fixed', bottom: vh - rect.top + GAP, left, width: W, maxHeight: Math.max(120, roomAbove - 8), overflowY: 'auto', zIndex: 3002 }
+    } else {
+      // pas de place : centrée
+      tip = { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: W, maxHeight: vh - 24, overflowY: 'auto', zIndex: 3002 }
+    }
   } else {
-    tip = { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: W, zIndex: 3002 }
+    tip = { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: W, maxHeight: vh - 24, overflowY: 'auto', zIndex: 3002 }
   }
 
   return (
