@@ -506,7 +506,11 @@ export default function ProfilePage() {
       const { error } = await supabase.from('profiles').update(patch).eq('id', user!.id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile-full', user?.id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile-full', user?.id] })
+      // Also invalidate CoachPage's profile-sessions query when coach settings change
+      queryClient.invalidateQueries({ queryKey: ['profile-sessions'] })
+    },
   })
 
   // Populate form once data loads
