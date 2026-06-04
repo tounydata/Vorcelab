@@ -390,6 +390,13 @@ export async function buildRunnerProfile(
     const distM = act.average_speed * act.moving_time
     if (distM < 3000) continue
 
+    // Filtre d'intensité : on ne compare que des sorties d'endurance (effort comparable).
+    // Les efforts intenses (séances, courses) — souvent estivales et rapides — fausseraient
+    // la mesure de l'effet condition (ex. « chaleur = plus rapide » alors que c'est l'allure).
+    const hrFrac = (typeof act.average_heartrate === 'number' && act.average_heartrate > 0 && fcMax > 0)
+      ? act.average_heartrate / fcMax : null
+    if (hrFrac != null && hrFrac > 0.85) continue
+
     const secPerKm = 1000 / act.average_speed
     const dplusPerKm = (act.total_elevation_gain ?? 0) / (distM / 1000)
     const entry: CondEntry = { secPerKm, dplusPerKm }
@@ -430,23 +437,52 @@ export async function buildRunnerProfile(
     ? condData.neutral.reduce((s, d) => s + d.secPerKm, 0) / condData.neutral.length
     : null
 
-  function buildCondPenalty(data: CondEntry[]): ConditionPenalty | undefined {
-    if (data.length < 2 || !neutralModel || !neutralMeanPace) return undefined
-    const meanResidual = data
-      .map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
-      .reduce((s, r) => s + r, 0) / data.length
+  // Plage de terrain (D+/km) réellement observée en conditions neutres : on ne mesure
+  // une condition que sur des sorties au profil comparable (pas d'extrapolation OLS).
+  const neutralDplus = condData.neutral.map(d => d.dplusPerKm).sort((a, b) => a - b)
+  const dpLo = neutralDplus.length ? neutralDplus[Math.floor(neutralDplus.length * 0.05)] : 0
+  const dpHi = neutralDplus.length ? neutralDplus[Math.min(neutralDplus.length - 1, Math.ceil(neutralDplus.length * 0.95))] : Infinity
+
+  // Bornes physiologiques par condition (positif = plus lent). Chaleur / nuit / vent ne
+  // peuvent pas rendre plus rapide ; le froid peut légèrement aider. Une valeur brute
+  // hors de ces bornes = artefact → on clampe ET on dégrade la confiance.
+  const COND_BOUNDS: Record<'heat' | 'cold' | 'night' | 'wind', { lo: number; hi: number }> = {
+    heat:  { lo: 0,  hi: 25 },
+    cold:  { lo: -5, hi: 15 },
+    night: { lo: 0,  hi: 15 },
+    wind:  { lo: 0,  hi: 15 },
+  }
+
+  function buildCondPenalty(data: CondEntry[], key: 'heat' | 'cold' | 'night' | 'wind'): ConditionPenalty | undefined {
+    if (!neutralModel || !neutralMeanPace) return undefined
+    // 1) terrain comparable uniquement (pas d'extrapolation)
+    const inRange = data.filter(d => d.dplusPerKm >= dpLo && d.dplusPerKm <= dpHi)
+    if (inRange.length < 2) return undefined
+    // 2) résidus vs modèle terrain neutre
+    let resid = inRange.map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
+    // 3) trim : on retire le résidu le plus extrême quand l'échantillon le permet
+    if (resid.length >= 4) {
+      resid = [...resid].sort((a, b) => Math.abs(a) - Math.abs(b)).slice(0, resid.length - 1)
+    }
+    const meanResidual = resid.reduce((s, r) => s + r, 0) / resid.length
+    const rawPct = (meanResidual / neutralMeanPace) * 100
+    // 4) garde-fous : borne par condition + confiance dégradée si valeur aberrante
+    const { lo, hi } = COND_BOUNDS[key]
+    const clamped = Math.max(lo, Math.min(hi, rawPct))
+    let confidence = computeConfidenceFromCount(inRange.length, { high: 5, medium: 2 })
+    if (rawPct < lo || rawPct > hi) confidence = 'low'
     return {
-      paceImpactPct: (meanResidual / neutralMeanPace) * 100,
-      sampleCount: data.length,
-      confidence: computeConfidenceFromCount(data.length, { high: 5, medium: 2 }),
+      paceImpactPct: +clamped.toFixed(1),
+      sampleCount: inRange.length,
+      confidence,
     }
   }
 
   const conditionPenalties: ConditionPenalties = {}
-  const heatP  = buildCondPenalty(condData.heat)
-  const coldP  = buildCondPenalty(condData.cold)
-  const nightP = buildCondPenalty(condData.night)
-  const windP  = buildCondPenalty(condData.wind)
+  const heatP  = buildCondPenalty(condData.heat, 'heat')
+  const coldP  = buildCondPenalty(condData.cold, 'cold')
+  const nightP = buildCondPenalty(condData.night, 'night')
+  const windP  = buildCondPenalty(condData.wind, 'wind')
   if (heatP)  conditionPenalties.heat  = heatP
   if (coldP)  conditionPenalties.cold  = coldP
   if (nightP) conditionPenalties.night = nightP
