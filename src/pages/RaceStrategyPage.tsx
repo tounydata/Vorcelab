@@ -407,6 +407,7 @@ export default function RaceStrategyPage() {
         projection.estTimeS,
         profileData?.nutrition_level as string | undefined,
         resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined),
+        profileData?.nutrition_no_caffeine === true,
       )
     : []
 
