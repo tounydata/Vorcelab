@@ -182,8 +182,6 @@ export default function RaceListPage() {
             padding: '7px 14px',
             cursor: 'pointer',
             textDecoration: 'none',
-            pointerEvents: 'none',
-            opacity: 0.5,
           }}
         >
           + Ajouter une course
