@@ -403,6 +403,7 @@ interface ProfileRow {
   prs?: Record<string, unknown> | null
   nutrition_level?: string | null
   nutrition_products?: string[] | null
+  nutrition_no_caffeine?: boolean | null
   runner_profile?: RunnerProfileComputed | null
   coach_days_per_week?: number | null
   renfo_weekly_target?: number | null
@@ -491,7 +492,7 @@ export default function ProfilePage() {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,nutrition_no_caffeine,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation')
         .eq('id', user.id)
         .single()
       return data as ProfileRow | null
@@ -957,6 +958,39 @@ export default function ProfilePage() {
 
       {/* ── Tab NUTRITION ── */}
       {activeTab === 'nutrition' && (
+        <>
+        {/* Préférences nutrition */}
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="clabel" style={{ marginBottom: 8 }}>PRÉFÉRENCES</div>
+          {(() => {
+            const noCaf = profileRow?.nutrition_no_caffeine === true
+            return (
+              <button
+                onClick={() => settingsMut.mutate({ nutrition_no_caffeine: !noCaf })}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%',
+                  background: 'transparent', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)',
+                  padding: '11px 13px', cursor: 'pointer', textAlign: 'left', color: 'var(--vl-text)',
+                }}
+              >
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, display: 'block' }}>Sans caféine</span>
+                  <span style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>Le plan de course évite les produits caféinés (et le cola).</span>
+                </span>
+                <span style={{
+                  flexShrink: 0, width: 42, height: 24, borderRadius: 12, position: 'relative', transition: 'background .15s',
+                  background: noCaf ? 'var(--vl-ember)' : 'var(--vl-line)',
+                }}>
+                  <span style={{
+                    position: 'absolute', top: 2, left: noCaf ? 20 : 2, width: 20, height: 20, borderRadius: '50%',
+                    background: '#fff', transition: 'left .15s',
+                  }} />
+                </span>
+              </button>
+            )
+          })()}
+        </div>
+
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
             <div className="clabel" style={{ margin: 0 }}>MES PRODUITS NUTRITION</div>
@@ -1023,6 +1057,7 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+        </>
       )}
 
       {/* ── Tab ANALYSE COUREUR ── */}

@@ -30,3 +30,27 @@ describe('computeNutritionPlan — produits de l\'athlète', () => {
     expect(text).toContain('Gel sans caféine')
   })
 })
+
+describe('computeNutritionPlan — préférence sans caféine', () => {
+  it('ne propose aucun gel caféiné quand avoidCaffeine = true (produits athlète)', () => {
+    const products = resolveNutritionProducts(['4endurance-gel', '4endurance-drink', 'maurten-gel-100-caf'])
+    const rows = computeNutritionPlan(42195, 4 * 3600, 'standard', products, true)
+    const actions = rows.map((r) => r.action).join(' | ')
+    expect(actions).not.toMatch(/CAF/)             // pas le gel caféiné de l'athlète
+    expect(actions).not.toMatch(/\(caféine\)/)     // pas d'action « (caféine) »
+    expect(rows.map((r) => r.note).join(' | ')).toContain('sans caféine')
+  })
+
+  it('générique : pas de cola ni de gel caféiné quand avoidCaffeine = true', () => {
+    const rows = computeNutritionPlan(42195, 4 * 3600, 'standard', [], true)
+    const text = rows.map((r) => r.action).join(' | ')
+    expect(text).not.toMatch(/cola/i)
+    expect(text).not.toMatch(/caféiné/i)
+  })
+
+  it('par défaut (avoidCaffeine = false) la caféine reste proposée', () => {
+    const rows = computeNutritionPlan(42195, 4 * 3600, 'standard', [])
+    const text = rows.map((r) => r.action).join(' | ')
+    expect(text).toMatch(/caféiné/i)
+  })
+})
