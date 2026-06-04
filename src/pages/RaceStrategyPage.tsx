@@ -101,6 +101,13 @@ export default function RaceStrategyPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
 
+  // Édition des infos de la course (nom, date, distance, D+).
+  const [editOpen, setEditOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editDistance, setEditDistance] = useState('')
+  const [editElevation, setEditElevation] = useState('')
+
   useEffect(() => {
     if (!settingsOpen) return
     function onPointerDown(e: PointerEvent) {
@@ -124,6 +131,37 @@ export default function RaceStrategyPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['race', raceId] }),
   })
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      const km = parseFloat(editDistance.replace(',', '.'))
+      const { error } = await supabase
+        .from('race_calendar')
+        .update({
+          name: editName.trim(),
+          date: editDate,
+          distance: Number.isFinite(km) ? km : null,
+          elevation: editElevation ? parseInt(editElevation, 10) : null,
+        })
+        .eq('id', raceId!)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['race', raceId] })
+      queryClient.invalidateQueries({ queryKey: ['races'] })
+      setEditOpen(false)
+    },
+  })
+
+  function openEdit() {
+    if (!race) return
+    setEditName(race.name)
+    setEditDate(race.date?.slice(0, 10) ?? '')
+    setEditDistance(race.distance != null ? String(race.distance) : '')
+    setEditElevation(race.elevation != null ? String(race.elevation) : '')
+    setSettingsOpen(false)
+    setEditOpen(true)
+  }
 
   function copyShareUrl(token: string) {
     const url = `${window.location.origin}${window.location.pathname}#/s/${token}`
@@ -436,6 +474,13 @@ export default function RaceStrategyPage() {
 
           {settingsOpen && (
             <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, minWidth: 210, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+              {/* Infos course */}
+              <button style={menuItemStyle} onClick={openEdit}>
+                Modifier la course
+              </button>
+
+              <div style={{ height: 1, background: 'var(--vl-line)' }} />
+
               {/* GPX */}
               <button style={menuItemStyle} onClick={() => { fileInputRef.current?.click(); setSettingsOpen(false) }}>
                 Changer de GPX
@@ -477,6 +522,68 @@ export default function RaceStrategyPage() {
           )}
         </div>
       </div>
+
+      {/* ── Modale d'édition des infos de la course ──────────────────────────── */}
+      {editOpen && (
+        <div
+          onClick={() => setEditOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(10,10,12,0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          className="no-print"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 420, background: 'var(--vl-surf)', border: '1px solid var(--vl-line-2)', borderTop: '3px solid var(--vl-ember)', borderRadius: 'var(--vl-r)', padding: '18px 18px 16px', boxShadow: '0 24px 60px -24px rgba(0,0,0,.85)' }}
+          >
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, marginBottom: 14 }}>
+              Modifier la course
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="mlabel" htmlFor="edit-name" style={{ display: 'block', marginBottom: 5 }}>Nom</label>
+                <input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+              </div>
+              <div>
+                <label className="mlabel" htmlFor="edit-date" style={{ display: 'block', marginBottom: 5 }}>Date</label>
+                <input id="edit-date" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="mlabel" htmlFor="edit-dist" style={{ display: 'block', marginBottom: 5 }}>Distance (km)</label>
+                  <input id="edit-dist" type="number" inputMode="decimal" min="0" step="0.1" value={editDistance} onChange={(e) => setEditDistance(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="mlabel" htmlFor="edit-elev" style={{ display: 'block', marginBottom: 5 }}>D+ (m)</label>
+                  <input id="edit-elev" type="number" inputMode="numeric" min="0" step="10" value={editElevation} onChange={(e) => setEditElevation(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+                </div>
+              </div>
+            </div>
+
+            {editMutation.isError && (
+              <div style={{ color: 'var(--vl-status-bad, #d66)', fontSize: '.85rem', marginTop: 10 }}>
+                Impossible d’enregistrer. Réessaie.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setEditOpen(false)} className="hbtn" style={{ fontSize: '.85rem', padding: '8px 14px' }}>
+                Annuler
+              </button>
+              <button
+                onClick={() => editMutation.mutate()}
+                disabled={!editName.trim() || !editDate || editMutation.isPending}
+                style={{ border: 'none', borderRadius: 'var(--vl-r-sm)', padding: '8px 16px', fontFamily: 'var(--vl-display)', fontWeight: 800, fontSize: '.9rem', cursor: editName.trim() && editDate && !editMutation.isPending ? 'pointer' : 'not-allowed', background: editName.trim() && editDate ? 'var(--vl-ember)' : 'var(--vl-line)', color: editName.trim() && editDate ? 'var(--vl-ink)' : 'var(--vl-text-3)' }}
+              >
+                {editMutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isComputing && (
         <div className="loading"><div className="spinner" /><span className="mlabel">Calcul de la stratégie…</span></div>
