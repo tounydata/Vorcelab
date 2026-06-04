@@ -62,7 +62,7 @@ export default function RenfoPage() {
       const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
       const { data } = await supabase
         .from('renfo_session_log')
-        .select('id,focus,duration_min,session_date')
+        .select('id,focus,duration_min,session_date,source')
         .eq('user_id', user!.id)
         .gte('session_date', cutoff)
         .order('session_date', { ascending: false })
@@ -92,6 +92,19 @@ export default function RenfoPage() {
     onSuccess: () => {
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+    },
+  })
+
+  // Tag du type d'une séance (utile pour catégoriser les imports Strava « à catégoriser »).
+  // Aucun garde-fou : la contrainte d'unicité a été levée → doubles séances autorisées.
+  const focusMutation = useMutation({
+    mutationFn: async ({ id, focus }: { id: string; focus: string }) => {
+      const { error } = await supabase.from('renfo_session_log').update({ focus }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-dashboard'] })
     },
   })
 
@@ -246,15 +259,40 @@ export default function RenfoPage() {
       {sessionLogs.length > 0 && (
         <div className="card">
           <div className="clabel" style={{ marginBottom: '0.75rem' }}>SÉANCES RÉCENTES</div>
+          {sessionLogs.some((s) => !s.focus) && (
+            <div style={{ fontSize: 11, color: 'var(--vl-amber)', marginBottom: '0.6rem', lineHeight: 1.5 }}>
+              {sessionLogs.filter((s) => !s.focus).length} séance(s) importée(s) à catégoriser — choisis le type ci-dessous pour qu'elles nourrissent l'algo.
+            </div>
+          )}
           {sessionLogs.map((s) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const meta = (FOCUS_META as Record<string, any>)[s.focus]
             const isEditing = editingId === s.id
             const isConfirming = confirmDeleteId === s.id
+            const isStrava = s.source === 'strava'
+            const uncategorized = !s.focus
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--vl-line)', gap: 8 }}>
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 8px 8px', borderBottom: '1px solid var(--vl-line)', borderLeft: uncategorized ? '2px solid var(--vl-amber)' : '2px solid transparent', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{meta?.label ?? s.focus}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <select
+                      value={s.focus ?? ''}
+                      onChange={(e) => s.id && focusMutation.mutate({ id: s.id, focus: e.target.value })}
+                      style={{
+                        fontFamily: 'var(--vl-mono)', fontSize: 11, padding: '3px 6px', borderRadius: 4,
+                        background: uncategorized ? 'color-mix(in oklab, var(--vl-amber) 14%, transparent)' : 'var(--vl-surf-2)',
+                        border: `1px solid ${uncategorized ? 'var(--vl-amber)' : 'var(--vl-line)'}`, color: 'var(--vl-text)',
+                      }}
+                    >
+                      <option value="" disabled>À catégoriser…</option>
+                      {ALL_FOCUSES.map((f) => (
+                        <option key={f} value={f}>{(FOCUS_META as Record<string, { label?: string }>)[f]?.label ?? f}</option>
+                      ))}
+                    </select>
+                    {isStrava && (
+                      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '1px 5px', letterSpacing: '.04em', flexShrink: 0 }}>
+                        Strava
+                      </span>
+                    )}
+                  </div>
                   {isEditing ? (
                     <div style={{ display: 'flex', gap: 6, marginTop: 4, alignItems: 'center' }}>
                       <input

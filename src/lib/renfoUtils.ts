@@ -31,9 +31,11 @@ export interface ExerciseLog {
 
 export interface SessionLog {
   id?: string
-  focus: string
+  focus: string | null
   duration_min?: number | null
   session_date?: string
+  /** 'strava' pour les séances auto-importées, null/absent pour les saisies manuelles. */
+  source?: string | null
 }
 
 // ── DUP 4 SEMAINES ────────────────────────────────────────────────────────────
@@ -202,7 +204,7 @@ export function computeImpactZone(sessions: SessionLog[]): {
     yoga_coureur: 0.3, stretching: 0.2, pilates_coureur: 0.3,
     excentrique_pliometrie: 1.25,
   }
-  const score = sessions.reduce((sum, s) => sum + (s.duration_min ?? 30) * (WEIGHTS[s.focus] ?? 1.0), 0)
+  const score = sessions.reduce((sum, s) => sum + (s.duration_min ?? 30) * (WEIGHTS[s.focus ?? ''] ?? 1.0), 0)
   if (score < 60)  return { score, zone: 'sous_dose',  label: 'Sous-dosé',           color: '#e74c3c' }
   if (score < 120) return { score, zone: 'maintien',   label: 'Maintien',            color: '#f39c12' }
   if (score < 180) return { score, zone: 'adaptation', label: 'Adaptation',          color: '#2ecc71' }
