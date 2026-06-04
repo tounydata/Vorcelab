@@ -373,7 +373,8 @@ function buildTrainingWeek(
   const pool0 = qualityPool(phase, isTrail, input)
   const pool = bias.allowHardIntensity ? pool0 : pool0.filter((id) => getWorkout(id)?.intensity !== 'hard')
   let nQuality = isRecovery ? Math.min(1, qualityCount(phase)) : qualityCount(phase)
-  nQuality = Math.min(nQuality, bias.maxQualityPerWeek) // orientation plaisir/perf
+  nQuality = Math.max(0, nQuality + bias.qualityDelta)  // orientation décale (plaisir −1 / perf +1)
+  nQuality = Math.min(nQuality, bias.maxQualityPerWeek) // puis plafonne
   if (weekRace) nQuality = weekRace.priority === 'B' ? 0 : Math.max(0, nQuality - 1) // la course EST une séance dure
   nQuality = Math.min(nQuality, Math.max(0, days - 1)) // garder au moins de la place
   for (let i = 0; i < nQuality && pool.length > 0; i++) {

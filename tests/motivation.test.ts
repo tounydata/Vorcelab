@@ -3,16 +3,18 @@ import { motivationBias } from '../src/lib/coach/motivation'
 import { generateTrainingPlan } from '../src/lib/coach/planGenerator'
 
 describe('motivationBias', () => {
-  it('plaisir allège le volume et coupe l’intensité dure', () => {
+  it('plaisir allège le volume, réduit la qualité et coupe l’intensité dure', () => {
     const b = motivationBias('plaisir')
     expect(b.volumeScale).toBeLessThan(1)
+    expect(b.qualityDelta).toBeLessThan(0)
     expect(b.maxQualityPerWeek).toBeLessThanOrEqual(1)
     expect(b.allowHardIntensity).toBe(false)
   })
-  it('performance pousse volume + 2 qualités', () => {
+  it('performance pousse volume + ajoute une qualité (jusqu’à 3)', () => {
     const b = motivationBias('performance')
     expect(b.volumeScale).toBeGreaterThan(1)
-    expect(b.maxQualityPerWeek).toBe(2)
+    expect(b.qualityDelta).toBeGreaterThan(0)
+    expect(b.maxQualityPerWeek).toBe(3)
     expect(b.allowHardIntensity).toBe(true)
   })
   it('mix (défaut) = neutre', () => {

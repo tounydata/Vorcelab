@@ -445,37 +445,60 @@ export async function buildRunnerProfile(
   const dpLo = neutralDplus.length ? neutralDplus[Math.floor(neutralDplus.length * 0.05)] : 0
   const dpHi = neutralDplus.length ? neutralDplus[Math.min(neutralDplus.length - 1, Math.ceil(neutralDplus.length * 0.95))] : Infinity
 
-  // Bornes physiologiques par condition (positif = plus lent). Chaleur / nuit / vent ne
-  // peuvent pas rendre plus rapide ; le froid peut légèrement aider. Une valeur brute
-  // hors de ces bornes = artefact → on clampe ET on dégrade la confiance.
-  const COND_BOUNDS: Record<'heat' | 'cold' | 'night' | 'wind', { lo: number; hi: number }> = {
-    heat:  { lo: 0,  hi: 25 },
-    cold:  { lo: -5, hi: 15 },
-    night: { lo: 0,  hi: 15 },
-    wind:  { lo: 0,  hi: 15 },
+  // Modèle physiologique par condition (positif = plus lent). Un humain EST ralenti par
+  // la chaleur (> 22°C), le vent et la nuit — aucune ne peut accélérer ; le froid (< 5°C)
+  // est quasi neutre, parfois légèrement aidant. Sources : Ely et al. 2007 (chaleur ×
+  // allure marathon), Périard et al. 2021 (thermorégulation & endurance).
+  //   prior : effet attendu EN L'ABSENCE de données perso fiables (a priori bayésien)
+  //   floor : plancher physiologique infranchissable (la chaleur NE PEUT PAS faire 0 %)
+  //   hi    : amplitude max crédible (au-delà = artefact → confiance dégradée)
+  const COND_MODEL: Record<'heat' | 'cold' | 'night' | 'wind', { prior: number; floor: number; hi: number }> = {
+    heat:  { prior: 5, floor: 2,   hi: 25 },
+    cold:  { prior: 0, floor: -5,  hi: 15 },
+    night: { prior: 3, floor: 0.5, hi: 15 },
+    wind:  { prior: 4, floor: 1,   hi: 15 },
   }
 
   function buildCondPenalty(data: CondEntry[], key: 'heat' | 'cold' | 'night' | 'wind'): ConditionPenalty | undefined {
-    if (!neutralModel || !neutralMeanPace) return undefined
-    // 1) terrain comparable uniquement (pas d'extrapolation)
-    const inRange = data.filter(d => d.dplusPerKm >= dpLo && d.dplusPerKm <= dpHi)
-    if (inRange.length < 2) return undefined
-    // 2) résidus vs modèle terrain neutre
-    let resid = inRange.map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
-    // 3) trim : on retire le résidu le plus extrême quand l'échantillon le permet
-    if (resid.length >= 4) {
-      resid = [...resid].sort((a, b) => Math.abs(a) - Math.abs(b)).slice(0, resid.length - 1)
+    // On n'invente pas une condition jamais vécue : pas de sortie du tout → pas de carte.
+    if (data.length === 0) return undefined
+    const { prior, floor, hi } = COND_MODEL[key]
+
+    // 1) Mesure perso (si modèle terrain neutre dispo) sur terrain comparable seulement.
+    const inRange = (neutralModel && neutralMeanPace)
+      ? data.filter(d => d.dplusPerKm >= dpLo && d.dplusPerKm <= dpHi)
+      : []
+    const n = inRange.length
+    let rawPct: number | null = null
+    if (neutralModel && neutralMeanPace && n >= 2) {
+      // résidus vs modèle terrain neutre, avec trim du plus extrême si échantillon suffisant
+      let resid = inRange.map(d => d.secPerKm - (neutralModel.a + neutralModel.b * d.dplusPerKm))
+      if (resid.length >= 4) {
+        resid = [...resid].sort((a, b) => Math.abs(a) - Math.abs(b)).slice(0, resid.length - 1)
+      }
+      const meanResidual = resid.reduce((s, r) => s + r, 0) / resid.length
+      rawPct = (meanResidual / neutralMeanPace) * 100
     }
-    const meanResidual = resid.reduce((s, r) => s + r, 0) / resid.length
-    const rawPct = (meanResidual / neutralMeanPace) * 100
-    // 4) garde-fous : borne par condition + confiance dégradée si valeur aberrante
-    const { lo, hi } = COND_BOUNDS[key]
-    const clamped = Math.max(lo, Math.min(hi, rawPct))
-    let confidence = computeConfidenceFromCount(inRange.length, { high: 5, medium: 2 })
-    if (rawPct < lo || rawPct > hi) confidence = 'low'
+
+    // 2) Shrinkage bayésien vers l'a priori physiologique : peu de sorties → on fait
+    //    confiance à la science ; beaucoup de sorties fiables → on fait confiance à TES
+    //    données. k = pseudo-comptage (≈ nb de sorties pour égaler le poids du prior).
+    const k = 4
+    const w = rawPct == null ? 0 : n / (n + k)
+    let blended = w * (rawPct ?? prior) + (1 - w) * prior
+
+    // 3) Plancher physiologique + plafond crédible. La chaleur / vent / nuit ne peuvent
+    //    JAMAIS rendre plus rapide → on n'affiche jamais « sans effet » pour elles.
+    const aberrant = rawPct != null && (rawPct < floor - 3 || rawPct > hi)
+    blended = Math.max(floor, Math.min(hi, blended))
+
+    // 4) Confiance : basée sur l'échantillon perso, dégradée si la mesure est aberrante.
+    let confidence = computeConfidenceFromCount(n, { high: 5, medium: 2 })
+    if (aberrant) confidence = 'low'
+
     return {
-      paceImpactPct: +clamped.toFixed(1),
-      sampleCount: inRange.length,
+      paceImpactPct: +blended.toFixed(1),
+      sampleCount: n,
       confidence,
     }
   }

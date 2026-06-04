@@ -200,7 +200,7 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
     <div className="card" style={{ marginBottom: '1rem' }}>
       <div className="clabel" style={{ marginBottom: '0.75rem' }}>CONDITIONS MÉTÉO & CONTEXTE</div>
       <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-        Impact mesuré sur <em>tes</em> sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Positif = tu es plus lent dans ces conditions. Alimentera l'algorithme de projection.
+        Impact mesuré sur <em>tes</em> sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Quand tes données sont peu nombreuses, on s'appuie sur un socle physiologique (la chaleur, par ex., ralentit <em>toujours</em> un humain) et on l'affine au fil de tes sorties. Positif = tu es plus lent. Alimentera l'algorithme de projection.
       </div>
 
       {CONDITION_META.map(({ key, label, desc }) => {
@@ -684,8 +684,6 @@ export default function ProfilePage() {
 
       {activeTab === 'compte' && (
         <>
-          <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
-
           {/* Card COMPTE */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div className="clabel" style={{ marginBottom: '0.75rem' }}>COMPTE</div>
@@ -1071,6 +1069,9 @@ export default function ProfilePage() {
             <div className="loading"><div className="spinner" /></div>
           ) : (
             <>
+              {/* Allures de référence (déplacées ici depuis le profil) */}
+              <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
+
               {/* Progress bar (auto or manual compute) */}
               {computing && (
                 <div style={{ marginBottom: '1rem' }}>
