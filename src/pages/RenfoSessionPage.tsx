@@ -265,14 +265,24 @@ export default function RenfoSessionPage() {
       const completedMap = Object.fromEntries(session.exercises.map((e: any) => [e.exercise_id, true]))
       const DAY_KEYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
       const dayKey = DAY_KEYS[new Date(sessionDate + 'T12:00:00').getDay()]
-      const { error: sErr } = await supabase.from('renfo_session_log').upsert({
-        user_id: user!.id,
-        session_date: sessionDate,
-        day_key: dayKey,
-        focus: focusKey!,
-        duration_min: session.duration_min,
-        completed_exercises: completedMap,
-      }, { onConflict: 'user_id,session_date,focus' })
+      // Plus de contrainte d'unicité (user,date,focus) — on autorise les doubles séances.
+      // On met à jour une séance MANUELLE existante de ce type ce jour (re-sauvegarde),
+      // sans jamais écraser un import Strava ; sinon on insère une nouvelle ligne.
+      const { data: existingManual } = await supabase
+        .from('renfo_session_log')
+        .select('id')
+        .eq('user_id', user!.id)
+        .eq('session_date', sessionDate)
+        .eq('focus', focusKey!)
+        .is('source', null)
+        .limit(1)
+      const existingId = existingManual?.[0]?.id
+      const payload = { day_key: dayKey, duration_min: session.duration_min, completed_exercises: completedMap }
+      const { error: sErr } = existingId
+        ? await supabase.from('renfo_session_log').update(payload).eq('id', existingId)
+        : await supabase.from('renfo_session_log').insert({
+            user_id: user!.id, session_date: sessionDate, focus: focusKey!, ...payload,
+          })
       if (sErr) throw sErr
     },
     onSuccess: () => {
