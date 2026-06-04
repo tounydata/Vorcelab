@@ -31,8 +31,62 @@ const EXERCISE_FOCUS_MAP: Record<string, string> = {
   sit_up: 'tronc', russian_twist: 'tronc', bird_dog: 'tronc', pallof_press: 'tronc',
 }
 
-function isRenfo(type?: string | null, sportType?: string | null): boolean {
+export function isRenfo(type?: string | null, sportType?: string | null): boolean {
   return RENFO_TYPES.has(type ?? '') || RENFO_TYPES.has(sportType ?? '')
+}
+
+export interface StravaActLite {
+  type?: string | null
+  sport_type?: string | null
+  start_date?: string | null
+  start_date_local?: string | null
+  moving_time?: number | null
+  raw_data?: { exercise_sets?: ExerciseSet[] } | null
+}
+
+export interface RenfoLogRow {
+  user_id: string
+  session_date: string
+  day_key: string
+  focus: string | null
+  duration_min: number | null
+  completed_exercises: Record<string, never>
+  source: 'strava'
+}
+
+/**
+ * Logique PURE : à partir des activités Strava renfo et des séances déjà loggées,
+ * construit les lignes renfo manquantes. Déduplication par (date + focus) pour que
+ * deux séances de TYPES différents le même jour coexistent (ex. haut du corps + pilates).
+ */
+export function buildRenfoRows(
+  userId: string,
+  acts: StravaActLite[],
+  existing: { session_date: string; focus: string | null }[],
+): RenfoLogRow[] {
+  const keyOf = (date: string, focus: string | null) => `${date}|${focus ?? ''}`
+  const seen = new Set(existing.map((e) => keyOf(e.session_date, e.focus)))
+  const rows: RenfoLogRow[] = []
+  for (const a of acts) {
+    if (!isRenfo(a.type, a.sport_type)) continue
+    const date = String(a.start_date_local ?? a.start_date ?? '').slice(0, 10)
+    if (!date) continue
+    const focus = inferRenfoFocus(a.type ?? '', a.sport_type ?? '', a.raw_data?.exercise_sets)
+    const key = keyOf(date, focus)
+    if (seen.has(key)) continue
+    seen.add(key)
+    const movingMin = a.moving_time ? Math.round(a.moving_time / 60) : null
+    rows.push({
+      user_id: userId,
+      session_date: date,
+      day_key: DAY_KEYS[new Date(date + 'T12:00:00').getDay()],
+      focus,
+      duration_min: movingMin && movingMin > 0 ? movingMin : null,
+      completed_exercises: {},
+      source: 'strava',
+    })
+  }
+  return rows
 }
 
 function inferRenfoFocus(type: string, sportType: string, sets?: ExerciseSet[]): string | null {
@@ -61,36 +115,17 @@ export async function syncStravaRenfo(userId: string, sinceDays = 90): Promise<n
     .gte('start_date_local', cutoffISO)
   if (aErr || !acts) return 0
 
-  const renfoActs = acts.filter((a) => isRenfo(a.type, a.sport_type))
-  if (renfoActs.length === 0) return 0
+  if (!acts.some((a) => isRenfo(a.type, a.sport_type))) return 0
 
-  // Toute date ayant déjà UNE séance renfo (peu importe la source) est ignorée :
-  // on n'écrase ni ne double une séance manuelle ou déjà importée.
+  // La contrainte d'unicité est (user, date, focus) → plusieurs séances de types
+  // différents le même jour sont valides (ex. « haut du corps » + pilates).
   const { data: existing } = await supabase
     .from('renfo_session_log')
-    .select('session_date')
+    .select('session_date,focus')
     .eq('user_id', userId)
     .gte('session_date', cutoffISO.slice(0, 10))
-  const seen = new Set((existing ?? []).map((e) => e.session_date as string))
 
-  const rows: Record<string, unknown>[] = []
-  for (const a of renfoActs) {
-    const date = String(a.start_date_local ?? a.start_date ?? '').slice(0, 10)
-    if (!date || seen.has(date)) continue
-    seen.add(date) // une séance renfo Strava par jour max
-    const dayKey = DAY_KEYS[new Date(date + 'T12:00:00').getDay()]
-    const movingMin = a.moving_time ? Math.round((a.moving_time as number) / 60) : null
-    const sets = (a.raw_data as { exercise_sets?: ExerciseSet[] } | null)?.exercise_sets
-    rows.push({
-      user_id: userId,
-      session_date: date,
-      day_key: dayKey,
-      focus: inferRenfoFocus(a.type ?? '', a.sport_type ?? '', sets),
-      duration_min: movingMin && movingMin > 0 ? movingMin : null,
-      completed_exercises: {},
-      source: 'strava',
-    })
-  }
+  const rows = buildRenfoRows(userId, acts as StravaActLite[], (existing ?? []) as { session_date: string; focus: string | null }[])
   if (rows.length === 0) return 0
 
   const { error } = await supabase.from('renfo_session_log').insert(rows)
