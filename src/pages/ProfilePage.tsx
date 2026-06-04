@@ -597,7 +597,7 @@ export default function ProfilePage() {
       <div data-tour="profile-data" style={{ display: 'flex', borderBottom: '1px solid var(--vl-border)', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <button style={tabStyle(activeTab === 'reglages')} onClick={() => setActiveTab('reglages')}>PARAMÈTRES</button>
         <button style={tabStyle(activeTab === 'compte')} onClick={() => setActiveTab('compte')}>COMPTE</button>
-        <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>ANALYSE</button>
+        <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>LABO</button>
         <button style={tabStyle(activeTab === 'records')} onClick={() => setActiveTab('records')}>RECORDS</button>
         <button data-tour="profile-nutrition" style={tabStyle(activeTab === 'nutrition')} onClick={() => setActiveTab('nutrition')}>NUTRITION</button>
       </div>
