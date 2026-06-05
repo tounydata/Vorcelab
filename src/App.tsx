@@ -20,7 +20,6 @@ import RenfoPage from './pages/RenfoPage'
 import RenfoSessionPage from './pages/RenfoSessionPage'
 import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
-import RenfoSettingsPage from './pages/RenfoSettingsPage'
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -90,7 +89,6 @@ export default function App() {
             <Route path="renfo/session/:focusKey" element={<RenfoSessionPage />} />
             <Route path="renfo/library" element={<RenfoLibraryPage />} />
             <Route path="renfo/library/:exerciseId" element={<RenfoExerciseDetailPage />} />
-            <Route path="renfo/settings" element={<RenfoSettingsPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
