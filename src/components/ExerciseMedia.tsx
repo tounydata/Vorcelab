@@ -1,6 +1,8 @@
 import { useState } from 'react'
 // @ts-ignore — renfoData est en JS sans types
 import { getExerciseGifUrl, RENFO_FOCUS_COLORS as _COLORS } from '../lib/renfoData'
+import { getExerciseDemo } from '../lib/renfoDemos'
+import StickFigure from './StickFigure'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 
@@ -91,6 +93,9 @@ export default function ExerciseMedia({
     )
   }
 
+  // Priorité : vrai gif/démo > animation SVG maison (figure articulée) > placeholder.
+  const demo = !showImg ? getExerciseDemo(exerciseId) : null
+
   return (
     <div style={{
       borderRadius: 12, overflow: 'hidden', border: `1px solid ${color}44`,
@@ -98,16 +103,18 @@ export default function ExerciseMedia({
       aspectRatio: '16 / 10', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 10,
     }}>
-      {showImg
-        ? <img src={url!} alt="" loading="lazy" onError={() => setErrored(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        : (
-          <>
-            <Glyph category={category} size={56} />
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.6rem', letterSpacing: '0.12em', opacity: 0.85 }}>
-              DÉMO À VENIR
-            </span>
-          </>
-        )}
+      {showImg ? (
+        <img src={url!} alt="" loading="lazy" onError={() => setErrored(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      ) : demo ? (
+        <StickFigure demo={demo} color={color} size="78%" />
+      ) : (
+        <>
+          <Glyph category={category} size={56} />
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.6rem', letterSpacing: '0.12em', opacity: 0.85 }}>
+            DÉMO À VENIR
+          </span>
+        </>
+      )}
     </div>
   )
 }
