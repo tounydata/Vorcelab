@@ -7,6 +7,7 @@ import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation
 import StravaConnection from '../components/StravaConnection'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
+import RenfoEquipmentEditor from '../components/RenfoEquipmentEditor'
 import {
   fmtVam,
   fmtSpeed,
@@ -674,10 +675,14 @@ export default function ProfilePage() {
                   <button key={n} style={seg(renfoTarget === n)} onClick={() => renfoTarget !== n && settingsMut.mutate({ renfo_weekly_target: n })}>{n}/sem</button>
                 ))}
               </div>
-              <Link to="/renfo/settings" style={{ textDecoration: 'none' }}>
-                <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 14, fontSize: 11 }}>Équipement & détails renfo →</div>
+              <Link to="/renfo/library" style={{ textDecoration: 'none' }}>
+                <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 14, fontSize: 11 }}>Bibliothèque d'exercices →</div>
               </Link>
             </div>
+
+            {/* Éditeur de matériel renfo (maison / salle), intégré ici */}
+            <div className="clabel" style={{ margin: '1.25rem 0 0.6rem', color: '#a78bfa', letterSpacing: '.12em' }}>MATÉRIEL RENFO</div>
+            <RenfoEquipmentEditor />
           </>
         )
       })()}
