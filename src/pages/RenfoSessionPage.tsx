@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useRunningDUPOverride } from '../lib/coach/useRunningDUPOverride'
 import { useVLStore } from '../store/vlStore'
 import { buildSession, applyDUP } from '../lib/renfoProgram'
+import ExerciseMedia, { HomeIcon, GymIcon } from '../components/ExerciseMedia'
 import { RENFO_EXERCISES as _RENFO_EXERCISES, FOCUS_META as _FOCUS_META, RENFO_FOCUS_COLORS as _RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -321,10 +322,11 @@ export default function RenfoSessionPage() {
       <div className="fl" style={{ marginBottom: '0.5rem' }}>Où t'entraînes-tu aujourd'hui ?</div>
       <div style={{ display: 'flex', gap: 8 }}>
         {(['maison', 'salle'] as const).map((loc) => (
-          <button key={loc} className="hbtn" style={{ flex: 1,
+          <button key={loc} className="hbtn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             ...(location === loc ? { background: 'var(--vl-ember)', borderColor: 'var(--vl-ember)', color: 'var(--vl-ink)' } : {}) }}
             onClick={() => setLocation(loc)}>
-            {loc === 'maison' ? '🏠 Maison' : '🏋️ Salle'}
+            {loc === 'maison' ? <HomeIcon /> : <GymIcon />}
+            {loc === 'maison' ? 'Maison' : 'Salle'}
           </button>
         ))}
       </div>
@@ -401,9 +403,10 @@ export default function RenfoSessionPage() {
             const isHold = exo.unit === 's'
             const repsLabel = isHold ? `${exo.sets} × ${exo.reps}s tenir` : `${exo.sets}×${exo.reps} · RPE ${exo.target_rpe}`
             return (
-              <div key={i} className="fg" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.35rem 0' }}>
-                <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0 }}>{ex?.name_fr ?? exo.exercise_id}</span>
-                <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>{repsLabel}</span>
+              <div key={i} className="fg" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.35rem 0' }}>
+                <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="thumb" />
+                <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, flex: 1, minWidth: 0 }}>{ex?.name_fr ?? exo.exercise_id}</span>
+                <span className="mlabel" style={{ color: 'var(--vl-text-3)', flexShrink: 0 }}>{repsLabel}</span>
               </div>
             )
           })}
@@ -441,6 +444,10 @@ export default function RenfoSessionPage() {
           <div className="mlabel" style={{ color: 'var(--vl-text-3)' }}>
             {ei + 1}/{session.exercises.length} · série {si + 1}/{exo.sets}
           </div>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="full" />
         </div>
 
         <div className="card" style={{ borderLeft: `3px solid ${color}`, marginBottom: '1rem' }}>

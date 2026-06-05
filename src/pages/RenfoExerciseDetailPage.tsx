@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
+import ExerciseMedia from '../components/ExerciseMedia'
 // @ts-ignore
 import { RENFO_EXERCISES as _RENFO_EXERCISES, RENFO_FOCUS_COLORS as _RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
@@ -103,10 +104,14 @@ export default function RenfoExerciseDetailPage() {
 
       <div className="clabel" style={{ marginBottom: '0.25rem', color }}>{ex.name_fr}</div>
       {ex.name_tech && (
-        <div className="mlabel" style={{ color: 'var(--vl-text-3)', marginBottom: '1.5rem', textTransform: 'none', letterSpacing: 0 }}>
+        <div className="mlabel" style={{ color: 'var(--vl-text-3)', marginBottom: '1rem', textTransform: 'none', letterSpacing: 0 }}>
           {ex.name_tech}
         </div>
       )}
+
+      <div style={{ marginBottom: '1rem' }}>
+        <ExerciseMedia exerciseId={exerciseId!} category={ex.category} variant="full" />
+      </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="fl" style={{ marginBottom: 4 }}>Muscles principaux</div>

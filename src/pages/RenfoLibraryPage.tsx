@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
+import ExerciseMedia from '../components/ExerciseMedia'
 // @ts-ignore
 import { RENFO_EXERCISES as _RENFO_EXERCISES, SESSION_EXERCISES as _SESSION_EXERCISES, FOCUS_META as _FOCUS_META, RENFO_FOCUS_COLORS as _RENFO_FOCUS_COLORS } from '../lib/renfoData'
 
@@ -64,10 +65,13 @@ export default function RenfoLibraryPage() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                   }}>
-                    <div>
-                      <div className="fl">{ex.name_fr}</div>
-                      <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
-                        {ex.primary_muscles?.join(', ')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <ExerciseMedia exerciseId={exoId} category={focusKey} variant="thumb" />
+                      <div style={{ minWidth: 0 }}>
+                        <div className="fl">{ex.name_fr}</div>
+                        <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
+                          {ex.primary_muscles?.join(', ')}
+                        </div>
                       </div>
                     </div>
                     {e1rm ? (
