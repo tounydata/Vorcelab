@@ -13,31 +13,37 @@ export function epley1RM(load_kg, reps) {
   return Math.round(load_kg * (1 + reps / 30) * 10) / 10;
 }
 
-export function getBestVariant(exercise, profile) {
+export function isVariantFeasible(v, profile) {
   const eq = profile.equipment || {};
+  if (v.required_equipment) {
+    if (v.required_equipment.has_gym_access && !profile.has_gym_access) return false;
+    if (v.required_equipment.barbell && !eq.barbell) return false;
+    if (v.required_equipment.leg_press && !eq.leg_press) return false;
+    if (v.required_equipment.bench && !eq.bench) return false;
+    if (v.required_equipment.pullup_bar && !eq.pullup_bar) return false;
+    if (v.required_equipment.step && !eq.step) return false;
+    if (v.required_equipment.anchor_point && !eq.anchor_point) return false;
+    if (v.required_equipment.bands && (!eq.bands || eq.bands.length === 0)) return false;
+  }
+  if (v.required_equipment_any) {
+    const ok = v.required_equipment_any.some(req => {
+      if (req.dumbbells_max_kg) return (eq.dumbbells_max_kg || 0) >= req.dumbbells_max_kg;
+      if (req.kettlebell_max_kg) return (eq.kettlebell_max_kg || 0) >= req.kettlebell_max_kg;
+      return false;
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
+// Meilleure variante réalisable, ou null si aucune (on n'invente plus une variante
+// impossible — ex. face pull poulie proposé à la maison).
+export function getBestVariant(exercise, profile) {
   const variants = [...exercise.variants].sort((a, b) => a.priority - b.priority);
   for (const v of variants) {
-    if (v.required_equipment) {
-      if (v.required_equipment.has_gym_access && !profile.has_gym_access) continue;
-      if (v.required_equipment.barbell && !eq.barbell) continue;
-      if (v.required_equipment.leg_press && !eq.leg_press) continue;
-      if (v.required_equipment.bench && !eq.bench) continue;
-      if (v.required_equipment.pullup_bar && !eq.pullup_bar) continue;
-      if (v.required_equipment.step && !eq.step) continue;
-      if (v.required_equipment.anchor_point && !eq.anchor_point) continue;
-      if (v.required_equipment.bands && (!eq.bands || eq.bands.length === 0)) continue;
-    }
-    if (v.required_equipment_any) {
-      const ok = v.required_equipment_any.some(req => {
-        if (req.dumbbells_max_kg) return (eq.dumbbells_max_kg || 0) >= req.dumbbells_max_kg;
-        if (req.kettlebell_max_kg) return (eq.kettlebell_max_kg || 0) >= req.kettlebell_max_kg;
-        return false;
-      });
-      if (!ok) continue;
-    }
-    return v;
+    if (isVariantFeasible(v, profile)) return v;
   }
-  return variants[variants.length - 1];
+  return null;
 }
 
 // ── GÉNÉRATEUR DE PROGRAMME ────────────────────────────────────────────────
@@ -99,7 +105,11 @@ export function pickDays(spw) {
 
 export function buildSession(focus, profile) {
   const meta = FOCUS_META[focus] || FOCUS_META['tronc'];
-  const allExoIds = SESSION_EXERCISES[focus] || [];
+  // On ne retient que les exercices ayant au moins une variante réalisable avec le matériel.
+  const allExoIds = (SESSION_EXERCISES[focus] || []).filter(id => {
+    const exo = RENFO_EXERCISES[id];
+    return exo && getBestVariant(exo, profile) != null;
+  });
   const maxExos = (focus === 'tronc' || focus === 'mobilite') ? 5 : 4;
   const weekNum = Math.floor(Date.now() / (7 * 86400000));
   const offset = weekNum % Math.max(1, allExoIds.length - maxExos + 1);
@@ -108,6 +118,7 @@ export function buildSession(focus, profile) {
     const exo = RENFO_EXERCISES[id];
     if (!exo) return null;
     const variant = getBestVariant(exo, profile);
+    if (!variant) return null;
     return {
       exercise_id: id,
       variant_id: variant.id,
