@@ -70,14 +70,20 @@ function Glyph({ category, size = 48 }: { category?: string; size?: number }) {
 /**
  * Visuel d'un exercice : gif/démo si présent en storage, sinon placeholder SVG
  * élégant teinté par la couleur du focus. `exerciseId` = id PARENT de l'exercice.
+ *
+ * `preferDemo` : en SÉANCE, on préfère la figure SVG (sans matériel, cohérente avec
+ * n'importe quelle variante) plutôt que le gif — qui montre un matos précis (ex. squat
+ * barre olympique) incohérent avec la variante maison réellement proposée.
  */
 export default function ExerciseMedia({
-  exerciseId, category, variant = 'full',
-}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full' }) {
+  exerciseId, category, variant = 'full', preferDemo = false,
+}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full'; preferDemo?: boolean }) {
   const [errored, setErrored] = useState(false)
   const url = getExerciseGifUrl(exerciseId) as string | null
   const color = RENFO_FOCUS_COLORS[category ?? ''] ?? '#7c3aed'
-  const showImg = !!url && !errored
+  const demo = getExerciseDemo(exerciseId)
+  const preferTheDemo = preferDemo && !!demo
+  const showImg = !!url && !errored && !preferTheDemo
 
   if (variant === 'thumb') {
     return (
@@ -88,13 +94,12 @@ export default function ExerciseMedia({
       }}>
         {showImg
           ? <img src={url!} alt="" loading="lazy" onError={() => setErrored(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <Glyph category={category} size={26} />}
+          : preferTheDemo
+            ? <StickFigure demo={demo!} color={color} size="100%" />
+            : <Glyph category={category} size={26} />}
       </div>
     )
   }
-
-  // Priorité : vrai gif/démo > animation SVG maison (figure articulée) > placeholder.
-  const demo = !showImg ? getExerciseDemo(exerciseId) : null
 
   return (
     <div style={{
