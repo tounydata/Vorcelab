@@ -47,31 +47,38 @@ export interface Exercise {
   [k: string]: unknown
 }
 
-export function getBestVariant(exercise: Exercise, profile: RenfoProfile): Variant {
+// Une variante est-elle réalisable avec le matériel du profil ?
+export function isVariantFeasible(v: Variant, profile: RenfoProfile): boolean {
   const eq: Record<string, any> = profile.equipment || {}
+  if (v.required_equipment) {
+    if (v.required_equipment.has_gym_access && !profile.has_gym_access) return false
+    if (v.required_equipment.barbell && !eq.barbell) return false
+    if (v.required_equipment.leg_press && !eq.leg_press) return false
+    if (v.required_equipment.bench && !eq.bench) return false
+    if (v.required_equipment.pullup_bar && !eq.pullup_bar) return false
+    if (v.required_equipment.step && !eq.step) return false
+    if (v.required_equipment.anchor_point && !eq.anchor_point) return false
+    if (v.required_equipment.bands && (!eq.bands || eq.bands.length === 0)) return false
+  }
+  if (v.required_equipment_any) {
+    const ok = v.required_equipment_any.some((req: Record<string, any>) => {
+      if (req.dumbbells_max_kg) return (eq.dumbbells_max_kg || 0) >= req.dumbbells_max_kg
+      if (req.kettlebell_max_kg) return (eq.kettlebell_max_kg || 0) >= req.kettlebell_max_kg
+      return false
+    })
+    if (!ok) return false
+  }
+  return true
+}
+
+// Meilleure variante réalisable (priorité croissante), ou null si AUCUNE ne l'est —
+// on n'invente plus une variante impossible (ex. face pull poulie proposé à la maison).
+export function getBestVariant(exercise: Exercise, profile: RenfoProfile): Variant | null {
   const variants = [...exercise.variants].sort((a: Variant, b: Variant) => a.priority - b.priority)
   for (const v of variants) {
-    if (v.required_equipment) {
-      if (v.required_equipment.has_gym_access && !profile.has_gym_access) continue
-      if (v.required_equipment.barbell && !eq.barbell) continue
-      if (v.required_equipment.leg_press && !eq.leg_press) continue
-      if (v.required_equipment.bench && !eq.bench) continue
-      if (v.required_equipment.pullup_bar && !eq.pullup_bar) continue
-      if (v.required_equipment.step && !eq.step) continue
-      if (v.required_equipment.anchor_point && !eq.anchor_point) continue
-      if (v.required_equipment.bands && (!eq.bands || eq.bands.length === 0)) continue
-    }
-    if (v.required_equipment_any) {
-      const ok = v.required_equipment_any.some((req: Record<string, any>) => {
-        if (req.dumbbells_max_kg) return (eq.dumbbells_max_kg || 0) >= req.dumbbells_max_kg
-        if (req.kettlebell_max_kg) return (eq.kettlebell_max_kg || 0) >= req.kettlebell_max_kg
-        return false
-      })
-      if (!ok) continue
-    }
-    return v
+    if (isVariantFeasible(v, profile)) return v
   }
-  return variants[variants.length - 1]
+  return null
 }
 
 export interface BuiltSessionExercise {
@@ -98,7 +105,12 @@ export interface BuiltSession {
 
 export function buildSession(focus: string, profile: RenfoProfile): BuiltSession {
   const meta = FOCUS_META[focus] || FOCUS_META['tronc']
-  const allExoIds: string[] = SESSION_EXERCISES[focus] || []
+  // On ne retient que les exercices ayant AU MOINS une variante réalisable avec le
+  // matériel du lieu choisi (sinon : face pull poulie proposé à la maison, etc.).
+  const allExoIds: string[] = (SESSION_EXERCISES[focus] || []).filter((id: string) => {
+    const exo = RENFO_EXERCISES[id]
+    return exo && getBestVariant(exo, profile) != null
+  })
   const maxExos = (focus === 'tronc' || focus === 'mobilite') ? 5 : 4
   const weekNum = Math.floor(Date.now() / (7 * 86400000))
   const offset = weekNum % Math.max(1, allExoIds.length - maxExos + 1)
@@ -107,6 +119,7 @@ export function buildSession(focus: string, profile: RenfoProfile): BuiltSession
     const exo = RENFO_EXERCISES[id]
     if (!exo) return null
     const variant = getBestVariant(exo, profile)
+    if (!variant) return null
     return {
       exercise_id: id,
       variant_id: variant.id,
