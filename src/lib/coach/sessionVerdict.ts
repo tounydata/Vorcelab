@@ -36,7 +36,10 @@ export interface SessionActual {
 
 /** Ressenti de l'athlète (toujours disponible, même sans activité). */
 export interface SessionRpe {
-  feeling: 'good' | 'ok' | 'bad' | null
+  // Échelle de difficulté ressentie. 'good' = conforme aux attentes (et NON « trop
+  // facile ») ; 'too_easy'/'too_hard' = extrêmes ; 'meh' = mitigé (neutre).
+  // ('ok'/'bad' conservés pour les données historiques.)
+  feeling: 'too_easy' | 'good' | 'meh' | 'too_hard' | 'ok' | 'bad' | null
   /** RPE 1–10 (optionnel, prioritaire sur `feeling` s'il est fourni). */
   rpe: number | null
   /** L'athlète a signalé une douleur. */
@@ -135,9 +138,13 @@ function rpeAxis(rpe: SessionRpe): VerdictSignal {
     if (rpe.rpe <= 3) return { axis: 'ressenti', status: 'easier', label: `Ressenti facile (RPE ${rpe.rpe})` }
     return { axis: 'ressenti', status: 'on', label: `Ressenti correct (RPE ${rpe.rpe})` }
   }
-  if (rpe.feeling === 'bad') return { axis: 'ressenti', status: 'harder', label: 'Ressenti : dur' }
-  if (rpe.feeling === 'good') return { axis: 'ressenti', status: 'easier', label: 'Ressenti : bien' }
-  if (rpe.feeling === 'ok') return { axis: 'ressenti', status: 'on', label: 'Ressenti : bof' }
+  // « Bien » = conforme aux attentes (status 'on'), PAS « trop facile » : un footing
+  // facile vécu confortablement est exactement ce qu'on vise. Seuls les extrêmes
+  // explicites déplacent l'axe ressenti.
+  if (rpe.feeling === 'too_easy') return { axis: 'ressenti', status: 'easier', label: 'Ressenti : trop facile' }
+  if (rpe.feeling === 'too_hard' || rpe.feeling === 'bad') return { axis: 'ressenti', status: 'harder', label: 'Ressenti : trop dur' }
+  if (rpe.feeling === 'good') return { axis: 'ressenti', status: 'on', label: 'Ressenti : bien' }
+  if (rpe.feeling === 'meh' || rpe.feeling === 'ok') return { axis: 'ressenti', status: 'on', label: 'Ressenti : bof' }
   return { axis: 'ressenti', status: 'unknown', label: 'Pas de ressenti' }
 }
 
