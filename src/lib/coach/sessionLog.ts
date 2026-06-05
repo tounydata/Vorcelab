@@ -16,7 +16,7 @@ export interface SessionLogEntry {
   hrDriftPct?: number | null
   dplusM?: number | null
   durationMin?: number | null
-  feeling?: 'good' | 'ok' | 'bad' | null
+  feeling?: 'too_easy' | 'good' | 'meh' | 'too_hard' | 'ok' | 'bad' | null
   rpe?: number | null
   reasons?: string[]
   pain?: boolean
@@ -76,7 +76,7 @@ export interface SessionLogRow {
   hr_drift_pct: number | null
   dplus_m: number | null
   duration_min: number | null
-  feeling: 'good' | 'ok' | 'bad' | null
+  feeling: 'too_easy' | 'good' | 'meh' | 'too_hard' | 'ok' | 'bad' | null
   rpe: number | null
   reasons: string[]
   pain: boolean

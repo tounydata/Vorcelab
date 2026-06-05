@@ -9,18 +9,24 @@ import type { SessionVerdict, VerdictResult } from '../lib/coach/sessionVerdict'
 import type { WorkoutTemplate } from '../lib/coach/workouts'
 import type { ActivityForLoad } from '../lib/trainingLoad'
 import SessionAdaptationSplash from './SessionAdaptationSplash'
-import { FaceGood, FaceOk, FaceBad, CheckIcon } from './coach/CoachIcons'
+import { CheckIcon } from './coach/CoachIcons'
 
 // Feedback post-séance NON ANXIOGÈNE : étage 1 = ressenti en 1 tap ; étage 2
 // (optionnel) = raisons fixes ; la douleur n'apparaît QUE si l'athlète la signale.
 // Si `link` est fourni (semaine courante), on propose en plus d'associer une
 // activité Strava (TOUJOURS confirmée par l'athlète) pour compiler un verdict.
 
-const FEELINGS = [
-  { key: 'good', Icon: FaceGood, label: 'Bien' },
-  { key: 'ok', Icon: FaceOk, label: 'Bof' },
-  { key: 'bad', Icon: FaceBad, label: 'Dur' },
-] as const
+// Échelle de difficulté ressentie (gradient facile → dur). « Bien » = conforme aux
+// attentes (et non « trop facile ») : un footing facile vécu bien est exactement le but.
+type Feeling = 'too_easy' | 'good' | 'meh' | 'too_hard'
+const FEELINGS: { key: Feeling; label: string; color: string }[] = [
+  { key: 'too_easy', label: 'Trop facile', color: '#3b82f6' },
+  { key: 'good', label: 'Bien', color: 'var(--vl-growth)' },
+  { key: 'meh', label: 'Bof', color: 'var(--vl-amber)' },
+  { key: 'too_hard', label: 'Trop dur', color: 'var(--vl-ember)' },
+]
+// Ressentis « sans souci » : pas de questionnaire « qu'est-ce qui a coincé ? ».
+const NO_ISSUE: Feeling[] = ['too_easy', 'good']
 
 const REASONS = ['Allures trop dures', 'Trop long', 'Pas en forme', 'Douleur'] as const
 
@@ -51,7 +57,7 @@ const VERDICT_STYLE: Record<SessionVerdict, { label: string; color: string }> = 
 }
 
 export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
-  const [feeling, setFeeling] = useState<'good' | 'ok' | 'bad' | null>(null)
+  const [feeling, setFeeling] = useState<Feeling | null>(null)
   const [reason, setReason] = useState<string | null>(null)
   const [painLevel, setPainLevel] = useState<number | null>(null)
   const [chosenActivityId, setChosenActivityId] = useState<string | 'none' | null>(null)
@@ -121,29 +127,33 @@ export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
       {splash ? <SessionAdaptationSplash onDone={() => setSplash(false)} /> : null}
       <div className="clabel" style={{ margin: '0 0 8px' }}>Comment c'était ?</div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        {FEELINGS.map((f) => (
-          <button
-            key={f.key}
-            className="hbtn"
-            onClick={() => {
-              setFeeling(f.key)
-              if (f.key === 'good') { setReason(null); setPainLevel(null) }
-            }}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderColor: feeling === f.key ? 'var(--vl-ember)' : undefined }}
-          >
-            <f.Icon size={18} />{f.label}
-          </button>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {FEELINGS.map((f) => {
+          const on = feeling === f.key
+          return (
+            <button
+              key={f.key}
+              className="hbtn"
+              onClick={() => {
+                setFeeling(f.key)
+                if (NO_ISSUE.includes(f.key)) { setReason(null); setPainLevel(null) }
+              }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, borderColor: on ? f.color : undefined, color: on ? f.color : undefined }}
+            >
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: f.color, flexShrink: 0 }} />
+              {f.label}
+            </button>
+          )
+        })}
       </div>
 
-      {feeling === 'good' && !link ? (
+      {feeling && NO_ISSUE.includes(feeling) && !link ? (
         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--vl-growth)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <CheckIcon size={14} /> Noté, belle séance
+          <CheckIcon size={14} /> {feeling === 'too_easy' ? 'Noté — on pourra progresser' : 'Noté, belle séance'}
         </div>
       ) : null}
 
-      {feeling && feeling !== 'good' ? (
+      {feeling && !NO_ISSUE.includes(feeling) ? (
         <div style={{ marginTop: 10 }}>
           <div className="mlabel" style={{ marginBottom: 6 }}>Qu'est-ce qui a coincé ? (optionnel)</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
