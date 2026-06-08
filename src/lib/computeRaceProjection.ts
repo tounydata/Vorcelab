@@ -3,7 +3,7 @@
 // Imported by RaceStrategyPage via allowJs: true in tsconfig.
 
 // @ts-ignore — JS files typed as any via allowJs; checkJs: false keeps them unchecked
-import { hav, minettiGradePenalty, buildDetailedSections } from './gpxCore'
+import { hav, minettiGradePenalty, buildDetailedSections, sectionTurnDegPerKm } from './gpxCore'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
@@ -19,6 +19,10 @@ export interface Section {
   dminus: number
   dist: number
   grade: number
+  /** Sinuosité (° de changement de cap / km) — élevée = lacets/virages serrés. */
+  turnDegPerKm?: number
+  /** Descente technique (lacets) : freinage constant, pas d'accélération franche. */
+  technical?: boolean
 }
 
 export interface ProjectionResult {
@@ -112,6 +116,19 @@ export function computeRaceProjection(
 
   // ── 4. Sections (buildDetailedSections from gpx-core.js) ──────────────────
   const sections: Section[] = (buildDetailedSections(kmSecs) as Section[])
+
+  // Détection des descentes techniques (lacets) via la sinuosité du tracé GPS.
+  // Une descente très sinueuse impose un freinage constant → pas d'accélération franche :
+  // on la pénalise en temps et on la signale (plutôt que de la croire « favorable »).
+  const TECH_T0 = 150, TECH_FULL = 600, TECH_CAP = 0.22 // °/km : seuil, plein effet, +22% max
+  const techPenalty: number[] = sections.map((s) => {
+    const turn = sectionTurnDegPerKm(points, cumDist, s.startKm, s.endKm)
+    s.turnDegPerKm = Math.round(turn)
+    if (s.type !== 'down') return 1
+    s.technical = turn >= 250
+    const f = Math.max(0, Math.min(1, (turn - TECH_T0) / (TECH_FULL - TECH_T0)))
+    return 1 + f * TECH_CAP
+  })
 
   // ── 5. isTrail from race type or D+/km heuristic ──────────────────────────
   const raceType = race?.type
@@ -419,6 +436,25 @@ export function computeRaceProjection(
     } else if (s.type !== 'down') {
       prevDownhillBucket = null
     }
+  }
+
+  // Pénalité « descente technique » (lacets) : ajoute du temps sur les sections
+  // sinueuses → ralentit le total ET la section concernée (pas une simple redistribution).
+  let techExtraTotal = 0
+  for (let si = 0; si < sections.length; si++) {
+    const pen = techPenalty[si]
+    if (pen <= 1) continue
+    const extra = sectionTimes[si] * (pen - 1)
+    sectionTimes[si] += extra
+    techExtraTotal += extra
+  }
+  estTimeS += techExtraTotal
+  if (sections.some((s) => s.technical)) {
+    personalAdjustments.push({
+      label: 'Descente technique',
+      detail: 'Lacets / virages serrés détectés — freinage constant, temps ajusté.',
+      color: 'var(--vl-amber)',
+    })
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────

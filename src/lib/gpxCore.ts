@@ -32,6 +32,43 @@ export function hav(p1: LatLon, p2: LatLon): number {
   return R * 2 * Math.asin(Math.sqrt(a))
 }
 
+/** Cap (azimut, degrés 0–360) du segment p1→p2. */
+export function bearing(p1: LatLon, p2: LatLon): number {
+  const r = Math.PI / 180, d = 180 / Math.PI
+  const dLon = (p2.lon - p1.lon) * r
+  const y = Math.sin(dLon) * Math.cos(p2.lat * r)
+  const x = Math.cos(p1.lat * r) * Math.sin(p2.lat * r) - Math.sin(p1.lat * r) * Math.cos(p2.lat * r) * Math.cos(dLon)
+  return (Math.atan2(y, x) * d + 360) % 360
+}
+
+/**
+ * Sinuosité d'une portion de tracé : somme des changements de cap (°) par km, sur le
+ * tronçon [startKm, endKm]. Rééchantillonné à ~20 m pour ne pas compter le bruit GPS.
+ * Une descente en lacets (épingles) ressort très haut → permet de la détecter.
+ */
+export function sectionTurnDegPerKm(
+  points: LatLon[], cumDistM: number[], startKm: number, endKm: number,
+): number {
+  const startM = startKm * 1000, endM = endKm * 1000
+  const STEP = 20 // m : pas de rééchantillonnage anti-bruit
+  const sampled: LatLon[] = []
+  let lastD = -Infinity
+  for (let i = 0; i < points.length; i++) {
+    const d = cumDistM[i]
+    if (d < startM - 1 || d > endM + 1) continue
+    if (sampled.length === 0 || d - lastD >= STEP) { sampled.push(points[i]); lastD = d }
+  }
+  if (sampled.length < 3) return 0
+  let turn = 0
+  for (let i = 1; i < sampled.length - 1; i++) {
+    let diff = Math.abs(bearing(sampled[i], sampled[i + 1]) - bearing(sampled[i - 1], sampled[i]))
+    if (diff > 180) diff = 360 - diff
+    turn += diff
+  }
+  const km = Math.max(0.05, (endM - startM) / 1000)
+  return turn / km
+}
+
 // Minetti (2002) gradient penalty
 // Montée : polynôme exact Minetti 2002 J.Appl.Physiol 93(3), validé en labo.
 // Descente : modèle empirique ajusté pour le trail ; coefficients prudents cohérents
