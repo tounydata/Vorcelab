@@ -461,6 +461,16 @@ main{padding:1.25rem 0.5rem;width:100%;}
 .divider{height:1px;background:var(--vl-line);margin:12px 0;}
 .tc{color:var(--vl-ember)}.to{color:var(--vl-ember)}.tg{color:var(--vl-growth)}.tp{color:var(--vl-text-2)}.ty{color:var(--vl-amber)}.tr{color:var(--vl-ember)}.t2{color:var(--vl-text-2)}.t3{color:var(--vl-text-3)}
 .mono{font-family:var(--vl-mono);font-size:10.5px;color:var(--vl-text-2);font-weight:500;}
+/* Helpers refonte stratégie de course */
+.display{font-family:var(--vl-display);font-weight:600;line-height:1.0;letter-spacing:.01em;}
+.tnum{font-variant-numeric:tabular-nums;}
+/* Hero stratégie : profil + carte côte à côte → empilés sur mobile */
+@media (max-width:880px){
+  .strat-hero-grid{flex-direction:column;}
+  .strat-hero-map{flex:1 1 auto!important;}
+  .strat-stat-row{grid-template-columns:1fr 1fr!important;}
+  .strat-keycards{flex-direction:column;}
+}
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;gap:10px;}
 .spinner{width:24px;height:24px;border:2px solid var(--vl-line-2);border-top-color:var(--vl-ember);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
