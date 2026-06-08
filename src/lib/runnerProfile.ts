@@ -348,6 +348,22 @@ export interface PostDownhillRecoveryByBucket {
   after_steep_down?: RecoveryBucketStats
 }
 
+// ─── Technical (winding) descent profile ─────────────────────────────────────
+// Combien l'athlète ralentit dans les descentes SINUEUSES (lacets) vs droites, appris
+// sur son historique. Cascade : par tranche de pente → global perso → générique (projo).
+
+export interface TechDescentFactor {
+  /** Multiplicateur de temps en descente sinueuse vs droite (≥ 1 = plus lent). */
+  factor: number
+  confidence: ConfidenceLevel
+  sampleCount: number
+}
+
+export interface TechnicalDescentProfile {
+  byBucket: Partial<Record<'mild_down' | 'mod_down' | 'steep_down', TechDescentFactor>>
+  global?: TechDescentFactor
+}
+
 // ─── Downhill fatigue profile ─────────────────────────────────────────────────
 
 export type DownhillFatigueStatus = 'low' | 'moderate' | 'high' | 'unknown'
@@ -433,4 +449,7 @@ export interface RunnerProfileComputed {
 
   // ── Condition penalties (optional) ───────────────────────────────────────────
   conditionPenalties?: ConditionPenalties
+
+  // ── Technical (winding) descent slowdown, learned from history (optional) ────
+  technicalDescent?: TechnicalDescentProfile
 }
