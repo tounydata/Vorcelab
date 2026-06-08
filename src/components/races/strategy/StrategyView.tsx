@@ -69,7 +69,11 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
 
   const pts = useMemo(() => profilePoints(p), [p])
   const heatSections: ProfileSection[] = useMemo(
-    () => p.sections.map((s) => ({ startKm: s.startKm, endKm: s.endKm, heat: sectionHeat(s) })), [p])
+    () => p.sections.map((s) => ({
+      startKm: s.startKm, endKm: s.endKm,
+      // une descente technique (lacets) « coûte » comme un effort soutenu → heat ≥ 3
+      heat: (s.technical ? Math.max(sectionHeat(s), 3) : sectionHeat(s)) as ProfileSection['heat'],
+    })), [p])
   const passageHM = (km: number) => fmtHM(elapsedSecAtKm(km, p) / 60)
 
   // montée la plus raide (pente raide) & descente la plus favorable
@@ -148,7 +152,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
       {/* ── KEY CARDS ────────────────────────────────────────────────────── */}
       <div className="strat-keycards" style={{ display: 'flex', gap: 16 }}>
         {wallSec && <KeyCard variant="risk" sec={wallSec} passageHM={passageHM} />}
-        {recovSec && <KeyCard variant="recovery" sec={recovSec} passageHM={passageHM} />}
+        {recovSec && <KeyCard variant={recovSec.technical ? 'technical' : 'recovery'} sec={recovSec} passageHM={passageHM} />}
       </div>
 
       {/* ── CONDITIONS ───────────────────────────────────────────────────── */}
@@ -246,19 +250,27 @@ function RouteMap({ route, markers, cursorKm, totalKm, heightPx }: {
 }
 
 // ── KeyCard ───────────────────────────────────────────────────────────────────
-function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery'; sec: { startKm: number; endKm: number; dplus: number; dminus: number; grade: number }; passageHM: (km: number) => string }) {
+function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | 'technical'; sec: { startKm: number; endKm: number; dplus: number; dminus: number; grade: number }; passageHM: (km: number) => string }) {
   const isRisk = variant === 'risk'
-  const accent = isRisk ? 'var(--vl-status-over, #d1583a)' : 'var(--vl-growth)'
+  const isTech = variant === 'technical'
+  const accent = isRisk ? 'var(--vl-status-over, #d1583a)' : isTech ? 'var(--vl-amber)' : 'var(--vl-growth)'
   const dist = (sec.endKm - sec.startKm).toFixed(1)
-  const title = isRisk ? `Montée la plus raide — ${Math.round(sec.grade)}% sur ${dist} km` : `Descente principale — ${dist} km favorables`
+  const title = isRisk
+    ? `Montée la plus raide — ${Math.round(sec.grade)}% sur ${dist} km`
+    : isTech
+      ? `Descente technique — ${dist} km en lacets`
+      : `Descente principale — ${dist} km favorables`
   const advice = isRisk
     ? 'Marche active recommandée. Ne brûle pas tes réserves ici.'
-    : 'Relâche les épaules, récupère le souffle. Gère l\'impact quadriceps.'
+    : isTech
+      ? 'Lacets serrés : freinage constant, pas d\'accélération franche. Anticipe les trajectoires, économise les quadriceps.'
+      : 'Relâche les épaules, récupère le souffle. Gère l\'impact quadriceps.'
+  const eyebrow = isRisk ? 'RISQUE · PENTE RAIDE' : isTech ? 'DESCENTE TECHNIQUE · LACETS' : 'RÉCUP · DESCENTE CLÉ'
   return (
     <div style={{ background: 'var(--vl-surf)', borderRadius: 'var(--vl-r-sm)', border: '1px solid var(--vl-line)', borderTop: '2px solid ' + accent, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Ico name={isRisk ? 'alert' : 'check'} c={accent} s={15} />
-        <span className="mono" style={{ fontSize: 10.5, color: accent, fontWeight: 700, letterSpacing: '.14em' }}>{isRisk ? 'RISQUE · PENTE RAIDE' : 'RÉCUP · DESCENTE CLÉ'}</span>
+        <Ico name={isRisk || isTech ? 'alert' : 'check'} c={accent} s={15} />
+        <span className="mono" style={{ fontSize: 10.5, color: accent, fontWeight: 700, letterSpacing: '.14em' }}>{eyebrow}</span>
       </div>
       <div className="display" style={{ fontSize: 21, color: 'var(--vl-text)', lineHeight: 1.08 }}>{title}</div>
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)', letterSpacing: '.04em' }}>
@@ -316,11 +328,13 @@ function KeySections({ p, ravitos }: { p: ProjectionResult; ravitos: RavitoPoint
       <Eyebrow style={{ marginBottom: 6 }}>SECTIONS CLÉS</Eyebrow>
       {top.map(({ s, t }, i) => {
         const up = s.type === 'up'
-        const heat = sectionHeat(s)
+        const heat = (s.technical ? Math.max(sectionHeat(s), 3) : sectionHeat(s))
         const nearRavito = ravitos.find((r) => Math.abs(r.km - s.startKm) < 2)
         const advice = up
           ? 'Effort maîtrisé — FC max 85%, cadence courte, bras actifs.'
-          : 'Descente roulante — récupération possible, relâche le haut du corps.'
+          : s.technical
+            ? 'Descente technique en lacets — freinage constant, anticipe les virages, économise les quadris.'
+            : 'Descente roulante — récupération possible, relâche le haut du corps.'
         return (
           <div key={i} style={{ display: 'flex', gap: 16, padding: '14px 0', borderBottom: i < top.length - 1 ? '1px solid var(--vl-line)' : 'none' }}>
             <div style={{ flex: '0 0 56px', textAlign: 'center' }}>
@@ -330,7 +344,7 @@ function KeySections({ p, ravitos }: { p: ProjectionResult; ravitos: RavitoPoint
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' }}>
                 <Ico name={up ? 'up' : 'down'} c={HEAT_COLORS[heat]} s={14} />
-                <span className="mono" style={{ fontSize: 11.5, color: 'var(--vl-text)', fontWeight: 700, letterSpacing: '.08em' }}>{up ? 'MONTÉE' : 'DESCENTE'}</span>
+                <span className="mono" style={{ fontSize: 11.5, color: 'var(--vl-text)', fontWeight: 700, letterSpacing: '.08em' }}>{up ? 'MONTÉE' : s.technical ? 'DESCENTE TECHNIQUE' : 'DESCENTE'}</span>
                 <span className="mono" style={{ fontSize: 10.5, color: 'var(--vl-text-3)' }}>KM {s.startKm.toFixed(1)}→{s.endKm.toFixed(1)} · {(s.endKm - s.startKm).toFixed(1)} KM · {Math.round(t / 60)} MIN</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>{advice}</div>
