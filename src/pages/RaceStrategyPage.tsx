@@ -11,6 +11,7 @@ import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
+import { fetchTerrainSurfaces } from '../lib/terrain'
 
 interface Race {
   id: string
@@ -25,6 +26,7 @@ interface Race {
   last_projection: unknown | null
   share_token: string | null
   ravitos: unknown | null
+  surfaces: unknown | null
 }
 
 function formatDate(iso: string) {
@@ -129,7 +131,7 @@ export default function RaceStrategyPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos,surfaces')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -187,7 +189,7 @@ export default function RaceStrategyPage() {
   // `silentSync` : recalcul auto au chargement → on re-persiste la projection fraîche
   // (sans flash de statut) UNIQUEMENT si elle a dérivé de celle stockée, pour que le
   // dashboard (qui lit last_projection) reste raccord avec la vraie projection.
-  function runAnalysis(pts: GpxPoint[], shouldSave: boolean, silentSync = false) {
+  function runAnalysis(pts: GpxPoint[], shouldSave: boolean, silentSync = false, terrain?: { surfaces: (string | null)[]; weather?: { precip?: number } } | null) {
     setIsComputing(true)
     setTimeout(() => {
       try {
@@ -196,6 +198,7 @@ export default function RaceStrategyPage() {
           activitiesData ?? [],
           profileData ?? {},
           race ? { type: race.type, goal_time: race.goal_time } : null,
+          terrain ?? null,
         )
         setProjection(result)
 
@@ -249,6 +252,29 @@ export default function RaceStrategyPage() {
     ravitosLoadedRef.current = true
   }, [race])
 
+  // Terrain : récupère les surfaces (cache base sinon OSM), puis re-projette avec le malus.
+  // Une fois par course/projection ; persisté pour ne pas ré-interroger Overpass.
+  const surfacesDoneRef = useRef(false)
+  useEffect(() => {
+    if (!projection || !race?.gpx_data || surfacesDoneRef.current) return
+    surfacesDoneRef.current = true
+    const pts = race.gpx_data as GpxPoint[]
+    const weather = forecast?.available && forecast.precipMm != null ? { precip: forecast.precipMm } : undefined
+    const apply = (surfaces: (string | null)[]) => {
+      if (surfaces.some((s) => s != null)) runAnalysis(pts, false, true, { surfaces, weather })
+    }
+    const cached = race.surfaces
+    if (Array.isArray(cached) && cached.length === projection.sections.length) {
+      apply(cached as (string | null)[])
+      return
+    }
+    fetchTerrainSurfaces(pts, projection.sections).then((surfaces) => {
+      supabase.from('race_calendar').update({ surfaces }).eq('id', raceId!).then(() => {})
+      apply(surfaces)
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projection, race])
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -271,6 +297,8 @@ export default function RaceStrategyPage() {
       const { ravitos: gpxRavitos, unclassified } = extractGpxWaypoints(text, pts)
       updateRavitos(gpxRavitos)
       setUnclassifiedWaypoints(unclassified)
+      surfacesDoneRef.current = false // nouveau tracé → re-détecter les surfaces
+      supabase.from('race_calendar').update({ surfaces: null }).eq('id', raceId!).then(() => {})
       runAnalysis(pts, true)
     }
     reader.readAsText(file)
@@ -293,7 +321,8 @@ export default function RaceStrategyPage() {
     setRavitos([])
     setUnclassifiedWaypoints([])
     setSettingsOpen(false)
-    await supabase.from('race_calendar').update({ gpx_data: null, last_projection: null, ravitos: null }).eq('id', raceId!)
+    surfacesDoneRef.current = false
+    await supabase.from('race_calendar').update({ gpx_data: null, last_projection: null, ravitos: null, surfaces: null }).eq('id', raceId!)
     queryClient.invalidateQueries({ queryKey: ['race', raceId] })
   }
 
