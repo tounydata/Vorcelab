@@ -9,14 +9,29 @@ export const HEAT_COLORS = ['', '#5da084', '#d4a843', '#d6803e', '#d1583a'] as c
 export const HEAT_NAMES = ['', 'Facile', 'Soutenu', 'Dur', 'Maximal'] as const
 export type HeatLevel = 1 | 2 | 3 | 4
 
-/** Effort perçu d'une section → niveau 1..4 (descente « coûte » 0.62× la pente). */
+/**
+ * Effort d'un tronçon, calibré sur la science du trail (Minetti 2002 ; Vernillo 2017 ;
+ * coût métabolique mini en descente ≈ −10 % ; bascule course→marche ≈ +15 %).
+ * Montée : coût croissant. Descente : la zone « favorable » autour de −10 % est verte
+ * (récup / vitesse libre) ; seul le raide (freinage, charge excentrique) devient dur.
+ * La sinuosité (lacets) est gérée à part — bump ≥ Dur côté affichage.
+ */
 export function sectionHeat(sec: Pick<Section, 'grade' | 'type'>): HeatLevel {
-  const g = Math.abs(sec.grade)
-  const eff = sec.type === 'down' ? g * 0.62 : g
-  if (eff < 4) return 1
-  if (eff < 8) return 2
-  if (eff < 13) return 3
-  return 4
+  if (sec.type === 'up') {
+    const g = sec.grade
+    if (g < 5) return 1   // roulant, économique
+    if (g < 10) return 2  // soutenu, courable
+    if (g < 15) return 3  // dur — seuil du power hiking
+    return 4              // très raide
+  }
+  if (sec.type === 'down') {
+    const a = Math.abs(sec.grade)
+    if (a < 10) return 1  // favorable : zone du coût mini (~−10 %), récup / vitesse libre
+    if (a < 15) return 2  // le freinage s'installe
+    if (a < 22) return 3  // freinage marqué, charge excentrique forte
+    return 4              // très raide
+  }
+  return 1 // plat
 }
 
 /** Point de profil {km, alt} — depuis les samples (d en km, alt en m), null filtrés. */
