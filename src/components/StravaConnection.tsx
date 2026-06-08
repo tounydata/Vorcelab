@@ -101,11 +101,12 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
           sync {formatSync(status.last_sync_at)}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={sync} disabled={syncing}>
+      {/* Empilés : deux libellés longs côte à côte débordaient la sidebar (190px). */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={sync} disabled={syncing}>
           {syncing ? 'SYNC…' : 'FORCER SYNC'}
         </button>
-        <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', flex: 1 }} onClick={disconnect}>
+        <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
           DÉCONNECTER
         </button>
       </div>
