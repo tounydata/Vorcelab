@@ -13,6 +13,8 @@ interface Props {
   onRemoveRavito: (km: number) => void
   onPromoteWaypoint: (w: UnclassifiedWaypoint) => void
   athleteName: string
+  /** Heure de départ 'HH:MM' → affiche l'heure d'arrivée (horloge) au lieu du temps écoulé. */
+  startTime?: string | null
 }
 
 export default function CrewPlan({
@@ -24,12 +26,14 @@ export default function CrewPlan({
   onRemoveRavito,
   onPromoteWaypoint,
   athleteName,
+  startTime,
 }: Props) {
   const [newKm, setNewKm] = useState('')
   const [newLabel, setNewLabel] = useState('')
   const totalKm = projection.totalDistM / 1000
 
-  const checkpoints: CrewCheckpoint[] = generateCrewPlan(projection, nutritionRows, ravitos)
+  const checkpoints: CrewCheckpoint[] = generateCrewPlan(projection, nutritionRows, ravitos, startTime)
+  const hasClock = checkpoints.some((c) => c.clockCible)
 
   function handleAddRavito() {
     const km = parseFloat(newKm)
@@ -136,9 +140,14 @@ export default function CrewPlan({
       {/* ── Tableau plan assistance ────────────────────────────────────────── */}
       {checkpoints.length > 0 ? (
         <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="clabel" style={{ marginBottom: '0.75rem' }}>
+          <div className="clabel" style={{ marginBottom: hasClock ? '0.4rem' : '0.75rem' }}>
             PLAN ASSISTANCE — {athleteName.toUpperCase()}
           </div>
+          {hasClock && (
+            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+              Heure d'arrivée estimée au ravito — <strong>fourchette agressif → prudent</strong> (l'assistance n'est pas toujours au milieu). Temps écoulé indiqué en dessous.
+            </div>
+          )}
 
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -178,9 +187,18 @@ export default function CrewPlan({
                         </span>
                       )}
                     </td>
-                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-growth)' }}>{cp.timeAgressif}</td>
-                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700 }}>{cp.timeCible}</td>
-                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-text-2)' }}>{cp.timePrudent}</td>
+                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-growth)' }}>
+                      {cp.clockAgressif ?? cp.timeAgressif}
+                      {cp.clockAgressif && <div style={{ fontSize: 9, color: 'var(--vl-text-3)' }}>{cp.timeAgressif}</div>}
+                    </td>
+                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700 }}>
+                      {cp.clockCible ?? cp.timeCible}
+                      {cp.clockCible && <div style={{ fontSize: 9, color: 'var(--vl-text-3)', fontWeight: 400 }}>{cp.timeCible}</div>}
+                    </td>
+                    <td className="mono" style={{ padding: '8px 8px', textAlign: 'center', color: 'var(--vl-text-2)' }}>
+                      {cp.clockPrudent ?? cp.timePrudent}
+                      {cp.clockPrudent && <div style={{ fontSize: 9, color: 'var(--vl-text-3)' }}>{cp.timePrudent}</div>}
+                    </td>
                     <td className="mlabel" style={{ padding: '8px 8px', maxWidth: 140 }}>{cp.nutritionToGive}</td>
                     <td className="mlabel" style={{ padding: '8px 8px', color: cp.vigilance ? 'var(--vl-ember)' : 'var(--vl-text-3)', fontStyle: cp.vigilance ? 'normal' : 'italic' }}>
                       {cp.vigilance || '—'}

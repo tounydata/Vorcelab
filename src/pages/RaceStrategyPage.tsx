@@ -111,6 +111,7 @@ export default function RaceStrategyPage() {
   const [editDistance, setEditDistance] = useState('')
   const [editElevation, setEditElevation] = useState('')
   const [editStartTime, setEditStartTime] = useState('')
+  const [editGoalTime, setEditGoalTime] = useState('')
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -147,6 +148,7 @@ export default function RaceStrategyPage() {
           distance: Number.isFinite(km) ? km : null,
           elevation: editElevation ? parseInt(editElevation, 10) : null,
           start_time: editStartTime || null,
+          goal_time: editGoalTime.trim() || null,
         })
         .eq('id', raceId!)
       if (error) throw error
@@ -155,6 +157,8 @@ export default function RaceStrategyPage() {
       queryClient.invalidateQueries({ queryKey: ['race', raceId] })
       queryClient.invalidateQueries({ queryKey: ['races'] })
       setEditOpen(false)
+      // Recalcule la projection (objectif/heure → labels & météo recalés).
+      setProjection(null)
     },
   })
 
@@ -165,6 +169,7 @@ export default function RaceStrategyPage() {
     setEditDistance(race.distance != null ? String(race.distance) : '')
     setEditElevation(race.elevation != null ? String(race.elevation) : '')
     setEditStartTime(race.start_time ?? '')
+    setEditGoalTime(race.goal_time ?? '')
     setSettingsOpen(false)
     setEditOpen(true)
   }
@@ -604,6 +609,12 @@ export default function RaceStrategyPage() {
                 <input id="edit-start" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}
                   style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
                 <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 4 }}>Affine la météo à J-10 (chaleur, nuit, vent).</div>
+              </div>
+              <div>
+                <label className="mlabel" htmlFor="edit-goal" style={{ display: 'block', marginBottom: 5 }}>Objectif (optionnel)</label>
+                <input id="edit-goal" value={editGoalTime} onChange={(e) => setEditGoalTime(e.target.value)} placeholder="ex. 3h30"
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r-sm)', padding: '10px 12px', color: 'var(--vl-text)', fontSize: '.95rem' }} />
+                <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 4 }}>Temps visé — comparé à la projection (ex. « 3h », « 3h30 »).</div>
               </div>
             </div>
 
@@ -1072,6 +1083,7 @@ export default function RaceStrategyPage() {
                 setUnclassifiedWaypoints(prev => prev.filter(u => u.km !== w.km))
               }}
               athleteName={athleteName}
+              startTime={race.start_time}
             />
           </div>
         </>

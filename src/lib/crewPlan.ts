@@ -25,10 +25,30 @@ export interface CrewCheckpoint {
   timeAgressif: string
   timeCible: string
   timePrudent: string
+  /** Heure d'arrivée estimée (horloge), si l'heure de départ est connue. */
+  clockAgressif?: string
+  clockCible?: string
+  clockPrudent?: string
   nutritionConsumed: string
   nutritionToGive: string
   consigne: string
   vigilance: string
+}
+
+/** 'HH:MM' → secondes depuis minuit, ou null si invalide. */
+function parseStartSec(startTime?: string | null): number | null {
+  if (!startTime) return null
+  const m = startTime.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return null
+  return (parseInt(m[1], 10) % 24) * 3600 + parseInt(m[2], 10) * 60
+}
+
+/** Heure d'horloge (« 22h48 ») à partir d'un départ + un temps écoulé (s). */
+function fmtClock(startSec: number, elapsedSec: number): string {
+  const t = Math.round(startSec + elapsedSec)
+  const h = Math.floor(t / 3600) % 24
+  const min = Math.floor((t % 3600) / 60)
+  return `${h}h${String(min).padStart(2, '0')}`
 }
 
 // Options interface for future Profil Coureur integration.
@@ -176,11 +196,13 @@ export function generateCrewPlan(
   projection: ProjectionResult,
   nutritionRows: NutritionRow[],
   ravitos: RavitoPoint[],
+  startTime?: string | null,
 ): CrewCheckpoint[] {
   const { sections, sectionTimes, totalDistM, estTimeS, timeMin, timeMax } = projection
   const totalKm = totalDistM / 1000
   const ratioMin = timeMin / estTimeS
   const ratioMax = timeMax / estTimeS
+  const startSec = parseStartSec(startTime)
 
   const ravitoCheckpoints = ravitos
     .filter(r => r.km > 1 && r.km < totalKm - 1)
@@ -227,6 +249,9 @@ export function generateCrewPlan(
       timeAgressif: fmtTime(cumTime * ratioMin),
       timeCible: fmtTime(cumTime),
       timePrudent: fmtTime(cumTime * ratioMax),
+      clockAgressif: startSec != null ? fmtClock(startSec, cumTime * ratioMin) : undefined,
+      clockCible: startSec != null ? fmtClock(startSec, cumTime) : undefined,
+      clockPrudent: startSec != null ? fmtClock(startSec, cumTime * ratioMax) : undefined,
       nutritionConsumed: consumed.length > 0 ? consumed.join(', ') : '—',
       nutritionToGive: nextNutrition ? nextNutrition.action : '—',
       consigne,
