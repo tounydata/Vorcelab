@@ -24,6 +24,7 @@ interface Race {
   gpx_data: unknown | null
   last_projection: unknown | null
   share_token: string | null
+  ravitos: unknown | null
 }
 
 function formatDate(iso: string) {
@@ -128,7 +129,7 @@ export default function RaceStrategyPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -240,6 +241,14 @@ export default function RaceStrategyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race, activitiesData, profileData])
 
+  // Charge les ravitos sauvegardés une fois (sinon ils restent vides jusqu'à un import GPX).
+  const ravitosLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!race || ravitosLoadedRef.current) return
+    if (Array.isArray(race.ravitos)) setRavitos(race.ravitos as RavitoPoint[])
+    ravitosLoadedRef.current = true
+  }, [race])
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -260,7 +269,7 @@ export default function RaceStrategyPage() {
       }))
       if (pts.length < 2) return
       const { ravitos: gpxRavitos, unclassified } = extractGpxWaypoints(text, pts)
-      setRavitos(gpxRavitos)
+      updateRavitos(gpxRavitos)
       setUnclassifiedWaypoints(unclassified)
       runAnalysis(pts, true)
     }
@@ -284,8 +293,15 @@ export default function RaceStrategyPage() {
     setRavitos([])
     setUnclassifiedWaypoints([])
     setSettingsOpen(false)
-    await supabase.from('race_calendar').update({ gpx_data: null, last_projection: null }).eq('id', raceId!)
+    await supabase.from('race_calendar').update({ gpx_data: null, last_projection: null, ravitos: null }).eq('id', raceId!)
     queryClient.invalidateQueries({ queryKey: ['race', raceId] })
+  }
+
+  // Persiste les ravitos en base (avant : uniquement en état React → perdus au reload).
+  function updateRavitos(next: RavitoPoint[]) {
+    const sorted = [...next].sort((a, b) => a.km - b.km)
+    setRavitos(sorted)
+    if (raceId) supabase.from('race_calendar').update({ ravitos: sorted }).eq('id', raceId).then(() => {})
   }
 
   const menuItemStyle: React.CSSProperties = {
@@ -536,10 +552,10 @@ export default function RaceStrategyPage() {
               nutritionRows={nutritionRows}
               ravitos={ravitos}
               unclassifiedWaypoints={unclassifiedWaypoints}
-              onAddRavito={(r) => setRavitos(prev => [...prev.filter(x => x.km !== r.km), r].sort((a, b) => a.km - b.km))}
-              onRemoveRavito={(km) => setRavitos(prev => prev.filter(r => r.km !== km))}
+              onAddRavito={(r) => updateRavitos([...ravitos.filter(x => x.km !== r.km), r])}
+              onRemoveRavito={(km) => updateRavitos(ravitos.filter(r => r.km !== km))}
               onPromoteWaypoint={(w) => {
-                setRavitos(prev => [...prev.filter(x => x.km !== w.km), { km: w.km, label: w.label, source: 'gpx' as const }].sort((a, b) => a.km - b.km))
+                updateRavitos([...ravitos.filter(x => x.km !== w.km), { km: w.km, label: w.label, source: 'gpx' as const }])
                 setUnclassifiedWaypoints(prev => prev.filter(u => u.km !== w.km))
               }}
               athleteName={athleteName}
