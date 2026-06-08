@@ -4,6 +4,7 @@
 
 // @ts-ignore — JS files typed as any via allowJs; checkJs: false keeps them unchecked
 import { hav, minettiGradePenalty, buildDetailedSections, sectionTurnDegPerKm } from './gpxCore'
+import { terrainTimePenalty, slipRisk, type TerrainWeather } from './terrain'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
@@ -25,6 +26,12 @@ export interface Section {
   technical?: boolean
   /** Longueur réellement en lacets dans la descente (km), pour ne pas sur-annoncer. */
   technicalKm?: number
+  /** Surface OSM dominante (asphalt, gravel, path…) si disponible. */
+  surface?: string | null
+  /** Multiplicateur de temps lié à la surface + météo (≥ 1). */
+  surfaceFactor?: number
+  /** Risque de glisse (texte) si pertinent. */
+  slip?: string | null
 }
 
 /** Micro-tronçon (~150 m) : pente locale + sinuosité locale, pour une lecture fine. */
@@ -64,7 +71,8 @@ export function computeRaceProjection(
   points: GpxPoint[],
   activities: Record<string, unknown>[],
   profile: Record<string, unknown>,
-  race: { type?: string | null; goal_time?: string | null } | null
+  race: { type?: string | null; goal_time?: string | null } | null,
+  terrain?: { surfaces: (string | null)[]; weather?: TerrainWeather } | null,
 ): ProjectionResult {
   // ── 1. Cumulative distances & elevation stats ──────────────────────────────
   const cumDist = [0]
@@ -520,6 +528,32 @@ export function computeRaceProjection(
         : 'Lacets détectés — estimation générique (pas encore de descente sinueuse dans ton historique).',
       color: 'var(--vl-amber)',
     })
+  }
+
+  // ── Terrain (surface OSM + météo) : malus de temps par section. Calibration perso
+  // (runner_profile.terrainCalibration) appliquée si présente, sinon facteurs génériques.
+  if (terrain?.surfaces?.length) {
+    let terrainExtra = 0
+    let worstSlip: string | null = null
+    for (let si = 0; si < sections.length; si++) {
+      const s = sections[si]
+      const surf = terrain.surfaces[si] ?? null
+      s.surface = surf
+      if (!surf) continue
+      const f = terrainTimePenalty(surf, terrain.weather, s.grade, s.type, runnerProfile as { terrainCalibration?: Record<string, number> } | null)
+      s.surfaceFactor = +f.toFixed(3)
+      s.slip = slipRisk(surf, terrain.weather, s.grade)
+      if (s.slip && !worstSlip) worstSlip = s.slip
+      if (f > 1) { const extra = sectionTimes[si] * (f - 1); sectionTimes[si] += extra; terrainExtra += extra }
+    }
+    estTimeS += terrainExtra
+    if (terrainExtra > 1) {
+      personalAdjustments.push({
+        label: 'Terrain',
+        detail: `+${Math.round((terrainExtra / Math.max(1, estTimeS - terrainExtra)) * 100)}% — surfaces meubles/techniques${worstSlip ? ` · ${worstSlip}` : ''}.`,
+        color: 'var(--vl-amber)',
+      })
+    }
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────

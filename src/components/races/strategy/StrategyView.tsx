@@ -8,6 +8,7 @@ import {
   HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM,
   buildRoutePath, altAtKm,
 } from '../../../lib/raceStrategyView'
+import { surfaceInfo } from '../../../lib/terrain'
 
 interface RaceMeta {
   name: string; date: string; type?: string | null
@@ -361,6 +362,12 @@ function KeySections({ p, ravitos }: { p: ProjectionResult; ravitos: RavitoPoint
                 <span className="mono" style={{ fontSize: 10.5, color: 'var(--vl-text-3)' }}>KM {s.startKm.toFixed(1)}→{s.endKm.toFixed(1)} · {(s.endKm - s.startKm).toFixed(1)} KM · {Math.round(t / 60)} MIN</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>{advice}</div>
+              {(s.surface || s.slip) && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 5, flexWrap: 'wrap' }}>
+                  {s.surface && <span className="mono" style={{ fontSize: 10, color: surfaceInfo(s.surface).col }}>{surfaceInfo(s.surface).fr}</span>}
+                  {s.slip && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--vl-status-over, #d1583a)' }}><Ico name="alert" c="var(--vl-status-over, #d1583a)" s={12} />{s.slip}</span>}
+                </div>
+              )}
             </div>
             {nearRavito && (
               <div style={{ flex: '0 0 auto', alignSelf: 'center' }}>
@@ -411,6 +418,7 @@ function AllSectionsTable({ p, passageHM }: { p: ProjectionResult; passageHM: (k
               <span style={{ fontSize: 13, color: 'var(--vl-text)' }}>{up ? 'Montée' : s.type === 'down' ? 'Descente' : 'Plat'}</span>
               <span className="mono" style={{ fontSize: 9.5, color: HEAT_COLORS[heat] }}>{HEAT_NAMES[heat].toUpperCase()}</span>
               <span className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)' }}>{Math.round(s.grade)}%</span>
+              {s.surface && <span className="mono" style={{ fontSize: 9.5, color: surfaceInfo(s.surface).col }}>{surfaceInfo(s.surface).fr.toUpperCase()}</span>}
             </span>
             <span className="mono tnum" style={{ fontSize: 11, color: 'var(--vl-text-2)', textAlign: 'right' }}>{s.startKm.toFixed(1)}–{s.endKm.toFixed(1)}</span>
             <span className="mono tnum" style={{ fontSize: 11.5, color: up ? 'var(--vl-growth)' : 'var(--vl-text-2)', textAlign: 'right', fontWeight: 600 }}>{up ? '+' + Math.round(s.dplus) : '−' + Math.round(s.dminus)}</span>
