@@ -103,6 +103,22 @@ describe('generateCrewPlan', () => {
     }
   })
 
+  it('heure de départ → heures d\'arrivée (horloge) en fourchette agressif ≤ cible ≤ prudent', () => {
+    const proj = makeProjection(42)
+    const ravitos = [{ km: 15, label: 'Ravito 1', source: 'manual' as const }]
+    const result = generateCrewPlan(proj, noNutrition, ravitos, '21:00')
+    const cp = result.find((c) => c.km === 15)!
+    expect(cp.clockCible).toMatch(/^\d{1,2}h\d{2}$/)
+    const toMin = (s: string) => { const m = s.match(/(\d+)h(\d+)/)!; return +m[1] * 60 + +m[2] }
+    expect(toMin(cp.clockAgressif!)).toBeLessThanOrEqual(toMin(cp.clockCible!))
+    expect(toMin(cp.clockCible!)).toBeLessThanOrEqual(toMin(cp.clockPrudent!))
+  })
+
+  it('sans heure de départ → pas d\'heure d\'horloge', () => {
+    const result = generateCrewPlan(makeProjection(42), noNutrition, [{ km: 15, label: 'R', source: 'manual' as const }])
+    expect(result[0].clockCible).toBeUndefined()
+  })
+
   it('vigilance is non-empty before a steep section (grade>12)', () => {
     const proj = makeProjection(42)
     // Make a steep section starting at km 20
