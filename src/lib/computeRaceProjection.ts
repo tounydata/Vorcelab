@@ -23,12 +23,25 @@ export interface Section {
   turnDegPerKm?: number
   /** Descente technique (lacets) : freinage constant, pas d'accélération franche. */
   technical?: boolean
+  /** Longueur réellement en lacets dans la descente (km), pour ne pas sur-annoncer. */
+  technicalKm?: number
+}
+
+/** Micro-tronçon (~150 m) : pente locale + sinuosité locale, pour une lecture fine. */
+export interface MicroSeg {
+  startKm: number
+  endKm: number
+  grade: number
+  turnDegPerKm: number
+  type: 'up' | 'down' | 'flat'
 }
 
 export interface ProjectionResult {
   points: GpxPoint[]
   samples: { d: number; alt: number | null }[]
   sections: Section[]
+  /** Micro-tronçons ~150 m (pente + sinuosité locales) — pour peindre l'effort au juste. */
+  microSegments: MicroSeg[]
   sectionTimes: number[]
   totalDistM: number
   dplus: number
@@ -216,22 +229,28 @@ export function computeRaceProjection(
     if (tdProfile.global && okConf(tdProfile.global.confidence)) return tdProfile.global.factor
     return null
   }
-  const techPenalty: number[] = sections.map((s) => {
-    const turn = sectionTurnDegPerKm(points, cumDist, s.startKm, s.endKm)
-    s.turnDegPerKm = Math.round(turn)
-    if (s.type !== 'down' || turn < TECH_T0) return 1
-    s.technical = turn >= SIN_TWISTY
-    const personal = personalTechFactor(s.grade)
-    if (personal != null) {
-      // Facteur perso (ratio vitesse droite/sinueuse), ancré sur la sinuosité réelle :
-      // pleinement à ≥250 °/km, atténué en dessous, amplifié (×1.4 max) sur du très technique.
-      const scale = Math.max(0, Math.min(1.4, (turn - TECH_T0) / (SIN_TWISTY - TECH_T0)))
-      return 1 + (personal - 1) * scale
+  // Micro-tronçons ~150 m : pente locale + sinuosité locale. Sert à (a) peindre l'effort
+  // au juste, (b) ne pénaliser/marquer « technique » QUE les portions réellement en lacets
+  // (avant : une descente de 5 km était marquée technique en entier dès qu'un bout l'était).
+  const eleFilled: number[] = new Array(points.length)
+  { let last = points[0]?.ele ?? 0; for (let i = 0; i < points.length; i++) { if (points[i].ele != null) last = points[i].ele as number; eleFilled[i] = last } }
+  const MICRO_M = 150
+  const microSegments: MicroSeg[] = []
+  {
+    let segStart = 0
+    for (let i = 1; i < points.length; i++) {
+      const span = cumDist[i] - cumDist[segStart]
+      if (span >= MICRO_M || i === points.length - 1) {
+        if (span < 5) { segStart = i; continue }
+        const startKm = cumDist[segStart] / 1000, endKm = cumDist[i] / 1000
+        const grade = +(((eleFilled[i] - eleFilled[segStart]) / span) * 100).toFixed(1)
+        const turn = Math.round(sectionTurnDegPerKm(points, cumDist, startKm, endKm))
+        const type: 'up' | 'down' | 'flat' = grade > 1.5 ? 'up' : grade < -1.5 ? 'down' : 'flat'
+        microSegments.push({ startKm: +startKm.toFixed(3), endKm: +endKm.toFixed(3), grade, turnDegPerKm: turn, type })
+        segStart = i
+      }
     }
-    // Repli générique (aucun historique sinueux fiable).
-    const f = Math.max(0, Math.min(1, (turn - TECH_T0) / (GEN_FULL - TECH_T0)))
-    return 1 + f * GEN_CAP
-  })
+  }
 
   // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
@@ -459,18 +478,39 @@ export function computeRaceProjection(
     }
   }
 
-  // Pénalité « descente technique » (lacets) : ajoute du temps sur les sections
-  // sinueuses → ralentit le total ET la section concernée (pas une simple redistribution).
+  // Pénalité « descente technique » (lacets), AU MICRO-TRONÇON : on ne pénalise et on ne
+  // marque « technique » QUE les portions réellement sinueuses (≥ 250 °/km), pas la section
+  // entière. `technicalKm` = longueur réelle en lacets (pour ne pas sur-annoncer « 5 km »).
   let techExtraTotal = 0
+  let anyTechnical = false
   for (let si = 0; si < sections.length; si++) {
-    const pen = techPenalty[si]
-    if (pen <= 1) continue
-    const extra = sectionTimes[si] * (pen - 1)
+    const s = sections[si]
+    s.turnDegPerKm = Math.round(sectionTurnDegPerKm(points, cumDist, s.startKm, s.endKm))
+    if (s.type !== 'down') continue
+    const sectKm = s.dist / 1000
+    if (sectKm <= 0) continue
+    let extra = 0, sinuousKm = 0
+    const personal = personalTechFactor(s.grade)
+    for (const m of microSegments) {
+      const overlap = Math.min(m.endKm, s.endKm) - Math.max(m.startKm, s.startKm)
+      if (overlap <= 0 || m.turnDegPerKm < TECH_T0) continue
+      let pen: number
+      if (personal != null) {
+        const scale = Math.max(0, Math.min(1.4, (m.turnDegPerKm - TECH_T0) / (SIN_TWISTY - TECH_T0)))
+        pen = 1 + (personal - 1) * scale
+      } else {
+        const f = Math.max(0, Math.min(1, (m.turnDegPerKm - TECH_T0) / (GEN_FULL - TECH_T0)))
+        pen = 1 + f * GEN_CAP
+      }
+      extra += sectionTimes[si] * (overlap / sectKm) * (pen - 1)
+      if (m.turnDegPerKm >= SIN_TWISTY) sinuousKm += overlap
+    }
+    if (sinuousKm >= 0.4) { s.technical = true; s.technicalKm = +sinuousKm.toFixed(1); anyTechnical = true }
     sectionTimes[si] += extra
     techExtraTotal += extra
   }
   estTimeS += techExtraTotal
-  if (sections.some((s) => s.technical)) {
+  if (anyTechnical) {
     const techSec = sections.find((s) => s.technical)!
     const perso = personalTechFactor(techSec.grade) != null
     personalAdjustments.push({
@@ -626,6 +666,7 @@ export function computeRaceProjection(
     points,
     samples,
     sections,
+    microSegments,
     sectionTimes: scaledTimes,
     totalDistM,
     dplus,

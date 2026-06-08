@@ -68,12 +68,24 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
   const totalKm = p.totalDistM / 1000
 
   const pts = useMemo(() => profilePoints(p), [p])
-  const heatSections: ProfileSection[] = useMemo(
-    () => p.sections.map((s) => ({
-      startKm: s.startKm, endKm: s.endKm,
-      // une descente technique (lacets) « coûte » comme un effort soutenu → heat ≥ 3
-      heat: (s.technical ? Math.max(sectionHeat(s), 3) : sectionHeat(s)) as ProfileSection['heat'],
-    })), [p])
+  // Effort peint au MICRO-TRONÇON (~150 m) : colle au terrain réel au lieu d'une couleur
+  // par grosse section. Seuls les bouts vraiment en lacets (≥250 °/km) montent en « Dur ».
+  const heatSections: ProfileSection[] = useMemo(() => {
+    const segs = p.microSegments?.length
+      ? p.microSegments.map((m) => ({
+          startKm: m.startKm, endKm: m.endKm,
+          heat: (m.type === 'down' && m.turnDegPerKm >= 250 ? Math.max(sectionHeat(m), 3) : sectionHeat(m)) as ProfileSection['heat'],
+        }))
+      : p.sections.map((s) => ({ startKm: s.startKm, endKm: s.endKm, heat: sectionHeat(s) as ProfileSection['heat'] }))
+    // fusionne les tronçons consécutifs de même effort (SVG plus propre)
+    const merged: ProfileSection[] = []
+    for (const seg of segs) {
+      const last = merged[merged.length - 1]
+      if (last && last.heat === seg.heat) last.endKm = seg.endKm
+      else merged.push({ ...seg })
+    }
+    return merged
+  }, [p])
   const passageHM = (km: number) => fmtHM(elapsedSecAtKm(km, p) / 60)
 
   // montée la plus raide (pente raide) & descente la plus favorable
@@ -250,15 +262,16 @@ function RouteMap({ route, markers, cursorKm, totalKm, heightPx }: {
 }
 
 // ── KeyCard ───────────────────────────────────────────────────────────────────
-function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | 'technical'; sec: { startKm: number; endKm: number; dplus: number; dminus: number; grade: number }; passageHM: (km: number) => string }) {
+function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | 'technical'; sec: { startKm: number; endKm: number; dplus: number; dminus: number; grade: number; technicalKm?: number }; passageHM: (km: number) => string }) {
   const isRisk = variant === 'risk'
   const isTech = variant === 'technical'
   const accent = isRisk ? 'var(--vl-status-over, #d1583a)' : isTech ? 'var(--vl-amber)' : 'var(--vl-growth)'
   const dist = (sec.endKm - sec.startKm).toFixed(1)
+  const lacetsKm = sec.technicalKm != null ? sec.technicalKm.toFixed(1) : dist
   const title = isRisk
     ? `Montée la plus raide — ${Math.round(sec.grade)}% sur ${dist} km`
     : isTech
-      ? `Descente technique — ${dist} km en lacets`
+      ? `Descente — ${lacetsKm} km en lacets sur ${dist} km`
       : `Descente principale — ${dist} km favorables`
   const advice = isRisk
     ? 'Marche active recommandée. Ne brûle pas tes réserves ici.'
