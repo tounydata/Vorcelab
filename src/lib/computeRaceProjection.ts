@@ -117,19 +117,6 @@ export function computeRaceProjection(
   // ── 4. Sections (buildDetailedSections from gpx-core.js) ──────────────────
   const sections: Section[] = (buildDetailedSections(kmSecs) as Section[])
 
-  // Détection des descentes techniques (lacets) via la sinuosité du tracé GPS.
-  // Une descente très sinueuse impose un freinage constant → pas d'accélération franche :
-  // on la pénalise en temps et on la signale (plutôt que de la croire « favorable »).
-  const TECH_T0 = 150, TECH_FULL = 600, TECH_CAP = 0.22 // °/km : seuil, plein effet, +22% max
-  const techPenalty: number[] = sections.map((s) => {
-    const turn = sectionTurnDegPerKm(points, cumDist, s.startKm, s.endKm)
-    s.turnDegPerKm = Math.round(turn)
-    if (s.type !== 'down') return 1
-    s.technical = turn >= 250
-    const f = Math.max(0, Math.min(1, (turn - TECH_T0) / (TECH_FULL - TECH_T0)))
-    return 1 + f * TECH_CAP
-  })
-
   // ── 5. isTrail from race type or D+/km heuristic ──────────────────────────
   const raceType = race?.type
   let isTrail: boolean
@@ -211,6 +198,40 @@ export function computeRaceProjection(
     }
     return 'flat'
   }
+
+  // ── Descentes techniques (lacets) : pénalité de temps. Priorité = TON historique.
+  // Cascade : facteur perso par tranche de pente → facteur perso global → générique.
+  // (la sinuosité vient du tracé GPS ; le ralentissement vient de tes descentes passées)
+  const TECH_T0 = 150, SIN_TWISTY = 250, GEN_FULL = 600, GEN_CAP = 0.22
+  const tdProfile = runnerProfile?.technicalDescent as {
+    byBucket?: Record<string, { factor: number; confidence: string }>
+    global?: { factor: number; confidence: string }
+  } | undefined
+  const okConf = (c?: string) => c === 'high' || c === 'medium'
+  function personalTechFactor(grade: number): number | null {
+    if (!tdProfile) return null
+    const bk = sectionBucketKey(grade, 'down')
+    const b = bk ? tdProfile.byBucket?.[bk] : undefined
+    if (b && okConf(b.confidence)) return b.factor
+    if (tdProfile.global && okConf(tdProfile.global.confidence)) return tdProfile.global.factor
+    return null
+  }
+  const techPenalty: number[] = sections.map((s) => {
+    const turn = sectionTurnDegPerKm(points, cumDist, s.startKm, s.endKm)
+    s.turnDegPerKm = Math.round(turn)
+    if (s.type !== 'down' || turn < TECH_T0) return 1
+    s.technical = turn >= SIN_TWISTY
+    const personal = personalTechFactor(s.grade)
+    if (personal != null) {
+      // Facteur perso (ratio vitesse droite/sinueuse), ancré sur la sinuosité réelle :
+      // pleinement à ≥250 °/km, atténué en dessous, amplifié (×1.4 max) sur du très technique.
+      const scale = Math.max(0, Math.min(1.4, (turn - TECH_T0) / (SIN_TWISTY - TECH_T0)))
+      return 1 + (personal - 1) * scale
+    }
+    // Repli générique (aucun historique sinueux fiable).
+    const f = Math.max(0, Math.min(1, (turn - TECH_T0) / (GEN_FULL - TECH_T0)))
+    return 1 + f * GEN_CAP
+  })
 
   // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
@@ -450,9 +471,13 @@ export function computeRaceProjection(
   }
   estTimeS += techExtraTotal
   if (sections.some((s) => s.technical)) {
+    const techSec = sections.find((s) => s.technical)!
+    const perso = personalTechFactor(techSec.grade) != null
     personalAdjustments.push({
       label: 'Descente technique',
-      detail: 'Lacets / virages serrés détectés — freinage constant, temps ajusté.',
+      detail: perso
+        ? 'Lacets détectés — ralentissement calé sur TES descentes sinueuses passées.'
+        : 'Lacets détectés — estimation générique (pas encore de descente sinueuse dans ton historique).',
       color: 'var(--vl-amber)',
     })
   }

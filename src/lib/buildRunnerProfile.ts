@@ -2,6 +2,7 @@
 // All stream data comes from the activity_streams DB cache via fetchStreams.
 import { supabase } from './supabase'
 import { fetchStreams } from './streams'
+import { sectionTurnDegPerKm } from './gpxCore'
 import { fetchActivityWeather } from './weather'
 import {
   getGradeBucket,
@@ -23,6 +24,8 @@ import {
   type DownhillFatigueProfile,
   type ConditionPenalties,
   type ConditionPenalty,
+  type TechnicalDescentProfile,
+  type TechDescentFactor,
 } from './runnerProfile'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'virtualrun', 'hike', 'walk'])
@@ -67,6 +70,11 @@ export async function buildRunnerProfile(
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
   const descentRecoveryAccum: Partial<Record<DescentBucket, RecoveryEvent[]>> = {}
 
+  // Descentes : on collecte (sinuosité °/km, vitesse m/s, distance m) par tranche de
+  // pente → on apprendra le ralentissement perso en lacets (cf. technicalDescent).
+  type DescRun = { sin: number; speed: number; dist: number }
+  const descentTechAccum: Record<DescentBucket, DescRun[]> = { mild_down: [], mod_down: [], steep_down: [] }
+
   // (condition penalties computed after main loop)
 
   let totalStreamSeconds = 0
@@ -87,6 +95,7 @@ export async function buildRunnerProfile(
     const heartrate = streams.heartrate?.data
     const distArr = streams.distance?.data
     const cadenceArr = streams.cadence?.data
+    const latlng = streams.latlng?.data
 
     if (!altitude || !velocity || time.length < 5) continue
 
@@ -178,6 +187,26 @@ export async function buildRunnerProfile(
       }
       if (altDelta > 0) acc.altGainM += altDelta
       acc.runIds.add(String(act.id))
+    }
+
+    // ── Descentes : sinuosité + vitesse par run (apprentissage facteur technique) ──
+    if (latlng && latlng.length === n) {
+      const streamPts = latlng.map(([lat, lon]) => ({ lat, lon }))
+      let r0 = 0
+      for (let j = 1; j <= n; j++) {
+        if (j === n || stableBucketSample[j] !== stableBucketSample[r0]) {
+          const bk = stableBucketSample[r0]
+          if (bk === 'mild_down' || bk === 'mod_down' || bk === 'steep_down') {
+            const dist = cumDistStream[j - 1] - cumDistStream[r0]
+            const dur = time[j - 1] - time[r0]
+            if (dist >= 150 && dur > 5) {
+              const sin = sectionTurnDegPerKm(streamPts, cumDistStream, cumDistStream[r0] / 1000, cumDistStream[j - 1] / 1000)
+              descentTechAccum[bk].push({ sin, speed: dist / dur, dist })
+            }
+          }
+          r0 = j
+        }
+      }
     }
 
     // ── Post-climb & post-descent HR recovery (per-bucket) ───────────────────
@@ -513,6 +542,33 @@ export async function buildRunnerProfile(
   if (nightP) conditionPenalties.night = nightP
   if (windP)  conditionPenalties.wind  = windP
 
+  // ── Facteur « descente technique » (lacets) appris sur l'historique ───────────
+  // Par tranche de pente : ratio vitesse_DROITE / vitesse_SINUEUSE (pondéré distance).
+  // factor ≥ 1 = tu ralentis dans les lacets. Cascade : par-bucket → global (→ générique
+  // côté projection si rien d'appris).
+  const SIN_STRAIGHT = 120, SIN_TWISTY = 250
+  function deriveTechFactor(rs: { sin: number; speed: number; dist: number }[]): TechDescentFactor | undefined {
+    const straight = rs.filter((r) => r.sin < SIN_STRAIGHT)
+    const twisty = rs.filter((r) => r.sin >= SIN_TWISTY)
+    if (straight.length < 2 || twisty.length < 2) return undefined
+    const wMean = (a: typeof rs) => a.reduce((s, r) => s + r.speed * r.dist, 0) / a.reduce((s, r) => s + r.dist, 0)
+    const vStraight = wMean(straight), vTwisty = wMean(twisty)
+    if (!(vStraight > 0) || !(vTwisty > 0)) return undefined
+    return {
+      factor: +Math.max(1, Math.min(1.5, vStraight / vTwisty)).toFixed(3),
+      confidence: computeConfidenceFromCount(twisty.length, { high: 4, medium: 2 }),
+      sampleCount: twisty.length,
+    }
+  }
+  const techDescent: TechnicalDescentProfile = { byBucket: {} }
+  for (const bk of ['mild_down', 'mod_down', 'steep_down'] as const) {
+    const f = deriveTechFactor(descentTechAccum[bk])
+    if (f) techDescent.byBucket[bk] = f
+  }
+  const globalTech = deriveTechFactor([...descentTechAccum.mild_down, ...descentTechAccum.mod_down, ...descentTechAccum.steep_down])
+  if (globalTech) techDescent.global = globalTech
+  const hasTech = globalTech != null || Object.keys(techDescent.byBucket).length > 0
+
   onProgress?.(90, 'Finalisation…')
 
   // ── Build bucket stats ────────────────────────────────────────────────────
@@ -709,6 +765,7 @@ export async function buildRunnerProfile(
     postDownhillRecoveryByBucket,
     downhillFatigue,
     conditionPenalties: Object.keys(conditionPenalties).length > 0 ? conditionPenalties : undefined,
+    technicalDescent: hasTech ? techDescent : undefined,
   }
 }
 
