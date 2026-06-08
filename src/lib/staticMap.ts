@@ -35,10 +35,10 @@ export function toPixel(lon: number, lat: number, center: Center, w: number, h: 
 }
 
 /** URL d'image statique relief/sombre selon la clé dispo (MapTiler prioritaire). null sinon. */
-// Clé MapTiler frontend par défaut (de toute façon publique dans le bundle navigateur).
-// Sa protection = restriction d'origine HTTP côté MapTiler (à faire sur tounydata.github.io).
+// Clé MapTiler frontend par défaut (publique dans le bundle navigateur, c'est normal).
+// Protégée côté MapTiler par restriction d'origine HTTP : tounydata.github.io + localhost.
 // Surchargeable via VITE_MAPTILER_KEY.
-const DEFAULT_MAPTILER_KEY = 'z1rdNuaZU26r1yGwRKAD'
+const DEFAULT_MAPTILER_KEY = 'UIAKCRIncKBkhN0ZLh8q'
 
 export function staticMapUrl(center: Center, w: number, h: number): string | null {
   let env: Record<string, string | undefined> = {}
