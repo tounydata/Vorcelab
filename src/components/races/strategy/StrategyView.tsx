@@ -265,7 +265,7 @@ function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
       <div style={{ position: 'relative', width: 'calc(100% - 24px)', margin: '0 12px 12px', aspectRatio: `${MAP_W} / ${MAP_H}`, borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
         {geo.grid && (
           <>
-            <div style={{ position: 'absolute', inset: 0, filter: 'brightness(0.62) saturate(0.78) contrast(1.06)' }}>
+            <div style={{ position: 'absolute', inset: 0, filter: 'brightness(1.1) contrast(1.55) saturate(0.65)' }}>
               {geo.grid.tiles.map((t, i) => (
                 <img
                   key={i}
@@ -276,7 +276,7 @@ function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
                 />
               ))}
             </div>
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, color-mix(in srgb, var(--vl-bg) 25%, transparent), color-mix(in srgb, var(--vl-bg) 60%, transparent))' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, color-mix(in srgb, var(--vl-bg) 5%, transparent), color-mix(in srgb, var(--vl-bg) 20%, transparent))' }} />
           </>
         )}
         <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
