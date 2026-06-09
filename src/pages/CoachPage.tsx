@@ -287,6 +287,18 @@ export default function CoachPage() {
     },
   })
 
+  // Journal des séances → affiche celles déjà validées (bug : repartait à zéro au retour).
+  const queryClient = useQueryClient()
+  const { data: sessionLogs = [] } = useQuery({
+    queryKey: ['session-log-all', user?.id],
+    enabled: !!user,
+    queryFn: () => listSessionLog(120),
+  })
+  function onSessionSaved() {
+    queryClient.invalidateQueries({ queryKey: ['session-log-all', user?.id] })
+    queryClient.invalidateQueries({ queryKey: ['latest-verdict', user?.id] })
+  }
+
   const [dismissed, setDismissed] = useState(false)
   useEffect(() => {
     setDismissed(!!latestVerdict && localStorage.getItem('vl-modul-dismiss') === latestVerdict.id)
@@ -486,6 +498,8 @@ export default function CoachPage() {
         activities={activities}
         fcMax={profile?.fc_max}
         scale={modulation ? { workoutId: modulation.workoutId, dir: modulation.dir } : undefined}
+        logs={sessionLogs}
+        onSaved={onSessionSaved}
       />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>

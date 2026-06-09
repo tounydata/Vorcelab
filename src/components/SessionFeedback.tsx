@@ -56,7 +56,7 @@ const VERDICT_STYLE: Record<SessionVerdict, { label: string; color: string }> = 
   manquee: { label: 'Manquée', color: 'var(--vl-text-3)' },
 }
 
-export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
+export default function SessionFeedback({ link, onSaved }: { link?: SessionLinkCtx; onSaved?: () => void }) {
   const [feeling, setFeeling] = useState<Feeling | null>(null)
   const [reason, setReason] = useState<string | null>(null)
   const [painLevel, setPainLevel] = useState<number | null>(null)
@@ -119,6 +119,7 @@ export default function SessionFeedback({ link }: { link?: SessionLinkCtx }) {
       pain: reason === 'Douleur',
     })
     setSaving(false)
+    onSaved?.()
     if (result.verdict !== 'conforme') setSplash(true)
   }
 
