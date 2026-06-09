@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import type { ProjectionResult, GpxPoint } from '../../../lib/computeRaceProjection'
+import type { ProjectionResult } from '../../../lib/computeRaceProjection'
 import type { RaceConditions, WeatherImpact } from '../../../lib/raceWeather'
 import type { NutritionRow } from '../../../lib/nutritionPlan'
 import type { RavitoPoint } from '../../../lib/crewPlan'
@@ -8,8 +8,7 @@ import {
   HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM, altAtKm,
 } from '../../../lib/raceStrategyView'
 import { surfaceInfo } from '../../../lib/terrain'
-import { fitBounds, toPixel, tileGrid } from '../../../lib/staticMap'
-import { hav } from '../../../lib/gpxCore'
+import RouteMap3D from './RouteMap3D'
 
 interface RaceMeta {
   name: string; date: string; type?: string | null
@@ -138,7 +137,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           <div style={{ flex: 1, minWidth: 0 }}>
             <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} />
           </div>
-          {hasRoute && <div className="strat-hero-map" style={{ flex: '0 0 290px' }}><RouteMap points={p.points} markers={markers} cursorKm={hoverKm} totalKm={totalKm} heightPx={300} /></div>}
+          {hasRoute && <div className="strat-hero-map" style={{ flex: '0 0 290px' }}><RouteMap3D points={p.points} markers={markers} cursorKm={hoverKm} totalKm={totalKm} heightPx={300} /></div>}
         </div>
 
         <div style={{ padding: '0 24px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -222,92 +221,6 @@ function ScenarioBand({ p, weather }: { p: ProjectionResult; weather: WeatherImp
   )
 }
 
-// ── RouteMap (SVG stylisé depuis vraies coords GPX) ───────────────────────────
-// Carte : tracé GPS sur fond de relief ombré (tuiles raster assemblées), aligné au pixel
-// via une projection Web Mercator partagée (même centre/zoom pour les tuiles et le SVG). Le
-// curseur reste synchronisé avec le profil. Sans clé de carte (env), fond sombre uni (repli).
-const MAP_W = 300, MAP_H = 240
-function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
-  points: GpxPoint[]; markers: ProfileMarker[]; cursorKm: number | null; totalKm: number; heightPx: number
-}) {
-  const geo = useMemo(() => {
-    if (!points || points.length < 2) return null
-    const lats = points.map((p) => p.lat), lons = points.map((p) => p.lon)
-    const center = fitBounds(Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats), MAP_W, MAP_H)
-    const px = points.map((p) => toPixel(p.lon, p.lat, center, MAP_W, MAP_H))
-    const d = px.map((pt, i) => `${i ? 'L' : 'M'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ')
-    const cum = [0]
-    for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + hav(points[i - 1], points[i]) / 1000)
-    return { center, px, d, cum, grid: tileGrid(center, MAP_W, MAP_H) }
-  }, [points])
-  if (!geo) return null
-
-  const pixelAtKm = (km: number) => {
-    const target = Math.max(0, Math.min(totalKm, km))
-    const { cum, px } = geo
-    let i = 1; while (i < cum.length && cum[i] < target) i++
-    if (i >= px.length) return px[px.length - 1]
-    const a = px[i - 1], b = px[i]
-    const t = (target - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1])
-    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
-  }
-  const cur = cursorKm != null ? pixelAtKm(cursorKm) : null
-  const mk = markers.filter((m) => m.kind !== 'wall')
-  const pctX = (x: number) => (x / MAP_W) * 100, pctY = (y: number) => (y / MAP_H) * 100
-
-  return (
-    <div style={{ background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: heightPx }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
-        <Eyebrow>TRACÉ GPS</Eyebrow>
-        <span className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)' }}>{totalKm.toFixed(1)} KM</span>
-      </div>
-      {/* aspect-ratio fixe = alignement image ↔ tracé garanti */}
-      <div style={{ position: 'relative', width: 'calc(100% - 24px)', margin: '0 12px 12px', aspectRatio: `${MAP_W} / ${MAP_H}`, borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
-        {geo.grid && (
-          <>
-            <div style={{ position: 'absolute', inset: 0, filter: 'brightness(1.1) contrast(1.55) saturate(0.65)' }}>
-              {geo.grid.tiles.map((t, i) => (
-                <img
-                  key={i}
-                  src={t.url}
-                  alt=""
-                  loading="lazy"
-                  style={{ position: 'absolute', left: pctX(t.left) + '%', top: pctY(t.top) + '%', width: (t.size / MAP_W) * 100 + '%', height: (t.size / MAP_H) * 100 + '%', objectFit: 'cover' }}
-                />
-              ))}
-            </div>
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, color-mix(in srgb, var(--vl-bg) 5%, transparent), color-mix(in srgb, var(--vl-bg) 20%, transparent))' }} />
-          </>
-        )}
-        <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-          <path d={geo.d} fill="none" stroke="var(--vl-bg)" strokeOpacity={0.55} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          <path d={geo.d} fill="none" stroke="var(--vl-ember)" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {mk.map((m, i) => {
-            const pt = pixelAtKm(m.km)
-            const ring = m.kind === 'start' || m.kind === 'finish'
-            const c = m.kind === 'finish' ? 'var(--vl-growth-2)' : m.kind === 'start' ? 'var(--vl-ember)' : 'var(--vl-text)'
-            return (
-              <div key={i} style={{ position: 'absolute', left: pctX(pt.x) + '%', top: pctY(pt.y) + '%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: ring ? 10 : 8, height: ring ? 10 : 8, borderRadius: 999, background: c, border: '2px solid var(--vl-bg)', boxShadow: ring ? `0 0 0 3px color-mix(in srgb, ${c} 30%, transparent)` : '0 1px 3px rgba(0,0,0,.6)' }} />
-                <span className="mono" style={{ fontSize: 8.5, fontWeight: 700, color: c, textShadow: '0 1px 3px var(--vl-bg), 0 0 2px var(--vl-bg)', letterSpacing: '.04em' }}>{m.kind === 'start' ? 'DÉP' : m.kind === 'finish' ? 'ARR' : 'R' + m.km}</span>
-              </div>
-            )
-          })}
-          {cur && <div style={{ position: 'absolute', left: pctX(cur.x) + '%', top: pctY(cur.y) + '%', transform: 'translate(-50%,-50%)', width: 14, height: 14, borderRadius: 999, background: 'var(--vl-growth-2)', border: '2px solid var(--vl-bg)', boxShadow: '0 0 0 5px color-mix(in srgb, var(--vl-growth-2) 30%, transparent)' }} />}
-        </div>
-        <div style={{ position: 'absolute', top: 8, right: 9, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <span className="mono" style={{ fontSize: 8, color: 'var(--vl-text-1, var(--vl-text))', fontWeight: 700, textShadow: '0 1px 2px var(--vl-bg)' }}>N</span>
-          <svg width={9} height={11} viewBox="0 0 10 12" fill="none"><path d="M5 0 L9 11 L5 8 L1 11 Z" fill="var(--vl-ember)" /></svg>
-        </div>
-        {geo.grid?.attribution && (
-          <span style={{ position: 'absolute', left: 6, bottom: 4, fontSize: 7.5, color: 'var(--vl-text-3)', textShadow: '0 1px 2px var(--vl-bg)', pointerEvents: 'none' }}>{geo.grid.attribution}</span>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ── KeyCard ───────────────────────────────────────────────────────────────────
 function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | 'technical'; sec: { startKm: number; endKm: number; dplus: number; dminus: number; grade: number; technicalKm?: number }; passageHM: (km: number) => string }) {
