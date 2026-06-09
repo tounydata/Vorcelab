@@ -260,6 +260,63 @@ export function computeRaceProjection(
     }
   }
 
+  // ── Facteur d'Intensité de Course (FIC) ────────────────────────────────────
+  // Les buckets sont appris sur tout l'historique (surtout footings) → ils encodent
+  // l'allure d'ENTRAÎNEMENT par pente. On les recale à l'effort de COURSE via le
+  // rapport, mesuré sur les courses ÉTIQUETÉES de l'athlète, entre son allure de
+  // course (plat-équivalente, Minetti) et son allure apprise sur plat.
+  // Aucune course étiquetée → FIC = 1 → comportement inchangé (pas de régression).
+  // Science vérifiable uniquement : sa vraie course vs son vrai historique.
+  function meanGradeFactor(dpkm: number): number {
+    // Boucle : ~moitié en montée +g, moitié en descente −g, g ≈ (D+/km)/500.
+    const g = Math.min(0.45, Math.max(0, dpkm / 500))
+    if (g === 0) return 1
+    return 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
+  }
+  function isRaceEffort(a: Record<string, unknown>): boolean {
+    if (a.is_race === true) return true // étiquette « course » Vorcelab (à venir)
+    const raw = a.raw_data as { workout_type?: unknown } | undefined
+    return raw?.workout_type === 1 || raw?.workout_type === '1' // Strava « Course »
+  }
+  function computeRaceIntensityFactor(): { factor: number; pct: number } {
+    const flat = rBuckets?.flat
+    if (!flat || flat.avgSpeedKmH == null || !okConf(flat.confidence)) return { factor: 1, pct: 0 }
+    const races = activities.filter((a) => {
+      const t = a.type as string, st = a.sport_type as string
+      const run = ['Run', 'TrailRun', 'Trail Run'].includes(t) || ['Run', 'TrailRun', 'Trail Run'].includes(st)
+      return isRaceEffort(a) && run && (a.distance as number) > 3000 && (a.average_speed as number) > 0
+    })
+    // Pour un trail, seules les courses trail comptent (route ≠ trail, musculairement).
+    const pool = isTrail
+      ? races.filter((a) => TRAIL_TYPES.includes(a.type as string) || (a.sport_type as string) === 'TrailRun')
+      : races
+    if (!pool.length) return { factor: 1, pct: 0 }
+    const now = Date.now()
+    let num = 0, den = 0
+    for (const a of pool) {
+      const kmh = (a.average_speed as number) * 3.6
+      const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
+      const flatEquiv = kmh * meanGradeFactor(dpkm)            // neutralise le D+ de la course
+      const ratio = flatEquiv / (flat.avgSpeedKmH as number)   // course vs entraînement (plat)
+      const ageDays = (now - new Date(a.start_date as string).getTime()) / 86_400_000
+      const w = 1 / (1 + Math.max(0, ageDays) / 180)           // récence (demi-vie ~6 mois)
+      num += ratio * w; den += w
+    }
+    const raw = den > 0 ? num / den : 1
+    // Prudent : jamais plus lent que l'entraînement (≥1), plafonné (≤1.5).
+    const factor = Math.min(1.5, Math.max(1.0, raw))
+    return { factor, pct: Math.round((factor - 1) * 100) }
+  }
+  const rif = computeRaceIntensityFactor()
+  // Buckets recalés à l'effort de course (vitesses & VAM × FIC), sinon inchangés.
+  const rBucketsScaled = (rif.factor !== 1 && rBuckets
+    ? Object.fromEntries(Object.entries(rBuckets).map(([k, b]) => [k, {
+        ...b,
+        avgSpeedKmH: b.avgSpeedKmH != null ? b.avgSpeedKmH * rif.factor : b.avgSpeedKmH,
+        vamMH: b.vamMH != null ? b.vamMH * rif.factor : b.vamMH,
+      }]))
+    : rBuckets) as typeof rBuckets
+
   // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
   let estTimeS = 0
@@ -268,6 +325,11 @@ export function computeRaceProjection(
   const _cd = (profile.coeff_downhill as number | undefined) ?? 0
   const _cf = (profile.coeff_flat as number | undefined) ?? 0
   const personalAdjustments: { label: string; detail: string; color: string }[] = []
+  if (rif.pct > 0) personalAdjustments.push({
+    label: `Allure de course : +${rif.pct}%`,
+    detail: 'calée sur tes courses étiquetées (vs allure d\'entraînement)',
+    color: 'var(--vl-growth)',
+  })
 
   // Pre-compute some profile-level signals
   const hrDriftStatus = (runnerProfile?.hrDriftStatus as string | undefined) ?? 'unknown'
@@ -309,7 +371,7 @@ export function computeRaceProjection(
     const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
 
     const bkey = sectionBucketKey(s.grade, s.type)
-    const bdata = bkey && rBuckets ? rBuckets[bkey] : null
+    const bdata = bkey && rBucketsScaled ? rBucketsScaled[bkey] : null
     const bConf = bdata?.confidence ?? 'none'
     const hasGoodBucket = (bConf === 'high' || bConf === 'medium') && bdata != null
 
