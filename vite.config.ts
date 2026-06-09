@@ -11,11 +11,34 @@ export default defineConfig({
       scope: '/Vorcelab/app/',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg}'],
+        // MapLibre (~1 Mo) : hors précache → chargé à la 1ʳᵉ ouverture d'une carte 3D,
+        // puis mis en cache runtime. Garde l'install PWA légère.
+        globIgnores: ['**/maplibre-gl-*.js'],
         // HashRouter : toute navigation revient sur index.html
         navigateFallback: '/Vorcelab/app/index.html',
         // Ne pas mettre en cache les appels Supabase auth (sécurité)
         navigateFallbackDenylist: [/^\/Vorcelab\/app\/api/],
         runtimeCaching: [
+          {
+            // Bundle MapLibre (lazy) — CacheFirst une fois téléchargé
+            urlPattern: /\/assets\/maplibre-gl-.*\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maplibre-lib',
+              expiration: { maxEntries: 3, maxAgeSeconds: 2592000 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Tuiles MapTiler (carte 3D relief) — CacheFirst, 7 jours
+            urlPattern: /^https:\/\/api\.maptiler\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'maptiler-tiles',
+              expiration: { maxEntries: 500, maxAgeSeconds: 604800 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             // Données Supabase — NetworkFirst, fallback cache 24h
             urlPattern: /^https:\/\/[a-z]+\.supabase\.co\//,
