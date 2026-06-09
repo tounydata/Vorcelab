@@ -137,8 +137,14 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           <div style={{ flex: 1, minWidth: 0 }}>
             <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} />
           </div>
-          {hasRoute && <div className="strat-hero-map" style={{ flex: '0 0 290px' }}><RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={300} /></div>}
         </div>
+
+        {/* Carte 3D en pleine largeur (bien plus grande et lisible que l'ancien encart) */}
+        {hasRoute && (
+          <div style={{ padding: '0 18px 12px' }}>
+            <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={420} />
+          </div>
+        )}
 
         <div style={{ padding: '0 24px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span className="mono" style={{ fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.16em' }}>EFFORT</span>

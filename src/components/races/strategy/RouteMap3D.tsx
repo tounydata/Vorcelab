@@ -92,7 +92,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         style: cfg.style,
         center: [(minLon + maxLon) / 2, (minLat + maxLat) / 2],
         zoom: 11,
-        pitch: 62,
+        pitch: 67,
         bearing: -18,
         scrollZoom: false,            // ne pas piéger le scroll de page
         cooperativeGestures: true,    // mobile : 2 doigts pour bouger
@@ -104,7 +104,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         if (!map || cancelled) return
         // Relief 3D
         map.addSource('dem', { type: 'raster-dem', url: cfg.terrain })
-        map.setTerrain({ source: 'dem', exaggeration: 1.45 })
+        map.setTerrain({ source: 'dem', exaggeration: 2.5 })  // relief bien marqué même dézoomé
         try {
           map.setSky({ 'sky-color': '#0d1320', 'horizon-color': '#1d2738', 'fog-color': '#0c0c0e', 'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6 })
         } catch { /* setSky indispo selon style */ }
@@ -112,17 +112,17 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         // Tracé : liseré sombre (lisibilité) + ligne colorée par effort (vert→rouge,
         // même palette que le profil). Repli ember uni si pas de découpage d'effort.
         map.addSource('route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } } })
-        map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#0c0c0e', 'line-width': 6.5, 'line-opacity': 0.6 } })
+        map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#0c0c0e', 'line-width': 7.5, 'line-opacity': 0.6 } })
         const heatFC = buildHeatFC(heatSegments ?? [], cum, points)
         if (heatFC.features.length) {
           map.addSource('route-heat', { type: 'geojson', data: heatFC })
-          map.addLayer({ id: 'route-line', type: 'line', source: 'route-heat', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3.4 } })
+          map.addLayer({ id: 'route-line', type: 'line', source: 'route-heat', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 4 } })
         } else {
-          map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#E5562A', 'line-width': 3 } })
+          map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#E5562A', 'line-width': 3.6 } })
         }
 
         // Cadre sur le tracé (en gardant l'inclinaison)
-        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 30, pitch: 62, bearing: -18, duration: 0, maxZoom: 15 })
+        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 24, pitch: 67, bearing: -18, duration: 0, maxZoom: 15 })
 
         // Repères départ / ravitos / arrivée
         for (const m of markers) {
