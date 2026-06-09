@@ -172,6 +172,21 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   useEffect(() => { placeCursor(cursorKm) // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursorKm])
 
+  // Rotation manuelle : le relief peut masquer une partie du tracé selon l'angle.
+  function rotateBy(deg: number) {
+    const m = mapRef.current; if (!m) return
+    m.easeTo({ bearing: m.getBearing() + deg, duration: 350 })
+  }
+  function resetView() {
+    const m = mapRef.current; if (!m) return
+    m.easeTo({ bearing: -18, pitch: 54, duration: 400 })
+  }
+  const ctrlBtn: React.CSSProperties = {
+    width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 7, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(12,12,14,.62)',
+    backdropFilter: 'blur(2px)', color: '#e8e8ea', fontSize: 16, lineHeight: 1, cursor: 'pointer',
+  }
+
   return (
     <div style={{ background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: heightPx }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
@@ -180,6 +195,12 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
       </div>
       <div style={{ position: 'relative', flex: 1, margin: '0 12px 12px', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        {/* Rotation : pour voir le tracé quand une crête le masque */}
+        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+          <button title="Tourner à gauche" aria-label="Tourner à gauche" onClick={() => rotateBy(-40)} style={ctrlBtn}>⟲</button>
+          <button title="Vue par défaut" aria-label="Vue par défaut" onClick={resetView} style={{ ...ctrlBtn, fontSize: 13 }}>⌂</button>
+          <button title="Tourner à droite" aria-label="Tourner à droite" onClick={() => rotateBy(40)} style={ctrlBtn}>⟳</button>
+        </div>
         {(heatSegments?.length ?? 0) > 0 && (
           <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 7, padding: '4px 7px', borderRadius: 6, background: 'rgba(12,12,14,.6)', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>
             {[1, 2, 3, 4].map((h) => (
