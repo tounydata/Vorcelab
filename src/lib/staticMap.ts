@@ -1,7 +1,8 @@
-// Fond de carte statique (relief ombré) derrière le tracé GPS, aligné au pixel.
-// Projection Web Mercator partagée entre l'image (carte) et le SVG du tracé → ils se
-// superposent exactement. Clé via env : VITE_MAPTILER_KEY ou VITE_MAPBOX_TOKEN.
-// Sans clé → pas de fond (repli sur l'ancien rendu sombre uni).
+// Fond de carte (relief ombré) derrière le tracé GPS, aligné au pixel.
+// On assemble des TUILES raster (endpoint gratuit MapTiler /tiles) plutôt qu'une image
+// statique (l'API Static Maps de MapTiler est payante). Projection Web Mercator partagée
+// entre les tuiles et le SVG du tracé → superposition exacte.
+// Clé via env VITE_MAPTILER_KEY (sinon clé par défaut). Sans clé → pas de fond (repli sombre).
 
 const TILE = 256
 
@@ -34,24 +35,60 @@ export function toPixel(lon: number, lat: number, center: Center, w: number, h: 
   return { x: p.x - c.x + w / 2, y: p.y - c.y + h / 2 }
 }
 
-/** URL d'image statique relief/sombre selon la clé dispo (MapTiler prioritaire). null sinon. */
 // Clé MapTiler frontend par défaut (publique dans le bundle navigateur, c'est normal).
 // Protégée côté MapTiler par restriction d'origine HTTP : tounydata.github.io + localhost.
 // Surchargeable via VITE_MAPTILER_KEY.
-const DEFAULT_MAPTILER_KEY = 'UIAKCRIncKBkhN0ZLh8q'
+const DEFAULT_MAPTILER_KEY = 'UIAKCRlncKBkhN0ZLh8q'
 
-export function staticMapUrl(center: Center, w: number, h: number): string | null {
-  let env: Record<string, string | undefined> = {}
-  try { env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {} } catch { env = {} }
-  const maptiler = env.VITE_MAPTILER_KEY || DEFAULT_MAPTILER_KEY
-  if (maptiler) {
-    const style = env.VITE_MAPTILER_STYLE || 'hillshade'
-    return `https://api.maptiler.com/maps/${style}/static/${center.lon.toFixed(5)},${center.lat.toFixed(5)},${center.zoom.toFixed(2)}/${Math.round(w)}x${Math.round(h)}@2x.png?key=${maptiler}`
+function readEnv(): Record<string, string | undefined> {
+  try { return (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {} } catch { return {} }
+}
+
+export interface MapTile { url: string; left: number; top: number; size: number }
+export interface TileGrid { tiles: MapTile[]; attribution: string }
+
+/** Construit la grille de tuiles couvrant le cadre w×h, positionnées au pixel (left/top/size). */
+function buildGrid(center: Center, w: number, h: number, maxTz: number, urlFor: (z: number, x: number, y: number) => string): TileGrid {
+  const Z = center.zoom
+  const tz = Math.max(0, Math.min(maxTz, Math.round(Z)))
+  const scale = 2 ** (Z - tz)        // px d'affichage par px de tuile
+  const disp = TILE * scale          // taille d'une tuile à l'écran
+  const c = worldXY(center.lon, center.lat, Z)
+  const originX = c.x - w / 2        // coin haut-gauche du cadre, en px-monde au zoom Z
+  const originY = c.y - h / 2
+  const n = 2 ** tz                  // nombre de tuiles par côté à ce zoom
+  const x0 = Math.floor(originX / disp)
+  const y0 = Math.floor(originY / disp)
+  const nx = Math.ceil(w / disp) + 1
+  const ny = Math.ceil(h / disp) + 1
+  const tiles: MapTile[] = []
+  for (let i = 0; i <= nx; i++) {
+    for (let j = 0; j <= ny; j++) {
+      const tx = x0 + i, ty = y0 + j
+      if (ty < 0 || ty >= n) continue
+      const wx = ((tx % n) + n) % n  // wrap longitude (les méridiens, pas les pôles)
+      tiles.push({ url: urlFor(tz, wx, ty), left: tx * disp - originX, top: ty * disp - originY, size: disp })
+    }
+  }
+  return { tiles, attribution: '' }
+}
+
+/** Grille de tuiles relief/sombre selon la clé dispo (MapTiler prioritaire). null sinon. */
+export function tileGrid(center: Center, w: number, h: number): TileGrid | null {
+  const env = readEnv()
+  const key = env.VITE_MAPTILER_KEY || DEFAULT_MAPTILER_KEY
+  if (key) {
+    const tileset = env.VITE_MAPTILER_TILESET || 'hillshade'  // tileset raster (gratuit), zoom 0–12
+    const g = buildGrid(center, w, h, 12, (z, x, y) => `https://api.maptiler.com/tiles/${tileset}/${z}/${x}/${y}.webp?key=${key}`)
+    g.attribution = '© MapTiler © OpenStreetMap'
+    return g
   }
   const mapbox = env.VITE_MAPBOX_TOKEN
   if (mapbox) {
     const style = env.VITE_MAPBOX_STYLE || 'dark-v11'
-    return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${center.lon.toFixed(5)},${center.lat.toFixed(5)},${center.zoom.toFixed(2)},0/${Math.round(w)}x${Math.round(h)}@2x?access_token=${mapbox}`
+    const g = buildGrid(center, w, h, 16, (z, x, y) => `https://api.mapbox.com/styles/v1/mapbox/${style}/tiles/256/${z}/${x}/${y}?access_token=${mapbox}`)
+    g.attribution = '© Mapbox © OpenStreetMap'
+    return g
   }
   return null
 }
