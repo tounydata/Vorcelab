@@ -65,6 +65,8 @@ export const NUTRITION_PRODUCTS: NutritionProduct[] = [
   { id: 'nutripure-drink', brand: 'Nutripure', name: 'Boisson Long Distance', type: 'drink', carbs: 30, caffeine: 0, water: true, per: 'portion', note: 'PureDigest' },
   { id: '4endurance-drink', brand: '4Endurance', name: '4Energy Drink', type: 'drink', carbs: 25, caffeine: 0, water: true, per: '500 ml', note: 'Isotonique + électrolytes (1 dose 30g)' },
   { id: '4endurance-cyclic-dextrin', brand: '4Endurance', name: 'Cyclic Dextrin 4Energy', type: 'drink', carbs: 40, caffeine: 0, water: true, per: '500 ml', note: 'Cluster dextrin, énergie soutenue (dose ~40g)' },
+  { id: '4endurance-drink45', brand: '4Endurance', name: '4Energy Drink 45', type: 'drink', carbs: 45, caffeine: 0, water: true, per: 'portion', note: 'High carb 1:0.8 + électrolytes' },
+  { id: '4endurance-drink90', brand: '4Endurance', name: '4Energy Drink 90', type: 'drink', carbs: 90, caffeine: 0, water: true, per: 'portion', note: 'Très haute énergie ultra, 1:0.8' },
 
   // ── Barres ──
   { id: 'naak-bar', brand: 'Näak', name: 'Ultra Energy Bar', type: 'bar', carbs: 28, caffeine: 0, water: false, note: '50g, +protéines' },
