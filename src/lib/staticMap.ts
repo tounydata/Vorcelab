@@ -92,3 +92,21 @@ export function tileGrid(center: Center, w: number, h: number): TileGrid | null 
   }
   return null
 }
+
+export interface ReliefLayer { url: string; attribution: string; maxNativeZoom: number }
+
+/** Modèle d'URL de tuiles relief pour Leaflet ({z}/{x}/{y}), ou null si pas de clé. */
+export function reliefTileLayer(): ReliefLayer | null {
+  const env = readEnv()
+  const key = env.VITE_MAPTILER_KEY || DEFAULT_MAPTILER_KEY
+  if (key) {
+    const tileset = env.VITE_MAPTILER_TILESET || 'hillshade'
+    return { url: `https://api.maptiler.com/tiles/${tileset}/{z}/{x}/{y}.webp?key=${key}`, attribution: '© MapTiler © OpenStreetMap', maxNativeZoom: 12 }
+  }
+  const mapbox = env.VITE_MAPBOX_TOKEN
+  if (mapbox) {
+    const style = env.VITE_MAPBOX_STYLE || 'dark-v11'
+    return { url: `https://api.mapbox.com/styles/v1/mapbox/${style}/tiles/256/{z}/{x}/{y}?access_token=${mapbox}`, attribution: '© Mapbox © OpenStreetMap', maxNativeZoom: 16 }
+  }
+  return null
+}

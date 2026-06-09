@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
+import { reliefTileLayer } from '../lib/staticMap'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
 import { buildSessionDebrief } from '../lib/sessionDebrief'
@@ -245,10 +246,20 @@ function RouteMap({
     if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
 
     const map = L.map(containerRef.current, { zoomControl: true })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19,
-    }).addTo(map)
+    const relief = reliefTileLayer()
+    if (relief) {
+      L.tileLayer(relief.url, {
+        attribution: relief.attribution,
+        maxNativeZoom: relief.maxNativeZoom,
+        maxZoom: 19,
+        className: 'vl-relief-tiles',
+      }).addTo(map)
+    } else {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+      }).addTo(map)
+    }
     const poly = L.polyline(latlng, { color: '#E5562A', weight: 3 }).addTo(map)
     map.fitBounds(poly.getBounds(), { padding: [20, 20] })
     polyRef.current = poly
