@@ -118,7 +118,7 @@ export function mapTiler3DConfig(): Map3DConfig | null {
   const env = readEnv()
   const key = env.VITE_MAPTILER_KEY || DEFAULT_MAPTILER_KEY
   if (!key) return null
-  const style = env.VITE_MAPTILER_3D_STYLE || 'outdoor-v2'   // ex. satellite, hybrid, topo-v2, winter-v2
+  const style = env.VITE_MAPTILER_3D_STYLE || 'satellite'   // ex. outdoor-v2, hybrid, topo-v2, winter-v2
   return {
     style: `https://api.maptiler.com/maps/${style}/style.json?key=${key}`,
     terrain: `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${key}`,
