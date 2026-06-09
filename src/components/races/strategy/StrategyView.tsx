@@ -139,10 +139,13 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           </div>
         </div>
 
-        {/* Carte 3D en pleine largeur (bien plus grande et lisible que l'ancien encart) */}
+        {/* Carte 3D large sous le profil. Largeur plafonnée + centrée : sur très grand écran,
+            le plein écran rendrait un parcours compact minuscule au milieu de marges vides. */}
         {hasRoute && (
           <div style={{ padding: '0 18px 12px' }}>
-            <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={420} />
+            <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+              <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={440} />
+            </div>
           </div>
         )}
 
