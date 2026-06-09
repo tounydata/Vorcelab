@@ -137,7 +137,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           <div style={{ flex: 1, minWidth: 0 }}>
             <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} />
           </div>
-          {hasRoute && <div className="strat-hero-map" style={{ flex: '0 0 290px' }}><RouteMap3D points={p.points} markers={markers} cursorKm={hoverKm} totalKm={totalKm} heightPx={300} /></div>}
+          {hasRoute && <div className="strat-hero-map" style={{ flex: '0 0 290px' }}><RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={300} /></div>}
         </div>
 
         <div style={{ padding: '0 24px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>

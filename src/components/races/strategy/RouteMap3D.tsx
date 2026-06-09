@@ -3,11 +3,15 @@ import type { Map as MlMap, Marker as MlMarker } from 'maplibre-gl'
 import type { GpxPoint } from '../../../lib/computeRaceProjection'
 import type { ProfileMarker } from './ElevationProfile'
 import { hav } from '../../../lib/gpxCore'
+import { HEAT_COLORS, HEAT_NAMES } from '../../../lib/raceStrategyView'
 import { mapTiler3DConfig } from '../../../lib/staticMap'
+
+interface HeatSeg { startKm: number; endKm: number; heat: number }
 
 interface Props {
   points: GpxPoint[]
   markers: ProfileMarker[]
+  heatSegments: HeatSeg[]
   cursorKm: number | null
   totalKm: number
   heightPx: number
@@ -25,9 +29,34 @@ function lngLatAtKm(km: number, cum: number[], pts: GpxPoint[]): [number, number
   return [a.lon + (b.lon - a.lon) * t, a.lat + (b.lat - a.lat) * t]
 }
 
+/** Coordonnées du tracé entre deux km (bornes interpolées → jointures nettes). */
+function sliceCoords(a: number, b: number, cum: number[], pts: GpxPoint[]): [number, number][] {
+  const out: [number, number][] = []
+  const start = lngLatAtKm(a, cum, pts)
+  if (start) out.push(start)
+  for (let i = 0; i < pts.length; i++) {
+    if (cum[i] > a && cum[i] < b) out.push([pts[i].lon, pts[i].lat])
+  }
+  const end = lngLatAtKm(b, cum, pts)
+  if (end) out.push(end)
+  return out
+}
+
+/** FeatureCollection du tracé colorée par effort (un segment par tranche d'effort). */
+function buildHeatFC(heatSegments: HeatSeg[], cum: number[], pts: GpxPoint[]) {
+  const features = heatSegments
+    .map((s) => ({
+      type: 'Feature' as const,
+      properties: { color: HEAT_COLORS[s.heat] || '#E5562A' },
+      geometry: { type: 'LineString' as const, coordinates: sliceCoords(s.startKm, s.endKm, cum, pts) },
+    }))
+    .filter((f) => f.geometry.coordinates.length >= 2)
+  return { type: 'FeatureCollection' as const, features }
+}
+
 // Carte 3D (MapLibre + terrain MapTiler) : tracé GPS drapé sur le relief en perspective.
 // MapLibre est chargé en import dynamique → hors du bundle initial. Repli : cadre sombre.
-export default function RouteMap3D({ points, markers, cursorKm, totalKm, heightPx }: Props) {
+export default function RouteMap3D({ points, markers, heatSegments, cursorKm, totalKm, heightPx }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const mlRef = useRef<typeof import('maplibre-gl') | null>(null)
@@ -80,10 +109,17 @@ export default function RouteMap3D({ points, markers, cursorKm, totalKm, heightP
           map.setSky({ 'sky-color': '#0d1320', 'horizon-color': '#1d2738', 'fog-color': '#0c0c0e', 'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6 })
         } catch { /* setSky indispo selon style */ }
 
-        // Tracé (casing + ligne ember)
+        // Tracé : liseré sombre (lisibilité) + ligne colorée par effort (vert→rouge,
+        // même palette que le profil). Repli ember uni si pas de découpage d'effort.
         map.addSource('route', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } } })
-        map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#0c0c0e', 'line-width': 6, 'line-opacity': 0.55 } })
-        map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#E5562A', 'line-width': 3 } })
+        map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#0c0c0e', 'line-width': 6.5, 'line-opacity': 0.6 } })
+        const heatFC = buildHeatFC(heatSegments ?? [], cum, points)
+        if (heatFC.features.length) {
+          map.addSource('route-heat', { type: 'geojson', data: heatFC })
+          map.addLayer({ id: 'route-line', type: 'line', source: 'route-heat', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3.4 } })
+        } else {
+          map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#E5562A', 'line-width': 3 } })
+        }
 
         // Cadre sur le tracé (en gardant l'inclinaison)
         map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 30, pitch: 62, bearing: -18, duration: 0, maxZoom: 15 })
@@ -142,7 +178,19 @@ export default function RouteMap3D({ points, markers, cursorKm, totalKm, heightP
         <div className="mono" style={{ fontSize: 11, letterSpacing: '.2em', color: 'var(--vl-text-3)', fontWeight: 500 }}>TRACÉ GPS · 3D</div>
         <span className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)' }}>{totalKm.toFixed(1)} KM</span>
       </div>
-      <div ref={containerRef} style={{ flex: 1, margin: '0 12px 12px', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }} />
+      <div style={{ position: 'relative', flex: 1, margin: '0 12px 12px', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
+        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        {(heatSegments?.length ?? 0) > 0 && (
+          <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 7, padding: '4px 7px', borderRadius: 6, background: 'rgba(12,12,14,.6)', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>
+            {[1, 2, 3, 4].map((h) => (
+              <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: HEAT_COLORS[h] }} />
+                <span className="mono" style={{ fontSize: 8, color: '#e8e8ea', letterSpacing: '.02em' }}>{HEAT_NAMES[h]}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
