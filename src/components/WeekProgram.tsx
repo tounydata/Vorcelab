@@ -43,7 +43,49 @@ function weekLabel(offset: number): string {
  * suivantes. Les séances sont décidées par l'algo (plan) et présentées en
  * choix-first (badges = suggestion). Pas de librairie à parcourir.
  */
-export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, logs, onSaved }: {
+export interface HistoryDone {
+  workoutId: string
+  workoutName: string
+  date: string
+  verdict: string
+}
+export interface HistoryWeek {
+  weekStartISO: string
+  done: HistoryDone[]
+}
+
+const HISTORY_VERDICT: Record<string, { label: string; color: string }> = {
+  conforme: { label: 'Conforme', color: 'var(--vl-growth)' },
+  trop_facile: { label: 'Trop facile', color: 'var(--vl-amber)' },
+  trop_dur: { label: 'Trop dur', color: 'var(--vl-ember)' },
+  a_surveiller: { label: 'À surveiller', color: 'var(--vl-amber)' },
+}
+function fmtDayDate(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })
+}
+function HistoryWeekView({ week }: { week: HistoryWeek }) {
+  if (!week.done.length) {
+    return <div className="card" style={{ fontSize: 13, color: 'var(--vl-text-3)' }}>Aucune séance validée cette semaine-là.</div>
+  }
+  return (
+    <div>
+      {week.done.map((d, i) => {
+        const v = HISTORY_VERDICT[d.verdict] ?? { label: d.verdict, color: 'var(--vl-text-2)' }
+        return (
+          <div key={i} className="card" style={{ marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: 16, color: 'var(--vl-text)' }}>{d.workoutName}</div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>{fmtDayDate(d.date)}</div>
+            </div>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color: v.color, border: `1px solid ${v.color}`, borderRadius: 4, padding: '2px 6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>✓ {v.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, logs, onSaved, pastWeeks }: {
   weeks: ProgramWeek[]
   vdot: number
   activities: LinkActivity[]
@@ -53,29 +95,70 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
   /** Journal des séances → marque celles déjà validées. */
   logs?: SessionLogRow[]
   onSaved?: () => void
+  /** Semaines passées reconstruites depuis le journal (navigation arrière). */
+  pastWeeks?: HistoryWeek[]
 }) {
-  const [idx, setIdx] = useState(0)
+  // `offset` = écart à la semaine courante (0 = cette semaine, <0 = passé, >0 = à venir).
+  // Robuste si pastWeeks arrive après coup : on reste calé sur la semaine courante.
+  const pastN = pastWeeks?.length ?? 0
+  const [offset, setOffset] = useState(0)
 
-  if (weeks.length === 0) {
+  if (weeks.length === 0 && pastN === 0) {
     return <div className="card" style={{ fontSize: 13, color: 'var(--vl-text-3)' }}>Pas de programme.</div>
   }
 
-  const clamped = Math.min(Math.max(idx, 0), weeks.length - 1)
-  const week = weeks[clamped]
+  const off = Math.min(Math.max(offset, -pastN), weeks.length - 1)
+  const isPast = off < 0
+  const atStart = off === -pastN
+  const atEnd = off === weeks.length - 1
+
+  const navBar = (label: string, sub: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+      <button
+        className="hbtn" onClick={() => setOffset(off - 1)} disabled={atStart}
+        aria-label="Semaine précédente" style={{ opacity: atStart ? 0.4 : 1 }}
+      ><ChevronLeft size={16} /></button>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--vl-display)', fontSize: 17, color: 'var(--vl-text)' }}>{label}</div>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>{sub}</div>
+      </div>
+      <button
+        className="hbtn" onClick={() => setOffset(off + 1)} disabled={atEnd}
+        aria-label="Semaine suivante" style={{ opacity: atEnd ? 0.4 : 1 }}
+      ><ChevronRight size={16} /></button>
+    </div>
+  )
+
+  // ── Semaine passée : historique des séances validées (lecture seule) ──
+  if (isPast) {
+    const hw = pastWeeks![pastN + off]
+    const weeksAgo = -off
+    const n = hw.done.length
+    return (
+      <div>
+        {navBar(weeksAgo === 1 ? 'Semaine dernière' : `Il y a ${weeksAgo} semaines`, `${n} séance${n > 1 ? 's' : ''} validée${n > 1 ? 's' : ''}`)}
+        <HistoryWeekView week={hw} />
+      </div>
+    )
+  }
+
+  // ── Semaine courante ou à venir (plan) ──
+  const week = weeks[off]
+  const isCurrent = off === 0
   const entries = buildWeekCatalog(week.sessions, vdot)
   // Modulation v3 : on adapte la séance qualité ciblée (semaine courante uniquement).
-  const shownEntries = clamped === 0 && scale
+  const shownEntries = isCurrent && scale
     ? entries.map((e) => e.template.id === scale.workoutId
         ? { ...e, workout: scaleWorkout(e.workout, scale.dir).workout }
         : e)
     : entries
   // Le contexte temps réel (charge/fraîcheur) ne vaut que pour la semaine courante.
   const ctx: RecommendContext =
-    clamped === 0 ? buildRecommendContext(week.phase, activities, fcMax) : { phase: week.phase }
+    isCurrent ? buildRecommendContext(week.phase, activities, fcMax) : { phase: week.phase }
 
   // Liaison Strava : seulement la semaine COURANTE (on ne lie pas une séance à venir).
   const link: SessionBrowserLink | undefined =
-    clamped === 0 && week.weekStartISO
+    isCurrent && week.weekStartISO
       ? { vdot, fcMax: fcMax ?? null, weekStartISO: week.weekStartISO, weekPhase: week.phase, activities, sessions: week.sessions }
       : undefined
 
@@ -93,28 +176,13 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-        <button
-          className="hbtn" onClick={() => setIdx(clamped - 1)} disabled={clamped === 0}
-          aria-label="Semaine précédente" style={{ opacity: clamped === 0 ? 0.4 : 1 }}
-        ><ChevronLeft size={16} /></button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: 17, color: 'var(--vl-text)' }}>{weekLabel(clamped)}</div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
-            S{week.weekIndex + 1} · {PHASE_LABELS[week.phase]}{week.isRecovery ? ' · DÉCHARGE' : ''}
-          </div>
-        </div>
-        <button
-          className="hbtn" onClick={() => setIdx(clamped + 1)} disabled={clamped === weeks.length - 1}
-          aria-label="Semaine suivante" style={{ opacity: clamped === weeks.length - 1 ? 0.4 : 1 }}
-        ><ChevronRight size={16} /></button>
-      </div>
+      {navBar(weekLabel(off), `S${week.weekIndex + 1} · ${PHASE_LABELS[week.phase]}${week.isRecovery ? ' · DÉCHARGE' : ''}`)}
 
       {week.focus ? (
         <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>{week.focus}</p>
       ) : null}
 
-      <SessionBrowser key={clamped} entries={shownEntries} ctx={ctx} link={link} doneByWorkoutId={doneByWorkoutId} onSaved={onSaved} />
+      <SessionBrowser key={off} entries={shownEntries} ctx={ctx} link={link} doneByWorkoutId={doneByWorkoutId} onSaved={onSaved} />
     </div>
   )
 }
