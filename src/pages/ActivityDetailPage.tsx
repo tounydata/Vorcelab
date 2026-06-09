@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
@@ -35,6 +35,7 @@ interface ActivityDetail {
   description: string | null
   kudos_count: number | null
   average_temp: number | null
+  is_race: boolean | null
 }
 
 interface RecentActivity {
@@ -898,6 +899,7 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
 export default function ActivityDetailPage() {
   const { activityId } = useParams<{ activityId: string }>()
   const { user } = useVLStore()
+  const queryClient = useQueryClient()
 
   const { data: profile } = useQuery<{ fc_max?: number } | null>({
     queryKey: ['profile-fcmax', user?.id],
@@ -917,13 +919,25 @@ export default function ActivityDetailPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,kudos_count:raw_data->kudos_count,average_temp:raw_data->average_temp')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,is_race,kudos_count:raw_data->kudos_count,average_temp:raw_data->average_temp')
         .eq('id', activityId!)
         .single()
       if (error) throw error
       return data as ActivityDetail
     },
     enabled: !!activityId,
+  })
+
+  // Étiquette « course / effort de référence » : cale les projections sur l'effort réel.
+  const raceTagMutation = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase.from('strava_activities').update({ is_race: next }).eq('id', activityId!)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-detail', activityId] })
+      queryClient.invalidateQueries({ queryKey: ['activities-strategy'] }) // re-projette les courses
+    },
   })
 
   // Contexte pour « Lecture de séance » (28j/7j) et « Débrief » (comparaison 90 j).
@@ -1011,6 +1025,28 @@ export default function ActivityDetailPage() {
         {activity.description && (
           <div className="mlabel" style={{ marginTop: 8, textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
             {activity.description}
+          </div>
+        )}
+        {['Run', 'TrailRun', 'Trail Run', 'VirtualRun'].includes(activity.sport_type ?? activity.type) && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              onClick={() => raceTagMutation.mutate(!activity.is_race)}
+              disabled={raceTagMutation.isPending}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+                padding: '7px 13px', borderRadius: 999, fontFamily: 'var(--vl-mono)', fontSize: 12, letterSpacing: '.04em',
+                border: `1px solid ${activity.is_race ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
+                background: activity.is_race ? 'color-mix(in srgb, var(--vl-ember) 16%, transparent)' : 'var(--vl-surf)',
+                color: activity.is_race ? 'var(--vl-ember)' : 'var(--vl-text-2)',
+              }}
+            >
+              {activity.is_race ? '★ Course — référence d’allure' : '☆ Marquer comme course'}
+            </button>
+            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 6, maxWidth: 460 }}>
+              {activity.is_race
+                ? 'Cet effort sert de référence pour caler l’allure de tes projections de course.'
+                : 'Marque une course (ou un effort à fond) pour que tes projections soient calées sur ton allure de course, pas d’entraînement.'}
+            </div>
           </div>
         )}
       </div>
