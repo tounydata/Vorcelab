@@ -8,7 +8,7 @@ import {
   HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM, altAtKm,
 } from '../../../lib/raceStrategyView'
 import { surfaceInfo } from '../../../lib/terrain'
-import { fitBounds, toPixel, staticMapUrl } from '../../../lib/staticMap'
+import { fitBounds, toPixel, tileGrid } from '../../../lib/staticMap'
 import { hav } from '../../../lib/gpxCore'
 
 interface RaceMeta {
@@ -223,9 +223,9 @@ function ScenarioBand({ p, weather }: { p: ProjectionResult; weather: WeatherImp
 }
 
 // ── RouteMap (SVG stylisé depuis vraies coords GPX) ───────────────────────────
-// Carte : tracé GPS sur fond de relief ombré (image statique), aligné au pixel via une
-// projection Web Mercator partagée (même centre/zoom pour l'image et le SVG). Le curseur
-// reste synchronisé avec le profil. Sans clé de carte (env), fond sombre uni (repli).
+// Carte : tracé GPS sur fond de relief ombré (tuiles raster assemblées), aligné au pixel
+// via une projection Web Mercator partagée (même centre/zoom pour les tuiles et le SVG). Le
+// curseur reste synchronisé avec le profil. Sans clé de carte (env), fond sombre uni (repli).
 const MAP_W = 300, MAP_H = 240
 function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
   points: GpxPoint[]; markers: ProfileMarker[]; cursorKm: number | null; totalKm: number; heightPx: number
@@ -238,7 +238,7 @@ function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
     const d = px.map((pt, i) => `${i ? 'L' : 'M'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ')
     const cum = [0]
     for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + hav(points[i - 1], points[i]) / 1000)
-    return { center, px, d, cum, bgUrl: staticMapUrl(center, MAP_W, MAP_H) }
+    return { center, px, d, cum, grid: tileGrid(center, MAP_W, MAP_H) }
   }, [points])
   if (!geo) return null
 
@@ -263,9 +263,19 @@ function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
       </div>
       {/* aspect-ratio fixe = alignement image ↔ tracé garanti */}
       <div style={{ position: 'relative', width: 'calc(100% - 24px)', margin: '0 12px 12px', aspectRatio: `${MAP_W} / ${MAP_H}`, borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
-        {geo.bgUrl && (
+        {geo.grid && (
           <>
-            <img src={geo.bgUrl} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6) saturate(0.75) contrast(1.05)' }} />
+            <div style={{ position: 'absolute', inset: 0, filter: 'brightness(0.62) saturate(0.78) contrast(1.06)' }}>
+              {geo.grid.tiles.map((t, i) => (
+                <img
+                  key={i}
+                  src={t.url}
+                  alt=""
+                  loading="lazy"
+                  style={{ position: 'absolute', left: pctX(t.left) + '%', top: pctY(t.top) + '%', width: (t.size / MAP_W) * 100 + '%', height: (t.size / MAP_H) * 100 + '%', objectFit: 'cover' }}
+                />
+              ))}
+            </div>
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, color-mix(in srgb, var(--vl-bg) 25%, transparent), color-mix(in srgb, var(--vl-bg) 60%, transparent))' }} />
           </>
         )}
@@ -291,6 +301,9 @@ function RouteMap({ points, markers, cursorKm, totalKm, heightPx }: {
           <span className="mono" style={{ fontSize: 8, color: 'var(--vl-text-1, var(--vl-text))', fontWeight: 700, textShadow: '0 1px 2px var(--vl-bg)' }}>N</span>
           <svg width={9} height={11} viewBox="0 0 10 12" fill="none"><path d="M5 0 L9 11 L5 8 L1 11 Z" fill="var(--vl-ember)" /></svg>
         </div>
+        {geo.grid?.attribution && (
+          <span style={{ position: 'absolute', left: 6, bottom: 4, fontSize: 7.5, color: 'var(--vl-text-3)', textShadow: '0 1px 2px var(--vl-bg)', pointerEvents: 'none' }}>{geo.grid.attribution}</span>
+        )}
       </div>
     </div>
   )
