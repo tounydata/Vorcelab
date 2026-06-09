@@ -92,7 +92,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         style: cfg.style,
         center: [(minLon + maxLon) / 2, (minLat + maxLat) / 2],
         zoom: 11,
-        pitch: 67,
+        pitch: 54,
         bearing: -18,
         scrollZoom: false,            // ne pas piéger le scroll de page
         cooperativeGestures: true,    // mobile : 2 doigts pour bouger
@@ -122,7 +122,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         }
 
         // Cadre sur le tracé (en gardant l'inclinaison)
-        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 24, pitch: 67, bearing: -18, duration: 0, maxZoom: 15 })
+        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 38, pitch: 54, bearing: -18, duration: 0, maxZoom: 15 })
 
         // Repères départ / ravitos / arrivée
         for (const m of markers) {
