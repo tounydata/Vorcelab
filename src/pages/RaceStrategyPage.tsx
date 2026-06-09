@@ -11,6 +11,7 @@ import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
+import RaceResult from '../components/races/RaceResult'
 import { fetchTerrainSurfaces } from '../lib/terrain'
 
 interface Race {
@@ -27,6 +28,7 @@ interface Race {
   share_token: string | null
   ravitos: unknown | null
   surfaces: unknown | null
+  result_activity_id: string | null
 }
 
 function formatDate(iso: string) {
@@ -42,7 +44,7 @@ export default function RaceStrategyPage() {
   const [isComputing, setIsComputing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'strategie' | 'assistance'>('strategie')
+  const [tab, setTab] = useState<'strategie' | 'assistance' | 'resultat'>('strategie')
   const [ravitos, setRavitos] = useState<RavitoPoint[]>([])
   const [unclassifiedWaypoints, setUnclassifiedWaypoints] = useState<UnclassifiedWaypoint[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -77,6 +79,18 @@ export default function RaceStrategyPage() {
         .eq('id', raceId!)
       if (error) throw error
       return token
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['race', raceId] }),
+  })
+
+  // Lie (ou délie) l'activité Strava réelle de la course pour la comparaison projeté/réel.
+  const resultMutation = useMutation({
+    mutationFn: async (activityId: string | null) => {
+      const { error } = await supabase
+        .from('race_calendar')
+        .update({ result_activity_id: activityId })
+        .eq('id', raceId!)
+      if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['race', raceId] }),
   })
@@ -131,7 +145,7 @@ export default function RaceStrategyPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos,surfaces')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos,surfaces,result_activity_id')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -370,6 +384,9 @@ export default function RaceStrategyPage() {
 
   const athleteName = getAthleteLabel(profileData ?? null)
 
+  // Course passée ? (fin de journée de la date de course) → onglet RÉSULTAT dispo.
+  const isPast = !!race.date && new Date(race.date).getTime() + 86_400_000 < Date.now()
+
   const nutritionRows = projection
     ? computeNutritionPlan(
         projection.totalDistM,
@@ -557,6 +574,9 @@ export default function RaceStrategyPage() {
           <div className="vl-profil-tabs no-print">
             <button className={`vl-tab${tab === 'strategie' ? ' active' : ''}`} onClick={() => setTab('strategie')}>STRATÉGIE</button>
             <button className={`vl-tab${tab === 'assistance' ? ' active' : ''}`} onClick={() => setTab('assistance')}>PLAN ASSISTANCE</button>
+            {isPast && (
+              <button className={`vl-tab${tab === 'resultat' ? ' active' : ''}`} onClick={() => setTab('resultat')}>RÉSULTAT</button>
+            )}
           </div>
 
 
@@ -591,6 +611,20 @@ export default function RaceStrategyPage() {
               startTime={race.start_time}
             />
           </div>
+
+          {/* ── ONGLET RÉSULTAT (course passée) ───────────────────────────────── */}
+          {isPast && (
+            <div className={`${tab !== 'resultat' ? 'tab-screen-hidden' : ''}`}>
+              <RaceResult
+                projection={projection}
+                activities={activitiesData ?? []}
+                resultActivityId={race.result_activity_id}
+                raceDateISO={race.date}
+                onLink={(id) => resultMutation.mutate(id)}
+                onUnlink={() => resultMutation.mutate(null)}
+              />
+            </div>
+          )}
         </>
       )}
     </>
