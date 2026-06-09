@@ -36,21 +36,31 @@ function Badge({ kind }: { kind: Exclude<BadgeKind, null> }) {
   )
 }
 
-function SessionCard({ entry, badge, onSelect }: { entry: CatalogEntry; badge: BadgeKind; onSelect?: (e: CatalogEntry) => void }) {
+function DoneBadge() {
+  return (
+    <span style={{
+      fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
+      color: 'var(--vl-growth)', border: '1px solid var(--vl-growth)', borderRadius: 4,
+      padding: '2px 6px', textTransform: 'uppercase', whiteSpace: 'nowrap',
+    }}>✓ Faite</span>
+  )
+}
+
+function SessionCard({ entry, badge, done, onSelect }: { entry: CatalogEntry; badge: BadgeKind; done?: boolean; onSelect?: (e: CatalogEntry) => void }) {
   return (
     <button
       className="card"
       onClick={() => onSelect?.(entry)}
       style={{
         display: 'block', width: '100%', textAlign: 'left', marginBottom: '0.75rem',
-        cursor: 'pointer', border: badge === 'recommended' ? '1px solid var(--vl-ember)' : undefined,
+        cursor: 'pointer', border: done ? '1px solid var(--vl-growth)' : badge === 'recommended' ? '1px solid var(--vl-ember)' : undefined,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <span style={{ fontFamily: 'var(--vl-display)', fontSize: 19, color: 'var(--vl-text)', letterSpacing: '.01em' }}>
           {entry.template.name}
         </span>
-        {badge ? <Badge kind={badge} /> : null}
+        {done ? <DoneBadge /> : badge ? <Badge kind={badge} /> : null}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)' }}>{entry.workout.totalMin} min</span>
@@ -65,10 +75,11 @@ function SessionCard({ entry, badge, onSelect }: { entry: CatalogEntry; badge: B
  * Catalogue de séances (choix-first) : l'athlète parcourt et choisit librement.
  * Les badges (issus de recommendWorkouts) ne sont qu'une indication douce.
  */
-export default function SessionCatalog({ entries, ctx, onSelect }: {
+export default function SessionCatalog({ entries, ctx, onSelect, doneIds }: {
   entries: CatalogEntry[]
   ctx: RecommendContext
   onSelect?: (e: CatalogEntry) => void
+  doneIds?: Set<string>
 }) {
   const recs = recommendWorkouts(entries.map((e) => e.template), ctx)
   const badgeById = new Map(recs.map((r) => [r.workoutId, r.badge]))
@@ -76,7 +87,7 @@ export default function SessionCatalog({ entries, ctx, onSelect }: {
   return (
     <div>
       {entries.map((e) => (
-        <SessionCard key={e.template.id} entry={e} badge={badgeById.get(e.template.id) ?? null} onSelect={onSelect} />
+        <SessionCard key={e.template.id} entry={e} badge={badgeById.get(e.template.id) ?? null} done={doneIds?.has(e.template.id)} onSelect={onSelect} />
       ))}
     </div>
   )

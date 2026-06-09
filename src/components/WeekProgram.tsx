@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import SessionBrowser, { type SessionBrowserLink } from './SessionBrowser'
 import { buildWeekCatalog } from '../lib/coach/catalog'
+import type { SessionLogRow } from '../lib/coach/sessionLog'
 import { buildRecommendContext } from '../lib/coach/recommendContext'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import { ChevronLeft, ChevronRight } from './coach/CoachIcons'
@@ -24,6 +25,12 @@ export interface ProgramWeek {
   sessions: readonly ProgramSession[]
 }
 
+function addDaysISO(weekStartISO: string, days: number): string {
+  const d = new Date(weekStartISO + (weekStartISO.length <= 10 ? 'T00:00:00' : ''))
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 function weekLabel(offset: number): string {
   if (offset === 0) return 'Cette semaine'
   if (offset === 1) return 'Semaine prochaine'
@@ -36,13 +43,16 @@ function weekLabel(offset: number): string {
  * suivantes. Les séances sont décidées par l'algo (plan) et présentées en
  * choix-first (badges = suggestion). Pas de librairie à parcourir.
  */
-export default function WeekProgram({ weeks, vdot, activities, fcMax, scale }: {
+export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, logs, onSaved }: {
   weeks: ProgramWeek[]
   vdot: number
   activities: LinkActivity[]
   fcMax?: number | null
   /** Modulation v3 : adapte la séance qualité ciblée de la semaine COURANTE. */
   scale?: { workoutId: string; dir: ModulationDir }
+  /** Journal des séances → marque celles déjà validées. */
+  logs?: SessionLogRow[]
+  onSaved?: () => void
 }) {
   const [idx, setIdx] = useState(0)
 
@@ -69,6 +79,18 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale }: {
       ? { vdot, fcMax: fcMax ?? null, weekStartISO: week.weekStartISO, weekPhase: week.phase, activities, sessions: week.sessions }
       : undefined
 
+  // Séances déjà validées de la semaine affichée (depuis session_log), par workoutId.
+  const doneByWorkoutId = (() => {
+    const m = new Map<string, SessionLogRow>()
+    if (!logs || !week.weekStartISO) return m
+    for (const s of week.sessions) {
+      const date = addDaysISO(week.weekStartISO, (s.dayOfWeek ?? 1) - 1)
+      const row = logs.find((l) => l.planned_workout_id === s.workoutId && l.planned_date === date)
+      if (row) m.set(s.workoutId, row)
+    }
+    return m
+  })()
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
@@ -92,7 +114,7 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale }: {
         <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>{week.focus}</p>
       ) : null}
 
-      <SessionBrowser key={clamped} entries={shownEntries} ctx={ctx} link={link} />
+      <SessionBrowser key={clamped} entries={shownEntries} ctx={ctx} link={link} doneByWorkoutId={doneByWorkoutId} onSaved={onSaved} />
     </div>
   )
 }
