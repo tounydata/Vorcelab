@@ -133,6 +133,8 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           <div style={{ width: 320, flex: '1 1 280px', maxWidth: 360 }}><ScenarioBand p={p} weather={weather} /></div>
         </div>
 
+        <WhyThisTime p={p} weather={weather} />
+
         <div className="strat-hero-grid" style={{ padding: '6px 18px 12px', display: 'flex', gap: 16, alignItems: 'stretch' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} />
@@ -192,6 +194,37 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
       <Accordion label="PLAN NUTRITION" meta={`${nutritionRows.length} PRISES`}>
         <NutritionTable rows={nutritionRows} />
       </Accordion>
+    </div>
+  )
+}
+
+// ── Pourquoi ce temps ─────────────────────────────────────────────────────────
+// Décomposition lisible : ce qui a façonné la projection (allure de course, terrain,
+// charge, descentes…) + la météo. Rend chaque variation explicable plutôt qu'opaque.
+function WhyThisTime({ p, weather }: { p: ProjectionResult; weather: WeatherImpact | null }) {
+  const rows = p.personalAdjustments ?? []
+  const hasWeather = !!weather && weather.totalPct !== 0
+  if (!rows.length && !hasWeather) return null
+  const Row = ({ color, label, detail }: { color: string; label: string; detail: string }) => (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, fontSize: 12.5, lineHeight: 1.45 }}>
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: color, flex: 'none', alignSelf: 'center' }} />
+      <span style={{ fontWeight: 600, color: 'var(--vl-text)', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ color: 'var(--vl-text-3)', minWidth: 0 }}>{detail}</span>
+    </div>
+  )
+  return (
+    <div style={{ padding: '0 24px 16px' }}>
+      <Eyebrow style={{ marginBottom: 8 }}>POURQUOI CE TEMPS</Eyebrow>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((a, i) => <Row key={i} color={a.color} label={a.label} detail={a.detail} />)}
+        {hasWeather && (
+          <Row
+            color="var(--vl-ember)"
+            label="Météo (jour J)"
+            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'} · appliqué au temps « prudent »`}
+          />
+        )}
+      </div>
     </div>
   )
 }
