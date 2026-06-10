@@ -1,10 +1,8 @@
 // Stickers de partage (stories) : PNG TRANSPARENTS générés côté client (Canvas),
-// du plus sobre au plus riche — stats seules · + tracé GPX · + profil alti ·
-// + tracé « ruban 3D » (perspective + parois d'altitude). Tous colorés par effort
-// (même palette que le profil de course) et brandés Vorcelab. Aucune dépendance
-// serveur : les données viennent de l'activité et de ses streams déjà chargés.
-
-import { HEAT_COLORS, sectionHeat } from './raceStrategyView'
+// du plus sobre au plus riche — stats seules · + tracé GPX (blanc) · + profil alti ·
+// + tracé « ruban 3D » (perspective + parois d'altitude). Courbes en couleur unie,
+// tracé GPX blanc, vrai logo Vorcelab. Aucune dépendance serveur : les données
+// viennent de l'activité et de ses streams déjà chargés.
 
 export type StickerVariant = 'stats' | 'trace' | 'profile' | 'ribbon3d'
 
@@ -96,25 +94,42 @@ function drawStats(ctx: CanvasRenderingContext2D, d: StickerData, cx: number, y:
   shadowOff(ctx)
 }
 
+// Vrai logo Vorcelab (Layout.tsx VL_LOGO) : ligne d'altitude blanche, sommet ember.
+// viewBox 60×60, dessiné au Canvas (pas d'image à charger).
+const LOGO_PTS: [number, number][] = [[3, 44], [14, 36], [22, 40], [30, 12], [38, 30], [46, 24], [57, 32]]
+function drawLogoMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const s = size / 60
+  shadowOn(ctx, 8)
+  // ligne de sol discrète
+  ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.3; ctx.lineWidth = 1.2 * s
+  ctx.beginPath(); ctx.moveTo(x + 3 * s, y + 50 * s); ctx.lineTo(x + 57 * s, y + 50 * s); ctx.stroke()
+  ctx.globalAlpha = 1
+  // profil montagne (blanc)
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3.2 * s; ctx.lineJoin = 'miter'; ctx.lineCap = 'square'
+  ctx.beginPath()
+  LOGO_PTS.forEach((p, i) => (i ? ctx.lineTo(x + p[0] * s, y + p[1] * s) : ctx.moveTo(x + p[0] * s, y + p[1] * s)))
+  ctx.stroke()
+  // sommet + repère ember
+  ctx.strokeStyle = EMBER; ctx.lineWidth = 1.8 * s
+  ctx.beginPath(); ctx.moveTo(x + 30 * s, y + 50 * s); ctx.lineTo(x + 30 * s, y + 55 * s); ctx.stroke()
+  ctx.beginPath(); ctx.arc(x + 30 * s, y + 12 * s, 3.5 * s, 0, Math.PI * 2); ctx.fillStyle = EMBER; ctx.fill()
+  shadowOff(ctx)
+}
+
 function drawBrand(ctx: CanvasRenderingContext2D, cx: number, y: number, size: number) {
-  // pic ember + wordmark
-  const t = size * 0.9
+  // logo Vorcelab + wordmark, centrés (y = baseline du texte)
   ctx.font = `800 ${size}px ${SANS}`
   const word = 'VORCELAB'
   const spacing = size * 0.34
   const wordW = [...word].reduce((a, c) => a + ctx.measureText(c).width, 0) + spacing * (word.length - 1)
-  const peakW = t * 1.2
-  const startX = cx - (peakW + size * 0.5 + wordW) / 2
-  shadowOn(ctx, 8)
-  ctx.fillStyle = EMBER
-  ctx.beginPath()
-  ctx.moveTo(startX, y)
-  ctx.lineTo(startX + peakW / 2, y - t)
-  ctx.lineTo(startX + peakW, y)
-  ctx.closePath()
-  ctx.fill()
+  const markS = size * 1.7
+  const gap = size * 0.42
+  const startX = cx - (markS + gap + wordW) / 2
+  // logo centré verticalement sur la hauteur de capitale du wordmark
+  drawLogoMark(ctx, startX, y - size - markS * 0.18, markS)
   ctx.fillStyle = '#fff'
-  drawSpaced(ctx, word, startX + peakW + size * 0.5 + wordW / 2, y - size * 0.08, spacing)
+  shadowOn(ctx, 8)
+  drawSpaced(ctx, word, startX + markS + gap + wordW / 2, y - size * 0.08, spacing)
   shadowOff(ctx)
 }
 
@@ -158,16 +173,6 @@ function resampleRoute(latlng: [number, number][], altitude: number[] | undefine
   return out.map((p, i) => ({ ...p, alt: alts[i] }))
 }
 
-/** Couleur effort du segment i (pente lissée sur ±w autour, en % via dist horizontale). */
-function segColor(pts: Pt[], distPerStep: number, i: number, w = 4): string {
-  const a = Math.max(0, i - w), b = Math.min(pts.length - 1, i + w)
-  const dAlt = pts[b].alt - pts[a].alt
-  const dDist = Math.max(1, (b - a) * distPerStep)
-  const grade = (dAlt / dDist) * 100
-  const type = grade > 1.5 ? 'up' : grade < -1.5 ? 'down' : 'flat'
-  return HEAT_COLORS[sectionHeat({ type, grade: Math.abs(grade) * (type === 'down' ? -1 : 1) })] || EMBER
-}
-
 /** Normalise des points dans une boîte (w×h), centré. Ratio préservé sauf
  *  `stretch` (profil alti : km vs m → axes étirés indépendamment sinon tout est plat). */
 function fitBox(pts: Pt[], w: number, h: number, stretch = false): { x: number; y: number }[] {
@@ -183,14 +188,12 @@ function fitBox(pts: Pt[], w: number, h: number, stretch = false): { x: number; 
   return pts.map((p) => ({ x: ox + (p.x - minX) * kx, y: oy + (p.y - minY) * ky }))
 }
 
-/** Trace une polyligne colorée par effort : liseré sombre puis segments. */
-function strokeHeatPath(
-  ctx: CanvasRenderingContext2D, xy: { x: number; y: number }[], pts: Pt[],
-  distPerStep: number, width: number,
+/** Polyligne couleur UNIE avec liseré sombre (lisibilité sur n'importe quelle photo). */
+function strokePath(
+  ctx: CanvasRenderingContext2D, xy: { x: number; y: number }[], color: string, width: number,
 ) {
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  // liseré
   ctx.strokeStyle = INK
   ctx.globalAlpha = 0.5
   ctx.lineWidth = width * 1.9
@@ -198,15 +201,11 @@ function strokeHeatPath(
   xy.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
   ctx.stroke()
   ctx.globalAlpha = 1
-  // segments colorés
+  ctx.strokeStyle = color
   ctx.lineWidth = width
-  for (let i = 1; i < xy.length; i++) {
-    ctx.strokeStyle = segColor(pts, distPerStep, i)
-    ctx.beginPath()
-    ctx.moveTo(xy[i - 1].x, xy[i - 1].y)
-    ctx.lineTo(xy[i].x, xy[i].y)
-    ctx.stroke()
-  }
+  ctx.beginPath()
+  xy.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
+  ctx.stroke()
 }
 
 function dot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
@@ -235,11 +234,6 @@ function renderOn(h: number, draw: (ctx: CanvasRenderingContext2D) => void): HTM
   return c
 }
 
-function distPerStepOf(d: StickerData): number {
-  const total = d.distance?.[d.distance.length - 1] ?? d.distanceM
-  return Math.max(1, total / N)
-}
-
 export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanvasElement {
   if (variant === 'stats') {
     return renderOn(560, (ctx) => { footer(ctx, d, 230, 250) })
@@ -249,7 +243,7 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
     return renderOn(1240, (ctx) => {
       const pts = resampleRoute(d.latlng!, d.altitude, N)
       const xy = fitBox(pts, W - 240, 660).map((p) => ({ x: p.x + 120, y: p.y + 70 }))
-      strokeHeatPath(ctx, xy, pts, distPerStepOf(d), 16)
+      strokePath(ctx, xy, '#fff', 16)
       dot(ctx, xy[0].x, xy[0].y, 20, EMBER)
       footer(ctx, d, 170, 920)
     })
@@ -284,7 +278,7 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
       ctx.closePath()
       ctx.fillStyle = grad
       ctx.fill()
-      strokeHeatPath(ctx, xy, pts, distPerStepOf(d), 13)
+      strokePath(ctx, xy, EMBER, 13)
       footer(ctx, d, 170, 690)
     })
   }
@@ -303,16 +297,10 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
     // ligne de sol légèrement incurvée (effet perspective)
     const baseY = (i: number) => 600 + Math.sin((i / (N - 1)) * Math.PI) * 26
 
-    // ombre au sol : la forme réelle du tracé, aplatie, étirée sur EXACTEMENT
-    // la même largeur que le ruban (sinon le décalage fait bricolé)
+    // tracé GPX au sol (BLANC), forme réelle, même largeur EXACTE que le ruban
     const ground = fitBox(pts, right - left, 150, true)
       .map((g) => ({ x: left + g.x, y: 505 + g.y }))
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#000'; ctx.globalAlpha = 0.3; ctx.lineWidth = 12
-    ctx.beginPath()
-    ground.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
-    ctx.stroke()
-    ctx.globalAlpha = 1
+    strokePath(ctx, ground, '#ffffff', 7)
 
     // ruban : profil gauche→droite au-dessus du sol
     const xy = alts.map((a, i) => ({
@@ -328,7 +316,7 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
       ctx.stroke()
     }
     ctx.globalAlpha = 1
-    strokeHeatPath(ctx, xy, pts, distPerStepOf(d), 15)
+    strokePath(ctx, xy, EMBER, 15)
     dot(ctx, xy[0].x, xy[0].y, 18, EMBER)
     dot(ctx, xy[xy.length - 1].x, xy[xy.length - 1].y, 18, '#4ad07a')
     footer(ctx, d, 170, 920)
