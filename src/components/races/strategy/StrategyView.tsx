@@ -130,10 +130,10 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
               </div>
             </div>
           </div>
-          <div style={{ width: 320, flex: '1 1 280px', maxWidth: 360 }}><ScenarioBand p={p} weather={weather} /></div>
+          <div style={{ width: 320, flex: '1 1 280px', maxWidth: 360 }}><ScenarioBand p={p} weather={weather} forecast={forecast} /></div>
         </div>
 
-        <WhyThisTime p={p} weather={weather} />
+        <WhyThisTime p={p} weather={weather} forecast={forecast} />
 
         <div className="strat-hero-grid" style={{ padding: '6px 18px 12px', display: 'flex', gap: 16, alignItems: 'stretch' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -201,9 +201,11 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
 // ── Pourquoi ce temps ─────────────────────────────────────────────────────────
 // Décomposition lisible : ce qui a façonné la projection (allure de course, terrain,
 // charge, descentes…) + la météo. Rend chaque variation explicable plutôt qu'opaque.
-function WhyThisTime({ p, weather }: { p: ProjectionResult; weather: WeatherImpact | null }) {
+function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: WeatherImpact | null; forecast: RaceConditions | null }) {
   const rows = p.personalAdjustments ?? []
   const hasWeather = !!weather && weather.totalPct !== 0
+  // Avant J-3, la prévision est encore instable → on l'annonce comme indicative.
+  const weatherFirm = !!forecast?.available && forecast.daysToRace <= 3
   if (!rows.length && !hasWeather) return null
   const Row = ({ color, label, detail }: { color: string; label: string; detail: string }) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, fontSize: 12.5, lineHeight: 1.45 }}>
@@ -219,9 +221,9 @@ function WhyThisTime({ p, weather }: { p: ProjectionResult; weather: WeatherImpa
         {rows.map((a, i) => <Row key={i} color={a.color} label={a.label} detail={a.detail} />)}
         {hasWeather && (
           <Row
-            color="var(--vl-ember)"
-            label="Météo (jour J)"
-            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'} · appliqué au temps « prudent »`}
+            color={weatherFirm ? 'var(--vl-ember)' : 'var(--vl-text-3)'}
+            label={weatherFirm ? 'Météo (jour J)' : 'Météo (indicative)'}
+            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'}${weatherFirm ? ' · appliqué au temps « prudent »' : ` · prévision à J−${forecast!.daysToRace}, se précise vers J-3`}`}
           />
         )}
       </div>
@@ -230,7 +232,8 @@ function WhyThisTime({ p, weather }: { p: ProjectionResult; weather: WeatherImpa
 }
 
 // ── ScenarioBand ──────────────────────────────────────────────────────────────
-function ScenarioBand({ p, weather }: { p: ProjectionResult; weather: WeatherImpact | null }) {
+function ScenarioBand({ p, weather, forecast }: { p: ProjectionResult; weather: WeatherImpact | null; forecast: RaceConditions | null }) {
+  const weatherFirm = !!forecast?.available && forecast.daysToRace <= 3
   const lo = p.timeMin, hi = p.timeMax
   const span = Math.max(1, hi - lo)
   const pos = (s: number) => Math.max(0, Math.min(100, ((s - lo) / span) * 100))
@@ -255,7 +258,7 @@ function ScenarioBand({ p, weather }: { p: ProjectionResult; weather: WeatherImp
         {pW != null && weatherS != null && (
           <div style={{ position: 'absolute', left: pW + '%', transform: 'translateX(-50%)', textAlign: 'center' }}>
             <div className="display tnum" style={{ fontSize: 15, color: 'var(--vl-ember)', lineHeight: 1 }}>{fmtHM(weatherS / 60)}</div>
-            <div className="mono" style={{ fontSize: 8.5, color: 'var(--vl-text-3)', marginTop: 2 }}>MÉTÉO +{weather!.totalPct}%</div>
+            <div className="mono" style={{ fontSize: 8.5, color: 'var(--vl-text-3)', marginTop: 2 }}>MÉTÉO +{weather!.totalPct}%{weatherFirm ? '' : ' · INDIC.'}</div>
           </div>
         )}
       </div>
