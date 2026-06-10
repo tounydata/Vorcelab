@@ -13,7 +13,7 @@ import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces } from '../lib/runnerPaces'
 import { computeDailyPMC } from '../lib/trainingLoad'
-import WeekProgram from '../components/WeekProgram'
+import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import type { LinkActivity } from '../components/SessionFeedback'
 
@@ -46,6 +46,14 @@ const PHASE_COLORS: Record<Phase, string> = {
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+/** Lundi (ISO) de la semaine contenant une date donnée. */
+function mondayOfISO(iso: string): string {
+  const d = new Date(iso + 'T00:00:00')
+  const day = (d.getDay() + 6) % 7 // 0 = lundi
+  d.setDate(d.getDate() - day)
+  return d.toISOString().slice(0, 10)
 }
 
 /** Durée de prépa « pleine » de référence selon la distance (pour reconstituer
@@ -299,6 +307,29 @@ export default function CoachPage() {
     queryClient.invalidateQueries({ queryKey: ['latest-verdict', user?.id] })
   }
 
+  // Semaines passées reconstruites depuis le journal (séances réellement validées),
+  // pour pouvoir naviguer en arrière et revoir ce qui a été fait.
+  const pastWeeks = useMemo<HistoryWeek[]>(() => {
+    const currentStart = plan?.weeks[0]?.weekStartISO
+    if (!currentStart) return []
+    const byWeek = new Map<string, HistoryWeek['done']>()
+    for (const l of sessionLogs) {
+      const wk = mondayOfISO(l.planned_date)
+      if (wk >= currentStart) continue // semaines passées uniquement
+      const arr = byWeek.get(wk) ?? []
+      arr.push({
+        workoutId: l.planned_workout_id,
+        workoutName: getWorkout(l.planned_workout_id)?.name ?? l.planned_workout_id,
+        date: l.planned_date,
+        verdict: l.verdict,
+      })
+      byWeek.set(wk, arr)
+    }
+    return [...byWeek.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([weekStartISO, done]) => ({ weekStartISO, done: done.sort((x, y) => x.date.localeCompare(y.date)) }))
+  }, [plan, sessionLogs])
+
   const [dismissed, setDismissed] = useState(false)
   useEffect(() => {
     setDismissed(!!latestVerdict && localStorage.getItem('vl-modul-dismiss') === latestVerdict.id)
@@ -500,6 +531,7 @@ export default function CoachPage() {
         scale={modulation ? { workoutId: modulation.workoutId, dir: modulation.dir } : undefined}
         logs={sessionLogs}
         onSaved={onSessionSaved}
+        pastWeeks={pastWeeks}
       />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
