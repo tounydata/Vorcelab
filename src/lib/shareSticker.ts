@@ -43,7 +43,7 @@ function fmtKm(m: number): string {
 }
 
 // ── Helpers dessin ─────────────────────────────────────────────────────────────
-const EMBER = '#E5562A'
+const EMBER = '#d6803e'
 const INK = '#0c0c0e'
 const SANS = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif'
 const MONO = 'ui-monospace, Menlo, Consolas, monospace'
@@ -269,8 +269,8 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
       // remplissage dégradé sous la courbe
       const bottom = 80 + boxH + 40
       const grad = ctx.createLinearGradient(0, 80, 0, bottom)
-      grad.addColorStop(0, 'rgba(229,86,42,.5)')
-      grad.addColorStop(1, 'rgba(229,86,42,.05)')
+      grad.addColorStop(0, 'rgba(214,128,62,.45)')
+      grad.addColorStop(1, 'rgba(214,128,62,.05)')
       ctx.beginPath()
       xy.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
       ctx.lineTo(xy[xy.length - 1].x, bottom)
@@ -307,8 +307,8 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
       x: left + ((right - left) * i) / (N - 1),
       y: baseY(i) - 90 - ((a - aMin) / Math.max(1, range)) * altH,
     }))
-    // parois verticales (ruban → sol)
-    ctx.strokeStyle = EMBER; ctx.globalAlpha = 0.3; ctx.lineWidth = 7
+    // parois verticales (ruban → sol) — gris discret
+    ctx.strokeStyle = '#c9c9cf'; ctx.globalAlpha = 0.28; ctx.lineWidth = 6
     for (let i = 8; i < N - 6; i += 12) {
       ctx.beginPath()
       ctx.moveTo(xy[i].x, baseY(i))
