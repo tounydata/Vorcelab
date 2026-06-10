@@ -117,19 +117,25 @@ function drawLogoMark(ctx: CanvasRenderingContext2D, x: number, y: number, size:
 }
 
 function drawBrand(ctx: CanvasRenderingContext2D, cx: number, y: number, size: number) {
-  // logo Vorcelab + wordmark, centrés (y = baseline du texte)
-  ctx.font = `800 ${size}px ${SANS}`
+  // logo Vorcelab + wordmark (gros) + accroche. y = baseline du wordmark.
+  ctx.font = `900 ${size}px ${SANS}`
   const word = 'VORCELAB'
-  const spacing = size * 0.34
+  const spacing = size * 0.26
   const wordW = [...word].reduce((a, c) => a + ctx.measureText(c).width, 0) + spacing * (word.length - 1)
-  const markS = size * 1.7
-  const gap = size * 0.42
+  const markS = size * 1.55
+  const gap = size * 0.4
   const startX = cx - (markS + gap + wordW) / 2
-  // logo centré verticalement sur la hauteur de capitale du wordmark
-  drawLogoMark(ctx, startX, y - size - markS * 0.18, markS)
+  drawLogoMark(ctx, startX, y - size - markS * 0.16, markS)
   ctx.fillStyle = '#fff'
   shadowOn(ctx, 8)
-  drawSpaced(ctx, word, startX + markS + gap + wordW / 2, y - size * 0.08, spacing)
+  drawSpaced(ctx, word, startX + markS + gap + wordW / 2, y - size * 0.06, spacing)
+  shadowOff(ctx)
+  // accroche (sable) — plus de présence de marque
+  const tagS = size * 0.4
+  ctx.font = `700 ${tagS}px ${MONO}`
+  ctx.fillStyle = EMBER
+  shadowOn(ctx, 6)
+  drawSpaced(ctx, 'COACHING TRAIL', cx, y + size * 0.66, tagS * 0.34)
   shadowOff(ctx)
 }
 
@@ -221,8 +227,8 @@ const N = 160 // points resamplés
 function footer(ctx: CanvasRenderingContext2D, d: StickerData, timeSize: number, y: number): number {
   drawTime(ctx, fmtStickerTime(d.movingTimeS), W / 2, y, timeSize)
   drawStats(ctx, d, W / 2, y + timeSize * 0.52, timeSize * 0.24)
-  drawBrand(ctx, W / 2, y + timeSize * 0.98, timeSize * 0.22)
-  return y + timeSize * 1.1
+  drawBrand(ctx, W / 2, y + timeSize * 1.04, timeSize * 0.3)
+  return y + timeSize * 1.3
 }
 
 function renderOn(h: number, draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
@@ -236,7 +242,7 @@ function renderOn(h: number, draw: (ctx: CanvasRenderingContext2D) => void): HTM
 
 export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanvasElement {
   if (variant === 'stats') {
-    return renderOn(560, (ctx) => { footer(ctx, d, 230, 250) })
+    return renderOn(640, (ctx) => { footer(ctx, d, 230, 250) })
   }
 
   if (variant === 'trace') {
@@ -283,42 +289,48 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
     })
   }
 
-  // ── ribbon3d : PROFIL ALTI de gauche à droite en perspective (peu importe la
-  // forme du tracé), parois verticales vers une ligne de sol, et le tracé GPS en
-  // ombre au sol dessous. Échelle d'altitude HONNÊTE (plat = ruban plat).
+  // ── ribbon3d : PROFIL ALTI gauche→droite extrudé (mur dégradé), et le tracé GPX
+  // (forme réelle) posé EN DESSOUS, bien séparé. Échelle d'altitude HONNÊTE.
   return renderOn(1240, (ctx) => {
     const pts = resampleRoute(d.latlng!, d.altitude, N)
     const alts = pts.map((p) => p.alt)
     const aMin = Math.min(...alts)
     const range = Math.max(...alts) - aMin
-    const altH = honestAltHeight(range, 280)
+    const altH = honestAltHeight(range, 230)
 
     const left = 150, right = W - 150
-    // ligne de sol légèrement incurvée (effet perspective)
-    const baseY = (i: number) => 600 + Math.sin((i / (N - 1)) * Math.PI) * 26
+    const groundY = 470 // base du profil extrudé (au-dessus du tracé)
 
-    // tracé GPX au sol (BLANC), forme réelle, même largeur EXACTE que le ruban
-    const ground = fitBox(pts, right - left, 150, true)
-      .map((g) => ({ x: left + g.x, y: 505 + g.y }))
-    strokePath(ctx, ground, '#ffffff', 7)
-
-    // ruban : profil gauche→droite au-dessus du sol
+    // ruban : profil gauche→droite
     const xy = alts.map((a, i) => ({
       x: left + ((right - left) * i) / (N - 1),
-      y: baseY(i) - 90 - ((a - aMin) / Math.max(1, range)) * altH,
+      y: groundY - 18 - ((a - aMin) / Math.max(1, range)) * altH,
     }))
-    // parois verticales (ruban → sol) — gris discret
-    ctx.strokeStyle = '#c9c9cf'; ctx.globalAlpha = 0.28; ctx.lineWidth = 6
-    for (let i = 8; i < N - 6; i += 12) {
-      ctx.beginPath()
-      ctx.moveTo(xy[i].x, baseY(i))
-      ctx.lineTo(xy[i].x, xy[i].y)
-      ctx.stroke()
-    }
-    ctx.globalAlpha = 1
+    // « mur » d'extrusion : dégradé sable du ruban jusqu'au sol (pas de traits qui dépassent)
+    const wall = ctx.createLinearGradient(0, groundY - altH - 18, 0, groundY)
+    wall.addColorStop(0, 'rgba(201,168,119,.24)')
+    wall.addColorStop(1, 'rgba(201,168,119,.04)')
+    ctx.beginPath()
+    xy.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
+    ctx.lineTo(xy[xy.length - 1].x, groundY)
+    ctx.lineTo(xy[0].x, groundY)
+    ctx.closePath()
+    ctx.fillStyle = wall
+    ctx.fill()
+    // ligne de sol fine
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(left, groundY); ctx.lineTo(right, groundY); ctx.stroke()
+    // ruban (profil) sable
     strokePath(ctx, xy, EMBER, 15)
     dot(ctx, xy[0].x, xy[0].y, 18, EMBER)
     dot(ctx, xy[xy.length - 1].x, xy[xy.length - 1].y, 18, '#4ad07a')
+
+    // tracé GPX (forme réelle) posé en dessous, blanc, bien séparé du profil
+    const ground = fitBox(pts, right - left, 120, true)
+      .map((g) => ({ x: left + g.x, y: 540 + g.y }))
+    strokePath(ctx, ground, '#ffffff', 6)
+    dot(ctx, ground[0].x, ground[0].y, 13, EMBER)
+
     footer(ctx, d, 170, 920)
   })
 }
