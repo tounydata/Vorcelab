@@ -303,9 +303,10 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
     // ligne de sol légèrement incurvée (effet perspective)
     const baseY = (i: number) => 600 + Math.sin((i / (N - 1)) * Math.PI) * 26
 
-    // ombre au sol : la forme réelle du tracé, aplatie sous le ruban
-    const ground = fitBox(pts, right - left - 120, 230)
-      .map((g) => ({ x: left + 60 + g.x, y: 480 + g.y * 0.7 }))
+    // ombre au sol : la forme réelle du tracé, aplatie, étirée sur EXACTEMENT
+    // la même largeur que le ruban (sinon le décalage fait bricolé)
+    const ground = fitBox(pts, right - left, 150, true)
+      .map((g) => ({ x: left + g.x, y: 505 + g.y }))
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
     ctx.strokeStyle = '#000'; ctx.globalAlpha = 0.3; ctx.lineWidth = 12
     ctx.beginPath()
