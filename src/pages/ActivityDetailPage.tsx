@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
 import { reliefTileLayer } from '../lib/staticMap'
+import ShareStickers from '../components/ShareStickers'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
 import { buildSessionDebrief } from '../lib/sessionDebrief'
@@ -900,6 +901,7 @@ export default function ActivityDetailPage() {
   const { activityId } = useParams<{ activityId: string }>()
   const { user } = useVLStore()
   const queryClient = useQueryClient()
+  const [shareOpen, setShareOpen] = useState(false)
 
   const { data: profile } = useQuery<{ fc_max?: number } | null>({
     queryKey: ['profile-fcmax', user?.id],
@@ -1029,19 +1031,31 @@ export default function ActivityDetailPage() {
         )}
         {['Run', 'TrailRun', 'Trail Run', 'VirtualRun'].includes(activity.sport_type ?? activity.type) && (
           <div style={{ marginTop: 12 }}>
-            <button
-              onClick={() => raceTagMutation.mutate(!activity.is_race)}
-              disabled={raceTagMutation.isPending}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
-                padding: '7px 13px', borderRadius: 999, fontFamily: 'var(--vl-mono)', fontSize: 12, letterSpacing: '.04em',
-                border: `1px solid ${activity.is_race ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
-                background: activity.is_race ? 'color-mix(in srgb, var(--vl-ember) 16%, transparent)' : 'var(--vl-surf)',
-                color: activity.is_race ? 'var(--vl-ember)' : 'var(--vl-text-2)',
-              }}
-            >
-              {activity.is_race ? '★ Course — référence d’allure' : '☆ Marquer comme course'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => raceTagMutation.mutate(!activity.is_race)}
+                disabled={raceTagMutation.isPending}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+                  padding: '7px 13px', borderRadius: 999, fontFamily: 'var(--vl-mono)', fontSize: 12, letterSpacing: '.04em',
+                  border: `1px solid ${activity.is_race ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
+                  background: activity.is_race ? 'color-mix(in srgb, var(--vl-ember) 16%, transparent)' : 'var(--vl-surf)',
+                  color: activity.is_race ? 'var(--vl-ember)' : 'var(--vl-text-2)',
+                }}
+              >
+                {activity.is_race ? '★ Course — référence d’allure' : '☆ Marquer comme course'}
+              </button>
+              <button
+                onClick={() => setShareOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+                  padding: '7px 13px', borderRadius: 999, fontFamily: 'var(--vl-mono)', fontSize: 12, letterSpacing: '.04em',
+                  border: '1px solid var(--vl-line)', background: 'var(--vl-surf)', color: 'var(--vl-text-2)',
+                }}
+              >
+                ↗ Partager
+              </button>
+            </div>
             <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 6, maxWidth: 460 }}>
               {activity.is_race
                 ? 'Cet effort sert de référence pour caler l’allure de tes projections de course.'
@@ -1050,6 +1064,20 @@ export default function ActivityDetailPage() {
           </div>
         )}
       </div>
+
+      {shareOpen && (
+        <ShareStickers
+          data={{
+            movingTimeS: activity.moving_time,
+            distanceM: activity.distance,
+            dplusM: activity.total_elevation_gain ?? 0,
+            latlng: streams?.latlng?.data,
+            altitude: streams?.altitude?.data,
+            distance: streams?.distance?.data,
+          }}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       {/* Stats strip */}
       <div className="strip" style={{ marginBottom: '1rem' }}>
