@@ -117,7 +117,7 @@ function drawLogoMark(ctx: CanvasRenderingContext2D, x: number, y: number, size:
 }
 
 function drawBrand(ctx: CanvasRenderingContext2D, cx: number, y: number, size: number) {
-  // logo Vorcelab + wordmark (gros) + accroche. y = baseline du wordmark.
+  // logo Vorcelab + wordmark (gros). Juste le nom — on garde le mystère.
   ctx.font = `900 ${size}px ${SANS}`
   const word = 'VORCELAB'
   const spacing = size * 0.26
@@ -129,13 +129,6 @@ function drawBrand(ctx: CanvasRenderingContext2D, cx: number, y: number, size: n
   ctx.fillStyle = '#fff'
   shadowOn(ctx, 8)
   drawSpaced(ctx, word, startX + markS + gap + wordW / 2, y - size * 0.06, spacing)
-  shadowOff(ctx)
-  // accroche (sable) — plus de présence de marque
-  const tagS = size * 0.4
-  ctx.font = `700 ${tagS}px ${MONO}`
-  ctx.fillStyle = EMBER
-  shadowOn(ctx, 6)
-  drawSpaced(ctx, 'COACHING TRAIL', cx, y + size * 0.66, tagS * 0.34)
   shadowOff(ctx)
 }
 
