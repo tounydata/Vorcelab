@@ -41,7 +41,11 @@ export default function ShareStickers({ data, onClose }: { data: StickerData; on
     return blob ? new File([blob], 'vorcelab.png', { type: 'image/png' }) : null
   }, [blobs, variant])
 
-  const canShare = !!file && typeof navigator.share === 'function'
+  // Mobile (feuille de partage dispo) vs desktop. Sur iPhone, le web ne peut PAS
+  // écrire dans Photos : le seul chemin galerie = feuille de partage → « Enregistrer
+  // l'image ». On guide donc vers Partager et on réserve Télécharger au desktop.
+  const shareCapable = typeof navigator.share === 'function'
+  const canShare = !!file && shareCapable
     && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }))
 
   async function share() {
@@ -102,23 +106,26 @@ export default function ShareStickers({ data, onClose }: { data: StickerData; on
             : <span className="mono" style={{ fontSize: 11, color: '#fff' }}>Génération…</span>}
         </div>
         <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 8 }}>
-          PNG transparent — pose-le sur ta photo en story (sticker photo).
+          {shareCapable
+            ? <>PNG transparent. Pour ta galerie : Partager → <strong>« Enregistrer l'image »</strong>. Pour une story : Partager → Instagram/WhatsApp.</>
+            : 'PNG transparent — pose-le sur ta photo en story (sticker photo).'}
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          {canShare && (
+          {shareCapable ? (
             <button
               onClick={share}
-              disabled={busy || !urls[variant]}
+              disabled={busy || !canShare}
               style={{ flex: 1, border: 'none', borderRadius: 'var(--vl-r-sm)', padding: '11px 16px', fontFamily: 'var(--vl-display)', fontWeight: 800, fontSize: '.95rem', cursor: 'pointer', background: 'var(--vl-ember)', color: 'var(--vl-ink)' }}
-            >{busy ? '…' : 'Partager'}</button>
+            >{busy ? '…' : 'Partager / Enregistrer'}</button>
+          ) : (
+            <button
+              onClick={download}
+              disabled={!urls[variant]}
+              className="hbtn"
+              style={{ flex: 1, padding: '11px 16px', fontSize: '.9rem' }}
+            >Télécharger</button>
           )}
-          <button
-            onClick={download}
-            disabled={!urls[variant]}
-            className="hbtn"
-            style={{ flex: canShare ? undefined : 1, padding: '11px 16px', fontSize: '.9rem' }}
-          >Télécharger</button>
         </div>
       </div>
     </div>
