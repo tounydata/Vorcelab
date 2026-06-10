@@ -121,6 +121,28 @@ function drawBrand(ctx: CanvasRenderingContext2D, cx: number, y: number, size: n
 // ── Données géo : resample + pente locale → couleur effort ─────────────────────
 interface Pt { x: number; y: number; alt: number }
 
+/** Lissage (moyenne glissante, 2 passes) — tue le bruit GPS/baro de l'altitude. */
+function smooth(arr: number[], r = 3, passes = 2): number[] {
+  let out = arr.slice()
+  for (let p = 0; p < passes; p++) {
+    const next = out.slice()
+    for (let i = 0; i < out.length; i++) {
+      const a = Math.max(0, i - r), b = Math.min(out.length - 1, i + r)
+      let s = 0
+      for (let j = a; j <= b; j++) s += out[j]
+      next[i] = s / (b - a + 1)
+    }
+    out = next
+  }
+  return out
+}
+
+/** Hauteur de dessin HONNÊTE pour un dénivelé donné : un parcours plat reste
+ *  visuellement plat (12 m de D+ ≠ l'UTMB). ~1.4 px/m, bornée. */
+function honestAltHeight(rangeM: number, maxPx: number): number {
+  return Math.min(maxPx, Math.max(14, rangeM * 1.4))
+}
+
 /** Resample uniforme (indices) + projection équirectangulaire locale, alt brute. */
 function resampleRoute(latlng: [number, number][], altitude: number[] | undefined, n: number): Pt[] {
   const len = latlng.length
@@ -132,7 +154,8 @@ function resampleRoute(latlng: [number, number][], altitude: number[] | undefine
     const [lat, lon] = latlng[idx]
     out.push({ x: lon * kx, y: -lat, alt: altitude?.[idx] ?? 0 })
   }
-  return out
+  const alts = smooth(out.map((p) => p.alt))
+  return out.map((p, i) => ({ ...p, alt: alts[i] }))
 }
 
 /** Couleur effort du segment i (pente lissée sur ±w autour, en % via dist horizontale). */
@@ -235,13 +258,20 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
   if (variant === 'profile') {
     return renderOn(980, (ctx) => {
       const len = d.altitude!.length
-      const pts: Pt[] = []
+      const rawAlts: number[] = []
+      const dists: number[] = []
       for (let i = 0; i < N; i++) {
         const idx = Math.min(len - 1, Math.round((i / (N - 1)) * (len - 1)))
-        pts.push({ x: d.distance![idx], y: -d.altitude![idx], alt: d.altitude![idx] })
+        rawAlts.push(d.altitude![idx])
+        dists.push(d.distance![idx])
       }
-      const boxW = W - 200, boxH = 360
-      const xy = fitBox(pts, boxW, boxH, true).map((p) => ({ x: p.x + 100, y: p.y + 80 }))
+      const alts = smooth(rawAlts)
+      const pts: Pt[] = alts.map((a, i) => ({ x: dists[i], y: -a, alt: a }))
+      // Échelle verticale honnête : un parcours plat reste plat.
+      const range = Math.max(...alts) - Math.min(...alts)
+      const boxW = W - 200, boxH = honestAltHeight(range, 360)
+      const offY = 80 + (360 - boxH) / 2
+      const xy = fitBox(pts, boxW, boxH, true).map((p) => ({ x: p.x + 100, y: p.y + offY }))
       // remplissage dégradé sous la courbe
       const bottom = 80 + boxH + 40
       const grad = ctx.createLinearGradient(0, 80, 0, bottom)
@@ -259,38 +289,44 @@ export function renderSticker(variant: StickerVariant, d: StickerData): HTMLCanv
     })
   }
 
-  // ── ribbon3d : perspective + ombre au sol + parois d'altitude ──
+  // ── ribbon3d : PROFIL ALTI de gauche à droite en perspective (peu importe la
+  // forme du tracé), parois verticales vers une ligne de sol, et le tracé GPS en
+  // ombre au sol dessous. Échelle d'altitude HONNÊTE (plat = ruban plat).
   return renderOn(1240, (ctx) => {
     const pts = resampleRoute(d.latlng!, d.altitude, N)
-    const ground = fitBox(pts, W - 280, 560)
-    // perspective : y compressé + léger biais, alt extrudée vers le haut
     const alts = pts.map((p) => p.alt)
-    const aMin = Math.min(...alts), aMax = Math.max(...alts)
-    const altH = 300
-    const proj = ground.map((g, i) => {
-      const gx = 140 + g.x + g.y * 0.12
-      const gy = 330 + g.y * 0.45
-      const an = (alts[i] - aMin) / Math.max(1, aMax - aMin)
-      return { gx, gy, rx: gx, ry: gy - an * altH }
-    })
-    // ombre au sol
+    const aMin = Math.min(...alts)
+    const range = Math.max(...alts) - aMin
+    const altH = honestAltHeight(range, 280)
+
+    const left = 150, right = W - 150
+    // ligne de sol légèrement incurvée (effet perspective)
+    const baseY = (i: number) => 600 + Math.sin((i / (N - 1)) * Math.PI) * 26
+
+    // ombre au sol : la forme réelle du tracé, aplatie sous le ruban
+    const ground = fitBox(pts, right - left - 120, 230)
+      .map((g) => ({ x: left + 60 + g.x, y: 480 + g.y * 0.7 }))
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#000'; ctx.globalAlpha = 0.35; ctx.lineWidth = 14
+    ctx.strokeStyle = '#000'; ctx.globalAlpha = 0.3; ctx.lineWidth = 12
     ctx.beginPath()
-    proj.forEach((p, i) => (i ? ctx.lineTo(p.gx, p.gy) : ctx.moveTo(p.gx, p.gy)))
+    ground.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
     ctx.stroke()
     ctx.globalAlpha = 1
-    // parois verticales
+
+    // ruban : profil gauche→droite au-dessus du sol
+    const xy = alts.map((a, i) => ({
+      x: left + ((right - left) * i) / (N - 1),
+      y: baseY(i) - 90 - ((a - aMin) / Math.max(1, range)) * altH,
+    }))
+    // parois verticales (ruban → sol)
     ctx.strokeStyle = EMBER; ctx.globalAlpha = 0.3; ctx.lineWidth = 7
-    for (let i = 6; i < proj.length - 4; i += 10) {
+    for (let i = 8; i < N - 6; i += 12) {
       ctx.beginPath()
-      ctx.moveTo(proj[i].gx, proj[i].gy)
-      ctx.lineTo(proj[i].rx, proj[i].ry)
+      ctx.moveTo(xy[i].x, baseY(i))
+      ctx.lineTo(xy[i].x, xy[i].y)
       ctx.stroke()
     }
     ctx.globalAlpha = 1
-    // ruban coloré
-    const xy = proj.map((p) => ({ x: p.rx, y: p.ry }))
     strokeHeatPath(ctx, xy, pts, distPerStepOf(d), 15)
     dot(ctx, xy[0].x, xy[0].y, 18, EMBER)
     dot(ctx, xy[xy.length - 1].x, xy[xy.length - 1].y, 18, '#4ad07a')
