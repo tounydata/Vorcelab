@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
+import { syncStravaRenfo } from '../lib/syncStravaRenfo'
 import {
   get4WeekPhase, computeCoPerioWarnings, DUP4_LABELS, DUP4_COLORS,
   type Activity, type SessionLog,
@@ -533,6 +534,24 @@ export default function DashboardPage() {
     enabled: !!user,
   })
 
+  // Rattrapage Strava → renfo (musculation, yoga…) : tournait uniquement sur la
+  // page Renfo ; depuis la fusion dans le Coach, on le déclenche aussi ici pour
+  // que les imports continuent sans visiter /renfo. Idempotent (jamais de doublon).
+  const queryClient = useQueryClient()
+  useQuery({
+    queryKey: ['renfo-strava-backfill', user?.id],
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const n = await syncStravaRenfo(user!.id)
+      if (n > 0) {
+        queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-dashboard'] })
+        queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+      }
+      return n
+    },
+  })
+
   // Activités sur 100 j pour le PMC (Fitness/Fatigue/Forme) — fiabilise le CTL
   const { data: pmcActs = [] } = useQuery<Activity2[]>({
     queryKey: ['pmc-activities'],
@@ -652,6 +671,9 @@ export default function DashboardPage() {
     return { label: WCAL_LABELS[(d.getDay() + 6) % 7], hasRun, hasRenfo, isToday: i === 6 }
   })
   const lastRenfoSession = renfoLogs.find(r => r.session_date && r.focus)
+  // Imports Strava (yoga, muscu…) pas encore reliés à un type de séance — 30 derniers jours.
+  const cutoff30 = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  const renfoUncategorized = renfoLogs.filter(r => !r.focus && r.session_date && r.session_date >= cutoff30).length
 
   // Co-périodisation
   const recentActs = activities
@@ -781,20 +803,34 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Dernière séance renfo */}
-              {lastRenfoSession && (
-                <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
-                    {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}
-                    {lastRenfoSession.duration_min ? ` · ${lastRenfoSession.duration_min} min` : ''}
-                    {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
-                  </div>
-                  {(lastRenfoSession as SessionLog2).source === 'strava' && (
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
-                      Strava
+              {/* Séances Strava importées à relier à un type de renfo */}
+              {renfoUncategorized > 0 && (
+                <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
+                      {renfoUncategorized} séance{renfoUncategorized > 1 ? 's' : ''} Strava à relier au renfo
                     </div>
-                  )}
-                </div>
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-amber)', flexShrink: 0, letterSpacing: '.08em' }}>LIER →</div>
+                  </div>
+                </Link>
+              )}
+
+              {/* Dernière séance renfo → gestion des séances (lien, date, type) */}
+              {lastRenfoSession && (
+                <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                  <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
+                      {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}
+                      {lastRenfoSession.duration_min ? ` · ${lastRenfoSession.duration_min} min` : ''}
+                      {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
+                    </div>
+                    {(lastRenfoSession as SessionLog2).source === 'strava' && (
+                      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
+                        Strava
+                      </div>
+                    )}
+                  </div>
+                </Link>
               )}
 
               {/* Avertissement co-périodisation */}
