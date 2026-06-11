@@ -602,22 +602,6 @@ export async function buildRunnerProfile(
       statusResult = computeFlatStatus(avgSpeedKmH, cardioCost, minutesAnalyzed)
     }
 
-    const avgGradePct = acc.totalDistanceM > 0 ? (acc.altGainM / acc.totalDistanceM) * 100 : null
-
-    // Debug: verify bucket values in browser console
-    console.log(`[VL Profile] bucket=${key}`, {
-      totalSeconds: Math.round(acc.totalSeconds),
-      totalDistanceM: Math.round(acc.totalDistanceM),
-      altGainM: Math.round(acc.altGainM),
-      avgGradePct: avgGradePct?.toFixed(1),
-      avgSpeedKmH: avgSpeedKmH?.toFixed(1),
-      vamMH: vamMH?.toFixed(0),
-      avgHrPctFcMax: avgHrPctFcMax?.toFixed(0),
-      runCount,
-      sampleCount: acc.sampleCount,
-      confidence,
-    })
-
     buckets[key] = {
       avgSpeedKmH,
       vamMH,

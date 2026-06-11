@@ -8,6 +8,7 @@ import { terrainTimePenalty, slipRisk, type TerrainWeather } from './terrain'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
+import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax } from './fcMax'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
@@ -181,14 +182,18 @@ export function computeRaceProjection(
       return 420 // 7:00/km fallback
     }
 
-    // Road: use PRs if available
-    const prs = profile.prs as Record<string, { timeS: number; dist: number }> | undefined
-    if (prs) {
-      const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
-      if (candidates.length) {
-        const pr = prs[candidates[0]]
-        return (pr.timeS / pr.dist * 1000) / progressionFactor
-      }
+    // Road : PR MANUELS prioritaires, COMPLÉTÉS par les courses ÉTIQUETÉES de
+    // l'athlète (convergence avec le coach — même source de capacité que #340 :
+    // sans aucune saisie, on dérive le PR des courses route étiquetées au lieu de
+    // retomber sur un générique. Manuel > auto. La récence est déjà gérée par
+    // deriveAutoPrs (couperet 18 mois + décote douce) → jamais d'optimisme.
+    const manualPrs = profile.prs as Record<string, { timeS: number; dist: number }> | undefined
+    const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0])
+    const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
+    const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
+    if (candidates.length) {
+      const pr = prs[candidates[0]]
+      return (pr.timeS / pr.dist * 1000) / progressionFactor
     }
     return 320 // 5:20/km fallback for road
   }
