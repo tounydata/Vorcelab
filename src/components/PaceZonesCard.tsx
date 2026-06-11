@@ -44,7 +44,7 @@ export default function PaceZonesCard({ prs, vo2max, fcMax, bare = false }: {
         {bare ? null : <div className="clabel" style={{ margin: 0 }}>MES ALLURES</div>}
         {rp ? (
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-            VDOT {rp.vdot} · {rp.source === 'race_pr' ? "d'après ta course" : 'estimé (VO2max)'}
+            Niveau {rp.vdot} (VDOT) · {rp.source === 'race_pr' ? "d'après ta course" : 'estimé (VO2max)'}
           </div>
         ) : null}
       </div>

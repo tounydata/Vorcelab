@@ -635,6 +635,7 @@ export default function DashboardPage() {
   weekStart.setHours(0, 0, 0, 0)
   const weekStartStr = weekStart.toISOString().slice(0, 10)
   const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
+  const runsWeekCount = runs.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) >= weekStartStr).length
 
   // Renfo monthly progress bar — sessions ce mois / (target × semaines écoulées dans le mois)
   const weeksElapsed = Math.max(1, Math.ceil((now.getDate()) / 7))
@@ -711,29 +712,39 @@ export default function DashboardPage() {
             {/* Statut d'entraînement (PMC) — métriques en vedette */}
             <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
 
-            {/* ── CETTE SEMAINE — widget RENFO (proposition) ── */}
-            <div data-tour="dash-renfo" className="card" style={{ marginBottom: '1.5rem' }}>
+            {/* ── CETTE SEMAINE — carte COACH (course + renfo fusionnés) ── */}
+            <div data-tour="dash-coach" className="card" style={{ marginBottom: '1.5rem' }}>
 
               {/* En-tête */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="mlabel" style={{ margin: 0, color: '#a78bfa', letterSpacing: '.14em' }}>
-                    RENFO · {renfoWeekCount}/{renfoWeeklyTarget} SEM.
+                  <div className="mlabel" style={{ margin: 0, color: 'var(--vl-ember)', letterSpacing: '.14em' }}>
+                    COACH · CETTE SEMAINE
                   </div>
                   <div className="mlabel" style={{ margin: 0, fontSize: 10, color: DUP4_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${DUP4_COLORS[phase]}`, paddingLeft: 6 }}>
                     {DUP4_LABELS[phase]}
                   </div>
                 </div>
-                <Link to="/renfo" style={{ textDecoration: 'none' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>VOIR →</div>
+                <Link to="/coach" style={{ textDecoration: 'none' }}>
+                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>MON PLAN →</div>
                 </Link>
               </div>
 
-              {/* Barre de progression mensuelle */}
+              {/* Semaine en un coup d'œil : course + renfo */}
+              <div style={{ display: 'flex', gap: 14, marginBottom: '0.7rem', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
+                <span>
+                  <strong style={{ color: 'var(--vl-ember)', fontSize: 12 }}>{runsWeekCount}</strong> COURSE{runsWeekCount > 1 ? 'S' : ''}
+                </span>
+                <span>
+                  <strong style={{ color: '#a78bfa', fontSize: 12 }}>{renfoWeekCount}/{renfoWeeklyTarget}</strong> RENFO
+                </span>
+              </div>
+
+              {/* Barre de progression mensuelle (renfo) */}
               <div style={{ marginBottom: '0.7rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
                   <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-                    CE MOIS · {renfoMonthCount} / ~{renfoMonthTarget} séances
+                    RENFO CE MOIS · {renfoMonthCount} / ~{renfoMonthTarget} séances
                   </div>
                   <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: renfoMonthPct >= 80 ? '#a78bfa' : 'var(--vl-text-3)' }}>
                     {renfoMonthPct}%

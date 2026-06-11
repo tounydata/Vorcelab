@@ -591,17 +591,18 @@ export default function CoachPage() {
         pastWeeks={pastWeeks}
       />
 
-      {/* ── Renfo fusionné : placé autour des séances course (entraînement concurrent) ── */}
+      {/* ── Renfo fusionné : placé autour des séances course (entraînement concurrent).
+          Le renfo n'a plus d'onglet à lui : il vit ici, et chaque slot lance la séance. ── */}
       {renfoFusion && renfoFusion.slots.length > 0 ? (
         <div style={{ marginTop: 20 }}>
           <div className="coach-block-h">
             <span className="coach-block-ttl">Renfo cette semaine</span>
-            <span className="coach-block-sub">Placé autour de tes séances course</span>
+            <span className="coach-block-sub">Intégré à ton plan · touche un créneau pour lancer la séance</span>
           </div>
           <div className="card" style={{ padding: '12px 14px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {renfoFusion.slots.map((sl, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <Link key={i} to={`/renfo/session/${sl.focus}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit' }}>
                   <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-text-3)', minWidth: 30, textTransform: 'uppercase', paddingTop: 2 }}>
                     {['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][sl.dayOfWeek]}
                   </span>
@@ -612,16 +613,34 @@ export default function CoachPage() {
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.45, marginTop: 1 }}>{sl.rationale}</div>
                   </div>
-                </div>
+                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.08em', flexShrink: 0, paddingTop: 3 }}>
+                    LANCER →
+                  </span>
+                </Link>
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
               {renfoFusion.note}{' '}
-              <Link to="/renfo" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Détail des exercices</Link>
+              <Link to="/renfo" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Toutes les séances</Link>
+              {' · '}
+              <Link to="/renfo/library" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Bibliothèque d'exercices</Link>
             </div>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div style={{ marginTop: 20 }}>
+          <div className="coach-block-h">
+            <span className="coach-block-ttl">Renfo cette semaine</span>
+            <span className="coach-block-sub">Intégré à ton plan</span>
+          </div>
+          <div className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
+              Le renforcement se co-périodise avec ta course. Choisis une séance ou règle ton objectif hebdo.
+            </div>
+            <Link to="/renfo" className="hbtn" style={{ textDecoration: 'none', flexShrink: 0 }}>→ Mon renfo</Link>
+          </div>
+        </div>
+      )}
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
