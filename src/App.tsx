@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HashRouter, Routes, Route, Outlet, useNavigate } from 'react-router'
+import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
@@ -17,7 +17,6 @@ import SettingsPage from './pages/SettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ActivityDetailPage from './pages/ActivityDetailPage'
 import CoachPage from './pages/CoachPage'
-import RenfoPage from './pages/RenfoPage'
 import RenfoSessionPage from './pages/RenfoSessionPage'
 import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
@@ -86,7 +85,8 @@ export default function App() {
             <Route path="race" element={<RaceListPage />} />
             <Route path="race/new" element={<AddRacePage />} />
             <Route path="race/:raceId" element={<RaceStrategyPage />} />
-            <Route path="renfo" element={<RenfoPage />} />
+            {/* L'ancien hub renfo est dissous dans le Coach — on garde la redirection. */}
+            <Route path="renfo" element={<Navigate to="/coach" replace />} />
             <Route path="renfo/session/:focusKey" element={<RenfoSessionPage />} />
             <Route path="renfo/library" element={<RenfoLibraryPage />} />
             <Route path="renfo/library/:exerciseId" element={<RenfoExerciseDetailPage />} />

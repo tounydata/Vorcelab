@@ -805,7 +805,7 @@ export default function DashboardPage() {
 
               {/* Séances Strava importées à relier à un type de renfo */}
               {renfoUncategorized > 0 && (
-                <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                <Link to="/coach" style={{ textDecoration: 'none' }}>
                   <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                     <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
                       {renfoUncategorized} séance{renfoUncategorized > 1 ? 's' : ''} Strava à relier au renfo
@@ -817,7 +817,7 @@ export default function DashboardPage() {
 
               {/* Dernière séance renfo → gestion des séances (lien, date, type) */}
               {lastRenfoSession && (
-                <Link to="/renfo" style={{ textDecoration: 'none' }}>
+                <Link to="/coach" style={{ textDecoration: 'none' }}>
                   <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                     <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
                       {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}

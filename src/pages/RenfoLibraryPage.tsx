@@ -38,7 +38,7 @@ export default function RenfoLibraryPage() {
 
   return (
     <>
-      <Link to="/renfo" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
+      <Link to="/coach" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
         ← Renfo
       </Link>
       <div className="clabel" style={{ marginBottom: '1.5rem' }}>BIBLIOTHÈQUE</div>

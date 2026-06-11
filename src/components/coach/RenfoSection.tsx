@@ -1,24 +1,41 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
-import { useRunningDUPOverride } from '../lib/coach/useRunningDUPOverride'
-import { useVLStore } from '../store/vlStore'
+import { supabase } from '../../lib/supabase'
+import { useVLStore } from '../../store/vlStore'
+import { useRunningDUPOverride } from '../../lib/coach/useRunningDUPOverride'
 import {
   computeCoPerioWarnings, computeImpactZone,
   get4WeekPhase, DUP4_LABELS, DUP4_COLORS,
   type SessionLog,
-} from '../lib/renfoUtils'
-import { FOCUS_META, RENFO_FOCUS_COLORS } from '../lib/renfoData'
-import { syncStravaRenfo } from '../lib/syncStravaRenfo'
+} from '../../lib/renfoUtils'
+import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../lib/renfoData'
+import { RENFO_FOCUS_SHORT, type RenfoFusion } from '../../lib/coach/renfoFusion'
+import { syncStravaRenfo } from '../../lib/syncStravaRenfo'
+import Collapsible from '../Collapsible'
+
+// ─── Le renfo vit ICI, dans la page Coach — pas de page hub séparée. ──────────
+// Hérité de l'ancienne RenfoPage (dissoute) : co-périodisation, suggestion,
+// bibliothèque par focus et gestion des séances récentes (liaison Strava).
 
 const ALL_FOCUSES = [
   'force_lourde','pliometrie','excentrique','tronc',
   'haut_corps','yoga_coureur','pilates_coureur','stretching',
 ] as const
 
-export default function RenfoPage() {
+const FORCE_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc'] as const
+const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+
+const PHASE_DESC: Record<string, string> = {
+  force: 'Charges lourdes, peu de répétitions, longues récup — on entretient la force max sans empiéter sur la course.',
+  volume: 'Plus de répétitions à charge modérée — on construit l’endurance de force.',
+  puissance: 'Mouvements explosifs (pliométrie) — on transforme la force en vitesse.',
+  deload: 'Semaine allégée — on récupère pour assimiler les blocs précédents.',
+}
+
+export default function RenfoSection({ fusion }: { fusion: RenfoFusion | null }) {
   const { user } = useVLStore()
+  const queryClient = useQueryClient()
 
   const { data: activities = [] } = useQuery({
     queryKey: ['activities-copério'],
@@ -33,8 +50,6 @@ export default function RenfoPage() {
     },
     enabled: !!user,
   })
-
-  const queryClient = useQueryClient()
 
   // Rattrapage : importe les séances de renfo déjà sur Strava (musculation, yoga…)
   // que le webhook n'a jamais vues. Idempotent — ne ré-importe jamais une date loggée.
@@ -79,6 +94,7 @@ export default function RenfoPage() {
     onSuccess: () => {
       setConfirmDeleteId(null)
       queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-dashboard'] })
     },
   })
 
@@ -92,11 +108,11 @@ export default function RenfoPage() {
     onSuccess: () => {
       setEditingId(null)
       queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
+      queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-dashboard'] })
     },
   })
 
   // Tag du type d'une séance (utile pour catégoriser les imports Strava « à catégoriser »).
-  // Aucun garde-fou : la contrainte d'unicité a été levée → doubles séances autorisées.
   const focusMutation = useMutation({
     mutationFn: async ({ id, focus }: { id: string; focus: string }) => {
       const { error } = await supabase.from('renfo_session_log').update({ focus }).eq('id', id)
@@ -113,7 +129,6 @@ export default function RenfoPage() {
   const dupOverride = useRunningDUPOverride()
   const phase = get4WeekPhase(dupOverride)
 
-  // Last session date per focus
   const lastDateByFocus: Record<string, string> = {}
   for (const s of sessionLogs) {
     if (s.focus && s.session_date && !lastDateByFocus[s.focus]) {
@@ -121,20 +136,16 @@ export default function RenfoPage() {
     }
   }
 
-  // Focuses preferred by co-pério
   const preferred = new Set(warnings.flatMap((w) => w.prefer))
   const avoided = new Set(warnings.flatMap((w) => w.avoid))
 
   function fmtLastDate(iso: string) {
-    const d = new Date(iso)
-    const diff = Math.round((Date.now() - d.getTime()) / 86400000)
+    const diff = Math.round((Date.now() - new Date(iso).getTime()) / 86400000)
     if (diff === 0) return "aujourd'hui"
     if (diff === 1) return 'hier'
     return `il y a ${diff}j`
   }
 
-  // ── Données refonte ──
-  // Séance suggérée : préférée par la co-pério d'abord, sinon la plus ancienne.
   const sortedFocuses = [...ALL_FOCUSES].sort((a, b) => {
     const ap = preferred.has(a) ? 0 : avoided.has(a) ? 2 : 1
     const bp = preferred.has(b) ? 0 : avoided.has(b) ? 2 : 1
@@ -146,24 +157,7 @@ export default function RenfoPage() {
   const suggested = sortedFocuses[0]
   const weekCount = new Set(sessionLogs.map((s) => s.session_date).filter(Boolean)).size
   const alertWarning = warnings.find((w) => w.severity === 'alert') ?? warnings[0] ?? null
-
-  const PHASE_DESC: Record<string, string> = {
-    force: 'Charges lourdes, peu de répétitions, longues récup — on entretient la force max sans empiéter sur la course.',
-    volume: 'Plus de répétitions à charge modérée — on construit l’endurance de force.',
-    puissance: 'Mouvements explosifs (pliométrie) — on transforme la force en vitesse.',
-    deload: 'Semaine allégée — on récupère pour assimiler les blocs précédents.',
-  }
-
-  const FORCE_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc'] as const
-  const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
-
-  const WCAL = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
-  const now = new Date()
-  const rhythm7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    return { label: WCAL[(d.getDay() + 6) % 7], has: sessionLogs.some((s) => s.session_date === ds), isToday: i === 6 }
-  })
+  const uncategorized = sessionLogs.filter((s) => !s.focus).length
 
   function renderFocus(focus: string) {
     const meta = FOCUS_META[focus]
@@ -185,28 +179,61 @@ export default function RenfoPage() {
   }
 
   return (
-    <>
-      <div className="clabel" style={{ marginBottom: '1rem' }}>RENFORCEMENT</div>
-
-      {/* ── 1 · HÉROS : l'intelligence co-périodisation ── */}
-      <div className="rhero">
-        <div className="rhero-kic">Co-périodisation · semaine en cours</div>
-        <div className="rhero-phase" style={{ color: DUP4_COLORS[phase] }}>Bloc {DUP4_LABELS[phase]}</div>
-        <div className="rhero-desc">{PHASE_DESC[phase] ?? ''}</div>
-        {alertWarning && (
-          <div className="rcoperio" style={{ borderColor: `color-mix(in oklab, ${alertWarning.severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'} 35%, transparent)` }}>
-            <span className="rcoperio-ic" style={{ color: alertWarning.severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)' }}>⚡</span>
-            <span className="rcoperio-tx">{alertWarning.message}</span>
-          </div>
-        )}
-        <div className="rhero-foot">
-          <div className="rstat"><div className="rstat-v" style={{ color: 'var(--color-renfo)' }}>{weekCount}</div><div className="rstat-l">Séances · 7 j</div></div>
-          <div className="rstat"><div className="rstat-v" style={{ color: impact.color }}>{impact.label}</div><div className="rstat-l">Charge 7 j</div></div>
-          <div className="rstat"><div className="rstat-v" style={{ color: DUP4_COLORS[phase] }}>{DUP4_LABELS[phase]}</div><div className="rstat-l">Phase DUP</div></div>
-        </div>
+    <div data-tour="coach-renfo" style={{ marginTop: 24 }}>
+      <div className="coach-block-h">
+        <span className="coach-block-ttl">RENFORCEMENT</span>
+        <span className="coach-block-sub">Co-périodisé avec ta course · bloc {DUP4_LABELS[phase]}</span>
       </div>
 
-      {/* ── 2 · SUGGÉRÉ MAINTENANT (proposition, pas prescription) ── */}
+      {/* ── Phase + co-périodisation ── */}
+      <div className="card" style={{ marginBottom: '1rem', padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 800, color: DUP4_COLORS[phase] }}>
+            Bloc {DUP4_LABELS[phase]}
+          </div>
+          <div style={{ display: 'flex', gap: 14, fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
+            <span><strong style={{ color: 'var(--color-renfo)', fontSize: 12 }}>{weekCount}</strong> SÉANCES · 7 J</span>
+            <span><strong style={{ color: impact.color, fontSize: 12 }}>{impact.label}</strong> CHARGE · 7 J</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 4 }}>{PHASE_DESC[phase] ?? ''}</div>
+        {alertWarning && (
+          <div style={{ marginTop: 8, padding: '6px 9px', borderLeft: `3px solid ${alertWarning.severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}`, fontSize: 12, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
+            ⚡ {alertWarning.message}
+          </div>
+        )}
+      </div>
+
+      {/* ── Cette semaine : slots fusionnés autour des séances course ── */}
+      {fusion && fusion.slots.length > 0 && (
+        <div className="card" style={{ padding: '12px 14px', marginBottom: '1rem' }}>
+          <div className="clabel" style={{ marginBottom: 8 }}>CETTE SEMAINE · AUTOUR DE TES SÉANCES COURSE</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {fusion.slots.map((sl, i) => (
+              <Link key={i} to={`/renfo/session/${sl.focus}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit' }}>
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-text-3)', minWidth: 30, textTransform: 'uppercase', paddingTop: 2 }}>
+                  {['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][sl.dayOfWeek]}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
+                    {RENFO_FOCUS_SHORT[sl.focus] ?? sl.focus}
+                    {sl.heavy ? <span style={{ marginLeft: 6, fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span> : null}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.45, marginTop: 1 }}>{sl.rationale}</div>
+                </div>
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.08em', flexShrink: 0, paddingTop: 3 }}>
+                  LANCER →
+                </span>
+              </Link>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
+            {fusion.note}
+          </div>
+        </div>
+      )}
+
+      {/* ── Suggéré maintenant (proposition, pas prescription) ── */}
       {suggested && FOCUS_META[suggested] && (
         <div className="rsuggest">
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -221,56 +248,35 @@ export default function RenfoPage() {
         </div>
       )}
 
-      {/* ── 3 · BIBLIOTHÈQUE par catégorie ── */}
+      {/* ── Bibliothèque par catégorie : tu choisis librement ── */}
       <div className="rcat-h">Force &amp; puissance</div>
       <div className="rfocgrid">{FORCE_FOCUSES.map(renderFocus)}</div>
       <div className="rcat-h">Mobilité &amp; prévention</div>
       <div className="rfocgrid">{MOBILITE_FOCUSES.map(renderFocus)}</div>
 
-      {/* ── 4 · RYTHME hebdo ── */}
-      <div className="rrhythm">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="clabel" style={{ marginBottom: 10 }}>7 derniers jours</div>
-          <div className="rcal">
-            {rhythm7.map((d, i) => (
-              <div key={i} className="rcal-c">
-                <div className="rcal-bx" style={{
-                  background: d.has ? 'color-mix(in oklab, var(--color-renfo) 38%, transparent)' : 'transparent',
-                  borderColor: d.isToday ? 'var(--color-renfo)' : 'var(--vl-line)',
-                }} />
-                <div className="rcal-l" style={{ color: d.isToday ? 'var(--color-renfo)' : 'var(--vl-text-3)' }}>{d.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="rring">
-          <div className="rring-v">{weekCount}</div>
-          <div className="rring-l">séances · 7 j</div>
-        </div>
-      </div>
-
-      {/* ── Liens secondaires ── */}
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0 2rem' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', margin: '1rem 0 1.25rem' }}>
         <Link to="/renfo/library"><button className="hbtn">BIBLIOTHÈQUE COMPLÈTE</button></Link>
         <Link to="/profile/settings"><button className="hbtn">RÉGLAGES ÉQUIPEMENT</button></Link>
       </div>
 
-      {/* ── Historique 7 jours — gestion séances ─────────────────────────── */}
+      {/* ── Séances récentes : gestion + liaison des imports Strava ── */}
       {sessionLogs.length > 0 && (
-        <div className="card">
-          <div className="clabel" style={{ marginBottom: '0.75rem' }}>SÉANCES RÉCENTES</div>
-          {sessionLogs.some((s) => !s.focus) && (
-            <div style={{ fontSize: 11, color: 'var(--vl-amber)', marginBottom: '0.6rem', lineHeight: 1.5 }}>
-              {sessionLogs.filter((s) => !s.focus).length} séance(s) importée(s) à catégoriser — choisis le type ci-dessous pour qu'elles nourrissent l'algo.
+        <Collapsible
+          title={uncategorized > 0 ? `SÉANCES RÉCENTES · ${uncategorized} À RELIER` : 'SÉANCES RÉCENTES · 7 JOURS'}
+          defaultOpen={uncategorized > 0}
+        >
+          {uncategorized > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--vl-amber)', margin: '0.6rem 0', lineHeight: 1.5 }}>
+              {uncategorized} séance(s) importée(s) de Strava à catégoriser — choisis le type ci-dessous pour qu'elles nourrissent l'algo.
             </div>
           )}
           {sessionLogs.map((s) => {
             const isEditing = editingId === s.id
             const isConfirming = confirmDeleteId === s.id
             const isStrava = s.source === 'strava'
-            const uncategorized = !s.focus
+            const notCategorized = !s.focus
             return (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 8px 8px', borderBottom: '1px solid var(--vl-line)', borderLeft: uncategorized ? '2px solid var(--vl-amber)' : '2px solid transparent', gap: 8 }}>
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 8px 8px', borderBottom: '1px solid var(--vl-line)', borderLeft: notCategorized ? '2px solid var(--vl-amber)' : '2px solid transparent', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <select
@@ -278,8 +284,8 @@ export default function RenfoPage() {
                       onChange={(e) => s.id && focusMutation.mutate({ id: s.id, focus: e.target.value })}
                       style={{
                         fontFamily: 'var(--vl-mono)', fontSize: 11, padding: '3px 6px', borderRadius: 4,
-                        background: uncategorized ? 'color-mix(in oklab, var(--vl-amber) 14%, transparent)' : 'var(--vl-surf-2)',
-                        border: `1px solid ${uncategorized ? 'var(--vl-amber)' : 'var(--vl-line)'}`, color: 'var(--vl-text)',
+                        background: notCategorized ? 'color-mix(in oklab, var(--vl-amber) 14%, transparent)' : 'var(--vl-surf-2)',
+                        border: `1px solid ${notCategorized ? 'var(--vl-amber)' : 'var(--vl-line)'}`, color: 'var(--vl-text)',
                       }}
                     >
                       <option value="" disabled>À catégoriser…</option>
@@ -339,8 +345,8 @@ export default function RenfoPage() {
               </div>
             )
           })}
-        </div>
+        </Collapsible>
       )}
-    </>
+    </div>
   )
 }

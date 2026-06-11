@@ -11,7 +11,8 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/co
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import { applyReplan } from '../lib/coach/replan'
-import { fuseRenfoIntoWeek, RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
+import { fuseRenfoIntoWeek } from '../lib/coach/renfoFusion'
+import RenfoSection from '../components/coach/RenfoSection'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces, deriveAutoPrs } from '../lib/runnerPaces'
 import { computeDailyPMC, computeACWR } from '../lib/trainingLoad'
@@ -423,6 +424,8 @@ export default function CoachPage() {
           </div>
           <Link to="/race" className="hbtn" style={{ textDecoration: 'none', display: 'inline-block' }}>→ Calendrier</Link>
         </div>
+        {/* Le renfo vit ici même sans course cible : suggestion, bibliothèque, séances. */}
+        <RenfoSection fusion={null} />
       </div>
     )
   }
@@ -591,56 +594,8 @@ export default function CoachPage() {
         pastWeeks={pastWeeks}
       />
 
-      {/* ── Renfo fusionné : placé autour des séances course (entraînement concurrent).
-          Le renfo n'a plus d'onglet à lui : il vit ici, et chaque slot lance la séance. ── */}
-      {renfoFusion && renfoFusion.slots.length > 0 ? (
-        <div style={{ marginTop: 20 }}>
-          <div className="coach-block-h">
-            <span className="coach-block-ttl">Renfo cette semaine</span>
-            <span className="coach-block-sub">Intégré à ton plan · touche un créneau pour lancer la séance</span>
-          </div>
-          <div className="card" style={{ padding: '12px 14px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {renfoFusion.slots.map((sl, i) => (
-                <Link key={i} to={`/renfo/session/${sl.focus}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit' }}>
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-text-3)', minWidth: 30, textTransform: 'uppercase', paddingTop: 2 }}>
-                    {['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][sl.dayOfWeek]}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
-                      {RENFO_FOCUS_SHORT[sl.focus] ?? sl.focus}
-                      {sl.heavy ? <span style={{ marginLeft: 6, fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span> : null}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.45, marginTop: 1 }}>{sl.rationale}</div>
-                  </div>
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.08em', flexShrink: 0, paddingTop: 3 }}>
-                    LANCER →
-                  </span>
-                </Link>
-              ))}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
-              {renfoFusion.note}{' '}
-              <Link to="/renfo" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Toutes les séances</Link>
-              {' · '}
-              <Link to="/renfo/library" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Bibliothèque d'exercices</Link>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div style={{ marginTop: 20 }}>
-          <div className="coach-block-h">
-            <span className="coach-block-ttl">Renfo cette semaine</span>
-            <span className="coach-block-sub">Intégré à ton plan</span>
-          </div>
-          <div className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
-              Le renforcement se co-périodise avec ta course. Choisis une séance ou règle ton objectif hebdo.
-            </div>
-            <Link to="/renfo" className="hbtn" style={{ textDecoration: 'none', flexShrink: 0 }}>→ Mon renfo</Link>
-          </div>
-        </div>
-      )}
+      {/* ── 5 · RENFO : intégré ici, co-périodisé (plus de page séparée) ── */}
+      <RenfoSection fusion={renfoFusion} />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
