@@ -13,6 +13,7 @@ import RaceStrategyPage from './pages/RaceStrategyPage'
 import RaceStrategyPublicPage from './pages/RaceStrategyPublicPage'
 import SessionPreviewPage from './pages/SessionPreviewPage'
 import ProfilePage from './pages/ProfilePage'
+import SettingsPage from './pages/SettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ActivityDetailPage from './pages/ActivityDetailPage'
 import CoachPage from './pages/CoachPage'
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="renfo/library" element={<RenfoLibraryPage />} />
             <Route path="renfo/library/:exerciseId" element={<RenfoExerciseDetailPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="profile/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>

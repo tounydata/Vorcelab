@@ -56,8 +56,16 @@ export const PAGE_TOURS: PageTour[] = [
     id: 'profile',
     match: (p) => p === '/profile',
     steps: [
-      { selector: '[data-tour="profile-account"]', title: 'Ton profil', body: 'Commence ici : renseigne ton compte et tes données physio (FC max, VO2max). C’est ce qui calibre tes allures et ton coach — plus c’est complet, plus c’est juste.' },
-      { selector: '[data-tour="profile-settings"]', title: 'Tes paramètres', body: 'C’est ici que tu connectes Strava (indispensable pour analyser tes sorties), choisis ton orientation coach (plaisir / mix / performance), tes jours par semaine et ton objectif renfo.' },
+      { selector: '[data-tour="profile-account"]', title: 'Ton profil', body: 'Commence ici : renseigne tes données physio (FC max, VO2max) et tes records. C’est ce qui calibre tes allures et ton coach — plus c’est complet, plus c’est juste.' },
+      { selector: '[data-tour="profile-settings"]', title: 'Tes réglages', body: 'Tout ce qui configure l’app vit ici : connexion Strava, orientation coach, matériel renfo, produits nutrition et ton compte.' },
+    ],
+  },
+  {
+    id: 'settings',
+    match: (p) => p === '/profile/settings',
+    steps: [
+      { selector: '[data-tour="settings-strava"]', title: 'Connexion Strava', body: 'Connecte ta montre : indispensable pour analyser tes sorties, calculer ta charge et estimer ta VO2max. Tu peux forcer une synchro ou te déconnecter ici.' },
+      { selector: '[data-tour="settings-app"]', title: 'Ton coach & ton matériel', body: 'Orientation (plaisir / mix / performance), jours de course par semaine, objectif renfo et matériel disponible — c’est ce qui calibre ton plan.' },
       { selector: '[data-tour="profile-nutrition"]', title: 'Tes produits nutrition', body: 'Coche ici tes gels / boissons / barres par marque : ils alimentent automatiquement ton plan de ravitaillement en stratégie de course.' },
     ],
   },

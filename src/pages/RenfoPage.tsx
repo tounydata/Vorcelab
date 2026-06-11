@@ -252,7 +252,7 @@ export default function RenfoPage() {
       {/* ── Liens secondaires ── */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', margin: '1.5rem 0 2rem' }}>
         <Link to="/renfo/library"><button className="hbtn">BIBLIOTHÈQUE COMPLÈTE</button></Link>
-        <Link to="/profile?tab=reglages"><button className="hbtn">RÉGLAGES ÉQUIPEMENT</button></Link>
+        <Link to="/profile/settings"><button className="hbtn">RÉGLAGES ÉQUIPEMENT</button></Link>
       </div>
 
       {/* ── Historique 7 jours — gestion séances ─────────────────────────── */}

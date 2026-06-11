@@ -446,8 +446,8 @@ export default function CoachPage() {
     ? { v: climbWeak ? 'À renforcer' : 'OK', sub: climbWeak ? 'Point faible' : 'Point fort', color: climbWeak ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)' }
     : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
   const engine: { cl: string; v: string; sub: string; color: string }[] = [
-    { cl: 'VDOT · niveau', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
-    { cl: 'CTL · charge chro.', v: currentCTL != null ? String(currentCTL) : '—', sub: 'Fond', color: 'var(--vl-ember)' },
+    { cl: 'Niveau · VDOT', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
+    { cl: 'Fond · CTL', v: currentCTL != null ? String(currentCTL) : '—', sub: 'Charge chronique', color: 'var(--vl-ember)' },
     { cl: 'Fraîcheur · TSB', v: pmcToday ? (pmcToday.tsb > 0 ? `+${pmcToday.tsb}` : String(pmcToday.tsb)) : '—', sub: pmcToday ? (pmcToday.tsb > 5 ? 'Frais' : pmcToday.tsb < -10 ? 'Chargé' : 'Stable') : '—', color: 'var(--vl-status-peak)' },
     { cl: 'Durabilité', v: durability.v, sub: durability.sub, color: durability.color },
     { cl: 'Côtes · VAM', v: climb.v, sub: climb.sub, color: climb.color },
