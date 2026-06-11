@@ -51,6 +51,9 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
   const step = STEPS[i]
   const isLast = i === STEPS.length - 1
+  // Un objectif valide a-t-il été saisi ? → la fin boucle directement sur le plan.
+  const raceKmResolved = raceKm === 0 ? parseFloat(raceKmCustom || '0') : (raceKm ?? 0)
+  const raceSet = !!(raceKmResolved && raceDate)
 
   async function persistStep() {
     if (!user) return
@@ -76,17 +79,18 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
     }
   }
 
-  async function finish() {
-    if (!user) { onDone(); return }
-    await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
+  async function finish(dest?: string) {
+    if (user) await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
     onDone()
+    if (dest) navigate(dest)
   }
 
   async function next() {
     setBusy(true)
     try { await persistStep() } catch { /* best-effort, on n'empêche pas d'avancer */ }
     setBusy(false)
-    if (isLast) finish()
+    // Fin : objectif créé → on emmène droit au plan (le « aha ») ; sinon → créer une course.
+    if (isLast) finish(raceSet ? '/coach' : '/race')
     else setI((n) => n + 1)
   }
 
@@ -204,9 +208,16 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 Le jour J, tu sais exactement à quelle allure courir chaque section pour finir fort
                 sans exploser. Tu peux même la partager à ton équipe d'assistance.
               </p>
-              <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                Crée une course puis ouvre « Stratégie » pour la générer.
-              </p>
+              {raceSet ? (
+                <p style={pStyle}>
+                  Ton objectif <strong>{raceName || 'de course'}</strong> est enregistré — on a tout pour
+                  bâtir ton plan. Clique sur <strong>Voir mon plan</strong>.
+                </p>
+              ) : (
+                <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
+                  Tu n'as pas encore d'objectif : ajoute une course pour générer ton plan.
+                </p>
+              )}
             </StepShell>
           )}
         </div>
@@ -219,18 +230,18 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
             </button>
           )}
           <button className="btn-primary" onClick={next} disabled={busy} style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {isLast ? (<><ICheck size={16} /> Terminer</>) : busy ? 'Enregistrement…' : 'Continuer'}
+            {isLast ? (<><ICheck size={16} /> {raceSet ? 'Voir mon plan' : 'Terminer'}</>) : busy ? 'Enregistrement…' : 'Continuer'}
           </button>
         </div>
 
         {step === 'strategie' && (
           <button
             className="auth-link"
-            onClick={async () => { await finish(); navigate('/race') }}
+            onClick={() => finish()}
             disabled={busy}
             style={{ marginTop: 12, textAlign: 'center' }}
           >
-            Terminer et créer ma course
+            {raceSet ? 'Plus tard' : 'Terminer sans objectif'}
           </button>
         )}
       </div>
