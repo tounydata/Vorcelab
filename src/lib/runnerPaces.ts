@@ -29,9 +29,29 @@ interface AutoActivity {
   moving_time?: number | null
   total_elevation_gain?: number | null
   is_race?: boolean | null
+  start_date?: string | null
   /** Soit aliasé en colonne (raw_data->workout_type), soit dans raw_data. */
   workout_type?: unknown
   raw_data?: { workout_type?: unknown } | null
+}
+
+// ── RÉCENCE : un VDOT reflète la forme AU MOMENT de la course (Daniels). ─────────
+// Un vieux record surestime la forme actuelle → allures trop rapides → blessure
+// (même piège que la crise de fiabilité côté projection). On applique donc :
+//  • un couperet à 18 mois (au-delà, la course ne dicte plus les allures),
+//  • une décote douce au-delà de ~6 mois (perte de VO2max documentée sans
+//    maintien : ~4-7 %/an — Coyle, Pimentel). La décote « ralentit » le temps
+//    effectif servant à dériver le VDOT : prudence, jamais d'optimisme.
+const RECENCY_FULL_MONTHS = 6 // pleine valeur en deçà
+const RECENCY_MAX_MONTHS = 18 // couperet
+const RECENCY_DECAY_PER_YEAR = 0.04 // ~4 %/an au-delà de la fenêtre pleine
+const MS_PER_MONTH = 30.44 * 24 * 3600 * 1000
+
+/** Facteur d'inflation du temps effectif (≥ 1) selon l'âge de la course. */
+function recencyTimeFactor(ageMonths: number): number {
+  if (ageMonths <= RECENCY_FULL_MONTHS) return 1
+  const excessYears = (ageMonths - RECENCY_FULL_MONTHS) / 12
+  return 1 + RECENCY_DECAY_PER_YEAR * excessYears
 }
 
 const STD_DISTANCES: { key: string; m: number }[] = [
@@ -48,9 +68,15 @@ function isRaceEffort(a: AutoActivity): boolean {
 /**
  * Dérive un objet de PR depuis les courses ÉTIQUETÉES de l'athlète, pour obtenir
  * le VDOT sans aucune saisie. Bucket par distance standard (±12 %), meilleur
- * temps gardé. Route/plat seulement (D+/km < 18). `null` si rien d'exploitable.
+ * temps gardé. Route/plat seulement (D+/km < 18). Récence appliquée : couperet
+ * 18 mois + décote douce au-delà de 6 mois (le `timeS` stocké est donc un temps
+ * EFFECTIF prudent servant à dériver les allures, pas un record affichable).
+ * `null` si rien d'exploitable. `nowMs` injectable pour tests déterministes.
  */
-export function deriveAutoPrs(activities?: AutoActivity[] | null): Record<string, PrEntry> | null {
+export function deriveAutoPrs(
+  activities?: AutoActivity[] | null,
+  nowMs: number = Date.now(),
+): Record<string, PrEntry> | null {
   if (!activities?.length) return null
   const RUN = ['Run', 'TrailRun', 'Trail Run', 'VirtualRun']
   const best: Record<string, PrEntry> = {}
@@ -62,9 +88,21 @@ export function deriveAutoPrs(activities?: AutoActivity[] | null): Record<string
     if (((a.total_elevation_gain ?? 0) / (dist / 1000)) > 18) continue // plat uniquement
     const sd = STD_DISTANCES.find((s) => Math.abs(dist - s.m) / s.m <= 0.12)
     if (!sd) continue
+    // Récence : couperet 18 mois, sinon temps effectif décoté (prudence).
+    let effTime = time
+    if (a.start_date) {
+      const t = Date.parse(a.start_date)
+      if (!Number.isNaN(t)) {
+        const ageMonths = (nowMs - t) / MS_PER_MONTH
+        if (ageMonths > RECENCY_MAX_MONTHS) continue // trop vieux : ne dicte plus
+        if (ageMonths > 0) effTime = time * recencyTimeFactor(ageMonths)
+      }
+    }
     const cur = best[sd.key]
-    if (!cur || dist / time > (cur.dist as number) / (cur.timeS as number)) {
-      best[sd.key] = { timeS: Math.round(time), dist: Math.round(dist) }
+    // Sélection par allure EFFECTIVE : une course fraîche un peu plus lente peut
+    // légitimement primer sur un vieux record (prudence assumée).
+    if (!cur || dist / effTime > (cur.dist as number) / (cur.timeS as number)) {
+      best[sd.key] = { timeS: Math.round(effTime), dist: Math.round(dist) }
     }
   }
   return Object.keys(best).length ? best : null
