@@ -10,9 +10,11 @@ import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profile
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
+import { applyReplan } from '../lib/coach/replan'
+import { fuseRenfoIntoWeek, RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import { deriveRunnerPaces, deriveAutoPrs } from '../lib/runnerPaces'
-import { computeDailyPMC } from '../lib/trainingLoad'
+import { computeDailyPMC, computeACWR } from '../lib/trainingLoad'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import type { LinkActivity } from '../components/SessionFeedback'
@@ -248,11 +250,13 @@ export default function CoachPage() {
 
   // Charge chronique réelle (CTL/PMC) depuis les activités → calibre volume & prudence.
   // On expose tout le dernier jour PMC (CTL + TSB) pour le « moteur » du Coach.
-  const pmcToday = useMemo(() => {
-    if (!activities.length) return null
+  const loadSignals = useMemo(() => {
+    if (!activities.length) return { today: null, acwrRatio: null as number | null }
     const pmc = computeDailyPMC(activities, profile?.fc_max ?? null)
-    return pmc.length ? pmc[pmc.length - 1] : null
+    const today = pmc.length ? pmc[pmc.length - 1] : null
+    return { today, acwrRatio: computeACWR(pmc).ratio }
   }, [activities, profile?.fc_max])
+  const pmcToday = loadSignals.today
   const currentCTL = pmcToday?.ctl ?? null
 
   // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
@@ -287,6 +291,30 @@ export default function CoachPage() {
       secondaryRaces,
     })
   }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces])
+
+  // ── Replanification RÉACTIVE : la charge RÉELLE (ACWR/forme) ajuste la semaine ──
+  // courante (allègement si surcharge, reprise progressive si désentraînement).
+  // Le générateur cale déjà le VOLUME sur le CTL réel et intègre les courses
+  // ajoutées (régénération) ; cette couche gère en plus l'INTENSITÉ et l'explique.
+  const replan = useMemo(
+    () => (plan ? applyReplan(plan.weeks, { acwrRatio: loadSignals.acwrRatio, tsb: pmcToday?.tsb ?? null }) : null),
+    [plan, loadSignals.acwrRatio, pmcToday?.tsb],
+  )
+  const displayWeeks = useMemo(() => replan?.weeks ?? plan?.weeks ?? [], [replan, plan])
+
+  // Profil renfo (séances/sem.) → fusion du renforcement dans la semaine course.
+  const { data: renfoProfile } = useQuery({
+    queryKey: ['renfo-profile-coach', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from('renfo_profile').select('sessions_per_week').eq('user_id', user!.id).maybeSingle()
+      return data as { sessions_per_week?: number | null } | null
+    },
+  })
+  const renfoFusion = useMemo(
+    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoProfile?.sessions_per_week ?? null) : null),
+    [displayWeeks, renfoProfile?.sessions_per_week],
+  )
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
   const { data: latestVerdict = null } = useQuery({
@@ -342,6 +370,7 @@ export default function CoachPage() {
   // (reps + allure) selon le verdict. L'affûtage (taper/course) n'est jamais modulé.
   const modulation = useMemo(() => {
     if (!plan || !latestVerdict || dismissed) return null
+    if (replan?.trigger) return null // la replanif réactive prime sur la modulation
     const adj = computeAdjustment(latestVerdict.verdict)
     if (adj.direction === 'none') return null
     const week0 = plan.weeks[0]
@@ -351,7 +380,7 @@ export default function CoachPage() {
     if (!workoutId || !t) return null
     const { summary } = scaleWorkout(structureWorkout(t, vdot), adj.direction)
     return { workoutId, dir: adj.direction, reason: adj.reason, summary, title: t.name }
-  }, [plan, latestVerdict, dismissed, vdot])
+  }, [plan, latestVerdict, dismissed, vdot, replan?.trigger])
 
   const [splash, setSplash] = useState(false)
   useEffect(() => {
@@ -360,6 +389,19 @@ export default function CoachPage() {
       setSplash(true)
     }
   }, [modulation, latestVerdict])
+
+  // Splash « régénération » quand la replanif réactive change la semaine (une fois
+  // par état semaine×déclencheur) → le coureur VOIT que son plan s'est adapté.
+  const [replanSplash, setReplanSplash] = useState(false)
+  useEffect(() => {
+    const wk = plan?.weeks[0]?.weekStartISO
+    if (!replan?.trigger || !wk) return
+    const key = `${wk}:${replan.trigger}`
+    if (localStorage.getItem('vl-replan-splash') !== key) {
+      localStorage.setItem('vl-replan-splash', key)
+      setReplanSplash(true)
+    }
+  }, [replan?.trigger, plan])
 
   function cancelModulation() {
     if (latestVerdict) localStorage.setItem('vl-modul-dismiss', latestVerdict.id)
@@ -416,6 +458,7 @@ export default function CoachPage() {
   return (
     <div style={{ paddingBottom: '3rem' }}>
       {splash ? <SessionAdaptationSplash message="J'ajuste ta prochaine séance selon ton dernier ressenti." onDone={() => setSplash(false)} /> : null}
+      {replanSplash ? <SessionAdaptationSplash message="Je régénère ton plan selon ta charge réelle…" onDone={() => setReplanSplash(false)} /> : null}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
         <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 700 }}>Coach</div>
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
@@ -513,6 +556,17 @@ export default function CoachPage() {
         <span className="coach-block-sub">Proposition · tu choisis ta séance du jour</span>
       </div>
 
+      {replan?.trigger ? (
+        <div className="card" style={{ borderLeft: `4px solid ${replan.trigger === 'surcharge' ? 'var(--vl-ember)' : 'var(--vl-status-watch)'}`, padding: '10px 14px', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase', color: replan.trigger === 'surcharge' ? 'var(--vl-ember)' : 'var(--vl-status-watch)', fontWeight: 700 }}>
+              {replan.badge}
+            </span>
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--vl-text-2)' }}>{replan.reason}</div>
+        </div>
+      ) : null}
+
       {modulation ? (
         <div className="card" style={{ borderLeft: '4px solid var(--vl-ember)', padding: '10px 14px', marginBottom: '1rem', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: 'var(--vl-text-2)' }}>
@@ -527,7 +581,7 @@ export default function CoachPage() {
       ) : null}
 
       <WeekProgram
-        weeks={plan.weeks}
+        weeks={displayWeeks}
         vdot={vdot}
         activities={activities}
         fcMax={profile?.fc_max}
@@ -536,6 +590,38 @@ export default function CoachPage() {
         onSaved={onSessionSaved}
         pastWeeks={pastWeeks}
       />
+
+      {/* ── Renfo fusionné : placé autour des séances course (entraînement concurrent) ── */}
+      {renfoFusion && renfoFusion.slots.length > 0 ? (
+        <div style={{ marginTop: 20 }}>
+          <div className="coach-block-h">
+            <span className="coach-block-ttl">Renfo cette semaine</span>
+            <span className="coach-block-sub">Placé autour de tes séances course</span>
+          </div>
+          <div className="card" style={{ padding: '12px 14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {renfoFusion.slots.map((sl, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-text-3)', minWidth: 30, textTransform: 'uppercase', paddingTop: 2 }}>
+                    {['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][sl.dayOfWeek]}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
+                      {RENFO_FOCUS_SHORT[sl.focus] ?? sl.focus}
+                      {sl.heavy ? <span style={{ marginLeft: 6, fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span> : null}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.45, marginTop: 1 }}>{sl.rationale}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
+              {renfoFusion.note}{' '}
+              <Link to="/renfo" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Détail des exercices</Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
