@@ -21,7 +21,7 @@ export const PAGE_TOURS: PageTour[] = [
     steps: [
       { selector: '[data-tour="dash-race"]', title: 'Stratégie de course', body: 'Ta course visée, le compte à rebours et la projection Vorcelab de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
       { selector: '[data-tour="dash-state"]', title: 'Ton état du jour', body: 'Forme, fatigue et fraîcheur calculées depuis tes activités. Le graphe montre ta charge des 6 dernières semaines — survole pour le détail jour par jour.' },
-      { selector: '[data-tour="dash-renfo"]', title: 'Ton renfo de la semaine', body: 'Tes séances de renforcement proposées, co-périodisées avec ta course (force, tronc, mobilité…). Suis ta progression du mois et ouvre le détail avec « Voir ».' },
+      { selector: '[data-tour="dash-coach"]', title: 'Ton coach, cette semaine', body: 'Ta semaine d’entraînement en un coup d’œil : course et renfo fusionnés, co-périodisés vers ta course cible. Ouvre ton plan complet avec « Mon plan ».' },
       { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison).' },
     ],
   },
@@ -31,7 +31,7 @@ export const PAGE_TOURS: PageTour[] = [
     steps: [
       { selector: '.coach-hero', title: 'Ton cap vers le jour J', body: "La course visée, le compte à rebours et la périodisation complète (base → développement → spécifique → affûtage → course). La frise te montre où tu en es et le volume du plan." },
       { selector: '.coach-engine', title: 'Ton moteur', body: "Ce que l'algo lit de toi : niveau (VDOT), forme (CTL), fraîcheur, durabilité, côtes. C'est ce qui calibre ton plan et justifie chaque séance." },
-      { selector: '[data-tour="coach-week"]', title: 'Cette semaine', body: 'Tes séances proposées — jamais imposées. Tu choisis ta séance du jour, tu la lies à ton activité Strava, et le plan s’adapte à ton ressenti.' },
+      { selector: '[data-tour="coach-week"]', title: 'Cette semaine', body: 'Tes séances proposées — jamais imposées. Tu choisis ta séance du jour, tu la lies à ton activité Strava, et le plan s’adapte à ton ressenti. Ton renfo de la semaine est intégré juste en dessous.' },
     ],
   },
   {

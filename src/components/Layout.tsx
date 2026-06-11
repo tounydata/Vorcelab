@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { supabase } from '../lib/supabase'
 import OnboardingGate from './onboarding/OnboardingGate'
 import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
@@ -86,20 +86,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    to: '/renfo',
-    label: 'Renfo',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <path d="M5 8V16M19 8V16M2 12H22M7 6V18M17 6V18" />
-      </svg>
-    ),
-    mobileIcon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <path d="M5 8V16M19 8V16M2 12H22M7 6V18M17 6V18" />
-      </svg>
-    ),
-  },
-  {
     to: '/activities',
     label: 'Activités',
     icon: (
@@ -137,6 +123,9 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 export default function Layout() {
   const { isDark, toggle } = useTheme()
+  const { pathname } = useLocation()
+  // Le renfo vit sous l'onglet Coach (fusion coach complet) : /renfo/* allume Coach.
+  const coachAlsoActive = pathname.startsWith('/renfo')
 
   const themeBtn = (
     <button
@@ -170,7 +159,12 @@ export default function Layout() {
         <div className="sidebar-section-label">Navigation</div>
 
         {NAV_ITEMS.map(({ to, end, label, icon }) => (
-          <NavLink key={to} to={to} end={end} className={navClass}>
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) => navClass({ isActive: isActive || (to === '/coach' && coachAlsoActive) })}
+          >
             {icon} {label}
           </NavLink>
         ))}
@@ -219,12 +213,12 @@ export default function Layout() {
 
       <nav className="bottom-nav">
         <div className="bottom-nav-inner">
-          {NAV_ITEMS.filter(({ to }) => to !== '/activities').map(({ to, end, label, mobileIcon }) => (
+          {NAV_ITEMS.map(({ to, end, label, mobileIcon }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
-              className={({ isActive }) => 'bni' + (isActive ? ' active' : '')}
+              className={({ isActive }) => 'bni' + (isActive || (to === '/coach' && coachAlsoActive) ? ' active' : '')}
             >
               {mobileIcon}
               <span className="bn-label">{label}</span>
