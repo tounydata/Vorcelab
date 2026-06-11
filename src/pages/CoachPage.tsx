@@ -11,7 +11,7 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/co
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
-import { deriveRunnerPaces } from '../lib/runnerPaces'
+import { deriveRunnerPaces, deriveAutoPrs } from '../lib/runnerPaces'
 import { computeDailyPMC } from '../lib/trainingLoad'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
@@ -202,7 +202,7 @@ export default function CoachPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,strava_activity_id,name,moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date')
+        .select('id,strava_activity_id,name,moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date,is_race,workout_type:raw_data->workout_type')
         .order('start_date', { ascending: false })
         .limit(100)
       if (error) throw error
@@ -233,9 +233,12 @@ export default function CoachPage() {
   }, [upcoming, targetRace])
 
   // Profil réel → signaux d'adaptation : niveau (VDOT) + points faibles (runner_profile).
+  // VDOT : PR manuels d'abord, complétés par les PR AUTO dérivés des courses
+  // étiquetées (Strava « Course » / Vorcelab) → plus de saisie obligatoire.
+  const autoPrs = useMemo(() => deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0]), [activities])
   const vdot = useMemo(
-    () => deriveRunnerPaces(profile?.prs, profile?.vo2max)?.vdot ?? 45,
-    [profile?.prs, profile?.vo2max],
+    () => deriveRunnerPaces({ ...(autoPrs ?? {}), ...((profile?.prs as Record<string, unknown>) ?? {}) }, profile?.vo2max)?.vdot ?? 45,
+    [autoPrs, profile?.prs, profile?.vo2max],
   )
   const level = useMemo(() => levelFromVdot(vdot), [vdot])
   const weaknesses = useMemo(
