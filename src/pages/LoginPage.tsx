@@ -89,9 +89,25 @@ export default function LoginPage() {
     else setStatus({ msg: 'Lien de réinitialisation envoyé.', ok: true })
   }
 
+  // « Était connecté sur cet appareil » → la session a expiré (navigation privée,
+  // token périmé) : on l'explique au lieu d'afficher le formulaire sans contexte.
+  const sessionExpired = localStorage.getItem('vl-had-session') === '1'
+
   return (
     <div id="authScreen" className="show">
       <div className="auth-box">
+
+        {sessionExpired && (
+          <div style={{
+            background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)',
+            border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)',
+            borderRadius: 'var(--vl-r-sm)', padding: '9px 12px', marginBottom: '1rem',
+            fontSize: 12.5, color: 'var(--vl-text)', lineHeight: 1.5,
+          }}>
+            <strong style={{ color: 'var(--vl-amber)' }}>Ta session a expiré.</strong>{' '}
+            Reconnecte-toi pour reprendre — tes données sont intactes.
+          </div>
+        )}
 
         {/* Logo */}
         <div className="auth-logo">

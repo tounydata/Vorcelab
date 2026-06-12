@@ -177,7 +177,7 @@ export default function Layout() {
           </div>
           <button
             className="hbtn"
-            onClick={() => supabase.auth.signOut()}
+            onClick={() => { localStorage.removeItem('vl-had-session'); supabase.auth.signOut() }}
           >
             Déconnexion
           </button>

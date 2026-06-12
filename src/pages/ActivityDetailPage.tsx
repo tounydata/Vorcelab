@@ -13,6 +13,7 @@ import { buildSessionInsights } from '../lib/sessionQuality'
 import { buildSessionDebrief } from '../lib/sessionDebrief'
 import { computeDecoupling, type DurabilityStatus } from '../lib/durability'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
+import BrandedLoader from '../components/BrandedLoader'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1003,7 +1004,7 @@ export default function ActivityDetailPage() {
     </Link>
   )
 
-  if (isLoading) return <><BackLink /><div className="loading"><div className="spinner" /></div></>
+  if (isLoading) return <><BackLink /><BrandedLoader /></>
   if (isError || !activity) return <><BackLink /><div className="mlabel">Activité introuvable.</div></>
 
   const load = computeActivityLoad(activity, fcMax)

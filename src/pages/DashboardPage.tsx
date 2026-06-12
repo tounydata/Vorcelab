@@ -13,6 +13,7 @@ import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from
 import CoachCard from '../components/CoachCard'
 import { useRaceProjection } from '../lib/useRaceProjection'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
+import BrandedLoader from '../components/BrandedLoader'
 
 interface SessionLog2 extends SessionLog {
   source?: string | null
@@ -759,7 +760,7 @@ export default function DashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="loading"><div className="spinner" /></div>
+        <BrandedLoader />
       ) : (
         <>
           {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}

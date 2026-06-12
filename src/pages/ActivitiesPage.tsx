@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink } from 'react-router'
 import { supabase } from '../lib/supabase'
+import BrandedLoader from '../components/BrandedLoader'
+import LoadError from '../components/LoadError'
 
 interface Activity {
   id: string
@@ -94,7 +96,7 @@ export default function ActivitiesPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('tout')
 
-  const { data: activities = [], isLoading } = useQuery<Activity[]>({
+  const { data: activities = [], isLoading, isError, refetch } = useQuery<Activity[]>({
     queryKey: ['activities-list'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -173,10 +175,9 @@ export default function ActivitiesPage() {
       </div>
 
       {isLoading ? (
-        <div className="loading">
-          <div className="spinner" />
-          <span className="mlabel">Chargement</span>
-        </div>
+        <BrandedLoader />
+      ) : isError ? (
+        <LoadError onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
         <div className="mlabel">
           {search ? 'Aucun résultat' : 'Aucune sortie'}

@@ -12,6 +12,7 @@ import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import RenfoSection from '../components/coach/RenfoSection'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
+import BrandedLoader from '../components/BrandedLoader'
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
@@ -260,7 +261,7 @@ export default function CoachPage() {
   }
 
   if (isLoading) {
-    return <div className="loading"><div className="spinner" /></div>
+    return <BrandedLoader />
   }
 
   if (!targetRace || !plan) {

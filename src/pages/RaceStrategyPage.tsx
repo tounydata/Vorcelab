@@ -13,6 +13,8 @@ import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
 import RaceResult from '../components/races/RaceResult'
 import { fetchTerrainSurfaces } from '../lib/terrain'
+import BrandedLoader from '../components/BrandedLoader'
+import LoadError from '../components/LoadError'
 
 interface Race {
   id: string
@@ -140,7 +142,7 @@ export default function RaceStrategyPage() {
     })
   }
 
-  const { data: race, isLoading: raceLoading, isError } = useQuery<Race>({
+  const { data: race, isLoading: raceLoading, isError, refetch: refetchRace } = useQuery<Race>({
     queryKey: ['race', raceId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -380,12 +382,15 @@ export default function RaceStrategyPage() {
     return (
       <>
         <BackLink />
-        <div className="loading"><div className="spinner" /><span className="mlabel">Chargement…</span></div>
+        <BrandedLoader />
       </>
     )
   }
 
-  if (isError || !race) {
+  if (isError) {
+    return (<><BackLink /><LoadError onRetry={() => refetchRace()} message="Impossible de charger la course — vérifie ta connexion." /></>)
+  }
+  if (!race) {
     return (<><BackLink /><div className="mlabel">Course introuvable.</div></>)
   }
 
@@ -557,7 +562,7 @@ export default function RaceStrategyPage() {
       )}
 
       {isComputing && (
-        <div className="loading"><div className="spinner" /><span className="mlabel">Calcul de la stratégie…</span></div>
+        <BrandedLoader label="Calcul de la stratégie…" />
       )}
 
       {!projection && !isComputing && (
