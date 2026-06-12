@@ -307,7 +307,7 @@ export default function RenfoSessionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
-      navigate('/renfo')
+      navigate('/coach')
     },
   })
 
@@ -340,7 +340,7 @@ export default function RenfoSessionPage() {
   if (stageState.stage === 'warmup' && session.exercises.length === 0) {
     return (
       <>
-        <Link to="/renfo" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
+        <Link to="/coach" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
           ← Renfo
         </Link>
         <div className="clabel" style={{ marginBottom: '1rem', color }}>{meta.label ?? focusKey}</div>
@@ -363,7 +363,7 @@ export default function RenfoSessionPage() {
   if (stageState.stage === 'warmup') {
     return (
       <>
-        <Link to="/renfo" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
+        <Link to="/coach" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
           ← Renfo
         </Link>
         <div className="clabel" style={{ marginBottom: '1.5rem', color }}>{meta.label ?? focusKey}</div>
@@ -440,7 +440,7 @@ export default function RenfoSessionPage() {
     return (
       <>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <button className="hbtn" onClick={() => navigate('/renfo')}>← Quitter</button>
+          <button className="hbtn" onClick={() => navigate('/coach')}>← Quitter</button>
           <div className="mlabel" style={{ color: 'var(--vl-text-3)' }}>
             {ei + 1}/{session.exercises.length} · série {si + 1}/{exo.sets}
           </div>

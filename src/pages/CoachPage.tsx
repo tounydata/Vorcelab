@@ -3,40 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
-import { generateTrainingPlan, allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
-import { type CoachMotivation } from '../lib/coach/motivation'
+import { allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
-import { levelFromVdot, weaknessesFromRunnerProfile } from '../lib/coach/profileSignals'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
-import { applyReplan } from '../lib/coach/replan'
-import { fuseRenfoIntoWeek, RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
-import type { RunnerProfileComputed } from '../lib/runnerProfile'
-import { deriveRunnerPaces, deriveAutoPrs } from '../lib/runnerPaces'
-import { computeDailyPMC, computeACWR } from '../lib/trainingLoad'
+import { useCoachPlan } from '../lib/coach/useCoachPlan'
+import RenfoSection from '../components/coach/RenfoSection'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
-import type { LinkActivity } from '../components/SessionFeedback'
-
-interface Race {
-  id: string
-  name: string
-  date: string
-  distance: number | null
-  elevation: number | null
-  type: string | null
-  priority?: string | null
-}
-
-interface ProfileRow {
-  prs?: Record<string, unknown> | null
-  vo2max?: number | null
-  fc_max?: number | null
-  runner_profile?: RunnerProfileComputed | null
-  coach_days_per_week?: number | null
-  coach_motivation?: string | null
-}
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
@@ -44,10 +19,6 @@ const PHASE_COLORS: Record<Phase, string> = {
   specific: 'var(--vl-ember)',
   taper: '#3B82F6',
   race: 'var(--vl-text)',
-}
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 /** Lundi (ISO) de la semaine contenant une date donnée. */
@@ -177,92 +148,14 @@ export default function CoachPage() {
   const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
 
-  const { data: races = [], isLoading } = useQuery<Race[]>({
-    queryKey: ['races'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,priority')
-        .order('date', { ascending: true })
-      if (error) throw error
-      return (data ?? []) as Race[]
-    },
-  })
-
-  const { data: profile } = useQuery<ProfileRow | null>({
-    queryKey: ['profile-sessions'],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation').eq('id', user!.id).maybeSingle()
-      return (data ?? null) as ProfileRow | null
-    },
-  })
-
-  const { data: activities = [] } = useQuery<LinkActivity[]>({
-    queryKey: ['activities'],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('strava_activities')
-        .select('id,strava_activity_id,name,moving_time,average_heartrate,sport_type,type,distance,total_elevation_gain,start_date,is_race,workout_type:raw_data->workout_type')
-        .order('start_date', { ascending: false })
-        .limit(100)
-      if (error) throw error
-      return (data ?? []) as LinkActivity[]
-    },
-  })
-
-  const today = todayISO()
-  const upcoming = useMemo(
-    () => races.filter((r) => r.date.slice(0, 10) >= today),
-    [races, today],
-  )
-  // Cible = choix manuel, sinon la prochaine course A (objectif principal),
-  // sinon la prochaine course tout court.
-  const targetRace = useMemo(
-    () => upcoming.find((r) => r.id === selectedRaceId)
-      ?? upcoming.find((r) => (r.priority ?? 'A') === 'A')
-      ?? upcoming[0] ?? null,
-    [upcoming, selectedRaceId],
-  )
-  // Courses secondaires (B/C) entre aujourd'hui et la cible → intégrées au plan.
-  const secondaryRaces = useMemo(() => {
-    if (!targetRace) return []
-    return upcoming
-      .filter((r) => r.id !== targetRace.id && r.date.slice(0, 10) < targetRace.date.slice(0, 10)
-        && (r.priority === 'B' || r.priority === 'C'))
-      .map((r) => ({ name: r.name, dateISO: r.date.slice(0, 10), priority: r.priority as 'B' | 'C' }))
-  }, [upcoming, targetRace])
-
-  // Profil réel → signaux d'adaptation : niveau (VDOT) + points faibles (runner_profile).
-  // VDOT : PR manuels d'abord, complétés par les PR AUTO dérivés des courses
-  // étiquetées (Strava « Course » / Vorcelab) → plus de saisie obligatoire.
-  const autoPrs = useMemo(() => deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0]), [activities])
-  const vdot = useMemo(
-    () => deriveRunnerPaces({ ...(autoPrs ?? {}), ...((profile?.prs as Record<string, unknown>) ?? {}) }, profile?.vo2max)?.vdot ?? 45,
-    [autoPrs, profile?.prs, profile?.vo2max],
-  )
-  const level = useMemo(() => levelFromVdot(vdot), [vdot])
-  const weaknesses = useMemo(
-    () => weaknessesFromRunnerProfile(profile?.runner_profile ?? null),
-    [profile?.runner_profile],
-  )
-
-  // Charge chronique réelle (CTL/PMC) depuis les activités → calibre volume & prudence.
-  // On expose tout le dernier jour PMC (CTL + TSB) pour le « moteur » du Coach.
-  const loadSignals = useMemo(() => {
-    if (!activities.length) return { today: null, acwrRatio: null as number | null }
-    const pmc = computeDailyPMC(activities, profile?.fc_max ?? null)
-    const today = pmc.length ? pmc[pmc.length - 1] : null
-    return { today, acwrRatio: computeACWR(pmc).ratio }
-  }, [activities, profile?.fc_max])
-  const pmcToday = loadSignals.today
-  const currentCTL = pmcToday?.ctl ?? null
-
-  // Jours de course/semaine : réglé dans les paramètres (profil), plus dans la page.
-  const daysPerWeek = profile?.coach_days_per_week ?? 5
-  // Orientation lue depuis le profil (réglée dans Profil › Paramètres) → pilote le plan.
-  const motivation = (profile?.coach_motivation ?? 'mix') as CoachMotivation
+  // Source de vérité unique du plan (partagée avec le dashboard).
+  const {
+    isLoading, upcoming, targetRace,
+    profile, activities,
+    vdot, level, weaknesses,
+    pmcToday, currentCTL,
+    plan, replan, displayWeeks, renfoFusion,
+  } = useCoachPlan(selectedRaceId)
 
   // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
   const qc = useQueryClient()
@@ -273,48 +166,6 @@ export default function CoachPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['races'] }),
   })
-
-  const plan = useMemo(() => {
-    if (!targetRace) return null
-    return generateTrainingPlan({
-      raceName: targetRace.name,
-      raceDateISO: targetRace.date.slice(0, 10),
-      raceDistanceKm: targetRace.distance ?? 0,
-      raceElevationM: targetRace.elevation ?? 0,
-      raceType: targetRace.type,
-      todayISO: today,
-      daysPerWeek,
-      currentCTL,
-      level,
-      weaknesses,
-      motivation,
-      secondaryRaces,
-    })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces])
-
-  // ── Replanification RÉACTIVE : la charge RÉELLE (ACWR/forme) ajuste la semaine ──
-  // courante (allègement si surcharge, reprise progressive si désentraînement).
-  // Le générateur cale déjà le VOLUME sur le CTL réel et intègre les courses
-  // ajoutées (régénération) ; cette couche gère en plus l'INTENSITÉ et l'explique.
-  const replan = useMemo(
-    () => (plan ? applyReplan(plan.weeks, { acwrRatio: loadSignals.acwrRatio, tsb: pmcToday?.tsb ?? null }) : null),
-    [plan, loadSignals.acwrRatio, pmcToday?.tsb],
-  )
-  const displayWeeks = useMemo(() => replan?.weeks ?? plan?.weeks ?? [], [replan, plan])
-
-  // Profil renfo (séances/sem.) → fusion du renforcement dans la semaine course.
-  const { data: renfoProfile } = useQuery({
-    queryKey: ['renfo-profile-coach', user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from('renfo_profile').select('sessions_per_week').eq('user_id', user!.id).maybeSingle()
-      return data as { sessions_per_week?: number | null } | null
-    },
-  })
-  const renfoFusion = useMemo(
-    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoProfile?.sessions_per_week ?? null) : null),
-    [displayWeeks, renfoProfile?.sessions_per_week],
-  )
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
   const { data: latestVerdict = null } = useQuery({
@@ -423,6 +274,8 @@ export default function CoachPage() {
           </div>
           <Link to="/race" className="hbtn" style={{ textDecoration: 'none', display: 'inline-block' }}>→ Calendrier</Link>
         </div>
+        {/* Le renfo vit ici même sans course cible : suggestion, bibliothèque, séances. */}
+        <RenfoSection fusion={null} />
       </div>
     )
   }
@@ -591,56 +444,8 @@ export default function CoachPage() {
         pastWeeks={pastWeeks}
       />
 
-      {/* ── Renfo fusionné : placé autour des séances course (entraînement concurrent).
-          Le renfo n'a plus d'onglet à lui : il vit ici, et chaque slot lance la séance. ── */}
-      {renfoFusion && renfoFusion.slots.length > 0 ? (
-        <div style={{ marginTop: 20 }}>
-          <div className="coach-block-h">
-            <span className="coach-block-ttl">Renfo cette semaine</span>
-            <span className="coach-block-sub">Intégré à ton plan · touche un créneau pour lancer la séance</span>
-          </div>
-          <div className="card" style={{ padding: '12px 14px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {renfoFusion.slots.map((sl, i) => (
-                <Link key={i} to={`/renfo/session/${sl.focus}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit' }}>
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-text-3)', minWidth: 30, textTransform: 'uppercase', paddingTop: 2 }}>
-                    {['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][sl.dayOfWeek]}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
-                      {RENFO_FOCUS_SHORT[sl.focus] ?? sl.focus}
-                      {sl.heavy ? <span style={{ marginLeft: 6, fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span> : null}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.45, marginTop: 1 }}>{sl.rationale}</div>
-                  </div>
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-ember)', letterSpacing: '.08em', flexShrink: 0, paddingTop: 3 }}>
-                    LANCER →
-                  </span>
-                </Link>
-              ))}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--vl-text-3)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
-              {renfoFusion.note}{' '}
-              <Link to="/renfo" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Toutes les séances</Link>
-              {' · '}
-              <Link to="/renfo/library" style={{ color: 'var(--vl-ember)', textDecoration: 'none', whiteSpace: 'nowrap' }}>→ Bibliothèque d'exercices</Link>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div style={{ marginTop: 20 }}>
-          <div className="coach-block-h">
-            <span className="coach-block-ttl">Renfo cette semaine</span>
-            <span className="coach-block-sub">Intégré à ton plan</span>
-          </div>
-          <div className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.5 }}>
-              Le renforcement se co-périodise avec ta course. Choisis une séance ou règle ton objectif hebdo.
-            </div>
-            <Link to="/renfo" className="hbtn" style={{ textDecoration: 'none', flexShrink: 0 }}>→ Mon renfo</Link>
-          </div>
-        </div>
-      )}
+      {/* ── 5 · RENFO : intégré ici, co-périodisé (plus de page séparée) ── */}
+      <RenfoSection fusion={renfoFusion} />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.

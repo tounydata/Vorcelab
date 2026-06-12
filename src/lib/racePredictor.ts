@@ -36,16 +36,31 @@ export interface FreshnessAdjustment {
 // Multiplicateur sur le temps de course basé sur la charge récente.
 // Seuils alignés sur Gabbett 2016 (cohérents avec getLoadStatus de training-load.js).
 // Plafonnés à ±4% — prudent, l'effet réel peut dépasser mais on ne surprédit pas.
+// CONTINU (interpolation entre les seuils) : le ratio ACWR dérive chaque jour même
+// sans activité — des paliers feraient sauter la projection de ±2-4% d'un coup en
+// franchissant un seuil (= ±12-24 min sur un ultra, « sans rien faire »).
+
+/** Interpolation linéaire du multiplicateur selon le ratio ACWR (clampé 0.99–1.04). */
+export function freshnessMultiplier(r: number): number {
+  if (r <= 0.80) return 0.99
+  if (r <= 0.95) return 0.99 + ((r - 0.80) / 0.15) * 0.01 // 0.99 → 1.00
+  if (r <= 1.15) return 1                                  // zone neutre
+  if (r <= 1.30) return 1 + ((r - 1.15) / 0.15) * 0.02     // 1.00 → 1.02
+  if (r <= 1.50) return 1.02 + ((r - 1.30) / 0.20) * 0.02  // 1.02 → 1.04
+  return 1.04
+}
+
 export function computeFreshnessAdjustment(activities: RaceActivity[], fcMax: number): FreshnessAdjustment {
   const load = computeTrainingLoad(activities as unknown as ActivityForLoad[], fcMax || FC_MAX_DEFAULT)
   if (load.ratio === null || load.count42 < 3)
     return { multiplier: 1, label: null }
 
   const r = load.ratio
-  if (r > 1.50) return { multiplier: 1.04, label: 'surcharge', loadStatus: 'overload' }
-  if (r > 1.30) return { multiplier: 1.02, label: 'fatigue', loadStatus: 'elevated' }
-  if (r < 0.80) return { multiplier: 0.99, label: 'fraîcheur', loadStatus: 'recovery' }
-  return { multiplier: 1, label: null, loadStatus: 'stable' }
+  const multiplier = +freshnessMultiplier(r).toFixed(4)
+  if (r > 1.50) return { multiplier, label: 'surcharge', loadStatus: 'overload' }
+  if (r > 1.15) return { multiplier, label: 'fatigue', loadStatus: 'elevated' }
+  if (r < 0.95 && multiplier < 1) return { multiplier, label: 'fraîcheur', loadStatus: 'recovery' }
+  return { multiplier, label: null, loadStatus: 'stable' }
 }
 
 // ─── PROGRESSION ──────────────────────────────────────────────────────────────

@@ -156,7 +156,6 @@ export function computeRaceProjection(
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
     const now = Date.now()
-    const cutoff60 = now - 60 * 24 * 3600_000
 
     if (isTrail) {
       const trailRuns = activities
@@ -170,12 +169,23 @@ export function computeRaceProjection(
 
       if (trailRuns.length >= 1) {
         const top = trailRuns.slice(0, 10)
-        const scored = top.map((a: Record<string, unknown>) => {
+        let scored = top.map((a: Record<string, unknown>) => {
           const aDpKm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
           const similarity = 1 - Math.min(1, Math.abs(aDpKm - raceDpKm) / (raceDpKm + 1))
-          const recency = new Date(a.start_date as string).getTime() >= cutoff60 ? 2 : 1
+          // Récence CONTINUE (demi-vie ~60 j) : l'ancien palier ×2/×1 faisait sauter
+          // la projection le jour où une sortie franchissait 60 jours, sans rien faire.
+          const ageDays = Math.max(0, (now - new Date(a.start_date as string).getTime()) / 86_400_000)
+          const recency = 1 + Math.exp(-ageDays / 60)
           return { paceS: 1000 / (a.average_speed as number), weight: (0.4 + 0.6 * similarity) * recency }
         })
+        // Filtre anti-récup : une sortie nettement plus lente que TA médiane trail
+        // (footing, rando-course) ne doit pas tirer la projection — on l'écarte.
+        if (scored.length >= 4) {
+          const sortedPaces = scored.map((x) => x.paceS).sort((a, b) => a - b)
+          const median = sortedPaces[Math.floor(sortedPaces.length / 2)]
+          const kept = scored.filter((x) => x.paceS <= median * 1.35)
+          if (kept.length >= 3) scored = kept
+        }
         const totalW = scored.reduce((s: number, x: { weight: number }) => s + x.weight, 0)
         return scored.reduce((s: number, x: { paceS: number; weight: number }) => s + x.paceS * x.weight, 0) / totalW / progressionFactor
       }
