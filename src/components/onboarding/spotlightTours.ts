@@ -20,10 +20,9 @@ export const PAGE_TOURS: PageTour[] = [
     match: (p) => p === '/',
     steps: [
       { selector: '[data-tour="dash-race"]', title: 'Ta stratégie de course', body: 'Le cœur de Vorcelab : ta course visée, le compte à rebours et la projection de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
-      { selector: '[data-tour="dash-today"]', title: "Ta séance d'aujourd'hui", body: 'Ce que tu fais aujourd’hui pour y arriver — course et renfo. Touche la carte pour ouvrir ton plan complet.' },
+      { selector: '[data-tour="dash-coach"]', title: 'Ton coach, aujourd’hui', body: 'La séance proposée du jour (jamais imposée — tu choisis), ton renfo, et ton rythme des 7 derniers jours. Touche la carte pour ouvrir ton plan complet.' },
       { selector: '[data-tour="dash-state"]', title: 'Ton état du jour', body: 'Forme, fatigue et fraîcheur calculées depuis tes activités. Le graphe montre ta charge des 6 dernières semaines — survole pour le détail jour par jour.' },
-      { selector: '[data-tour="dash-coach"]', title: 'Ton coach, cette semaine', body: 'Ta semaine d’entraînement en un coup d’œil : course et renfo fusionnés, co-périodisés vers ta course cible. Ouvre ton plan complet avec « Mon plan ».' },
-      { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison).' },
+      { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison). Et avec « ⇅ Réorganiser », range ton dashboard dans l’ordre que TU veux.' },
     ],
   },
   {

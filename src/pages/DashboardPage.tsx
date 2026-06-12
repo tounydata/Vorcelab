@@ -4,18 +4,13 @@ import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { syncStravaRenfo } from '../lib/syncStravaRenfo'
-import {
-  get4WeekPhase, computeCoPerioWarnings, DUP4_LABELS, DUP4_COLORS,
-  type Activity, type SessionLog,
-} from '../lib/renfoUtils'
-// @ts-ignore
-import { FOCUS_META, RENFO_FOCUS_COLORS } from '../lib/renfoData'
+import { type SessionLog } from '../lib/renfoUtils'
 import {
   computeActivityLoad, computeDailyPMC, getTsbZone, computeACWR, classifySport,
   type ActivityForLoad, type PMCDay,
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
-import TodayCard from '../components/TodayCard'
+import CoachCard from '../components/CoachCard'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
 interface SessionLog2 extends SessionLog {
@@ -502,7 +497,23 @@ function NextRaceWidget({ race }: { race: NextRace }) {
 
 // ─── Suggested focuses ────────────────────────────────────────────────────────
 
-const SUGGESTED_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc', 'haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+// ─── Dashboard réorganisable : l'ordre des sections appartient à l'utilisateur ──
+const DASH_SECTIONS = ['race', 'coach', 'state', 'month'] as const
+const SECTION_LABELS: Record<string, string> = {
+  race: 'Stratégie de course',
+  coach: 'Coach',
+  state: "Statut d'entraînement",
+  month: 'Ce mois & dernières sorties',
+}
+function loadSectionOrder(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem('vl-dash-order') ?? '[]') as string[]
+    const known = raw.filter((k) => (DASH_SECTIONS as readonly string[]).includes(k))
+    return [...known, ...DASH_SECTIONS.filter((k) => !known.includes(k))]
+  } catch {
+    return [...DASH_SECTIONS]
+  }
+}
 
 export default function DashboardPage() {
   const { user } = useVLStore()
@@ -649,229 +660,52 @@ export default function DashboardPage() {
 
   const recent = runs.slice(0, 4)
 
-  // Renfo count this week (lun-dim de la semaine en cours)
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7))
-  weekStart.setHours(0, 0, 0, 0)
-  const weekStartStr = weekStart.toISOString().slice(0, 10)
-  const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
-  const runsWeekCount = runs.filter((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) >= weekStartStr).length
-
-  // Renfo monthly progress bar — sessions ce mois / (target × semaines écoulées dans le mois)
-  const weeksElapsed = Math.max(1, Math.ceil((now.getDate()) / 7))
-  const renfoMonthTarget = renfoWeeklyTarget * weeksElapsed
-  const renfoMonthPct = Math.min(100, Math.round((renfoMonthCount / renfoMonthTarget) * 100))
-
-  // Mini-calendrier renfo — 7 derniers jours (run + renfo)
-  const WCAL_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
-  const renfo7days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const hasRun = activities.some(a => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-    const hasRenfo = renfoLogs.some(r => r.session_date === ds)
-    return { label: WCAL_LABELS[(d.getDay() + 6) % 7], hasRun, hasRenfo, isToday: i === 6 }
-  })
-  const lastRenfoSession = renfoLogs.find(r => r.session_date && r.focus)
-  // Imports Strava (yoga, muscu…) pas encore reliés à un type de séance — 30 derniers jours.
-  const cutoff30 = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
-  const renfoUncategorized = renfoLogs.filter(r => !r.focus && r.session_date && r.session_date >= cutoff30).length
-
-  // Co-périodisation
-  const recentActs = activities
-    .filter((a) => new Date(a.start_date).getTime() > Date.now() - 3 * 86_400_000)
-    .map((a) => ({
-      start_date_local: a.start_date_local ?? a.start_date,
-      type: a.type,
-      sport_type: a.sport_type,
-      distance: a.distance,
-      moving_time: a.moving_time,
-      total_elevation_gain: a.total_elevation_gain,
-    })) as Activity[]
-
-  const warnings = computeCoPerioWarnings(recentActs)
-  const preferred = new Set(warnings.flatMap((w) => w.prefer))
-  const avoided = new Set(warnings.flatMap((w) => w.avoid))
-
-  const lastDateByFocus: Record<string, string> = {}
-  for (const s of renfoLogs) {
-    if (s.focus && s.session_date && !lastDateByFocus[s.focus]) {
-      lastDateByFocus[s.focus] = s.session_date
-    }
-  }
-
-  const phase = get4WeekPhase()
-  const sortedFocuses = [...SUGGESTED_FOCUSES].sort((a, b) => {
-    const aPref = preferred.has(a) ? 0 : avoided.has(a) ? 2 : 1
-    const bPref = preferred.has(b) ? 0 : avoided.has(b) ? 2 : 1
-    if (aPref !== bPref) return aPref - bPref
-    const aLast = lastDateByFocus[a] ? new Date(lastDateByFocus[a]).getTime() : 0
-    const bLast = lastDateByFocus[b] ? new Date(lastDateByFocus[b]).getTime() : 0
-    return aLast - bLast
-  })
-
-  function fmtLastDate(iso: string) {
-    const diff = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000)
-    if (diff === 0) return "aujourd'hui"
-    if (diff === 1) return 'hier'
-    return `il y a ${diff}j`
+  // Ordre des sections (persisté par appareil) + mode réorganisation.
+  const [sectionOrder, setSectionOrder] = useState<string[]>(loadSectionOrder)
+  const [arranging, setArranging] = useState(false)
+  function moveSection(key: string, dir: -1 | 1) {
+    setSectionOrder((prev) => {
+      const i = prev.indexOf(key)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      localStorage.setItem('vl-dash-order', JSON.stringify(next))
+      return next
+    })
   }
 
   return (
     <>
-      <div className="clabel" style={{ marginBottom: '1.25rem', fontSize: '1.4rem', fontFamily: 'var(--vl-display)', letterSpacing: '0.04em' }}>
-        DASHBOARD
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: '1.25rem' }}>
+        <div className="clabel" style={{ margin: 0, fontSize: '1.4rem', fontFamily: 'var(--vl-display)', letterSpacing: '0.04em' }}>
+          DASHBOARD
+        </div>
+        <button className="hbtn" style={{ fontSize: 10, padding: '4px 11px', color: arranging ? 'var(--vl-ember)' : undefined, borderColor: arranging ? 'var(--vl-ember)' : undefined }} onClick={() => setArranging((a) => !a)}>
+          {arranging ? '✓ TERMINÉ' : '⇅ RÉORGANISER'}
+        </button>
       </div>
 
       {isLoading ? (
         <div className="loading"><div className="spinner" /></div>
       ) : (
         <>
-          {/* ── 1 · HÉROS : la STRATÉGIE DE COURSE — la feature phare, en proue ── */}
-          {nextRace && <NextRaceWidget race={nextRace} />}
-
-          {/* ── 2 · AUJOURD'HUI : la séance du jour (course + renfo) ── */}
-          <TodayCard />
-
-          {/* ── 3 · TON ÉTAT | CETTE SEMAINE ── */}
-          <div className="dash-row">
-
-            {/* Statut d'entraînement (PMC) — métriques en vedette */}
-            <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
-
-            {/* ── CETTE SEMAINE — carte COACH (course + renfo fusionnés) ── */}
-            <div data-tour="dash-coach" className="card" style={{ marginBottom: '1.5rem' }}>
-
-              {/* En-tête */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="mlabel" style={{ margin: 0, color: 'var(--vl-ember)', letterSpacing: '.14em' }}>
-                    COACH · CETTE SEMAINE
-                  </div>
-                  <div className="mlabel" style={{ margin: 0, fontSize: 10, color: DUP4_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${DUP4_COLORS[phase]}`, paddingLeft: 6 }}>
-                    {DUP4_LABELS[phase]}
-                  </div>
-                </div>
-                <Link to="/coach" style={{ textDecoration: 'none' }}>
-                  <div className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>MON PLAN →</div>
-                </Link>
-              </div>
-
-              {/* Semaine en un coup d'œil : course + renfo */}
-              <div style={{ display: 'flex', gap: 14, marginBottom: '0.7rem', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-                <span>
-                  <strong style={{ color: 'var(--vl-ember)', fontSize: 12 }}>{runsWeekCount}</strong> COURSE{runsWeekCount > 1 ? 'S' : ''}
-                </span>
-                <span>
-                  <strong style={{ color: '#a78bfa', fontSize: 12 }}>{renfoWeekCount}/{renfoWeeklyTarget}</strong> RENFO
-                </span>
-              </div>
-
-              {/* Barre de progression mensuelle (renfo) */}
-              <div style={{ marginBottom: '0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-                    RENFO CE MOIS · {renfoMonthCount} / ~{renfoMonthTarget} séances
-                  </div>
-                  <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: renfoMonthPct >= 80 ? '#a78bfa' : 'var(--vl-text-3)' }}>
-                    {renfoMonthPct}%
-                  </div>
-                </div>
-                <div style={{ height: 4, borderRadius: 2, background: 'var(--vl-line)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${renfoMonthPct}%`,
-                    background: renfoMonthPct >= 80 ? '#7c3aed' : renfoMonthPct >= 50 ? '#a78bfa' : 'var(--vl-text-3)',
-                    borderRadius: 2,
-                    transition: 'width .4s',
-                  }} />
-                </div>
-              </div>
-
-              {/* Mini-calendrier 7 derniers jours */}
-              <div style={{ display: 'flex', gap: 3, marginBottom: '0.6rem' }}>
-                {renfo7days.map((day, i) => (
-                  <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{
-                      height: 16, borderRadius: 3, marginBottom: 2,
-                      background: day.hasRenfo
-                        ? 'color-mix(in oklab, var(--color-renfo) 40%, transparent)'
-                        : day.hasRun
-                          ? 'color-mix(in oklab, var(--vl-ember) 13%, transparent)'
-                          : 'var(--vl-line)',
-                      border: day.isToday ? '1px solid color-mix(in oklab, var(--vl-ember) 40%, transparent)' : '1px solid transparent',
-                    }} />
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: day.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
-                      {day.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Séances Strava importées à relier à un type de renfo */}
-              {renfoUncategorized > 0 && (
-                <Link to="/coach" style={{ textDecoration: 'none' }}>
-                  <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
-                      {renfoUncategorized} séance{renfoUncategorized > 1 ? 's' : ''} Strava à relier au renfo
-                    </div>
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-amber)', flexShrink: 0, letterSpacing: '.08em' }}>LIER →</div>
-                  </div>
-                </Link>
-              )}
-
-              {/* Dernière séance renfo → gestion des séances (lien, date, type) */}
-              {lastRenfoSession && (
-                <Link to="/coach" style={{ textDecoration: 'none' }}>
-                  <div style={{ background: '#7c3aed0d', border: '1px solid #7c3aed28', borderRadius: 4, padding: '5px 8px', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                    <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: '#a78bfa', minWidth: 0 }}>
-                      {(FOCUS_META as Record<string, { label: string }>)[lastRenfoSession.focus ?? '']?.label ?? lastRenfoSession.focus ?? '—'}
-                      {lastRenfoSession.duration_min ? ` · ${lastRenfoSession.duration_min} min` : ''}
-                      {' · '}{fmtLastDate(lastRenfoSession.session_date!)}
-                    </div>
-                    {(lastRenfoSession as SessionLog2).source === 'strava' && (
-                      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#FC4C02', background: '#FC4C0218', borderRadius: 3, padding: '2px 5px', flexShrink: 0, letterSpacing: '.04em' }}>
-                        Strava
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              )}
-
-              {/* Avertissement co-périodisation */}
-              {warnings.length > 0 && (
-                <div style={{ marginBottom: '0.6rem', padding: '5px 8px', borderLeft: `3px solid ${warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)'}` }}>
-                  <div className="mlabel" style={{ color: warnings[0].severity === 'alert' ? 'var(--vl-ember)' : 'var(--vl-amber)', textTransform: 'none', letterSpacing: 0, fontSize: '0.75rem' }}>
-                    {warnings[0].message}
-                  </div>
+          {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}
+          {sectionOrder.map((key, idx) => (
+            <div key={key}>
+              {arranging && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 6px', padding: '4px 10px', border: '1px dashed var(--vl-line)', borderRadius: 6 }}>
+                  <span className="mlabel" style={{ margin: 0, letterSpacing: '.1em' }}>{SECTION_LABELS[key]}</span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <button className="hbtn" disabled={idx === 0} style={{ padding: '2px 10px', opacity: idx === 0 ? 0.35 : 1 }} onClick={() => moveSection(key, -1)} aria-label="Monter la section">▲</button>
+                    <button className="hbtn" disabled={idx === sectionOrder.length - 1} style={{ padding: '2px 10px', opacity: idx === sectionOrder.length - 1 ? 0.35 : 1 }} onClick={() => moveSection(key, 1)} aria-label="Descendre la section">▼</button>
+                  </span>
                 </div>
               )}
-
-              {/* 4 focus suggérés 2×2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                {sortedFocuses.slice(0, 4).map((focus) => {
-                  const meta = FOCUS_META[focus]
-                  if (!meta) return null
-                  const color = RENFO_FOCUS_COLORS[focus] ?? '#7c3aed'
-                  const lastDate = lastDateByFocus[focus]
-                  const isAvoided = avoided.has(focus)
-                  const isPref = preferred.has(focus)
-                  return (
-                    <Link key={focus} to={`/renfo/session/${focus}`} style={{ textDecoration: 'none' }}>
-                      <div style={{ padding: '8px 10px', borderRadius: 6, border: `1px solid var(--vl-line)`, borderLeft: `3px solid ${color}`, opacity: isAvoided ? 0.4 : 1, background: 'var(--vl-surf-2)' }}>
-                        {isPref && <div className="mlabel" style={{ color, fontSize: '0.7rem', marginBottom: 2 }}>★</div>}
-                        <div style={{ fontFamily: 'var(--vl-display)', fontSize: '0.8rem', color, lineHeight: 1.2 }}>{meta.label}</div>
-                        <div className="mlabel" style={{ fontSize: '0.7rem', color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>
-                          {lastDate ? fmtLastDate(lastDate) : `${meta.duration_min} min`}
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          </div>{/* /dash-row */}
-
-          {/* ── 4 · CE MOIS + DERNIÈRES SORTIES (contexte, démoté) ── */}
+              {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
+              {key === 'coach' && <CoachCard activities={activities} renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
+              {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
+              {key === 'month' && (
           <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
@@ -926,6 +760,9 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+              )}
+            </div>
+          ))}
         </>
       )}
     </>
