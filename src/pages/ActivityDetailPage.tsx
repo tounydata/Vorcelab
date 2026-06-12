@@ -60,13 +60,13 @@ function fmtTime(s: number) {
 }
 function fmtPace(distM: number, timeS: number) {
   if (!distM || !timeS) return '—'
-  const secPerKm = timeS / (distM / 1000)
-  return `${Math.floor(secPerKm / 60)}'${String(Math.round(secPerKm % 60)).padStart(2, '0')}/km`
+  const secPerKm = Math.round(timeS / (distM / 1000))
+  return `${Math.floor(secPerKm / 60)}'${String(secPerKm % 60).padStart(2, '0')}/km`
 }
 function fmtPaceFromMps(mps: number | null) {
   if (!mps || mps <= 0) return '—'
-  const secPerKm = 1000 / mps
-  return `${Math.floor(secPerKm / 60)}'${String(Math.round(secPerKm % 60)).padStart(2, '0')}/km`
+  const secPerKm = Math.round(1000 / mps)
+  return `${Math.floor(secPerKm / 60)}'${String(secPerKm % 60).padStart(2, '0')}/km`
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
@@ -590,7 +590,7 @@ function RaceContextCard({ activity, weather }: { activity: ActivityDetail; weat
     : 0
   const normPaceSec = rawPaceSec > 0 ? rawPaceSec / (1 + totalAdj) : 0
   const paceNorm = normPaceSec > 0
-    ? `${Math.floor(normPaceSec / 60)}:${String(Math.round(normPaceSec % 60)).padStart(2, '0')}`
+    ? `${Math.floor(Math.round(normPaceSec) / 60)}:${String(Math.round(normPaceSec) % 60).padStart(2, '0')}`
     : '—'
 
   return (

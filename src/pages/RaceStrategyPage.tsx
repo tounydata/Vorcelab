@@ -221,6 +221,9 @@ export default function RaceStrategyPage() {
           prudent:    Math.round(result.timeMax),
           agressif:   Math.round(result.timeMin),
           confidence: result.confidence,
+          // Horodatage : le dashboard affiche « projection du X » si > 24 h —
+          // un instantané daté plutôt qu'un chiffre périmé présenté comme actuel.
+          computedAt: new Date().toISOString(),
         }
         const stored = race?.last_projection as typeof fresh | null
         const drifted = !stored
@@ -228,8 +231,12 @@ export default function RaceStrategyPage() {
           || stored.prudent !== fresh.prudent
           || stored.agressif !== fresh.agressif
           || stored.confidence !== fresh.confidence
+        // Même valeur mais horodatage > 24 h → on re-tamponne : la projection vient
+        // d'être vérifiée, le dashboard ne doit pas la dater d'avant-hier.
+        const staleStamp = !stored?.computedAt
+          || Date.now() - new Date(stored.computedAt).getTime() > 24 * 3600_000
 
-        if (shouldSave || (silentSync && drifted)) {
+        if (shouldSave || (silentSync && (drifted || staleStamp))) {
           if (!silentSync) setSaveStatus('saving')
           supabase
             .from('race_calendar')

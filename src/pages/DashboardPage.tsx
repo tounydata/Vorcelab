@@ -37,6 +37,10 @@ interface LastProjection {
   prudent: number
   agressif: number
   confidence: string
+  /** Date du calcul — la projection affichée ici est un instantané synchronisé
+   *  par la page Stratégie ; on l'affiche pour ne jamais présenter un chiffre
+   *  périmé comme actuel (écarts Dashboard vs Stratégie). */
+  computedAt?: string
 }
 
 interface NextRace {
@@ -59,9 +63,9 @@ function formatTime(seconds: number) {
 
 function formatPaceShort(distM: number, timeS: number): string {
   if (!distM || !timeS) return '—'
-  const secPerKm = timeS / (distM / 1000)
+  const secPerKm = Math.round(timeS / (distM / 1000))
   const m = Math.floor(secPerKm / 60)
-  const s = Math.round(secPerKm % 60)
+  const s = secPerKm % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
@@ -456,6 +460,11 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                 <div style={{ padding: '12px 12px 8px', flexShrink: 0 }}>
                   <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '10px', color: 'var(--vl-text-2)', letterSpacing: '.16em', marginBottom: 5, textTransform: 'uppercase', fontWeight: 700 }}>
                     PROJECTION VORCELAB
+                    {proj.computedAt && Date.now() - new Date(proj.computedAt).getTime() > 24 * 3600_000 && (
+                      <span style={{ color: 'var(--vl-text-3)', fontWeight: 400, letterSpacing: '.06em', textTransform: 'none' }}>
+                        {' '}· du {new Date(proj.computedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82 }}>
                     {fmtTimeS(proj.cible)}
@@ -505,11 +514,15 @@ const SECTION_LABELS: Record<string, string> = {
   state: "Statut d'entraînement",
   month: 'Ce mois & dernières sorties',
 }
+/** Filtre les clés inconnues et ré-ajoute les sections manquantes (résilient aux versions). */
+function sanitizeOrder(raw: string[]): string[] {
+  const known = raw.filter((k) => (DASH_SECTIONS as readonly string[]).includes(k))
+  return [...known, ...DASH_SECTIONS.filter((k) => !known.includes(k))]
+}
+
 function loadSectionOrder(): string[] {
   try {
-    const raw = JSON.parse(localStorage.getItem('vl-dash-order') ?? '[]') as string[]
-    const known = raw.filter((k) => (DASH_SECTIONS as readonly string[]).includes(k))
-    return [...known, ...DASH_SECTIONS.filter((k) => !known.includes(k))]
+    return sanitizeOrder(JSON.parse(localStorage.getItem('vl-dash-order') ?? '[]') as string[])
   } catch {
     return [...DASH_SECTIONS]
   }
@@ -593,12 +606,12 @@ export default function DashboardPage() {
     },
   })
 
-  const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number } | null>({
+  const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number; dashboard_layout?: string[] | null } | null>({
     queryKey: ['profile-fcmax-dash', user?.id],
     queryFn: async () => {
       if (!user) return null
-      const { data } = await supabase.from('profiles').select('fc_max,runner_profile,renfo_weekly_target').eq('id', user.id).single()
-      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number } | null
+      const { data } = await supabase.from('profiles').select('fc_max,runner_profile,renfo_weekly_target,dashboard_layout').eq('id', user.id).single()
+      return data as { fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number; dashboard_layout?: string[] | null } | null
     },
     enabled: !!user,
   })
@@ -660,9 +673,29 @@ export default function DashboardPage() {
 
   const recent = runs.slice(0, 4)
 
-  // Ordre des sections (persisté par appareil) + mode réorganisation.
+  // ── Ordre des sections : synchronisé entre appareils (profiles.dashboard_layout),
+  // localStorage en cache local, drag & drop (pointer events) + ▲▼ en secours. ──
   const [sectionOrder, setSectionOrder] = useState<string[]>(loadSectionOrder)
   const [arranging, setArranging] = useState(false)
+  const [dragKey, setDragKey] = useState<string | null>(null)
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Le serveur fait foi à l'arrivée (sauf pendant un drag en cours).
+  const serverLayout = profileData?.dashboard_layout
+  const serverLayoutKey = serverLayout?.join(',') ?? ''
+  useEffect(() => {
+    if (!serverLayoutKey || dragKey) return
+    const next = sanitizeOrder(serverLayout ?? [])
+    setSectionOrder((prev) => (next.join(',') !== prev.join(',') ? next : prev))
+    localStorage.setItem('vl-dash-order', JSON.stringify(next))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverLayoutKey])
+
+  function persistOrder(next: string[]) {
+    localStorage.setItem('vl-dash-order', JSON.stringify(next))
+    if (user) void supabase.from('profiles').update({ dashboard_layout: next }).eq('id', user.id)
+  }
+
   function moveSection(key: string, dir: -1 | 1) {
     setSectionOrder((prev) => {
       const i = prev.indexOf(key)
@@ -670,9 +703,37 @@ export default function DashboardPage() {
       if (i < 0 || j < 0 || j >= prev.length) return prev
       const next = [...prev]
       ;[next[i], next[j]] = [next[j], next[i]]
-      localStorage.setItem('vl-dash-order', JSON.stringify(next))
+      persistOrder(next)
       return next
     })
+  }
+
+  // Drag & drop : la section suit le doigt/curseur, insérée au-dessus de la
+  // première section dont elle croise la moitié haute.
+  function onDragStart(key: string, e: React.PointerEvent) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDragKey(key)
+  }
+  function onDragMove(e: React.PointerEvent) {
+    if (!dragKey) return
+    const y = e.clientY
+    setSectionOrder((prev) => {
+      const others = prev.filter((k) => k !== dragKey)
+      let insert = others.length
+      for (let i = 0; i < others.length; i++) {
+        const el = sectionRefs.current[others[i]]
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        if (y < r.top + r.height / 2) { insert = i; break }
+      }
+      const next = [...others.slice(0, insert), dragKey, ...others.slice(insert)]
+      return next.join(',') === prev.join(',') ? prev : next
+    })
+  }
+  function onDragEnd() {
+    if (!dragKey) return
+    setDragKey(null)
+    setSectionOrder((prev) => { persistOrder(prev); return prev })
   }
 
   return (
@@ -692,11 +753,28 @@ export default function DashboardPage() {
         <>
           {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}
           {sectionOrder.map((key, idx) => (
-            <div key={key}>
+            <div
+              key={key}
+              ref={(el) => { sectionRefs.current[key] = el }}
+              style={dragKey === key ? { opacity: 0.55, outline: '2px dashed var(--vl-ember)', outlineOffset: 2, borderRadius: 8 } : undefined}
+            >
               {arranging && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '0 0 6px', padding: '4px 10px', border: '1px dashed var(--vl-line)', borderRadius: 6 }}>
-                  <span className="mlabel" style={{ margin: 0, letterSpacing: '.1em' }}>{SECTION_LABELS[key]}</span>
-                  <span style={{ display: 'flex', gap: 6 }}>
+                <div
+                  onPointerDown={(e) => onDragStart(key, e)}
+                  onPointerMove={onDragMove}
+                  onPointerUp={onDragEnd}
+                  onPointerCancel={onDragEnd}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    margin: '0 0 6px', padding: '6px 10px', border: '1px dashed var(--vl-line)', borderRadius: 6,
+                    cursor: dragKey === key ? 'grabbing' : 'grab', touchAction: 'none', userSelect: 'none',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <span aria-hidden style={{ fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-text-3)', letterSpacing: '-2px' }}>⠿</span>
+                    <span className="mlabel" style={{ margin: 0, letterSpacing: '.1em' }}>{SECTION_LABELS[key]}</span>
+                  </span>
+                  <span style={{ display: 'flex', gap: 6 }} onPointerDown={(e) => e.stopPropagation()}>
                     <button className="hbtn" disabled={idx === 0} style={{ padding: '2px 10px', opacity: idx === 0 ? 0.35 : 1 }} onClick={() => moveSection(key, -1)} aria-label="Monter la section">▲</button>
                     <button className="hbtn" disabled={idx === sectionOrder.length - 1} style={{ padding: '2px 10px', opacity: idx === sectionOrder.length - 1 ? 0.35 : 1 }} onClick={() => moveSection(key, 1)} aria-label="Descendre la section">▼</button>
                   </span>
