@@ -11,6 +11,7 @@ import {
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import CoachCard from '../components/CoachCard'
+import { useRaceProjection } from '../lib/useRaceProjection'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
 interface SessionLog2 extends SessionLog {
@@ -51,8 +52,10 @@ interface NextRace {
   elevation: number | null
   type: string | null
   goal_time: string | null
+  start_time?: string | null
   gpx_data: { lat: number; lon: number; ele: number }[] | null
   last_projection: LastProjection | null
+  surfaces?: unknown | null
 }
 
 function formatTime(seconds: number) {
@@ -392,7 +395,15 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   const dateStr = raceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const gpxPts = Array.isArray(race.gpx_data) && race.gpx_data.length > 4 ? race.gpx_data : null
-  const proj = race.last_projection
+
+  // Projection LIVE — même pipeline que la page Stratégie (hook partagé) :
+  // plus jamais d'écart Dashboard vs Stratégie. Le snapshot daté ne sert que
+  // de secours le temps du calcul (ou sans GPX).
+  const live = useRaceProjection(race)
+  const proj: LastProjection | null = live
+    ? { cible: Math.round(live.estTimeS), prudent: Math.round(live.timeMax), agressif: Math.round(live.timeMin), confidence: live.confidence }
+    : race.last_projection
+  const isSnapshot = !live && !!race.last_projection
 
   const confColor = proj
     ? proj.confidence === 'good' ? 'var(--color-victory)' : proj.confidence === 'medium' ? 'var(--vl-amber)' : 'var(--vl-ember)'
@@ -460,9 +471,9 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                 <div style={{ padding: '12px 12px 8px', flexShrink: 0 }}>
                   <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '10px', color: 'var(--vl-text-2)', letterSpacing: '.16em', marginBottom: 5, textTransform: 'uppercase', fontWeight: 700 }}>
                     PROJECTION VORCELAB
-                    {proj.computedAt && Date.now() - new Date(proj.computedAt).getTime() > 24 * 3600_000 && (
+                    {isSnapshot && race.last_projection?.computedAt && (
                       <span style={{ color: 'var(--vl-text-3)', fontWeight: 400, letterSpacing: '.06em', textTransform: 'none' }}>
-                        {' '}· du {new Date(proj.computedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        {' '}· du {new Date(race.last_projection.computedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                       </span>
                     )}
                   </div>
@@ -597,7 +608,7 @@ export default function DashboardPage() {
       const today = new Date().toISOString().slice(0, 10)
       const { data } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,gpx_data,last_projection')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,surfaces')
         .gte('date', today)
         .order('date', { ascending: true })
         .limit(1)
