@@ -19,8 +19,9 @@ export const PAGE_TOURS: PageTour[] = [
     id: 'dashboard',
     match: (p) => p === '/',
     steps: [
-      { selector: '[data-tour="dash-race"]', title: 'Stratégie de course', body: 'Ta course visée, le compte à rebours et la projection Vorcelab de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
+      { selector: '[data-tour="dash-today"]', title: "Ta séance d'aujourd'hui", body: 'La première chose à savoir en ouvrant l’app : ce que tu fais aujourd’hui — course et renfo. Touche la carte pour ouvrir ton plan complet.' },
       { selector: '[data-tour="dash-state"]', title: 'Ton état du jour', body: 'Forme, fatigue et fraîcheur calculées depuis tes activités. Le graphe montre ta charge des 6 dernières semaines — survole pour le détail jour par jour.' },
+      { selector: '[data-tour="dash-race"]', title: 'Ta course visée', body: 'Le compte à rebours et la projection Vorcelab de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
       { selector: '[data-tour="dash-coach"]', title: 'Ton coach, cette semaine', body: 'Ta semaine d’entraînement en un coup d’œil : course et renfo fusionnés, co-périodisés vers ta course cible. Ouvre ton plan complet avec « Mon plan ».' },
       { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison).' },
     ],

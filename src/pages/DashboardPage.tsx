@@ -15,6 +15,7 @@ import {
   type ActivityForLoad, type PMCDay,
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import TodayCard from '../components/TodayCard'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 
 interface SessionLog2 extends SessionLog {
@@ -725,8 +726,8 @@ export default function DashboardPage() {
         <div className="loading"><div className="spinner" /></div>
       ) : (
         <>
-          {/* ── 1 · HÉROS : stratégie de course, en proue, pleine largeur ── */}
-          {nextRace && <NextRaceWidget race={nextRace} />}
+          {/* ── 1 · HÉROS : qu'est-ce que je fais AUJOURD'HUI ? ── */}
+          <TodayCard />
 
           {/* ── 2 · TON ÉTAT | 3 · CETTE SEMAINE ── */}
           <div className="dash-row">
@@ -867,7 +868,10 @@ export default function DashboardPage() {
             </div>
           </div>{/* /dash-row */}
 
-          {/* ── 4 · CE MOIS + DERNIÈRES SORTIES (contexte, démoté) ── */}
+          {/* ── 4 · OÙ JE VAIS : course cible & projection ── */}
+          {nextRace && <NextRaceWidget race={nextRace} />}
+
+          {/* ── 5 · CE MOIS + DERNIÈRES SORTIES (contexte, démoté) ── */}
           <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div className="clabel" style={{ margin: 0 }}>CE MOIS</div>
