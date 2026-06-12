@@ -33,9 +33,8 @@ export default function TodayCard() {
 
   const week0 = displayWeeks[0]
   const todayRun = week0?.sessions.find((s) => s.dayOfWeek === todayDow) ?? null
-  const nextRun = week0?.sessions.find((s) => s.dayOfWeek > todayDow)
-    ?? displayWeeks[1]?.sessions[0]
-    ?? null
+  // Les autres séances de la semaine — le choix reste entier (philosophie choix-first).
+  const otherRuns = (week0?.sessions ?? []).filter((s) => s.dayOfWeek !== todayDow)
   const todayRenfo = renfoFusion?.slots.find((sl) => sl.dayOfWeek === todayDow) ?? null
   const phase = week0?.phase
 
@@ -82,6 +81,9 @@ export default function TodayCard() {
 
         {todayRun ? (
           <>
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginBottom: 4 }}>
+              PROPOSITION · TU CHOISIS
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.7rem', fontWeight: 800, lineHeight: 1.05 }}>
                 {todayRun.title}
@@ -104,14 +106,23 @@ export default function TodayCard() {
         ) : (
           <>
             <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.7rem', fontWeight: 800, lineHeight: 1.05, color: 'var(--vl-status-rest)' }}>
-              {todayRenfo ? 'Pas de course aujourd’hui' : 'Repos'}
+              {todayRenfo ? 'Pas de course proposée aujourd’hui' : 'Repos proposé'}
             </div>
-            {nextRun && (
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)', marginTop: 5 }}>
-                Prochaine course : {nextRun.title} · {DAY_SHORT[nextRun.dayOfWeek] ?? ''}
-              </div>
-            )}
           </>
+        )}
+
+        {/* La semaine reste un libre choix : les autres séances en un coup d'œil. */}
+        {otherRuns.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-3)', letterSpacing: '.06em', flexShrink: 0 }}>
+              …OU CETTE SEMAINE :
+            </span>
+            {otherRuns.map((s, i) => (
+              <span key={i} style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                {s.title} · {DAY_SHORT[s.dayOfWeek]?.slice(0, 3) ?? ''}
+              </span>
+            ))}
+          </div>
         )}
 
         {todayRenfo && (
