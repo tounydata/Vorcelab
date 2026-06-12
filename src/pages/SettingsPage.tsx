@@ -395,7 +395,7 @@ export default function SettingsPage() {
       <button
         className="hbtn"
         style={{ marginTop: '1.5rem' }}
-        onClick={() => supabase.auth.signOut()}
+        onClick={() => { localStorage.removeItem('vl-had-session'); supabase.auth.signOut() }}
       >
         Se déconnecter
       </button>

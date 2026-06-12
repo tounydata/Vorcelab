@@ -628,3 +628,10 @@ main{padding:1.25rem 0.5rem;width:100%;}
 
 /* ── Carte relief (Leaflet) — tuiles hillshade assombries façon thème sombre ── */
 .vl-relief-tiles{filter:brightness(1.1) contrast(1.55) saturate(0.65);}
+
+/* ── Splash Vorcelab (chargement) : tracé du logo dessiné en boucle ── */
+.vl-splash-path{stroke-dasharray:130;stroke-dashoffset:130;animation:vl-draw 1.6s ease-in-out infinite;}
+.vl-splash-dot{animation:vl-fade 1.6s ease-in-out infinite;}
+.vl-splash-name{font-family:var(--vl-display);font-size:.95rem;font-weight:700;letter-spacing:.18em;color:var(--vl-text-2);animation:vl-fade 1.6s ease-in-out infinite;}
+@keyframes vl-draw{0%{stroke-dashoffset:130}55%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes vl-fade{0%,100%{opacity:.4}50%{opacity:1}}

@@ -164,7 +164,9 @@ export function lthrFromSamples(hrSamples: number[]): number | null {
 
 /** Formate une allure (s/km) en "m:ss". */
 export function formatPace(secPerKm: number): string {
-  const m = Math.floor(secPerKm / 60)
-  const s = Math.round(secPerKm % 60)
+  // Arrondir avant de séparer min/s — sinon 299,6 s/km → « 4:60 » au lieu de « 5:00 ».
+  const t = Math.round(secPerKm)
+  const m = Math.floor(t / 60)
+  const s = t % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }

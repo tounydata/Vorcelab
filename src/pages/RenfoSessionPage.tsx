@@ -18,6 +18,7 @@ import {
   computeNextLoad, calcE1rm, fmtRestTimer, todayStr,
   type ExerciseLog,
 } from '../lib/renfoUtils'
+import BrandedLoader from '../components/BrandedLoader'
 
 type Stage =
   | { stage: 'warmup' }
@@ -311,7 +312,7 @@ export default function RenfoSessionPage() {
     },
   })
 
-  if (!session) return <div className="loading"><div className="spinner" /></div>
+  if (!session) return <BrandedLoader />
 
   const meta = FOCUS_META[focusKey!] ?? {}
   const color: string = RENFO_FOCUS_COLORS[focusKey!] ?? 'var(--vl-ember)'

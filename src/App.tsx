@@ -20,6 +20,7 @@ import CoachPage from './pages/CoachPage'
 import RenfoSessionPage from './pages/RenfoSessionPage'
 import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
+import BrandedLoader from './components/BrandedLoader'
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -36,9 +37,7 @@ function PrivateRoutes() {
 
   if (!sessionLoaded) {
     return (
-      <div className="loading">
-        <div className="spinner" />
-      </div>
+      <BrandedLoader />
     )
   }
 
@@ -52,11 +51,17 @@ export default function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      // Marqueur « était connecté sur cet appareil » : si la session disparaît
+      // (navigation privée, token expiré), le login explique POURQUOI on se relog
+      // au lieu d'afficher le formulaire sans contexte. Effacé à la déconnexion
+      // volontaire (boutons Déconnexion).
+      if (session?.user) localStorage.setItem('vl-had-session', '1')
       setUser(session?.user ?? null)
       setSessionLoaded(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) localStorage.setItem('vl-had-session', '1')
       setUser(session?.user ?? null)
     })
 

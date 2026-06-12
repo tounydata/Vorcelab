@@ -25,7 +25,8 @@ function fmtClock(totalS: number): string {
 function fmtDelta(deltaS: number): string {
   const sign = deltaS >= 0 ? '+' : '−'
   const abs = Math.abs(deltaS)
-  const m = Math.floor(abs / 60), s = Math.round(abs % 60)
+  const t = Math.round(abs)
+  const m = Math.floor(t / 60), s = t % 60
   return m > 0 ? `${sign}${m} min ${String(s).padStart(2, '0')}` : `${sign}${s} s`
 }
 function fmtDate(iso: string) {

@@ -60,8 +60,10 @@ export function elapsedSecAtKm(km: number, proj: ProjectionResult): number {
 
 /** « 2h05 » depuis un nombre de minutes. */
 export function fmtHM(totalMin: number): string {
-  const h = Math.floor(totalMin / 60)
-  const m = Math.round(totalMin % 60)
+  // Arrondir AVANT de séparer h/min — sinon 179,6 min → « 2h60 » au lieu de « 3h00 ».
+  const t = Math.round(totalMin)
+  const h = Math.floor(t / 60)
+  const m = t % 60
   return `${h}h${String(m).padStart(2, '0')}`
 }
 

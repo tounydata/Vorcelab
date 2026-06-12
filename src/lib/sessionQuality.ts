@@ -73,7 +73,7 @@ export function buildSessionInsights(activity: ActivityForClassify, streams: Str
 
   const insights: { key: string; value: string }[] = []
 
-  if (durMin >= 180) insights.push({ key: 'durée', value: `${Math.round(durMin / 60)}h${String(Math.round(durMin % 60)).padStart(2, '0')}` })
+  if (durMin >= 180) insights.push({ key: 'durée', value: `${Math.floor(Math.round(durMin) / 60)}h${String(Math.round(durMin) % 60).padStart(2, '0')}` })
   if (dpKm >= 25)   insights.push({ key: 'D+/km',  value: `${Math.round(dpKm)} m/km` })
 
   if (hrPct !== null) {
