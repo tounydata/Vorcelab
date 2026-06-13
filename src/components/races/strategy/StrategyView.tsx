@@ -405,30 +405,79 @@ function Accordion({ label, meta, children }: { label: string; meta?: string; ch
   )
 }
 
+// Consigne d'allure par tronçon : répond à « où envoyer / où faire gaffe ».
+// Vert = relance/pousse · Ambre = gère l'effort · Rouge = prudence.
+const ACT_GREEN = 'var(--vl-growth)'
+const ACT_AMBER = 'var(--vl-amber)'
+const ACT_RED = 'var(--vl-status-over, #d1583a)'
+function sectionAction(
+  s: { type: 'up' | 'down' | 'flat'; grade: number; technical?: boolean },
+  heat: number,
+): { label: string; color: string; icon: 'alert' | 'check' } {
+  const g = Math.abs(s.grade)
+  if (s.type === 'up') {
+    if (g >= 12 || heat >= 4) return { label: 'Marche active — économise tes jambes', color: ACT_RED, icon: 'alert' }
+    if (g >= 6 || heat >= 3) return { label: 'Effort maîtrisé — garde de la marge', color: ACT_AMBER, icon: 'alert' }
+    return { label: 'Reste fluide — garde le rythme', color: ACT_GREEN, icon: 'check' }
+  }
+  if (s.type === 'down') {
+    if (s.technical) return { label: 'Prudence — freine et anticipe les virages', color: ACT_RED, icon: 'alert' }
+    if (g >= 15) return { label: 'Contrôle la descente — gère l\'impact', color: ACT_AMBER, icon: 'alert' }
+    return { label: 'Relance — laisse rouler et récupère', color: ACT_GREEN, icon: 'check' }
+  }
+  return { label: 'Allure de croisière — relance possible', color: ACT_GREEN, icon: 'check' }
+}
+
 function AllSectionsTable({ p, passageHM }: { p: ProjectionResult; passageHM: (km: number) => string }) {
-  const GRID = '30px 1.5fr 1fr 0.8fr 0.8fr 1fr'
+  const Legend = ({ c, label }: { c: string; label: string }) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: c, flex: '0 0 auto' }} />
+      <span className="mono" style={{ fontSize: 10, color: 'var(--vl-text-2)' }}>{label}</span>
+    </span>
+  )
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', overflowX: 'auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 10, padding: '6px 4px 10px', borderBottom: '1px solid var(--vl-line)', minWidth: 460 }}>
-        {['#', 'SECTION', 'KM', 'D±', 'DURÉE', 'PASSAGE'].map((h, i) => <span key={i} className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.1em', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>)}
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Légende : la couleur de la consigne dit où pousser et où faire attention. */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', padding: '2px 2px 12px', borderBottom: '1px solid var(--vl-line)' }}>
+        <Legend c={ACT_GREEN} label="Relance / pousse" />
+        <Legend c={ACT_AMBER} label="Gère l'effort" />
+        <Legend c={ACT_RED} label="Prudence" />
       </div>
       {p.sections.map((s, i) => {
-        const up = s.type === 'up'; const heat = sectionHeat(s)
+        const up = s.type === 'up'
+        const heat = s.technical ? Math.max(sectionHeat(s), 3) : sectionHeat(s)
         const dur = Math.max(1, Math.round((p.sectionTimes[i] ?? 0) / 60))
+        const act = sectionAction(s, heat)
+        const typeLabel = up ? 'Montée' : s.type === 'down' ? 'Descente' : 'Plat'
+        const dPlusMinus = up ? '+' + Math.round(s.dplus) : s.type === 'down' ? '−' + Math.round(s.dminus) : '±0'
         return (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 10, padding: '10px 4px', borderBottom: i < p.sections.length - 1 ? '1px solid var(--vl-line)' : 'none', alignItems: 'center', minWidth: 460 }}>
-            <span className="mono" style={{ fontSize: 10, color: 'var(--vl-text-3)' }}>{String(i + 1).padStart(2, '0')}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <div key={i} style={{ display: 'flex', gap: 12, padding: '13px 2px', borderBottom: i < p.sections.length - 1 ? '1px solid var(--vl-line)' : 'none' }}>
+            {/* Rail gauche : numéro + pastille d'effort (couleur = difficulté) */}
+            <div style={{ flex: '0 0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, paddingTop: 2 }}>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--vl-text-3)' }}>{String(i + 1).padStart(2, '0')}</span>
               <span style={{ width: 9, height: 9, borderRadius: 2, background: HEAT_COLORS[heat], flex: '0 0 auto' }} />
-              <span style={{ fontSize: 13, color: 'var(--vl-text)' }}>{up ? 'Montée' : s.type === 'down' ? 'Descente' : 'Plat'}</span>
-              <span className="mono" style={{ fontSize: 9.5, color: HEAT_COLORS[heat] }}>{HEAT_NAMES[heat].toUpperCase()}</span>
-              <span className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)' }}>{Math.round(s.grade)}%</span>
-              {s.surface && <span className="mono" style={{ fontSize: 9.5, color: surfaceInfo(s.surface).col }}>{surfaceInfo(s.surface).fr.toUpperCase()}</span>}
-            </span>
-            <span className="mono tnum" style={{ fontSize: 11, color: 'var(--vl-text-2)', textAlign: 'right' }}>{s.startKm.toFixed(1)}–{s.endKm.toFixed(1)}</span>
-            <span className="mono tnum" style={{ fontSize: 11.5, color: up ? 'var(--vl-growth)' : 'var(--vl-text-2)', textAlign: 'right', fontWeight: 600 }}>{up ? '+' + Math.round(s.dplus) : '−' + Math.round(s.dminus)}</span>
-            <span className="mono tnum" style={{ fontSize: 11, color: 'var(--vl-text-2)', textAlign: 'right' }}>{dur} min</span>
-            <span className="display tnum" style={{ fontSize: 16, color: 'var(--vl-text)', textAlign: 'right' }}>{passageHM(s.endKm)}</span>
+            </div>
+            {/* Corps : titre, repères, consigne — tout en vertical, jamais de chevauchement */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <Ico name={up ? 'up' : s.type === 'down' ? 'down' : 'check'} c={HEAT_COLORS[heat]} s={13} />
+                <span style={{ fontSize: 13.5, color: 'var(--vl-text)', fontWeight: 600 }}>{typeLabel} {Math.round(s.grade)}%</span>
+                <span className="mono" style={{ fontSize: 9.5, color: HEAT_COLORS[heat], letterSpacing: '.06em' }}>{HEAT_NAMES[heat].toUpperCase()}</span>
+                {s.surface && <span className="mono" style={{ fontSize: 9.5, color: surfaceInfo(s.surface).col }}>{surfaceInfo(s.surface).fr.toUpperCase()}</span>}
+              </div>
+              <div className="mono" style={{ fontSize: 10.5, color: 'var(--vl-text-3)', marginTop: 4, letterSpacing: '.02em' }}>
+                km {s.startKm.toFixed(1)}→{s.endKm.toFixed(1)} · {dPlusMinus} m · {dur} min
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <Ico name={act.icon} c={act.color} s={13} />
+                <span style={{ fontSize: 12.5, color: act.color, fontWeight: 600, lineHeight: 1.35 }}>{act.label}</span>
+              </div>
+            </div>
+            {/* Passage : temps écoulé, aligné à droite */}
+            <div style={{ flex: '0 0 auto', alignSelf: 'flex-start', paddingTop: 1, textAlign: 'right' }}>
+              <div className="display tnum" style={{ fontSize: 17, color: 'var(--vl-text)', lineHeight: 1 }}>{passageHM(s.endKm)}</div>
+              <div className="mono" style={{ fontSize: 8.5, color: 'var(--vl-text-3)', marginTop: 2 }}>PASSAGE</div>
+            </div>
           </div>
         )
       })}
