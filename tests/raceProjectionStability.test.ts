@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { computeRaceProjection, type GpxPoint } from '../src/lib/computeRaceProjection'
 import { freshnessMultiplier } from '../src/lib/racePredictor'
 
@@ -74,5 +74,43 @@ describe('Allure de base trail — stabilité jour après jour', () => {
     const without = computeRaceProjection(trail, baseRuns, {}, race)
     const withFast = computeRaceProjection(trail, [...baseRuns, trailRun(2, 290)], {}, race)
     expect(withFast.estTimeS).toBeLessThan(without.estTimeS) // plus rapide, et non filtrée
+  })
+})
+
+// ── Déterminisme intra-journée : dashboard ↔ stratégie ────────────────────────
+// La projection pondère par récence (Date.now()). Avant l'ancrage au jour, deux
+// calculs à des instants différents (dashboard puis page Stratégie) donnaient des
+// chiffres légèrement différents — le fameux « 2h22 vs 2h23 ». L'ancrage rend le
+// résultat constant sur une même journée, donc identique entre les deux pages.
+describe('Projection déterministe sur une même journée (plus d\'écart Dashboard/Stratégie)', () => {
+  afterEach(() => vi.useRealTimers())
+
+  // Dates d'activités ABSOLUES (indépendantes de Date.now) pour isoler l'effet de l'heure.
+  function fixedRuns(refMs: number) {
+    const mk = (ageDays: number, paceSecPerKm: number) => ({
+      type: 'TrailRun', sport_type: 'TrailRun',
+      distance: 12000, total_elevation_gain: 450,
+      moving_time: 12 * paceSecPerKm,
+      average_speed: 1000 / paceSecPerKm,
+      start_date: new Date(refMs - ageDays * 86_400_000).toISOString(),
+      average_heartrate: 150,
+    })
+    return [mk(3, 360), mk(8, 350), mk(15, 365), mk(22, 355), mk(30, 370), mk(40, 360)]
+  }
+
+  it('deux calculs le même jour, à des heures différentes, donnent EXACTEMENT le même estTimeS', () => {
+    const day = new Date('2026-06-13T00:00:00').getTime()
+    const runs = fixedRuns(day)
+
+    vi.useFakeTimers().setSystemTime(new Date('2026-06-13T07:15:00'))
+    const morning = computeRaceProjection(trail, runs, {}, race)
+
+    vi.setSystemTime(new Date('2026-06-13T21:45:00'))
+    const evening = computeRaceProjection(trail, runs, {}, race)
+
+    expect(evening.estTimeS).toBe(morning.estTimeS)
+    expect(evening.timeMin).toBe(morning.timeMin)
+    expect(evening.timeMax).toBe(morning.timeMax)
+    expect(evening.confidence).toBe(morning.confidence)
   })
 })
