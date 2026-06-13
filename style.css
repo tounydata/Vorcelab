@@ -472,6 +472,11 @@ main{padding:1.25rem 0.5rem;width:100%;}
   .strat-keycards{flex-direction:column;}
 }
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;gap:10px;}
+/* Splash de marque PLEINE PAGE (BrandedLoader). Position fixe + inset:0 → centré
+   dans le viewport quelle que soit la hauteur du parent (corrige le « splash en
+   haut, pas centré » sur mobile à la connexion). Hauteur dynamique (dvh/svh) pour
+   tenir compte de la barre d'URL mobile. safe-area pour les encoches. */
+.vl-loader-screen{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--vl-bg);padding:calc(2rem + env(safe-area-inset-top)) 1.5rem calc(2rem + env(safe-area-inset-bottom));min-height:100svh;box-sizing:border-box;}
 .spinner{width:24px;height:24px;border:2px solid var(--vl-line-2);border-top-color:var(--vl-ember);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .stitle{font-family:var(--vl-display);font-size:1.6rem;letter-spacing:0.02em;margin-bottom:.75rem;}
