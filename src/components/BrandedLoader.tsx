@@ -1,9 +1,12 @@
 // Splash de chargement Vorcelab : le tracé du logo se dessine en boucle.
 // Remplace les spinners pleine page — un chargement doit ressembler à la marque.
+// PLEINE PAGE par défaut (position fixe + centrage viewport) : garantit un splash
+// centré sur mobile, même rendu seul dans #root à la connexion. `fullScreen={false}`
+// pour un rendu en ligne (flux d'une carte, etc.).
 
-export default function BrandedLoader({ label }: { label?: string }) {
+export default function BrandedLoader({ label, fullScreen = true }: { label?: string; fullScreen?: boolean }) {
   return (
-    <div className="loading" role="status" aria-label={label ?? 'Chargement'}>
+    <div className={fullScreen ? 'vl-loader-screen' : 'loading'} role="status" aria-label={label ?? 'Chargement'}>
       <svg width="58" height="58" viewBox="0 0 60 60" fill="none" aria-hidden="true" style={{ color: 'var(--vl-text)' }}>
         <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" strokeWidth="1.2" opacity="0.25" />
         <path
