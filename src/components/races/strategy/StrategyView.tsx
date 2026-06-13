@@ -5,7 +5,7 @@ import type { NutritionRow } from '../../../lib/nutritionPlan'
 import type { RavitoPoint } from '../../../lib/crewPlan'
 import ElevationProfile, { type ProfileMarker, type ProfileSection } from './ElevationProfile'
 import {
-  HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM, altAtKm,
+  HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM, fmtRaceTimeS, altAtKm,
 } from '../../../lib/raceStrategyView'
 import { surfaceInfo } from '../../../lib/terrain'
 import RouteMap3D from './RouteMap3D'
@@ -122,7 +122,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           <div>
             <Eyebrow>PLAN DE COURSE · {athleteName.toUpperCase()}</Eyebrow>
             <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 6, flexWrap: 'wrap' }}>
-              <span className="display tnum" style={{ fontSize: 82, color: 'var(--vl-growth-2)', lineHeight: .82 }}>{fmtHM(p.estTimeS / 60)}</span>
+              <span className="display tnum" style={{ fontSize: 82, color: 'var(--vl-growth-2)', lineHeight: .82 }}>{fmtRaceTimeS(p.estTimeS)}</span>
               <div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--vl-text-2)', letterSpacing: '.18em' }}>TEMPS CIBLE</div>
                 <div style={{ marginTop: 9 }}><Confidence level={confLevel} /></div>
@@ -243,8 +243,8 @@ function ScenarioBand({ p, weather, forecast }: { p: ProjectionResult; weather: 
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div><div className="display tnum" style={{ fontSize: 18, color: 'var(--vl-growth-2)' }}>{fmtHM(lo / 60)}</div><div className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2 }}>OPTIMISTE</div></div>
-        <div style={{ textAlign: 'right' }}><div className="display tnum" style={{ fontSize: 18, color: 'var(--vl-status-over, #d1583a)' }}>{fmtHM(hi / 60)}</div><div className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2 }}>PRUDENT</div></div>
+        <div><div className="display tnum" style={{ fontSize: 18, color: 'var(--vl-growth-2)' }}>{fmtRaceTimeS(lo)}</div><div className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2 }}>OPTIMISTE</div></div>
+        <div style={{ textAlign: 'right' }}><div className="display tnum" style={{ fontSize: 18, color: 'var(--vl-status-over, #d1583a)' }}>{fmtRaceTimeS(hi)}</div><div className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2 }}>PRUDENT</div></div>
       </div>
       <div style={{ position: 'relative', height: 10, borderRadius: 999, background: 'linear-gradient(90deg, var(--vl-growth-2), var(--vl-amber) 55%, var(--vl-status-over, #d1583a))', opacity: .9 }}>
         <div style={{ position: 'absolute', left: pTarget + '%', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: 999, background: 'var(--vl-bg)', border: '3px solid var(--vl-growth-2)', boxShadow: '0 0 0 4px color-mix(in srgb, var(--vl-growth-2) 18%, transparent)' }} />
@@ -252,7 +252,7 @@ function ScenarioBand({ p, weather, forecast }: { p: ProjectionResult; weather: 
       </div>
       <div style={{ position: 'relative', height: 30, marginTop: 6 }}>
         <div style={{ position: 'absolute', left: pTarget + '%', transform: 'translateX(-50%)', textAlign: 'center' }}>
-          <div className="display tnum" style={{ fontSize: 15, color: 'var(--vl-growth-2)', lineHeight: 1 }}>{fmtHM(p.estTimeS / 60)}</div>
+          <div className="display tnum" style={{ fontSize: 15, color: 'var(--vl-growth-2)', lineHeight: 1 }}>{fmtRaceTimeS(p.estTimeS)}</div>
           <div className="mono" style={{ fontSize: 8.5, color: 'var(--vl-text-3)', marginTop: 2 }}>CIBLE</div>
         </div>
         {pW != null && weatherS != null && (
