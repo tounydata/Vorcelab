@@ -67,6 +67,20 @@ export function fmtHM(totalMin: number): string {
   return `${h}h${String(m).padStart(2, '0')}`
 }
 
+/**
+ * Temps de course (secondes → « 2h23 »). SOURCE UNIQUE de formatage pour le
+ * dashboard ET la page stratégie — la cible, le prudent et l'agressif/optimiste.
+ *
+ * Pourquoi cette fonction existe : la projection (les données) est déjà identique
+ * partout (calcul déterministe, hook partagé). L'écart « 2h22 vs 2h23 » qui
+ * persistait venait UNIQUEMENT du formatage : le dashboard TRONQUAIT les secondes
+ * (Math.floor) là où la stratégie les ARRONDISSAIT (fmtHM). Même temps, deux
+ * formateurs. Un seul formateur, ici, supprime l'écart à la racine.
+ */
+export function fmtRaceTimeS(seconds: number): string {
+  return fmtHM(seconds / 60)
+}
+
 /** Heure d'horloge « 22h48 » depuis un départ 'HH:MM' + secondes écoulées, ou null. */
 export function clockAt(startTime: string | null | undefined, elapsedSec: number): string | null {
   if (!startTime) return null

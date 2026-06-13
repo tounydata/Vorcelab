@@ -12,6 +12,7 @@ import {
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import CoachCard from '../components/CoachCard'
 import { useRaceProjection } from '../lib/useRaceProjection'
+import { fmtRaceTimeS } from '../lib/raceStrategyView'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import BrandedLoader from '../components/BrandedLoader'
 
@@ -334,12 +335,6 @@ function getPhase(daysLeft: number): { label: string; color: string } {
   return { label: 'CONSTRUCTION DE BASE', color: 'var(--vl-text-2)' }
 }
 
-function fmtTimeS(s: number): string {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}min`
-}
-
 function GpxTrace({ gpxData }: { gpxData: { lat: number; lon: number; ele: number }[] }) {
   const step = Math.max(1, Math.floor(gpxData.length / 300))
   const pts = gpxData.filter((_, i) => i % step === 0)
@@ -401,8 +396,11 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   // plus jamais d'écart Dashboard vs Stratégie. Le snapshot daté ne sert que
   // de secours le temps du calcul (ou sans GPX).
   const live = useRaceProjection(race)
+  // En live on garde les secondes BRUTES (pas d'arrondi prématuré) : formatées par
+  // le même fmtRaceTimeS que la page Stratégie, sur les mêmes champs (estTimeS,
+  // timeMax, timeMin) → le dashboard affiche rigoureusement le même temps.
   const proj: LastProjection | null = live
-    ? { cible: Math.round(live.estTimeS), prudent: Math.round(live.timeMax), agressif: Math.round(live.timeMin), confidence: live.confidence }
+    ? { cible: live.estTimeS, prudent: live.timeMax, agressif: live.timeMin, confidence: live.confidence }
     : race.last_projection
   const isSnapshot = !live && !!race.last_projection
 
@@ -479,7 +477,7 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                     )}
                   </div>
                   <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82 }}>
-                    {fmtTimeS(proj.cible)}
+                    {fmtRaceTimeS(proj.cible)}
                   </div>
                   <div style={{ fontSize: 11, fontFamily: 'var(--vl-mono)', letterSpacing: 2, marginTop: 6 }}>
                     {Array.from({ length: 5 }, (_, i) => (
@@ -491,13 +489,13 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                   {proj.prudent && proj.agressif && (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                       <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-                        PRUDENT <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.prudent)}</span>
+                        PRUDENT <span style={{ color: 'var(--vl-text-2)' }}>{fmtRaceTimeS(proj.prudent)}</span>
                       </span>
                       <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--color-victory)', fontWeight: 700 }}>
-                        CIBLE {fmtTimeS(proj.cible)}
+                        CIBLE {fmtRaceTimeS(proj.cible)}
                       </span>
                       <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
-                        AGRESSIF <span style={{ color: 'var(--vl-text-2)' }}>{fmtTimeS(proj.agressif)}</span>
+                        AGRESSIF <span style={{ color: 'var(--vl-text-2)' }}>{fmtRaceTimeS(proj.agressif)}</span>
                       </span>
                     </div>
                   )}
