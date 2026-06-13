@@ -10,6 +10,7 @@ import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
 import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax } from './fcMax'
+import { dayAnchoredNow } from './dayAnchor'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -155,7 +156,7 @@ export function computeRaceProjection(
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
-    const now = Date.now()
+    const now = dayAnchoredNow()
 
     if (isTrail) {
       const trailRuns = activities
@@ -306,7 +307,7 @@ export function computeRaceProjection(
       ? races.filter((a) => TRAIL_TYPES.includes(a.type as string) || (a.sport_type as string) === 'TrailRun')
       : races
     if (!pool.length) return { factor: 1, pct: 0 }
-    const now = Date.now()
+    const now = dayAnchoredNow()
     let num = 0, den = 0
     for (const a of pool) {
       const kmh = (a.average_speed as number) * 3.6
@@ -708,7 +709,7 @@ export function computeRaceProjection(
 
   // ── 10. Confidence ─────────────────────────────────────────────────────────
   const isRunType = (t: string) => ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t)
-  const cutoff90 = Date.now() - 90 * 24 * 3600_000
+  const cutoff90 = dayAnchoredNow() - 90 * 24 * 3600_000
   const recentRuns = activities.filter((a: Record<string, unknown>) =>
     (isRunType(a.type as string) || isRunType(a.sport_type as string)) && new Date(a.start_date as string).getTime() >= cutoff90 && (a.distance as number) > 0
   )

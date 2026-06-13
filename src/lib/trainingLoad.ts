@@ -2,6 +2,7 @@
 // Charge d'entraînement — charge aiguë 7j, charge de fond 42j, ratio, tendance
 
 import { FC_MAX_FALLBACK } from './fcMax'
+import { dayAnchoredNow } from './dayAnchor'
 
 // FCmax = individuelle ; ce repère n'est qu'un dernier recours (cf. fcMax.ts).
 const FC_MAX_DEFAULT = FC_MAX_FALLBACK
@@ -199,7 +200,9 @@ export function computeLoadTrend(activities: ActivityForLoad[], fcMax?: number |
 
 // ATL (charge aiguë) τ=7j / CTL (charge chronique) τ=42j — Bannister TRIMP model
 export function computeTrainingLoad(activities: ActivityForLoad[], fcMax?: number | null) {
-  const now = Date.now()
+  // Ancré sur la journée (et non l'instant) → charge identique entre dashboard et
+  // stratégie, calculés à des moments différents. Cf. dayAnchor.ts.
+  const now = dayAnchoredNow()
   const runs = (activities || []).filter(a => isRun(a.sport_type || a.type))
 
   const recent42 = runs.filter(a => now - new Date(a.start_date).getTime() <= MS_42D)
