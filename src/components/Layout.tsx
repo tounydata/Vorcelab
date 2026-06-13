@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import OnboardingGate from './onboarding/OnboardingGate'
 import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
@@ -124,8 +125,28 @@ function navClass({ isActive }: { isActive: boolean }) {
 export default function Layout() {
   const { isDark, toggle } = useTheme()
   const { pathname } = useLocation()
+  const queryClient = useQueryClient()
   // Le renfo vit sous l'onglet Coach (fusion coach complet) : /renfo/* allume Coach.
   const coachAlsoActive = pathname.startsWith('/renfo')
+
+  // Préchargement eager de ['activities-strategy'] : les 150 dernières activités
+  // nécessaires à la projection de course. Sans ça, le dashboard charge le snapshot
+  // DB (last_projection) pendant 1-2 s avant de basculer sur le calcul live.
+  useEffect(() => {
+    queryClient.prefetchQuery({
+      queryKey: ['activities-strategy'],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('strava_activities')
+          .select('*')
+          .order('start_date', { ascending: false })
+          .limit(150)
+        if (error) throw error
+        return (data ?? []) as Record<string, unknown>[]
+      },
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const themeBtn = (
     <button

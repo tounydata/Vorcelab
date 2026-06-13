@@ -43,6 +43,9 @@ export default function RaceStrategyPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [projection, setProjection] = useState<ProjectionResult | null>(null)
+  // Clé météo stabilisée sur la projection de base (sans terrain) pour partager le
+  // cache avec useRaceProjection (qui utilise également baseProjection.estTimeS).
+  const [baseEstTimeS, setBaseEstTimeS] = useState<number | undefined>()
   const [isComputing, setIsComputing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [copied, setCopied] = useState(false)
@@ -185,16 +188,18 @@ export default function RaceStrategyPage() {
   })
 
   // ── Météo J-10 : prévision sur la fenêtre de course (départ → arrivée estimée) ──
+  // On utilise baseEstTimeS (passe sans terrain) pour que la clé de cache coïncide
+  // exactement avec celle de useRaceProjection → un seul appel API partagé.
   const startPt = projection?.points?.[0]
   const { data: forecast } = useQuery({
-    queryKey: ['race-forecast', raceId, race?.date, race?.start_time, projection?.estTimeS, startPt?.lat, startPt?.lon],
-    enabled: !!startPt && !!race?.date && !!projection,
+    queryKey: ['race-forecast', raceId, race?.date, race?.start_time, baseEstTimeS, startPt?.lat, startPt?.lon],
+    enabled: !!startPt && !!race?.date && !!baseEstTimeS,
     staleTime: 30 * 60 * 1000,
     queryFn: () => fetchRaceForecast({
       lat: startPt!.lat, lon: startPt!.lon,
       dateISO: race!.date.slice(0, 10),
       startTime: race!.start_time ?? null,
-      estDurationS: projection!.estTimeS,
+      estDurationS: baseEstTimeS!,
     }),
   })
   const weather = forecast
@@ -217,6 +222,9 @@ export default function RaceStrategyPage() {
           terrain ?? null,
         )
         setProjection(result)
+        // Fixe l'estTimeS de base une seule fois (passe sans terrain) pour que
+        // la clé météo reste stable et corresponde à celle de useRaceProjection.
+        if (!terrain) setBaseEstTimeS(result.estTimeS)
 
         const fresh = {
           cible:      Math.round(result.estTimeS),
@@ -292,7 +300,10 @@ export default function RaceStrategyPage() {
       return
     }
     fetchTerrainSurfaces(pts, projection.sections).then((surfaces) => {
-      supabase.from('race_calendar').update({ surfaces }).eq('id', raceId!).then(() => {})
+      supabase.from('race_calendar').update({ surfaces }).eq('id', raceId!).then(() => {
+        // Le dashboard relit les surfaces pour que useRaceProjection soit en phase.
+        queryClient.invalidateQueries({ queryKey: ['next-race-dashboard'] })
+      })
       apply(surfaces)
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,8 +384,8 @@ export default function RaceStrategyPage() {
   }
 
   const BackLink = () => (
-    <Link to="/race" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
-      ← Stratégies
+    <Link to="/" className="mlabel" style={{ display: 'inline-block', marginBottom: '1rem', textDecoration: 'none' }}>
+      ← Dashboard
     </Link>
   )
 
