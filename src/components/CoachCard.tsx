@@ -5,26 +5,26 @@ import type { Phase } from '../lib/coach/workouts'
 import { RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
 import type { SessionLog } from '../lib/renfoUtils'
 
-// ─── Carte COACH du dashboard : « Aujourd'hui » + la semaine, en UNE carte. ───
-// Dégraissée volontairement : la proposition du jour (jamais imposée), les
-// alternatives de la semaine, le rythme 7 jours, et les alertes utiles.
-// Le reste (bibliothèque, progression mensuelle, focus) vit sur la page Coach.
+// ─── Carte COACH du dashboard — repensée pour répondre à UNE question : ───────
+// « Qu'est-ce que je fais aujourd'hui ? ». Le jour J est traité à part (plus de
+// séance fantôme « 0 min »). En dessous, la semaine EN COURS (lun→dim) montre le
+// fait ET le planifié — donc ce qu'il reste à faire — alignée avec les compteurs.
+// Le détail du plan (alternatives, descriptions) vit sur la page Coach.
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
   build: 'var(--vl-amber)',
   specific: 'var(--vl-ember)',
   taper: '#3B82F6',
-  race: 'var(--vl-text)',
+  race: 'var(--vl-ember)',
 }
 
-const DAY_SHORT = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim']
-const WCAL_LABELS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'] as const
+const WEEK_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const
 
-const INTENSITY_LABELS: Record<string, { label: string; color: string }> = {
-  easy: { label: 'FACILE', color: 'var(--vl-growth)' },
-  moderate: { label: 'MODÉRÉ', color: 'var(--vl-amber)' },
-  hard: { label: 'DUR', color: 'var(--vl-ember)' },
+const INTENSITY: Record<string, { label: string; color: string }> = {
+  easy: { label: 'Facile', color: 'var(--vl-growth)' },
+  moderate: { label: 'Modéré', color: 'var(--vl-amber)' },
+  hard: { label: 'Soutenu', color: 'var(--vl-ember)' },
 }
 
 interface ActivityLite {
@@ -39,6 +39,10 @@ function isRunning(type: string) {
   return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
 }
 
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: {
   activities: ActivityLite[]
   renfoLogs: RenfoLogLite[]
@@ -48,161 +52,183 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
 
   const now = new Date()
   const todayDow = ((now.getDay() + 6) % 7) + 1 // 1 = lundi … 7 = dimanche
-  const dateLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
+  const dateLabel = now.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
 
   const week0 = displayWeeks[0]
   const todayRun = week0?.sessions.find((s) => s.dayOfWeek === todayDow) ?? null
-  const otherRuns = (week0?.sessions ?? []).filter((s) => s.dayOfWeek !== todayDow)
   const todayRenfo = renfoFusion?.slots.find((sl) => sl.dayOfWeek === todayDow) ?? null
   const phase = week0?.phase
-  const intensity = todayRun ? INTENSITY_LABELS[todayRun.intensity] ?? null : null
+  const isRaceDay = todayRun?.system === 'race'
+  const intensity = todayRun && !isRaceDay ? INTENSITY[todayRun.intensity] ?? null : null
 
-  // ── Rythme réel des 7 derniers jours (fait, pas planifié) ──
-  const week7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i))
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const hasRun = activities.some((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
-    const hasRenfo = renfoLogs.some((r) => r.session_date === ds)
-    return { label: WCAL_LABELS[(d.getDay() + 6) % 7], hasRun, hasRenfo, isToday: i === 6 }
+  // ── Semaine EN COURS (lundi → dimanche) : fait + planifié, alignée aux compteurs ──
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7))
+  const todayStr = isoDate(now)
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i)
+    const ds = isoDate(d)
+    const dow = i + 1
+    const doneRun = activities.some((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
+    const doneRenfo = renfoLogs.some((r) => r.session_date === ds)
+    const plannedRun = !!week0?.sessions.some((s) => s.dayOfWeek === dow && s.system !== 'race')
+    const plannedRace = !!week0?.sessions.some((s) => s.dayOfWeek === dow && s.system === 'race')
+    const plannedRenfo = !!renfoFusion?.slots.some((sl) => sl.dayOfWeek === dow)
+    return { letter: WEEK_LETTERS[i], ds, doneRun, doneRenfo, plannedRun, plannedRace, plannedRenfo, isToday: ds === todayStr, isPast: ds < todayStr }
   })
 
-  // Compteurs semaine en cours (lun-dim)
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7))
-  weekStart.setHours(0, 0, 0, 0)
-  const weekStartStr = weekStart.toISOString().slice(0, 10)
+  const weekStartStr = isoDate(weekStart)
   const runsWeekCount = activities.filter((a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= weekStartStr).length
   const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
 
   // Imports Strava pas encore reliés à un type de renfo (30 derniers jours).
-  const cutoff30 = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+  const cutoff30 = isoDate(new Date(Date.now() - 30 * 86_400_000))
   const renfoUncategorized = renfoLogs.filter((r) => !r.focus && r.session_date && r.session_date >= cutoff30).length
 
+  const accent = phase ? PHASE_COLORS[phase] : 'var(--vl-line)'
+
+  // ── Rendu d'une cellule de jour : couleur = état, contour = planifié non fait ──
+  const RENFO = 'var(--color-renfo)'
+  function dayVisual(d: typeof weekDays[number]): { bg: string; border: string; dot: string | null } {
+    if (d.doneRun) return { bg: 'var(--vl-ember)', border: 'transparent', dot: d.doneRenfo ? RENFO : null }
+    if (d.doneRenfo) return { bg: RENFO, border: 'transparent', dot: null }
+    if (d.plannedRace) return { bg: 'transparent', border: 'var(--vl-ember)', dot: null }
+    if (d.plannedRun && !d.isPast) return { bg: 'color-mix(in oklab, var(--vl-ember) 16%, transparent)', border: 'color-mix(in oklab, var(--vl-ember) 55%, transparent)', dot: null }
+    if (d.plannedRenfo && !d.isPast) return { bg: 'color-mix(in oklab, var(--color-renfo) 14%, transparent)', border: 'color-mix(in oklab, var(--color-renfo) 50%, transparent)', dot: null }
+    return { bg: 'var(--vl-surf-2)', border: 'var(--vl-line)', dot: null }
+  }
+
   return (
-    <div data-tour="dash-coach" className="card" style={{ marginBottom: '1.5rem', padding: '16px 18px', borderLeft: `4px solid ${phase ? PHASE_COLORS[phase] : 'var(--vl-line)'}` }}>
-      {/* En-tête */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span className="mlabel" style={{ margin: 0, letterSpacing: '.14em' }}>COACH</span>
+    <div data-tour="dash-coach" className="card" style={{ marginBottom: '1.5rem', padding: '16px 18px', borderLeft: `4px solid ${accent}` }}>
+      {/* ── En-tête : COACH · phase ............ MON PLAN → ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-2)' }}>COACH</span>
           {phase && (
-            <span className="mlabel" style={{ margin: 0, fontSize: 10, color: PHASE_COLORS[phase], letterSpacing: '.1em', borderLeft: `2px solid ${PHASE_COLORS[phase]}`, paddingLeft: 6 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em', color: accent, background: `color-mix(in oklab, ${accent} 14%, transparent)`, borderRadius: 4, padding: '2px 7px', textTransform: 'uppercase' }}>
               {PHASE_LABELS[phase]?.toUpperCase?.() ?? phase}
             </span>
           )}
         </div>
         <Link to="/coach" style={{ textDecoration: 'none' }}>
-          <span className="mlabel" style={{ margin: 0, color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em' }}>MON PLAN →</span>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: 'var(--vl-ember)' }}>MON PLAN →</span>
         </Link>
       </div>
 
-      {/* ── Aujourd'hui ── */}
       {isLoading ? (
         <div className="loading" style={{ padding: '8px 0' }}><div className="spinner" /></div>
       ) : !targetRace || !plan ? (
-        <Link to="/race/new" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ marginBottom: 12 }}>
-            <div className="mlabel" style={{ letterSpacing: '.1em', marginBottom: 4 }}>AUJOURD'HUI · {dateLabel}</div>
-            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.1 }}>
-              Donne un cap à ton entraînement
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.5, marginTop: 4 }}>
-              Ajoute ta course cible : le Coach construit ton plan jusqu'au jour J.
-            </div>
-            <span className="mlabel" style={{ color: 'var(--vl-ember)', fontSize: 10, letterSpacing: '.1em', marginTop: 6, display: 'inline-block' }}>
-              DÉFINIR MA COURSE CIBLE →
-            </span>
+        /* ── Pas de course cible : invitation à donner un cap ── */
+        <Link to="/race/new" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.15, marginBottom: 4 }}>
+            Donne un cap à ton entraînement
           </div>
+          <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5, marginBottom: 8 }}>
+            Ajoute ta course cible : le Coach construit ton plan jusqu'au jour J.
+          </div>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: 'var(--vl-ember)' }}>
+            DÉFINIR MA COURSE CIBLE →
+          </span>
+        </Link>
+      ) : isRaceDay ? (
+        /* ── JOUR J : on ne propose pas de séance, on envoie vers la stratégie ── */
+        <Link to={`/race/${targetRace.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: 'var(--vl-ember)', marginBottom: 6 }}>
+            JOUR J · {dateLabel}
+          </div>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.7rem', fontWeight: 800, lineHeight: 1.05, marginBottom: 4 }}>
+            C'est aujourd'hui.
+          </div>
+          <div style={{ fontSize: 13.5, color: 'var(--vl-text)', lineHeight: 1.45, marginBottom: 10 }}>
+            {targetRace.name} — fais-toi confiance, le plan est derrière toi.
+          </div>
+          <span style={{ display: 'inline-block', background: 'var(--vl-ember)', color: 'var(--vl-ink)', borderRadius: 'var(--vl-r-sm)', padding: '8px 14px', fontFamily: 'var(--vl-display)', fontSize: '.85rem', fontWeight: 700, letterSpacing: '.06em' }}>
+            VOIR MA STRATÉGIE →
+          </span>
         </Link>
       ) : (
-        <Link to="/coach" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ marginBottom: 12 }}>
-            <div className="mlabel" style={{ letterSpacing: '.1em', marginBottom: 4 }}>
-              AUJOURD'HUI · {dateLabel} <span style={{ color: 'var(--vl-text-3)' }}>· proposition, tu choisis</span>
-            </div>
-            {todayRun ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.05 }}>
-                    {todayRun.title}
-                  </span>
-                  {intensity && (
-                    <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', color: intensity.color, border: `1px solid color-mix(in oklab, ${intensity.color} 45%, transparent)`, borderRadius: 4, padding: '2px 7px' }}>
-                      {intensity.label}
-                    </span>
-                  )}
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
-                    ~{todayRun.targetDurationMin} min{todayRun.climbing ? ' · côtes' : ''}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.05, color: 'var(--vl-status-rest)' }}>
-                {todayRenfo ? 'Pas de course proposée' : 'Repos proposé'}
-              </div>
-            )}
-            {todayRenfo && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}>
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', color: '#a78bfa', background: '#7c3aed18', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>
-                  + RENFO
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
-                  {RENFO_FOCUS_SHORT[todayRenfo.focus] ?? todayRenfo.focus}
-                </span>
-                {todayRenfo.heavy && (
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span>
-                )}
-              </div>
-            )}
-            {otherRuns.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, color: 'var(--vl-text-3)', letterSpacing: '.06em', flexShrink: 0 }}>
-                  …OU CETTE SEMAINE :
-                </span>
-                {otherRuns.map((s, i) => (
-                  <span key={i} style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-                    {s.title} · {DAY_SHORT[s.dayOfWeek] ?? ''}
-                  </span>
-                ))}
-              </div>
-            )}
+        /* ── Proposition du jour (jamais imposée) ── */
+        <Link to="/coach" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: 'var(--vl-text-3)', marginBottom: 7 }}>
+            AUJOURD'HUI · {dateLabel}
           </div>
+          {todayRun ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                {intensity && (
+                  <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: intensity.color, flexShrink: 0, boxShadow: `0 0 0 3px color-mix(in oklab, ${intensity.color} 22%, transparent)` }} />
+                )}
+                <span style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.05 }}>
+                  {todayRun.title}
+                </span>
+              </div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-text-2)', marginTop: 5, letterSpacing: '.02em' }}>
+                {[intensity?.label, `${todayRun.targetDurationMin} min`, todayRun.climbing ? 'côtes' : null].filter(Boolean).join('  ·  ')}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.05, color: 'var(--vl-status-rest)' }}>
+              {todayRenfo ? 'Pas de course aujourd\'hui' : 'Repos'}
+            </div>
+          )}
+          {todayRenfo && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 9 }}>
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', color: RENFO, background: 'color-mix(in oklab, var(--color-renfo) 16%, transparent)', borderRadius: 4, padding: '3px 8px', flexShrink: 0 }}>
+                + RENFO
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
+                {RENFO_FOCUS_SHORT[todayRenfo.focus] ?? todayRenfo.focus}
+              </span>
+              {todayRenfo.heavy && (
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span>
+              )}
+            </div>
+          )}
         </Link>
       )}
 
-      {/* ── Rythme 7 jours + compteurs ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, paddingTop: 10, borderTop: '1px solid var(--vl-line)' }}>
-        <div style={{ flex: 1, display: 'flex', gap: 3 }}>
-          {week7.map((day, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{
-                height: 14, borderRadius: 3, marginBottom: 2,
-                background: day.hasRenfo
-                  ? 'color-mix(in oklab, var(--color-renfo) 40%, transparent)'
-                  : day.hasRun
-                    ? 'color-mix(in oklab, var(--vl-ember) 30%, transparent)'
-                    : 'var(--vl-line)',
-                border: day.isToday ? '1px solid color-mix(in oklab, var(--vl-ember) 40%, transparent)' : '1px solid transparent',
-              }} />
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: day.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
-                {day.label}
-              </div>
+      {/* ── Semaine en cours : frise lun→dim (fait + planifié) + compteurs ── */}
+      {targetRace && plan && (
+        <div style={{ marginTop: 16, paddingTop: 13, borderTop: '1px solid var(--vl-line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--vl-text-3)' }}>CETTE SEMAINE</span>
+            <div style={{ display: 'flex', gap: 14, fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
+              <span><strong style={{ color: 'var(--vl-ember)', fontSize: 13 }}>{runsWeekCount}</strong> course{runsWeekCount > 1 ? 's' : ''}</span>
+              <span><strong style={{ color: RENFO, fontSize: 13 }}>{renfoWeekCount}/{renfoWeeklyTarget}</strong> renfo</span>
             </div>
-          ))}
+          </div>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {weekDays.map((d, i) => {
+              const v = dayVisual(d)
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{
+                    position: 'relative', width: '100%', height: 22, borderRadius: 5,
+                    background: v.bg, border: `1.5px solid ${v.border}`,
+                    boxShadow: d.isToday ? '0 0 0 2px color-mix(in oklab, var(--vl-ember) 60%, transparent)' : 'none',
+                    boxSizing: 'border-box',
+                  }}>
+                    {v.dot && (
+                      <span style={{ position: 'absolute', right: 2, bottom: 2, width: 6, height: 6, borderRadius: 999, background: v.dot, border: '1px solid var(--vl-surf)' }} />
+                    )}
+                  </div>
+                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: d.isToday ? 700 : 400, color: d.isToday ? 'var(--vl-ember)' : 'var(--vl-text-3)' }}>
+                    {d.letter}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', flexShrink: 0, paddingBottom: 2 }}>
-          <span><strong style={{ color: 'var(--vl-ember)', fontSize: 12 }}>{runsWeekCount}</strong> COURSE{runsWeekCount > 1 ? 'S' : ''}</span>
-          <span><strong style={{ color: '#a78bfa', fontSize: 12 }}>{renfoWeekCount}/{renfoWeeklyTarget}</strong> RENFO</span>
-        </div>
-      </div>
+      )}
 
-      {/* Séances Strava importées à relier */}
+      {/* ── Alerte : séances Strava à relier au renfo ── */}
       {renfoUncategorized > 0 && (
         <Link to="/coach" style={{ textDecoration: 'none' }}>
-          <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 4, padding: '5px 8px', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
+          <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 6, padding: '7px 10px', marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
               {renfoUncategorized} séance{renfoUncategorized > 1 ? 's' : ''} Strava à relier au renfo
             </span>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-amber)', flexShrink: 0, letterSpacing: '.08em' }}>LIER →</span>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', flexShrink: 0, letterSpacing: '.08em' }}>LIER →</span>
           </div>
         </Link>
       )}
