@@ -677,6 +677,7 @@ export default function RaceStrategyPage() {
                 fcMax={(profileData?.fc_max as number | undefined) ?? null}
                 annotations={annotations}
                 onChangeAnnotations={updateAnnotations}
+                ravitos={ravitos}
                 onLink={(id) => resultMutation.mutate(id)}
                 onUnlink={() => resultMutation.mutate(null)}
               />

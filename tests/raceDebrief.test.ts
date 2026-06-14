@@ -133,6 +133,16 @@ describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
     expect(d.verdict).toMatch(/arrêt/i)
   })
 
+  it('reconnaît un arrêt sur un ravito connu (pas un problème)', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams(), null, { ravitoKms: [5] })!
+    expect(d.stops[0].isRavito).toBe(true)
+    expect(d.ravitoStoppedS).toBeGreaterThanOrEqual(55)
+    expect(d.unplannedStoppedS).toBeLessThan(10)
+    // arrêt entièrement « prévu » → pas de conseil « arrêts subis »
+    expect(d.takeaways.some((t) => /subis/i.test(t.text))).toBe(false)
+    expect(d.verdict).toMatch(/ravito prévu/i)
+  })
+
   // Montre mise en pause : aucun arrêt dans le flux, mais écoulé > mouvement.
   it('récupère le temps d\'arrêt via les métadonnées (montre en pause)', () => {
     const even = (() => {

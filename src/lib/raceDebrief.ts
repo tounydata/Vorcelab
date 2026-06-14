@@ -101,10 +101,12 @@ export interface RaceDebrief {
   raceVamMH: number | null     // VAM globale de montée sur la course
 
   // ── Arrêts (crampes, longs ravitos…) : détectés quand la distance stagne ──
-  stops: { startKm: number; durationS: number }[]
+  stops: { startKm: number; durationS: number; isRavito: boolean }[]
   stopCount: number
   stoppedS: number             // temps total à l'arrêt
   movingS: number              // temps en mouvement (total − arrêts)
+  ravitoStoppedS: number       // temps d'arrêt sur un ravito connu (prévu)
+  unplannedStoppedS: number    // temps d'arrêt subi (hors ravito : crampes, chute…)
 }
 
 // ── Helpers d'interpolation sur le profil projeté ─────────────────────────────
@@ -196,7 +198,7 @@ export function computeRaceDebrief(
   proj: ProjectionResult,
   stream: StreamData,
   fcMax?: number | null,
-  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null },
+  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null; ravitoKms?: number[] },
 ): RaceDebrief | null {
   const dist = stream.distance?.data
   const time = stream.time?.data
@@ -211,7 +213,11 @@ export function computeRaceDebrief(
   // ── Arrêts → temps en mouvement. Toute l'analyse d'allure/pacing/exécution se base
   // sur le MOUVEMENT pour que les pauses (crampes, ravitos) ne plombent pas le verdict.
   // Le chrono « Résultat » reste, lui, le temps réel (arrêts inclus).
-  const stops = detectStops(dist, time)
+  // Un arrêt qui tombe sur un ravito CONNU (depuis la stratégie) est « prévu » : on le
+  // reconnaît tout seul, le coureur n'a pas à le réétiqueter.
+  const ravitoKms = meta?.ravitoKms ?? []
+  const isRavitoKm = (km: number) => ravitoKms.some((r) => Math.abs(r - km) < 0.3)
+  const stops = detectStops(dist, time).map((s) => ({ ...s, isRavito: isRavitoKm(s.startKm) }))
   const stoppedBeforeKm = (km: number) => stops.reduce((s, st) => (st.startKm < km ? s + st.durationS : s), 0)
   const movingAtKm = (km: number) => Math.max(0, timeAtKm(km) - stoppedBeforeKm(km))
   const detectedStoppedS = Math.max(0, cmp.actualTotalS - movingAtKm(totalKm))
@@ -223,6 +229,10 @@ export function computeRaceDebrief(
   const stoppedS = Math.max(0, realElapsedS - realMovingS)
   const movingS = Math.max(0, realMovingS)
   const stopCount = stops.length
+  // Part « ravito prévu » vs « subie » (crampes, chute) — le reste non localisé
+  // (montre en pause) est compté comme subi.
+  const ravitoStoppedS = stops.filter((s) => s.isRavito).reduce((a, s) => a + s.durationS, 0)
+  const unplannedStoppedS = Math.max(0, stoppedS - ravitoStoppedS)
 
   // Sections recalées sur le temps en mouvement (deltas non faussés par les arrêts).
   const sections: SectionCompare[] = proj.sections.map((s, i) => {
@@ -406,7 +416,9 @@ export function computeRaceDebrief(
   let verdict: string
   if (stoppedS >= 45) {
     const head = stopCount > 0 ? `${stopCount} arrêt${stopCount > 1 ? 's' : ''}` : 'Des arrêts'
-    verdict = `${head} (${fmtDur(stoppedS)}) — ravito, hydratation ou douleurs. Hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous les exclut.`
+    const ravBit = ravitoStoppedS >= 30 ? `, dont ${fmtDur(ravitoStoppedS)} au ravito` : ''
+    const cause = unplannedStoppedS >= 45 ? 'ravito, hydratation ou douleurs' : 'surtout du ravito prévu'
+    verdict = `${head} (${fmtDur(stoppedS)}${ravBit}) — ${cause}. Hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous les exclut.`
   } else if (executionScore >= 80 && Math.abs(splitPct) < 5) {
     verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(cmp.deltaS)} (${fasterSlower}) que la projection.`
   } else if (splitPct >= 9) {
@@ -419,11 +431,11 @@ export function computeRaceDebrief(
 
   // ── Enseignements (priorisés, 2-3) ──
   const candidates: DebriefTakeaway[] = []
-  if (stoppedS >= 45) {
+  if (unplannedStoppedS >= 45) {
     const crampLikely = splitPct >= 6 || terrain.some((t) => t.kind === 'descent_tech' && t.outcome === 'worse')
     candidates.push(crampLikely
-      ? { tone: 'work', text: `Arrêts en fin de course / descente (${fmtDur(stoppedS)}) — souvent des crampes : renfo excentrique (mollets, descente) + hydratation et sodium.` }
-      : { tone: 'work', text: `${fmtDur(stoppedS)} perdues à l'arrêt (ravito, hydratation…) — anticipe tes prises pour limiter les pauses.` })
+      ? { tone: 'work', text: `Arrêts subis en fin de course / descente (${fmtDur(unplannedStoppedS)}, hors ravito) — souvent des crampes : renfo excentrique (mollets, descente) + hydratation et sodium.` }
+      : { tone: 'work', text: `${fmtDur(unplannedStoppedS)} d'arrêts subis (hors ravito prévu) — soigne hydratation/sodium et anticipe pour limiter les pauses.` })
   }
   if (splitPct >= 8) candidates.push({ tone: 'work', text: `Pars plus prudent : ralentissement de ${splitPct.toFixed(0)} % en 2ᵉ moitié. Vise un négatif split.` })
   if (decouplingPct != null && decouplingPct >= 10) candidates.push({ tone: 'work', text: `Dérive cardiaque élevée (+${decouplingPct.toFixed(0)} %) — travaille l'endurance fondamentale et la nutrition en course.` })
@@ -472,6 +484,8 @@ export function computeRaceDebrief(
     stopCount,
     stoppedS,
     movingS,
+    ravitoStoppedS,
+    unplannedStoppedS,
   }
 }
 
