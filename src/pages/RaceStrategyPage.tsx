@@ -658,6 +658,7 @@ export default function RaceStrategyPage() {
                 activities={activitiesData ?? []}
                 resultActivityId={race.result_activity_id}
                 raceDateISO={race.date}
+                fcMax={(profileData?.fc_max as number | undefined) ?? null}
                 onLink={(id) => resultMutation.mutate(id)}
                 onUnlink={() => resultMutation.mutate(null)}
               />
