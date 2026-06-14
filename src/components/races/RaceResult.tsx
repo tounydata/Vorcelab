@@ -206,6 +206,16 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
             <div style={{ position: 'absolute', inset: 0, width: `${d.executionScore}%`, background: scoreColor, borderRadius: 999 }} />
           </div>
         </div>
+        {/* En mouvement — quand des arrêts sont détectés (crampes, ravitos longs) */}
+        {d.stopCount > 0 && (
+          <div style={{ flex: '1 1 150px', background: 'var(--vl-surf-2)', borderRadius: 'var(--vl-r-sm)', padding: '14px 16px' }}>
+            <div className="mlabel" style={{ marginBottom: 6 }}>EN MOUVEMENT</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span className="display tnum" style={{ fontSize: '2rem', lineHeight: .9, color: 'var(--vl-text)' }}>{fmtHM(d.movingS / 60)}</span>
+            </div>
+            <div className="mono" style={{ fontSize: 10.5, color: 'var(--vl-amber)', marginTop: 4 }}>{d.stopCount} arrêt{d.stopCount > 1 ? 's' : ''} · {fmtClock(d.stoppedS)} à l'arrêt</div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -241,9 +251,10 @@ function PaceProfileCard({ d }: { d: RaceDebrief }) {
     <div className="card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div className="clabel" style={{ margin: 0 }}>ALLURE · PRÉVU vs RÉEL</div>
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           <Legend c={FASTER} label="devant le plan" />
           <Legend c={SLOWER} label="derrière" />
+          {d.stopCount > 0 && <Legend c="var(--vl-amber)" label="arrêt" />}
         </div>
       </div>
 
@@ -253,6 +264,9 @@ function PaceProfileCard({ d }: { d: RaceDebrief }) {
         {fills.map((f, i) => <polygon key={i} points={f.poly} fill={f.color} opacity={0.22} />)}
         <polyline points={projLine} fill="none" stroke="var(--vl-text-3)" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
         <polyline points={actualLine} fill="none" stroke="var(--vl-text)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        {d.stops.map((s, i) => s.startKm <= totalKm && (
+          <line key={`stop${i}`} x1={x(s.startKm)} y1={0} x2={x(s.startKm)} y2={PH} stroke="var(--vl-amber)" strokeWidth={1.3} strokeDasharray="2 3" vectorEffect="non-scaling-stroke" opacity={0.85} />
+        ))}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
         <span className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)' }}>rapide ↑ {fmtPace(d.paceLoS)}/km</span>
@@ -384,11 +398,18 @@ function BenchBlock({ d }: { d: RaceDebrief }) {
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <span className="display tnum" style={{ fontSize: '2.4rem', lineHeight: .9, color: accColor }}>{d.accuracyPct.toFixed(1)}%</span>
-          <div className="mlabel" style={{ marginTop: 4 }}>DE PRÉCISION</div>
+          <div className="mlabel" style={{ marginTop: 4 }}>DE PRÉCISION{d.stopCount > 0 ? ' · HORS ARRÊTS' : ''}</div>
         </div>
         <div className="mono" style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
           <div>Projeté <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.projTotalS / 60)}</span></div>
-          <div>Réel <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.actualTotalS / 60)}</span> <span style={{ color: d.deltaS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.deltaS)})</span></div>
+          {d.stopCount > 0 ? (
+            <>
+              <div>En mouvement <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.movingS / 60)}</span> <span style={{ color: d.movingS - d.projTotalS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.movingS - d.projTotalS)})</span></div>
+              <div style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>Temps total {fmtHM(d.actualTotalS / 60)} · {fmtClock(d.stoppedS)} d'arrêts</div>
+            </>
+          ) : (
+            <div>Réel <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.actualTotalS / 60)}</span> <span style={{ color: d.deltaS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.deltaS)})</span></div>
+          )}
         </div>
       </div>
     </div>

@@ -100,3 +100,36 @@ describe('computeRaceDebrief — course régulière & cas limites', () => {
     expect(computeRaceDebrief(projection(), {})).toBeNull()
   })
 })
+
+describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
+  // Course régulière 4:10/km avec un arrêt de 60 s pile à mi-course (km 5).
+  function stoppedStreams(): StreamData {
+    const distance: number[] = [], time: number[] = []
+    for (let i = 0; i <= 50; i++) { distance.push(i * 100); time.push(i * 25) } // 0→5000, 0→1250
+    for (let k = 1; k <= 6; k++) { distance.push(5000); time.push(1250 + k * 10) } // arrêt 60 s
+    let t = 1310
+    for (let i = 1; i <= 50; i++) { distance.push(5000 + i * 100); time.push(t + i * 25) } // reprise → 10000, 2560
+    return { distance: { data: distance }, time: { data: time } }
+  }
+
+  it('repère l\'arrêt, sa durée et le temps en mouvement', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams())!
+    expect(d.stopCount).toBe(1)
+    expect(d.stoppedS).toBeGreaterThanOrEqual(55)
+    expect(d.actualTotalS).toBeCloseTo(2560, 0)   // chrono réel, arrêt inclus
+    expect(d.movingS).toBeCloseTo(2500, 0)        // hors arrêt
+    expect(d.stops[0].startKm).toBeCloseTo(5, 1)
+  })
+
+  it('ne fausse PAS le pacing : l\'arrêt à mi-course ne crée pas de faux split', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams())!
+    expect(Math.abs(d.splitPct)).toBeLessThan(3)   // sans correction : ~+5 % artificiel
+    expect(d.accuracyPct).toBeGreaterThan(98)       // précision calculée hors arrêts
+  })
+
+  it('génère un conseil crampes en priorité', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams())!
+    expect(d.takeaways[0].text).toMatch(/arrêt|cramp/i)
+    expect(d.verdict).toMatch(/arrêt/i)
+  })
+})

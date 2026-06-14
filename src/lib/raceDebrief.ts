@@ -86,6 +86,12 @@ export interface RaceDebrief {
   // ── Enseignements & profil ──
   takeaways: DebriefTakeaway[]
   raceVamMH: number | null     // VAM globale de montée sur la course
+
+  // ── Arrêts (crampes, longs ravitos…) : détectés quand la distance stagne ──
+  stops: { startKm: number; durationS: number }[]
+  stopCount: number
+  stoppedS: number             // temps total à l'arrêt
+  movingS: number              // temps en mouvement (total − arrêts)
 }
 
 // ── Helpers d'interpolation sur le profil projeté ─────────────────────────────
@@ -142,6 +148,37 @@ function makeTimeAtKm(dist: number[], time: number[]): (km: number) => number {
   }
 }
 
+// Détecte les arrêts : intervalles où la vitesse tombe sous le seuil (distance qui
+// stagne pendant que le temps avance — pauses étirement, crampes, longs ravitos),
+// d'une durée ≥ MIN. Seuil bas (0,5 m/s) pour ne pas confondre avec du power-hiking.
+const STOP_SPEED = 0.5   // m/s
+const MIN_STOP_S = 8
+function detectStops(dist: number[], time: number[]): { startKm: number; durationS: number }[] {
+  const stops: { startKm: number; durationS: number }[] = []
+  let i = 1
+  while (i < dist.length) {
+    const dt = time[i] - time[i - 1]
+    const speed = dt > 0 ? (dist[i] - dist[i - 1]) / dt : 1
+    if (speed < STOP_SPEED) {
+      const startD = dist[i - 1]
+      let dur = 0
+      while (i < dist.length) {
+        const ddt = time[i] - time[i - 1]
+        const sp = ddt > 0 ? (dist[i] - dist[i - 1]) / ddt : 1
+        if (sp < STOP_SPEED) { dur += Math.max(0, ddt); i++ } else break
+      }
+      if (dur >= MIN_STOP_S) stops.push({ startKm: startD / 1000, durationS: dur })
+    } else i++
+  }
+  return stops
+}
+
+function fmtDur(totalS: number): string {
+  const t = Math.round(totalS)
+  const m = Math.floor(t / 60), s = t % 60
+  return m > 0 ? `${m} min ${String(s).padStart(2, '0')}` : `${s} s`
+}
+
 export function computeRaceDebrief(
   proj: ProjectionResult,
   stream: StreamData,
@@ -157,6 +194,29 @@ export function computeRaceDebrief(
   const timeAtKm = makeTimeAtKm(dist, time)
   const totalKm = Math.min(cmp.projDistKm, cmp.actualDistKm)
 
+  // ── Arrêts → temps en mouvement. Toute l'analyse d'allure/pacing/exécution se base
+  // sur le MOUVEMENT pour que les pauses (crampes, ravitos) ne plombent pas le verdict.
+  // Le chrono « Résultat » reste, lui, le temps réel (arrêts inclus).
+  const stops = detectStops(dist, time)
+  const stoppedBeforeKm = (km: number) => stops.reduce((s, st) => (st.startKm < km ? s + st.durationS : s), 0)
+  const movingAtKm = (km: number) => Math.max(0, timeAtKm(km) - stoppedBeforeKm(km))
+  const movingS = movingAtKm(totalKm)
+  const stoppedS = Math.max(0, cmp.actualTotalS - movingS)
+  const stopCount = stops.length
+
+  // Sections recalées sur le temps en mouvement (deltas non faussés par les arrêts).
+  const sections: SectionCompare[] = proj.sections.map((s, i) => {
+    const projS = proj.sectionTimes[i] ?? 0
+    const actualS = Math.max(0, movingAtKm(s.endKm) - movingAtKm(s.startKm))
+    const km = Math.max(0.01, s.endKm - s.startKm)
+    return { startKm: s.startKm, endKm: s.endKm, type: s.type, projS, actualS, deltaS: actualS - projS, projPaceS: projS / km, actualPaceS: actualS / km }
+  })
+  let worst: SectionCompare | null = null, best: SectionCompare | null = null
+  for (const sec of sections) {
+    if (!worst || sec.deltaS > worst.deltaS) worst = sec
+    if (!best || sec.deltaS < best.deltaS) best = sec
+  }
+
   // ── Courbe : échantillons réguliers (allure réelle/projetée + altitude) ──
   const nPts = Math.max(40, Math.min(200, Math.round(totalKm / 0.25)))
   const step = totalKm / nPts
@@ -164,7 +224,7 @@ export function computeRaceDebrief(
   for (let i = 1; i <= nPts; i++) {
     const km = i * step
     const prevKm = (i - 1) * step
-    const actualStepS = timeAtKm(km) - timeAtKm(prevKm)
+    const actualStepS = movingAtKm(km) - movingAtKm(prevKm)
     const actualPaceS = step > 0 ? actualStepS / step : null
     const projPaceS = projPaceAtKm(km, proj)
     points.push({
@@ -188,7 +248,7 @@ export function computeRaceDebrief(
   // ── Pacing : tiers + demi-course ──
   const third = totalKm / 3
   const mkThird = (label: string, a: number, b: number): ThirdSplit => {
-    const actualS = Math.max(0, timeAtKm(b) - timeAtKm(a))
+    const actualS = Math.max(0, movingAtKm(b) - movingAtKm(a))
     let projS = 0
     for (let i = 0; i < proj.sections.length; i++) {
       const s = proj.sections[i]
@@ -204,8 +264,8 @@ export function computeRaceDebrief(
     mkThird('Fin', 2 * third, totalKm),
   ]
   const half = totalKm / 2
-  const firstHalfPaceS = (timeAtKm(half) - timeAtKm(0)) / Math.max(0.01, half)
-  const secondHalfPaceS = (timeAtKm(totalKm) - timeAtKm(half)) / Math.max(0.01, totalKm - half)
+  const firstHalfPaceS = (movingAtKm(half) - movingAtKm(0)) / Math.max(0.01, half)
+  const secondHalfPaceS = (movingAtKm(totalKm) - movingAtKm(half)) / Math.max(0.01, totalKm - half)
   const splitPct = firstHalfPaceS > 0 ? ((secondHalfPaceS - firstHalfPaceS) / firstHalfPaceS) * 100 : 0
   const splitVerdict = splitPct <= -2
     ? 'Split négatif : tu as accéléré en 2ᵉ moitié — pacing maîtrisé.'
@@ -258,7 +318,7 @@ export function computeRaceDebrief(
 
   // ── Terrain : montées & descentes clés, réel vs projeté ──
   const terrain: TerrainVerdict[] = []
-  const climbs = cmp.sections.filter((s) => s.type === 'up')
+  const climbs = sections.filter((s) => s.type === 'up')
     .map((s) => ({ s, dplus: proj.sections.find((p) => p.startKm === s.startKm)?.dplus ?? 0 }))
     .sort((a, b) => b.dplus - a.dplus).slice(0, 2)
   for (const { s, dplus } of climbs) {
@@ -278,7 +338,7 @@ export function computeRaceDebrief(
           : `Coûteuse (${fmtDeltaShort(s.deltaS)}).`,
     })
   }
-  const techDesc = proj.sections.map((p, i) => ({ p, c: cmp.sections[i] }))
+  const techDesc = proj.sections.map((p, i) => ({ p, c: sections[i] }))
     .filter(({ p }) => p.type === 'down' && p.technical)
     .sort((a, b) => (b.p.dminus) - (a.p.dminus)).slice(0, 1)
   for (const { p, c } of techDesc) {
@@ -296,12 +356,12 @@ export function computeRaceDebrief(
   }
 
   // VAM globale de montée sur la course (D+ total / temps total)
-  const raceVamMH = cmp.actualTotalS > 0 ? Math.round(proj.dplus / (cmp.actualTotalS / 3600)) : null
+  const raceVamMH = movingS > 0 ? Math.round(proj.dplus / (movingS / 3600)) : null
 
   // ── Note d'exécution (0..100) : pacing + fidélité au plan + maîtrise de l'effort ──
   const splitScore = clamp(100 - Math.max(0, splitPct) * 4, 40, 100)
-  const mape = cmp.sections.length
-    ? cmp.sections.reduce((s, c) => s + (c.projS > 0 ? Math.abs(c.deltaS) / c.projS : 0), 0) / cmp.sections.length
+  const mape = sections.length
+    ? sections.reduce((s, c) => s + (c.projS > 0 ? Math.abs(c.deltaS) / c.projS : 0), 0) / sections.length
     : 0
   const adherenceScore = clamp(100 - mape * 180, 40, 100)
   let executionScore: number
@@ -316,12 +376,17 @@ export function computeRaceDebrief(
       : executionScore >= 55 ? 'Correcte'
         : 'À travailler'
 
-  const accuracyPct = clamp(100 - Math.abs(cmp.deltaPct), 0, 100)
+  // Précision : la projection prédit un temps EN COURSE (sans pauses) → on la compare
+  // au temps en mouvement. Sans arrêt, movingS = temps réel → comportement inchangé.
+  const movingDeltaPct = cmp.projTotalS > 0 ? ((movingS - cmp.projTotalS) / cmp.projTotalS) * 100 : 0
+  const accuracyPct = clamp(100 - Math.abs(movingDeltaPct), 0, 100)
 
   // ── Verdict (phrase de coach) ──
   const fasterSlower = cmp.deltaS <= 0 ? 'plus rapide' : 'plus lent'
   let verdict: string
-  if (executionScore >= 80 && Math.abs(splitPct) < 5) {
+  if (stopCount >= 1 && stoppedS >= 45) {
+    verdict = `${stopCount} arrêt${stopCount > 1 ? 's' : ''} (${fmtDur(stoppedS)} cumulées) — hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous exclut tes pauses.`
+  } else if (executionScore >= 80 && Math.abs(splitPct) < 5) {
     verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(cmp.deltaS)} (${fasterSlower}) que la projection.`
   } else if (splitPct >= 9) {
     verdict = `Départ trop ambitieux : tu as payé la facture en 2ᵉ moitié (+${splitPct.toFixed(0)} % d'allure).`
@@ -333,6 +398,7 @@ export function computeRaceDebrief(
 
   // ── Enseignements (priorisés, 2-3) ──
   const candidates: DebriefTakeaway[] = []
+  if (stopCount >= 1 && stoppedS >= 45) candidates.push({ tone: 'work', text: `Tu t'es arrêté ${stopCount} fois (${fmtDur(stoppedS)}) — probables crampes. Renforce l'excentrique (mollets, descente) et soigne l'hydratation + le sodium en course.` })
   if (splitPct >= 8) candidates.push({ tone: 'work', text: `Pars plus prudent : ralentissement de ${splitPct.toFixed(0)} % en 2ᵉ moitié. Vise un négatif split.` })
   if (decouplingPct != null && decouplingPct >= 10) candidates.push({ tone: 'work', text: `Dérive cardiaque élevée (+${decouplingPct.toFixed(0)} %) — travaille l'endurance fondamentale et la nutrition en course.` })
   const worstUp = terrain.find((t) => t.kind === 'climb' && t.outcome === 'worse')
@@ -370,12 +436,16 @@ export function computeRaceDebrief(
     decouplingPct,
     hrDriftPredicted,
     zones,
-    sections: cmp.sections,
-    worst: cmp.worstSection,
-    best: cmp.bestSection,
+    sections,
+    worst,
+    best,
     terrain,
     takeaways,
     raceVamMH,
+    stops,
+    stopCount,
+    stoppedS,
+    movingS,
   }
 }
 
