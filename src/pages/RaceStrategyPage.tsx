@@ -407,8 +407,13 @@ export default function RaceStrategyPage() {
 
   const athleteName = getAthleteLabel(profileData ?? null)
 
-  // Course passée ? (fin de journée de la date de course) → onglet RÉSULTAT dispo.
-  const isPast = !!race.date && new Date(race.date).getTime() + 86_400_000 < Date.now()
+  // Onglet RÉSULTAT (lier ton activité + comparer le réalisé) dispo DÈS le jour de
+  // la course, et après. Comparaison en date LOCALE : l'ancien seuil « +1 jour en
+  // UTC » masquait le résultat tout le soir de la course pour les fuseaux à l'est de
+  // UTC (ex. trail nocturne en France : indisponible jusqu'à 02 h locales le lendemain).
+  const _now = new Date()
+  const _todayLocal = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
+  const isPast = !!race.date && race.date.slice(0, 10) <= _todayLocal
 
   const nutritionRows = projection
     ? computeNutritionPlan(
