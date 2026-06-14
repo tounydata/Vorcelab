@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectionResult } from '../../lib/computeRaceProjection'
 import { findRaceActivity, toActivityLite, type ActivityLite } from '../../lib/raceComparison'
-import { computeRaceDebrief, type RaceDebrief, type DebriefPoint } from '../../lib/raceDebrief'
+import { computeRaceDebrief, INCIDENTS, type RaceDebrief, type DebriefPoint, type RaceAnnotation, type IncidentLabel } from '../../lib/raceDebrief'
 import { fetchStreams } from '../../lib/streams'
 import { fmtHM } from '../../lib/raceStrategyView'
 
@@ -12,6 +12,8 @@ interface Props {
   resultActivityId: string | null
   raceDateISO: string
   fcMax?: number | null
+  annotations?: RaceAnnotation[]
+  onChangeAnnotations?: (next: RaceAnnotation[]) => void
   onLink: (activityId: string) => void
   onUnlink: () => void
 }
@@ -38,7 +40,7 @@ function fmtDate(iso: string) {
 const SLOWER = 'var(--vl-status-over, #d1583a)'
 const FASTER = 'var(--vl-growth, #4a9d5b)'
 
-export default function RaceResult({ projection, activities, resultActivityId, raceDateISO, fcMax, onLink, onUnlink }: Props) {
+export default function RaceResult({ projection, activities, resultActivityId, raceDateISO, fcMax, annotations = [], onChangeAnnotations, onLink, onUnlink }: Props) {
   const [picking, setPicking] = useState(false)
 
   const runChoices = useMemo<ActivityLite[]>(() => {
@@ -113,7 +115,7 @@ export default function RaceResult({ projection, activities, resultActivityId, r
     )
   }
 
-  return <Debrief projection={projection} activity={linked} fcMax={fcMax} onUnlink={onUnlink} />
+  return <Debrief projection={projection} activity={linked} fcMax={fcMax} annotations={annotations} onChangeAnnotations={onChangeAnnotations} onUnlink={onUnlink} />
 }
 
 function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
@@ -135,7 +137,7 @@ function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
 // ════════════════════════════════════════════════════════════════════════════
 // DÉBRIEF — 3 blocs : (1) verdict + courbe, (2) analyse, (3) intelligence
 // ════════════════════════════════════════════════════════════════════════════
-function Debrief({ projection, activity, fcMax, onUnlink }: { projection: ProjectionResult; activity: ActivityLite; fcMax?: number | null; onUnlink: () => void }) {
+function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnotations, onUnlink }: { projection: ProjectionResult; activity: ActivityLite; fcMax?: number | null; annotations?: RaceAnnotation[]; onChangeAnnotations?: (next: RaceAnnotation[]) => void; onUnlink: () => void }) {
   const streamId = activity.stravaActivityId
   const { data: stream, isLoading } = useQuery({
     queryKey: ['race-result-streams', streamId],
@@ -165,7 +167,10 @@ function Debrief({ projection, activity, fcMax, onUnlink }: { projection: Projec
       {d && (
         <>
           <VerdictBlock d={d} />
-          <PaceProfileCard d={d} />
+          <PaceProfileCard d={d} annotations={annotations} />
+          {(d.stoppedS >= 30 || annotations.length > 0) && (
+            <IncidentsBlock d={d} annotations={annotations} onChange={onChangeAnnotations} />
+          )}
           <PacingBlock d={d} />
           {d.hasHR && <CardiacBlock d={d} />}
           {d.terrain.length > 0 && <TerrainBlock d={d} />}
@@ -225,7 +230,7 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
 }
 
 // ── BLOC 1 — Courbe allure réelle vs projetée, posée sur le profil ────────────
-function PaceProfileCard({ d }: { d: RaceDebrief }) {
+function PaceProfileCard({ d, annotations = [] }: { d: RaceDebrief; annotations?: RaceAnnotation[] }) {
   const totalKm = d.points.length ? d.points[d.points.length - 1].km : 1
   const W = 1000, PH = 150, EH = 64
   const x = (km: number) => (km / totalKm) * W
@@ -267,8 +272,13 @@ function PaceProfileCard({ d }: { d: RaceDebrief }) {
         {fills.map((f, i) => <polygon key={i} points={f.poly} fill={f.color} opacity={0.22} />)}
         <polyline points={projLine} fill="none" stroke="var(--vl-text-3)" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
         <polyline points={actualLine} fill="none" stroke="var(--vl-text)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-        {d.stops.map((s, i) => s.startKm <= totalKm && (
+        {/* arrêts détectés non encore étiquetés : ambre pointillé */}
+        {d.stops.map((s, i) => s.startKm <= totalKm && !annotations.some((a) => Math.abs(a.km - s.startKm) < 0.3) && (
           <line key={`stop${i}`} x1={x(s.startKm)} y1={0} x2={x(s.startKm)} y2={PH} stroke="var(--vl-amber)" strokeWidth={1.3} strokeDasharray="2 3" vectorEffect="non-scaling-stroke" opacity={0.85} />
+        ))}
+        {/* incidents étiquetés : trait plein à la couleur du motif */}
+        {annotations.map((a, i) => a.km <= totalKm && (
+          <line key={`an${i}`} x1={x(a.km)} y1={0} x2={x(a.km)} y2={PH} stroke={INCIDENTS[a.label].color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" opacity={0.9} />
         ))}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
@@ -293,6 +303,95 @@ function PaceProfileCard({ d }: { d: RaceDebrief }) {
         <span className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)' }}>profil · {Math.round(d.altMax - d.altMin)} m d'amplitude</span>
         <span className="mono" style={{ fontSize: 9, color: 'var(--vl-text-3)' }}>km {totalKm.toFixed(0)}</span>
       </div>
+    </div>
+  )
+}
+
+// ── BLOC 2 — Étiquetage des arrêts (chute, crampe, ravito… avec ou sans pause) ──
+const INCIDENT_KEYS: IncidentLabel[] = ['chute', 'crampe', 'ravito', 'hydratation', 'douleur', 'autre']
+
+function IncidentsBlock({ d, annotations, onChange }: { d: RaceDebrief; annotations: RaceAnnotation[]; onChange?: (next: RaceAnnotation[]) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [addKm, setAddKm] = useState('')
+  const [addLabel, setAddLabel] = useState<IncidentLabel>('chute')
+
+  const annNear = (km: number) => annotations.find((a) => Math.abs(a.km - km) < 0.3)
+  function tagStop(km: number, label: IncidentLabel | '') {
+    if (!onChange) return
+    const rest = annotations.filter((a) => Math.abs(a.km - km) >= 0.3)
+    onChange(label ? [...rest, { km: +km.toFixed(1), label }] : rest)
+  }
+  function removeAnn(km: number) { onChange?.(annotations.filter((a) => a.km !== km)) }
+  function addManual() {
+    const km = parseFloat(addKm.replace(',', '.'))
+    if (!onChange || !Number.isFinite(km)) return
+    onChange([...annotations, { km: +km.toFixed(1), label: addLabel }])
+    setAddKm(''); setAdding(false)
+  }
+
+  // Annotations posées hors d'un arrêt détecté (ex. chute pendant une pause montre).
+  const manualOnly = annotations.filter((a) => !d.stops.some((s) => Math.abs(s.startKm - a.km) < 0.3))
+
+  const selStyle: React.CSSProperties = {
+    background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 6,
+    color: 'var(--vl-text)', fontFamily: 'var(--vl-mono)', fontSize: 11, padding: '5px 8px', cursor: 'pointer',
+  }
+
+  return (
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <div className="clabel" style={{ marginBottom: 4 }}>ÉTIQUETER LES ARRÊTS</div>
+      <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.45, marginBottom: 14 }}>
+        Pose un motif sur chaque arrêt — avec ou sans pause de la montre. Ton débrief raconte alors ta vraie course.
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {d.stops.map((s, i) => {
+          const cur = annNear(s.startKm)
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: cur ? INCIDENTS[cur.label].color : 'var(--vl-amber)', flex: '0 0 auto' }} />
+                <span className="mono" style={{ fontSize: 12, color: 'var(--vl-text)' }}>km {s.startKm.toFixed(1)}</span>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>· {fmtClock(s.durationS)}</span>
+              </div>
+              <select value={cur?.label ?? ''} onChange={(e) => tagStop(s.startKm, e.target.value as IncidentLabel | '')} style={selStyle} disabled={!onChange}>
+                <option value="">Étiqueter…</option>
+                {INCIDENT_KEYS.map((k) => <option key={k} value={k}>{INCIDENTS[k].fr}</option>)}
+              </select>
+            </div>
+          )
+        })}
+
+        {manualOnly.map((a, i) => (
+          <div key={`m${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: INCIDENTS[a.label].color, flex: '0 0 auto' }} />
+              <span className="mono" style={{ fontSize: 12, color: 'var(--vl-text)' }}>km {a.km.toFixed(1)}</span>
+              <span className="mono" style={{ fontSize: 11, color: INCIDENTS[a.label].color }}>· {INCIDENTS[a.label].fr}</span>
+            </div>
+            {onChange && (
+              <button onClick={() => removeAnn(a.km)} className="hbtn" style={{ fontSize: '.72rem', padding: '4px 9px', color: 'var(--vl-text-3)' }}>Retirer</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Ajout manuel : chute / pause non détectée par la montre */}
+      {onChange && (adding ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <input value={addKm} onChange={(e) => setAddKm(e.target.value)} inputMode="decimal" placeholder="km"
+            style={{ width: 64, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 6, color: 'var(--vl-text)', fontFamily: 'var(--vl-mono)', fontSize: 12, padding: '6px 8px' }} />
+          <select value={addLabel} onChange={(e) => setAddLabel(e.target.value as IncidentLabel)} style={selStyle}>
+            {INCIDENT_KEYS.map((k) => <option key={k} value={k}>{INCIDENTS[k].fr}</option>)}
+          </select>
+          <button onClick={addManual} className="hbtn" style={{ fontSize: '.78rem', padding: '6px 12px', background: 'var(--vl-ember)', color: 'var(--vl-ink)', border: 'none' }}>Ajouter</button>
+          <button onClick={() => { setAdding(false); setAddKm('') }} className="hbtn" style={{ fontSize: '.78rem', padding: '6px 10px' }}>Annuler</button>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="hbtn" style={{ fontSize: '.78rem', padding: '6px 12px', marginTop: 12 }}>
+          + Ajouter un incident (chute, pause non détectée…)
+        </button>
+      ))}
     </div>
   )
 }

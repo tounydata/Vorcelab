@@ -6,6 +6,19 @@ import type { ProjectionResult } from './computeRaceProjection'
 import type { StreamData } from './streams'
 import { compareProjectionToActual, type SectionCompare } from './raceComparison'
 
+// Étiquette d'arrêt posée par le coureur (avec ou sans pause de la montre).
+export type IncidentLabel = 'chute' | 'crampe' | 'ravito' | 'hydratation' | 'douleur' | 'autre'
+export interface RaceAnnotation { km: number; label: IncidentLabel; note?: string }
+
+export const INCIDENTS: Record<IncidentLabel, { fr: string; color: string }> = {
+  chute: { fr: 'Chute', color: 'var(--vl-status-over, #d1583a)' },
+  crampe: { fr: 'Crampe', color: 'var(--vl-ember)' },
+  ravito: { fr: 'Ravito', color: 'var(--vl-growth)' },
+  hydratation: { fr: 'Hydratation', color: '#3B82F6' },
+  douleur: { fr: 'Douleur', color: 'var(--vl-amber)' },
+  autre: { fr: 'Autre', color: 'var(--vl-text-2)' },
+}
+
 export interface DebriefPoint {
   km: number
   alt: number | null
