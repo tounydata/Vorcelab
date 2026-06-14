@@ -14,6 +14,7 @@ interface Props {
   fcMax?: number | null
   annotations?: RaceAnnotation[]
   onChangeAnnotations?: (next: RaceAnnotation[]) => void
+  ravitos?: { km: number; label?: string }[]
   onLink: (activityId: string) => void
   onUnlink: () => void
 }
@@ -40,7 +41,7 @@ function fmtDate(iso: string) {
 const SLOWER = 'var(--vl-status-over, #d1583a)'
 const FASTER = 'var(--vl-growth, #4a9d5b)'
 
-export default function RaceResult({ projection, activities, resultActivityId, raceDateISO, fcMax, annotations = [], onChangeAnnotations, onLink, onUnlink }: Props) {
+export default function RaceResult({ projection, activities, resultActivityId, raceDateISO, fcMax, annotations = [], onChangeAnnotations, ravitos = [], onLink, onUnlink }: Props) {
   const [picking, setPicking] = useState(false)
 
   const runChoices = useMemo<ActivityLite[]>(() => {
@@ -115,7 +116,7 @@ export default function RaceResult({ projection, activities, resultActivityId, r
     )
   }
 
-  return <Debrief projection={projection} activity={linked} fcMax={fcMax} annotations={annotations} onChangeAnnotations={onChangeAnnotations} onUnlink={onUnlink} />
+  return <Debrief projection={projection} activity={linked} fcMax={fcMax} annotations={annotations} onChangeAnnotations={onChangeAnnotations} ravitos={ravitos} onUnlink={onUnlink} />
 }
 
 function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
@@ -137,7 +138,7 @@ function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
 // ════════════════════════════════════════════════════════════════════════════
 // DÉBRIEF — 3 blocs : (1) verdict + courbe, (2) analyse, (3) intelligence
 // ════════════════════════════════════════════════════════════════════════════
-function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnotations, onUnlink }: { projection: ProjectionResult; activity: ActivityLite; fcMax?: number | null; annotations?: RaceAnnotation[]; onChangeAnnotations?: (next: RaceAnnotation[]) => void; onUnlink: () => void }) {
+function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnotations, ravitos = [], onUnlink }: { projection: ProjectionResult; activity: ActivityLite; fcMax?: number | null; annotations?: RaceAnnotation[]; onChangeAnnotations?: (next: RaceAnnotation[]) => void; ravitos?: { km: number; label?: string }[]; onUnlink: () => void }) {
   const streamId = activity.stravaActivityId
   const { data: stream, isLoading } = useQuery({
     queryKey: ['race-result-streams', streamId],
@@ -145,9 +146,10 @@ function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnota
     staleTime: 60 * 60 * 1000,
     queryFn: () => fetchStreams(streamId!),
   })
+  const ravitoKms = useMemo(() => ravitos.map((r) => r.km), [ravitos])
   const d = useMemo(
-    () => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time }) : null),
-    [projection, stream, fcMax, activity.moving_time, activity.elapsed_time],
+    () => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations }) : null),
+    [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, ravitoKms, annotations],
   )
 
   return (
@@ -169,7 +171,7 @@ function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnota
           <VerdictBlock d={d} />
           <PaceProfileCard d={d} annotations={annotations} />
           {(d.stoppedS >= 30 || annotations.length > 0) && (
-            <IncidentsBlock d={d} annotations={annotations} onChange={onChangeAnnotations} />
+            <IncidentsBlock d={d} annotations={annotations} ravitos={ravitos} onChange={onChangeAnnotations} />
           )}
           <PacingBlock d={d} />
           {d.hasHR && <CardiacBlock d={d} />}
@@ -272,9 +274,9 @@ function PaceProfileCard({ d, annotations = [] }: { d: RaceDebrief; annotations?
         {fills.map((f, i) => <polygon key={i} points={f.poly} fill={f.color} opacity={0.22} />)}
         <polyline points={projLine} fill="none" stroke="var(--vl-text-3)" strokeWidth={1.5} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
         <polyline points={actualLine} fill="none" stroke="var(--vl-text)" strokeWidth={2.2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-        {/* arrêts détectés non encore étiquetés : ambre pointillé */}
+        {/* arrêts détectés non étiquetés : ravito connu = vert plein, sinon ambre pointillé */}
         {d.stops.map((s, i) => s.startKm <= totalKm && !annotations.some((a) => Math.abs(a.km - s.startKm) < 0.3) && (
-          <line key={`stop${i}`} x1={x(s.startKm)} y1={0} x2={x(s.startKm)} y2={PH} stroke="var(--vl-amber)" strokeWidth={1.3} strokeDasharray="2 3" vectorEffect="non-scaling-stroke" opacity={0.85} />
+          <line key={`stop${i}`} x1={x(s.startKm)} y1={0} x2={x(s.startKm)} y2={PH} stroke={s.isRavito ? INCIDENTS.ravito.color : 'var(--vl-amber)'} strokeWidth={1.3} strokeDasharray={s.isRavito ? undefined : '2 3'} vectorEffect="non-scaling-stroke" opacity={0.85} />
         ))}
         {/* incidents étiquetés : trait plein à la couleur du motif */}
         {annotations.map((a, i) => a.km <= totalKm && (
@@ -310,12 +312,13 @@ function PaceProfileCard({ d, annotations = [] }: { d: RaceDebrief; annotations?
 // ── BLOC 2 — Étiquetage des arrêts (chute, crampe, ravito… avec ou sans pause) ──
 const INCIDENT_KEYS: IncidentLabel[] = ['chute', 'crampe', 'ravito', 'hydratation', 'douleur', 'autre']
 
-function IncidentsBlock({ d, annotations, onChange }: { d: RaceDebrief; annotations: RaceAnnotation[]; onChange?: (next: RaceAnnotation[]) => void }) {
+function IncidentsBlock({ d, annotations, ravitos = [], onChange }: { d: RaceDebrief; annotations: RaceAnnotation[]; ravitos?: { km: number; label?: string }[]; onChange?: (next: RaceAnnotation[]) => void }) {
   const [adding, setAdding] = useState(false)
   const [addKm, setAddKm] = useState('')
   const [addLabel, setAddLabel] = useState<IncidentLabel>('chute')
 
   const annNear = (km: number) => annotations.find((a) => Math.abs(a.km - km) < 0.3)
+  const ravitoName = (km: number) => ravitos.find((r) => Math.abs(r.km - km) < 0.3)?.label
   function tagStop(km: number, label: IncidentLabel | '') {
     if (!onChange) return
     const rest = annotations.filter((a) => Math.abs(a.km - km) >= 0.3)
@@ -347,17 +350,27 @@ function IncidentsBlock({ d, annotations, onChange }: { d: RaceDebrief; annotati
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {d.stops.map((s, i) => {
           const cur = annNear(s.startKm)
+          const autoRavito = !cur && s.isRavito
+          const eff: IncidentLabel | '' = cur?.label ?? (s.isRavito ? 'ravito' : '')
+          const dotColor = cur ? INCIDENTS[cur.label].color : s.isRavito ? INCIDENTS.ravito.color : 'var(--vl-amber)'
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 999, background: cur ? INCIDENTS[cur.label].color : 'var(--vl-amber)', flex: '0 0 auto' }} />
-                <span className="mono" style={{ fontSize: 12, color: 'var(--vl-text)' }}>km {s.startKm.toFixed(1)}</span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>· {fmtClock(s.durationS)}</span>
+            <div key={i}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 999, background: dotColor, flex: '0 0 auto' }} />
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--vl-text)' }}>km {s.startKm.toFixed(1)}</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>· {fmtClock(s.durationS)}</span>
+                </div>
+                <select value={eff} onChange={(e) => tagStop(s.startKm, e.target.value as IncidentLabel | '')} style={selStyle} disabled={!onChange}>
+                  <option value="">Étiqueter…</option>
+                  {INCIDENT_KEYS.map((k) => <option key={k} value={k}>{INCIDENTS[k].fr}</option>)}
+                </select>
               </div>
-              <select value={cur?.label ?? ''} onChange={(e) => tagStop(s.startKm, e.target.value as IncidentLabel | '')} style={selStyle} disabled={!onChange}>
-                <option value="">Étiqueter…</option>
-                {INCIDENT_KEYS.map((k) => <option key={k} value={k}>{INCIDENTS[k].fr}</option>)}
-              </select>
+              {autoRavito && (
+                <div className="mono" style={{ fontSize: 10, color: INCIDENTS.ravito.color, marginTop: 3, marginLeft: 17 }}>
+                  Ravito connu{ravitoName(s.startKm) ? ` : ${ravitoName(s.startKm)}` : ''} · reconnu automatiquement
+                </div>
+              )}
             </div>
           )
         })}
