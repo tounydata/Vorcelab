@@ -8,6 +8,7 @@ import type { ConditionPenalties } from '../lib/runnerProfile'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
+import type { RaceAnnotation } from '../lib/raceDebrief'
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
@@ -31,6 +32,7 @@ interface Race {
   ravitos: unknown | null
   surfaces: unknown | null
   result_activity_id: string | null
+  result_annotations: unknown | null
 }
 
 function formatDate(iso: string) {
@@ -150,7 +152,7 @@ export default function RaceStrategyPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('race_calendar')
-        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos,surfaces,result_activity_id')
+        .select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,share_token,ravitos,surfaces,result_activity_id,result_annotations')
         .eq('id', raceId!)
         .single()
       if (error) throw error
@@ -282,6 +284,20 @@ export default function RaceStrategyPage() {
     if (Array.isArray(race.ravitos)) setRavitos(race.ravitos as RavitoPoint[])
     ravitosLoadedRef.current = true
   }, [race])
+
+  // Étiquetage des arrêts (débrief) : chargé une fois, persisté à chaque changement.
+  const [annotations, setAnnotations] = useState<RaceAnnotation[]>([])
+  const annotationsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!race || annotationsLoadedRef.current) return
+    if (Array.isArray(race.result_annotations)) setAnnotations(race.result_annotations as RaceAnnotation[])
+    annotationsLoadedRef.current = true
+  }, [race])
+  function updateAnnotations(next: RaceAnnotation[]) {
+    const sorted = [...next].sort((a, b) => a.km - b.km)
+    setAnnotations(sorted)
+    if (raceId) supabase.from('race_calendar').update({ result_annotations: sorted }).eq('id', raceId).then(() => {})
+  }
 
   // Terrain : récupère les surfaces (cache base sinon OSM), puis re-projette avec le malus.
   // Une fois par course/projection ; persisté pour ne pas ré-interroger Overpass.
@@ -658,6 +674,9 @@ export default function RaceStrategyPage() {
                 activities={activitiesData ?? []}
                 resultActivityId={race.result_activity_id}
                 raceDateISO={race.date}
+                fcMax={(profileData?.fc_max as number | undefined) ?? null}
+                annotations={annotations}
+                onChangeAnnotations={updateAnnotations}
                 onLink={(id) => resultMutation.mutate(id)}
                 onUnlink={() => resultMutation.mutate(null)}
               />
