@@ -145,6 +145,10 @@ export default function RaceListPage() {
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   const upcoming = races.filter((r) => new Date(r.date) >= now)
+  // Courses passées : accès à la stratégie + résultat (avant, aucun point d'entrée).
+  const past = races
+    .filter((r) => new Date(r.date) < now)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   function daysLeft(dateIso: string) {
     const d = new Date(dateIso)
@@ -279,8 +283,10 @@ export default function RaceListPage() {
 
               {/* Race */}
               {dayRace && (
-                <div
+                <Link
+                  to={`/race/${dayRace.id}`}
                   style={{
+                    display: 'block',
                     background: 'var(--vl-ember)',
                     color: 'var(--vl-ink)',
                     borderRadius: 3,
@@ -291,10 +297,11 @@ export default function RaceListPage() {
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
                     textOverflow: 'ellipsis',
+                    textDecoration: 'none',
                   }}
                 >
                   {dayRace.name.length > 12 ? dayRace.name.slice(0, 12) + '…' : dayRace.name}
-                </div>
+                </Link>
               )}
             </div>
           )
@@ -358,6 +365,53 @@ export default function RaceListPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Past races list ────────────────────────────────────────────────── */}
+      {past.length > 0 && (
+        <div style={{ marginTop: upcoming.length > 0 ? '1.75rem' : 0 }}>
+          <div className="mlabel" style={{ letterSpacing: '.14em', marginBottom: '.75rem' }}>
+            COURSES PASSÉES
+          </div>
+
+          {past.map((race) => (
+            <Link
+              key={race.id}
+              to={`/race/${race.id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 0',
+                borderBottom: '1px solid var(--vl-line)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              {/* Type icon */}
+              <span style={{ color: 'var(--vl-text-3)', fontSize: 16, flexShrink: 0 }}>
+                {race.type === 'Trail' ? '⛰' : '→'}
+              </span>
+
+              {/* Name + meta */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: '.95rem', fontWeight: 700, color: 'var(--vl-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {race.name}
+                </div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
+                  {formatDate(race.date)}
+                  {race.distance ? ` · ${race.distance}km` : ''}
+                  {race.elevation ? ` · ${race.elevation}m D+` : ''}
+                </div>
+              </div>
+
+              {/* Voir le résultat */}
+              <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color: 'var(--vl-ember)', flexShrink: 0 }}>
+                RÉSULTAT →
+              </span>
+            </Link>
+          ))}
         </div>
       )}
 
