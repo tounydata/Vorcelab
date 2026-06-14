@@ -3,6 +3,8 @@
 > Socle de recherche pour le moteur de coaching **algorithmique et déterministe** (aucune IA, conforme à la règle Strava).
 > Cible : trail court→marathon **et** ultra-trail · tous niveaux (le moteur s'adapte) · approche science + terrain.
 > Chaque section donne des **chiffres, seuils et formules codables**. Sources citées en bas. Daté 2026-05-29.
+> 📊 Ce fichier couvre surtout la **planification** ; pour la **lecture d'une séance réalisée**
+> (métriques post-séance, route vs trail, verdict), voir **`session-analysis.md`**.
 
 ⚠️ **Garde-fou transversal** : plusieurs constantes (ACWR « sweet spot », règle des 10 %, équivalence D+) sont des **heuristiques contestées**, pas des lois. Le moteur les traite comme des garde-fous, jamais comme des vérités — et croise toujours plusieurs signaux (charge + forme + ressenti).
 
