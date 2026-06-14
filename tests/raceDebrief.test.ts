@@ -143,6 +143,26 @@ describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
     expect(d.verdict).toMatch(/ravito prévu/i)
   })
 
+  it('les causes étiquetées CHANGENT le débrief (crampe)', () => {
+    const base = computeRaceDebrief(projection(), stoppedStreams())!
+    const tagged = computeRaceDebrief(projection(), stoppedStreams(), null, { annotations: [{ km: 5, label: 'crampe' }] })!
+    expect(tagged.verdict).toMatch(/crampe/i)
+    expect(tagged.verdict).not.toBe(base.verdict)
+    expect(tagged.takeaways.some((t) => /crampe|excentrique/i.test(t.text))).toBe(true)
+  })
+
+  it('une chute renseignée apparaît dans les enseignements', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams(), null, { annotations: [{ km: 5, label: 'chute' }] })!
+    expect(d.verdict).toMatch(/chute/i)
+    expect(d.takeaways.some((t) => /chute/i.test(t.text))).toBe(true)
+  })
+
+  it('un arrêt étiqueté « ravito » devient prévu (plus subi)', () => {
+    const d = computeRaceDebrief(projection(), stoppedStreams(), null, { annotations: [{ km: 5, label: 'ravito' }] })!
+    expect(d.unplannedStoppedS).toBeLessThan(10)
+    expect(d.takeaways.some((t) => /subis/i.test(t.text))).toBe(false)
+  })
+
   // Montre mise en pause : aucun arrêt dans le flux, mais écoulé > mouvement.
   it('récupère le temps d\'arrêt via les métadonnées (montre en pause)', () => {
     const even = (() => {

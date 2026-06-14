@@ -198,7 +198,7 @@ export function computeRaceDebrief(
   proj: ProjectionResult,
   stream: StreamData,
   fcMax?: number | null,
-  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null; ravitoKms?: number[] },
+  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null; ravitoKms?: number[]; annotations?: RaceAnnotation[] },
 ): RaceDebrief | null {
   const dist = stream.distance?.data
   const time = stream.time?.data
@@ -229,10 +229,21 @@ export function computeRaceDebrief(
   const stoppedS = Math.max(0, realElapsedS - realMovingS)
   const movingS = Math.max(0, realMovingS)
   const stopCount = stops.length
-  // Part « ravito prévu » vs « subie » (crampes, chute) — le reste non localisé
-  // (montre en pause) est compté comme subi.
-  const ravitoStoppedS = stops.filter((s) => s.isRavito).reduce((a, s) => a + s.durationS, 0)
-  const unplannedStoppedS = Math.max(0, stoppedS - ravitoStoppedS)
+  // Étiquettes posées par le coureur → elles PILOTENT le débrief (verdict, conseils,
+  // part prévue vs subie). Un arrêt étiqueté l'emporte sur la détection auto.
+  const annotations = meta?.annotations ?? []
+  const annNear = (km: number) => annotations.find((a) => Math.abs(a.km - km) < 0.3)
+  const EXPECTED = new Set<string>(['ravito', 'hydratation']) // arrêts « normaux »
+  const effLabel = (s: { startKm: number; isRavito: boolean }): IncidentLabel | undefined =>
+    annNear(s.startKm)?.label ?? (s.isRavito ? 'ravito' : undefined)
+  // Part « prévue » (ravito/hydratation) vs « subie » (crampes, chute, douleur).
+  const ravitoStoppedS = stops.filter((s) => effLabel(s) === 'ravito').reduce((a, s) => a + s.durationS, 0)
+  const expectedStoppedS = stops.filter((s) => { const l = effLabel(s); return !!l && EXPECTED.has(l) }).reduce((a, s) => a + s.durationS, 0)
+  const unplannedStoppedS = Math.max(0, stoppedS - expectedStoppedS)
+  // Causes explicitement renseignées
+  const hasCramp = annotations.some((a) => a.label === 'crampe')
+  const hasFall = annotations.some((a) => a.label === 'chute')
+  const hasPain = annotations.some((a) => a.label === 'douleur')
 
   // Sections recalées sur le temps en mouvement (deltas non faussés par les arrêts).
   const sections: SectionCompare[] = proj.sections.map((s, i) => {
@@ -413,8 +424,16 @@ export function computeRaceDebrief(
 
   // ── Verdict (phrase de coach) ──
   const fasterSlower = cmp.deltaS <= 0 ? 'plus rapide' : 'plus lent'
+  const horsArrets = accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`
   let verdict: string
-  if (stoppedS >= 45) {
+  if (hasCramp || hasFall || hasPain) {
+    const bits: string[] = []
+    if (hasCramp) bits.push('crampes')
+    if (hasFall) bits.push('chute')
+    if (hasPain) bits.push('douleur')
+    const causes = bits.join(' + ')
+    verdict = `${causes.charAt(0).toUpperCase()}${causes.slice(1)} en course${stoppedS >= 30 ? ` (${fmtDur(stoppedS)} d'arrêts)` : ''} — hors arrêts, ${horsArrets}.${hasCramp ? ' Endurance et sodium à travailler.' : hasFall ? ' Un incident, pas un déficit de forme.' : ''}`
+  } else if (stoppedS >= 45) {
     const head = stopCount > 0 ? `${stopCount} arrêt${stopCount > 1 ? 's' : ''}` : 'Des arrêts'
     const ravBit = ravitoStoppedS >= 30 ? `, dont ${fmtDur(ravitoStoppedS)} au ravito` : ''
     const cause = unplannedStoppedS >= 45 ? 'ravito, hydratation ou douleurs' : 'surtout du ravito prévu'
@@ -431,7 +450,12 @@ export function computeRaceDebrief(
 
   // ── Enseignements (priorisés, 2-3) ──
   const candidates: DebriefTakeaway[] = []
-  if (unplannedStoppedS >= 45) {
+  // Causes étiquetées par le coureur → conseils CIBLÉS (priment sur la détection auto).
+  if (hasCramp) candidates.push({ tone: 'work', text: `Crampes confirmées — renfo excentrique (mollets, descente) + hydratation et sodium ; teste ta stratégie nutrition à l'entraînement.` })
+  if (hasFall) { const f = annotations.find((a) => a.label === 'chute')!; candidates.push({ tone: 'info', text: `Chute à km ${f.km.toFixed(1)} — un incident, pas un déficit de forme. Travaille l'aisance et la lecture de terrain en descente.` }) }
+  if (hasPain) { const p = annotations.find((a) => a.label === 'douleur')!; candidates.push({ tone: 'work', text: `Douleur signalée (km ${p.km.toFixed(1)}) — surveille la récupération et consulte si elle persiste.` }) }
+  // Repli auto UNIQUEMENT si aucune cause subie n'a été renseignée à la main.
+  if (unplannedStoppedS >= 45 && !hasCramp && !hasFall && !hasPain) {
     const crampLikely = splitPct >= 6 || terrain.some((t) => t.kind === 'descent_tech' && t.outcome === 'worse')
     candidates.push(crampLikely
       ? { tone: 'work', text: `Arrêts subis en fin de course / descente (${fmtDur(unplannedStoppedS)}, hors ravito) — souvent des crampes : renfo excentrique (mollets, descente) + hydratation et sodium.` }

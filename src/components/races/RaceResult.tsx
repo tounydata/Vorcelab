@@ -148,8 +148,8 @@ function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnota
   })
   const ravitoKms = useMemo(() => ravitos.map((r) => r.km), [ravitos])
   const d = useMemo(
-    () => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms }) : null),
-    [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, ravitoKms],
+    () => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations }) : null),
+    [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, ravitoKms, annotations],
   )
 
   return (
