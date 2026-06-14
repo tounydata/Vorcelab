@@ -132,4 +132,20 @@ describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
     expect(d.takeaways[0].text).toMatch(/arrêt|cramp/i)
     expect(d.verdict).toMatch(/arrêt/i)
   })
+
+  // Montre mise en pause : aucun arrêt dans le flux, mais écoulé > mouvement.
+  it('récupère le temps d\'arrêt via les métadonnées (montre en pause)', () => {
+    const even = (() => {
+      const distance: number[] = [], time: number[] = []
+      for (let i = 0; i <= 100; i++) { distance.push(i * 100); time.push(i * 25) }
+      return { distance: { data: distance }, time: { data: time } }
+    })()
+    const d = computeRaceDebrief(projection(), even, null, { movingTimeS: 2500, elapsedTimeS: 2680 })!
+    expect(d.stopCount).toBe(0)                 // rien à localiser dans le flux
+    expect(d.stoppedS).toBeCloseTo(180, 0)      // 2680 − 2500, via les métadonnées
+    expect(d.movingS).toBeCloseTo(2500, 0)
+    expect(d.actualTotalS).toBeCloseTo(2680, 0) // chrono réel
+    expect(d.accuracyPct).toBeGreaterThan(99)   // précision hors arrêts
+    expect(d.verdict).toMatch(/arrêt/i)
+  })
 })

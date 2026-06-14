@@ -143,7 +143,10 @@ function Debrief({ projection, activity, fcMax, onUnlink }: { projection: Projec
     staleTime: 60 * 60 * 1000,
     queryFn: () => fetchStreams(streamId!),
   })
-  const d = useMemo(() => (stream ? computeRaceDebrief(projection, stream, fcMax) : null), [projection, stream, fcMax])
+  const d = useMemo(
+    () => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time }) : null),
+    [projection, stream, fcMax, activity.moving_time, activity.elapsed_time],
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -206,14 +209,14 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
             <div style={{ position: 'absolute', inset: 0, width: `${d.executionScore}%`, background: scoreColor, borderRadius: 999 }} />
           </div>
         </div>
-        {/* En mouvement — quand des arrêts sont détectés (crampes, ravitos longs) */}
-        {d.stopCount > 0 && (
+        {/* En mouvement — dès qu'il y a un temps d'arrêt notable (ravito, hydrat., crampes…) */}
+        {d.stoppedS >= 30 && (
           <div style={{ flex: '1 1 150px', background: 'var(--vl-surf-2)', borderRadius: 'var(--vl-r-sm)', padding: '14px 16px' }}>
             <div className="mlabel" style={{ marginBottom: 6 }}>EN MOUVEMENT</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="display tnum" style={{ fontSize: '2rem', lineHeight: .9, color: 'var(--vl-text)' }}>{fmtHM(d.movingS / 60)}</span>
             </div>
-            <div className="mono" style={{ fontSize: 10.5, color: 'var(--vl-amber)', marginTop: 4 }}>{d.stopCount} arrêt{d.stopCount > 1 ? 's' : ''} · {fmtClock(d.stoppedS)} à l'arrêt</div>
+            <div className="mono" style={{ fontSize: 10.5, color: 'var(--vl-amber)', marginTop: 4 }}>{d.stopCount > 0 ? `${d.stopCount} arrêt${d.stopCount > 1 ? 's' : ''}` : 'Arrêts'} · {fmtClock(d.stoppedS)} à l'arrêt</div>
           </div>
         )}
       </div>
@@ -254,7 +257,7 @@ function PaceProfileCard({ d }: { d: RaceDebrief }) {
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
           <Legend c={FASTER} label="devant le plan" />
           <Legend c={SLOWER} label="derrière" />
-          {d.stopCount > 0 && <Legend c="var(--vl-amber)" label="arrêt" />}
+          {d.stops.length > 0 && <Legend c="var(--vl-amber)" label="arrêt" />}
         </div>
       </div>
 
@@ -398,11 +401,11 @@ function BenchBlock({ d }: { d: RaceDebrief }) {
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <span className="display tnum" style={{ fontSize: '2.4rem', lineHeight: .9, color: accColor }}>{d.accuracyPct.toFixed(1)}%</span>
-          <div className="mlabel" style={{ marginTop: 4 }}>DE PRÉCISION{d.stopCount > 0 ? ' · HORS ARRÊTS' : ''}</div>
+          <div className="mlabel" style={{ marginTop: 4 }}>DE PRÉCISION{d.stoppedS >= 30 ? ' · HORS ARRÊTS' : ''}</div>
         </div>
         <div className="mono" style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
           <div>Projeté <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.projTotalS / 60)}</span></div>
-          {d.stopCount > 0 ? (
+          {d.stoppedS >= 30 ? (
             <>
               <div>En mouvement <span style={{ color: 'var(--vl-text)', fontWeight: 700 }}>{fmtHM(d.movingS / 60)}</span> <span style={{ color: d.movingS - d.projTotalS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.movingS - d.projTotalS)})</span></div>
               <div style={{ fontSize: 11, color: 'var(--vl-text-3)' }}>Temps total {fmtHM(d.actualTotalS / 60)} · {fmtClock(d.stoppedS)} d'arrêts</div>

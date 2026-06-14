@@ -183,6 +183,7 @@ export function computeRaceDebrief(
   proj: ProjectionResult,
   stream: StreamData,
   fcMax?: number | null,
+  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null },
 ): RaceDebrief | null {
   const dist = stream.distance?.data
   const time = stream.time?.data
@@ -200,8 +201,14 @@ export function computeRaceDebrief(
   const stops = detectStops(dist, time)
   const stoppedBeforeKm = (km: number) => stops.reduce((s, st) => (st.startKm < km ? s + st.durationS : s), 0)
   const movingAtKm = (km: number) => Math.max(0, timeAtKm(km) - stoppedBeforeKm(km))
-  const movingS = movingAtKm(totalKm)
-  const stoppedS = Math.max(0, cmp.actualTotalS - movingS)
+  const detectedStoppedS = Math.max(0, cmp.actualTotalS - movingAtKm(totalKm))
+  // Totaux : on privilégie les métadonnées Strava (temps écoulé / en mouvement) —
+  // elles captent AUSSI les arrêts où la montre a été mise en pause (invisibles dans
+  // le flux GPS). Le stream sert à localiser les arrêts ; le méta donne le vrai total.
+  const realElapsedS = meta?.elapsedTimeS && meta.elapsedTimeS > 0 ? meta.elapsedTimeS : cmp.actualTotalS
+  const realMovingS = meta?.movingTimeS && meta.movingTimeS > 0 ? meta.movingTimeS : (cmp.actualTotalS - detectedStoppedS)
+  const stoppedS = Math.max(0, realElapsedS - realMovingS)
+  const movingS = Math.max(0, realMovingS)
   const stopCount = stops.length
 
   // Sections recalées sur le temps en mouvement (deltas non faussés par les arrêts).
@@ -384,8 +391,9 @@ export function computeRaceDebrief(
   // ── Verdict (phrase de coach) ──
   const fasterSlower = cmp.deltaS <= 0 ? 'plus rapide' : 'plus lent'
   let verdict: string
-  if (stopCount >= 1 && stoppedS >= 45) {
-    verdict = `${stopCount} arrêt${stopCount > 1 ? 's' : ''} (${fmtDur(stoppedS)} cumulées) — hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous exclut tes pauses.`
+  if (stoppedS >= 45) {
+    const head = stopCount > 0 ? `${stopCount} arrêt${stopCount > 1 ? 's' : ''}` : 'Des arrêts'
+    verdict = `${head} (${fmtDur(stoppedS)}) — ravito, hydratation ou douleurs. Hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous les exclut.`
   } else if (executionScore >= 80 && Math.abs(splitPct) < 5) {
     verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(cmp.deltaS)} (${fasterSlower}) que la projection.`
   } else if (splitPct >= 9) {
@@ -398,7 +406,12 @@ export function computeRaceDebrief(
 
   // ── Enseignements (priorisés, 2-3) ──
   const candidates: DebriefTakeaway[] = []
-  if (stopCount >= 1 && stoppedS >= 45) candidates.push({ tone: 'work', text: `Tu t'es arrêté ${stopCount} fois (${fmtDur(stoppedS)}) — probables crampes. Renforce l'excentrique (mollets, descente) et soigne l'hydratation + le sodium en course.` })
+  if (stoppedS >= 45) {
+    const crampLikely = splitPct >= 6 || terrain.some((t) => t.kind === 'descent_tech' && t.outcome === 'worse')
+    candidates.push(crampLikely
+      ? { tone: 'work', text: `Arrêts en fin de course / descente (${fmtDur(stoppedS)}) — souvent des crampes : renfo excentrique (mollets, descente) + hydratation et sodium.` }
+      : { tone: 'work', text: `${fmtDur(stoppedS)} perdues à l'arrêt (ravito, hydratation…) — anticipe tes prises pour limiter les pauses.` })
+  }
   if (splitPct >= 8) candidates.push({ tone: 'work', text: `Pars plus prudent : ralentissement de ${splitPct.toFixed(0)} % en 2ᵉ moitié. Vise un négatif split.` })
   if (decouplingPct != null && decouplingPct >= 10) candidates.push({ tone: 'work', text: `Dérive cardiaque élevée (+${decouplingPct.toFixed(0)} %) — travaille l'endurance fondamentale et la nutrition en course.` })
   const worstUp = terrain.find((t) => t.kind === 'climb' && t.outcome === 'worse')
@@ -413,9 +426,9 @@ export function computeRaceDebrief(
 
   return {
     projTotalS: cmp.projTotalS,
-    actualTotalS: cmp.actualTotalS,
-    deltaS: cmp.deltaS,
-    deltaPct: cmp.deltaPct,
+    actualTotalS: realElapsedS,
+    deltaS: realElapsedS - cmp.projTotalS,
+    deltaPct: cmp.projTotalS > 0 ? ((realElapsedS - cmp.projTotalS) / cmp.projTotalS) * 100 : 0,
     accuracyPct,
     executionScore,
     executionLabel,
