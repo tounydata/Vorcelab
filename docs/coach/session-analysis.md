@@ -5,6 +5,7 @@
 > Complète `knowledge-base.md` (qui couvre surtout la **planification**) : ici on documente
 > **quelles métriques calculer sur une activité, leurs seuils d'interprétation, et comment
 > route ≠ trail**. Cible : 5K → marathon **et** trail/ultra. Daté 2026-06-14.
+> Constantes recoupées contre des sources 2021-2026 (3 audits web, cf. §Sources).
 
 ⚠️ **Garde-fou transversal** : un verdict de séance ne repose **jamais sur un seul signal**.
 On croise allure × FC/zone × dérive × ressenti, et plusieurs constantes ci-dessous (dérive
@@ -45,7 +46,7 @@ par moitié d'effort et on regarde sa chute.
 
 Conditions de **validité** (sinon `unknown`, ne pas interpréter) :
 - effort **steady** (footing/tempo continu) — **jamais** sur intervalles/fartlek ;
-- durée régulière **≥ ~45–60 min** (en deçà le bruit domine) ;
+- durée régulière **≥ ~30 min** (idéal 45–60 ; TrainingPeaks n'impose pas de durée mini, mais le test AeT formel se fait sur ~30 min d'effort steady, échauffement exclu) ;
 - échauffement exclu, pas d'arrêts longs, pas de gros changement de terrain.
 
 → Code : `computeDriftStatus(driftPct)` → `stable ≤5` / `moderate ≤10` / `marked >10`.
@@ -125,6 +126,65 @@ basculer en « trop facile ».
   FC, pas pour l'allure réelle.
 - Découplage sur séance **non régulière** = ininterprétable → `unknown`, on n'en tire rien.
 
+### A9. Analyse d'un fractionné (reps réalisées vs cibles)
+
+Sur intervalles, l'allure **moyenne** est `unknown` → on analyse **rep par rep**. Par rep _i_ :
+allure `pᵢ`, cible `p*`, écart `δᵢ = (pᵢ − p*) / p* × 100`.
+
+| Métrique (set) | Calcul | Seuil moteur |
+|---|---|---|
+| **Hit-rate cible** | % de reps dans **±2 %** de `p*` | ≥ 80 % = set conforme |
+| **Fade inter-reps** | `(allure_dernier_tiers − allure_1er_tiers) / 1er_tiers × 100` | **< 2 %** sain · **2–5 %** départ trop vite · **> 5 %** set surévalué |
+| **CV des reps** | écart-type ÷ moyenne des allures de rep | **≤ ~2–3 %** = exécution régulière |
+| **Drift d'effort** | FC du dernier rep − FC du 1ᵉʳ rep, à allure tenue | hausse normale = fatigue saine du set |
+
+Lecture : **reps tenus + FC qui monte** = set bien dosé ; **reps qui ralentissent + FC qui
+plafonne** = cible trop ambitieuse → revoir l'allure cible, pas le ressenti.
+
+### A10. Qualité des récupérations
+
+Mesurer la **FC de reprise** (fin de récup, juste avant le rep suivant).
+
+| Signal | Lecture | Action |
+|---|---|---|
+| FC ne redescend **pas** sous **~70 % FCmax** avant le rep suivant | récup trop courte OU fatigue/forme basse | si ≥ 2 reps → flag « set sous-récupéré » |
+| FC de reprise **qui dérive vers le haut** rep après rep | fatigue cumulative (normale en fin) | non pénalisant si reps tenus |
+| Récup **active** prescrite mais marche/arrêt observés | exécution non conforme | tagger, ne pas comparer au modèle |
+
+Ratios travail:récup attendus (juger la conformité du *prévu*) : **VO2max ~1:0,5 à 1:1** ·
+**seuil/tempo ~1:0,25 à 1:0,5**.
+
+### A11. Critical Speed (CS) & D′ — ancre seuil post-test
+
+Quand ≥ 2 efforts maximaux distincts existent (ex. 1200 m + 3000 m, ou un 3-min all-out) :
+
+```
+Distance = CS × Temps + D′      # CS = pente (m/s) ; D′ = ordonnée (m), réserve anaérobie
+```
+
+- **CS** ≈ allure soutenable ~30 min ≈ proche allure 10K/seuil → **ancre déterministe** pour
+  recaler/contrôler les fourchettes E/M/T/I (alternative au VDOT), pas pour remplacer le `level`.
+- **D′** : ordres de grandeur ~60–120 m (fond entraîné). Indicateur, pas constante de verdict.
+- **Validité** : préférer 3 efforts (3 / 5–6 / 12 min), durées 2–20 min ; `unknown` si efforts
+  non maximaux ou durées trop proches. ⚠️ Dériver des **zones fines** de CS/D′ est contesté →
+  rester sur l'usage « ancre seuil ».
+
+### A12. Running power sur route (signal secondaire)
+
+Avec capteur (type Stryd) : `rTSS_power = durée_h × IF² × 100`, `IF = NP ÷ CP` (CP ≈ effort
+~40 min) → charge **sans dépendre du GPS**. `EF-power = NP ÷ FC moy` = variante du découplage
+**moins sensible au bruit GPS/vent** (même grille < 5 %). ⚠️ La puissance de course est
+**modélisée, pas mesurée** → bonne pour la **tendance/régularité**, jamais durcie en zones
+absolues ; signal secondaire, croisé.
+
+### A13. Découplage sur tapis (contexte valide)
+
+Sur tapis : allure = réglage machine (fiable), **pas de bruit GPS ni de pente** → le découplage
+**allure:FC** y est en fait **plus propre** que dehors. Conditions : inclinaison fixe (idéal
+**1 %**), ventilation contrôlée (sinon la chaleur intérieure **surcote** la dérive). → le tapis
+est un contexte **valide pour le découplage** (à tagger pour la chaleur), même si l'allure
+« terrain » reste, elle, non transposable.
+
 ---
 
 ## Analyse de séance — Trail / ultra
@@ -172,12 +232,13 @@ Repères externes : amateur entraîné ~**400–700**, pro >**1000** en pente ra
 
 ### T3. GAP / allure ajustée à la pente — utile mais à manier avec prudence
 
-- **Coût de la pente (Minetti 2002)** : minimum métabolique vers **−10 à −20 %** ; en montée
-  ~**+2,5 % d'effort par +1 % de pente**. Implémenté en prod : `minettiGradePenalty(grade)`
-  (forme validée 1-pour-1, **ne pas toucher sans test**).
-- **Temps** : Naismith/Scarf → **10 min/100 m D+** (5 km/h plat + 1 h/600 m) ; Scarf α≈8 →
-  **1000 m D+ ≈ 8 km plat**. Descente (Langmuir) : **−10 min/300 m** si 5–12°, **+10 min/300 m**
-  si > 12° (la descente raide **re-coûte** du temps).
+- **Coût de la pente (Minetti 2002)** : minimum métabolique **en marche à ~−10 %**, **en course
+  à ~−20 %** (distinguer les deux gaits) ; en montée ~**+2,5 % d'effort par +1 % de pente**
+  (quasi-linéaire). Implémenté en prod : `minettiGradePenalty(grade)` (forme validée 1-pour-1,
+  **ne pas toucher sans test**).
+- **Temps** : Naismith/Scarf → **10 min/100 m D+** (5 km/h plat + 1 h/600 m) ; Scarf **α≈7,92**
+  → **1000 m D+ ≈ 8 km plat** (règle 8:1 hommes, **~10:1 femmes**). Descente (Langmuir) :
+  **−10 min/300 m** si 5–12°, **+10 min/300 m** si > 12° (la descente raide **re-coûte** du temps).
 - **Charge / catégorisation (ITRA km-effort)** : `km-effort = distance_km + D+_m / 100`
   → **100 m D+ ≈ 1 km plat** (axe distinct du temps, ne pas confondre).
 - ⚠️ **Limite majeure** : le **GAP est trop optimiste sur terrain technique et en forte
@@ -200,12 +261,19 @@ Seuils vitesse (cf. `computeDescentStatus` / `computeFlatStatus`) : descente `st
 
 ### T5. Marche vs course (power-hiking)
 
-- En trail, **marcher n'est pas un échec** : au-delà d'un **gradient de transition (~15–25 %**
-  selon l'économie individuelle) la marche rapide devient **plus économique** que courir.
+- En trail, **marcher n'est pas un échec**. ⚠️ La transition est d'abord une **vitesse**, pas un
+  gradient fixe : l'EOTS (*energetically optimal transition speed*) ≈ **7,0–7,5 km/h**, peu
+  sensible à la pente sur ±5 %. Le *gradient* où la marche **domine** énergétiquement est plus
+  haut (optimum Minetti **~20–30 %**). → raisonner « seuil de vitesse », pas « % de pente unique ».
 - **Détection** (`computeClimbStatus`) : `cadence < 130 spm` **ET** `vitesse < 6,5 km/h`
   (fallback sans cadence : vitesse < 5,0 km/h) → bucket marqué `walk`, **intégré au profil**
-  (pas pénalisé). On peut lire le **% de temps marché** et la **qualité de la marche** (VAM en
-  marche).
+  (pas pénalisé). On lit le **% de temps marché** et la **qualité de la marche** (VAM en marche).
+- **Décision courir/marcher** (par bucket montant, vs EOTS ≈ 7,0–7,5 km/h) :
+  - couru à vitesse **< EOTS** → « couru trop lent » (gaspillage, devrait marcher) ;
+  - marché à vitesse **> EOTS** → « marche subie » (pourrait courir) ;
+  - cohérent avec EOTS → « transition saine ».
+  Croisé avec la VAM : % montée raide marchée élevé **+ VAM ≥ 600** = power-hiking efficace
+  (atout) ; **+ VAM < 500** = marche subie / technique faible → renfo + drills marche.
 - Stratégie courir/marcher = variable de **pacing trail**, pas un défaut.
 
 ### T6. Descente : charge excentrique et qualité
@@ -218,9 +286,9 @@ Seuils vitesse (cf. `computeDescentStatus` / `computeFlatStatus`) : descente `st
   s'effondre vs le D− disponible, freinage (turn-rate/technicité élevés), FC paradoxalement
   haute. Code dédié : `TechnicalDescentProfile`, `DownhillFatigueProfile`,
   `sectionTurnDegPerKm` (technicité), `computePostClimbRecoveryStatus` (récup après bosse).
-- Une grosse séance descente altère l'économie **à plat jusqu'à ~5 jours** → à pondérer dans
-  la lecture des séances suivantes (une easy « anormalement coûteuse » 2–3 j après peut venir
-  de là).
+- Une grosse séance descente altère l'économie **à plat jusqu'à ~5 jours** (heuristique
+  extrapolée ; la perte de force/CK à ~4 j est, elle, bien documentée) → à pondérer dans la
+  lecture des séances suivantes (une easy « anormalement coûteuse » 2–3 j après peut venir de là).
 
 ### T7. Durabilité / fade (clé ultra)
 
@@ -262,6 +330,106 @@ seuil/VO2 vertical : VAM × FC, pas d'allure plate.
   souvent **plus robuste** que l'allure GPS.
 - **Technicité non captée** : le GPS ne « voit » pas les racines/cailloux → une descente lente
   peut être un **terrain** difficile, pas une faiblesse ; croiser avec `sectionTurnDegPerKm`.
+
+### T11. Running power en trail — usage strictement borné
+
+Le capteur (Stryd) corrèle bien avec VO₂ en montée mais **sous-estime la puissance absolue** et
+surtout **la descente** (modèle de pente simpliste). Confiance déterministe :
+`power_trust = up:medium · down:low · cross_device:none`.
+
+| Usage | Verdict | Règle |
+|---|---|---|
+| Intensité **montée** | proxy relatif acceptable | comparable à soi-même, même capteur, même pente |
+| Intensité **descente** | **non fiable** | verdict descente sur vitesse/bucket + FC, jamais la puissance |
+| Comparaison **inter-appareils** | **interdite** | tagger la source ; ne jamais croiser deux capteurs |
+
+La puissance n'entre **jamais seule** dans un verdict ; signal de confiance `medium` au mieux,
+derrière VAM/FC.
+
+### T12. NGP vs GAP — désambiguïsation
+
+- **GAP** = allure ramenée au plat **via la pente seule** (Minetti/Strava). Bon sur roulant.
+- **NGP** = GAP **lissé/normalisé** (pondération 30 s ^4, façon NP) → sert au **rTSS** trail.
+
+| Métrique | Entrée | Sert à | Limite trail |
+|---|---|---|---|
+| GAP | pente | comparer à pente comparable | trop optimiste en technique/descente raide |
+| NGP | pente + lissage | charge (rTSS), efforts en dents de scie | hérite des biais GAP, cache les marches |
+
+→ **rTSS via NGP** pour la charge, **mais** lever `gap_unreliable=true` si `% temps technique`
+élevé OU `% descente < −12 %` > 20 % → on retombe alors sur **km-effort + temps**.
+
+### T13. Indice de technicité depuis la trace (déterministe)
+
+Le GPS ne voit pas le terrain, mais des **proxys** existent :
+
+```
+tech_index = w1·turn_rate + w2·grade_variability + w3·pace_volatility
+  turn_rate         = Σ|Δcap| (°) / km                 # sectionTurnDegPerKm (déjà en prod)
+  grade_variability = écart-type de la pente (fenêtres 50 m)
+  pace_volatility   = écart-type(vitesse) / vitesse_moy (CV) sur le segment
+  w1,w2,w3 = 0.4 / 0.3 / 0.3   (normalisés par percentiles maison)
+```
+
+| tech_index (0–100) | Lecture | Effet moteur |
+|---|---|---|
+| < 30 | roulant | GAP fiable, vitesse jugeable |
+| 30–60 | mixte | tolérance vitesse élargie +15 % |
+| > 60 | technique | descente lente = **terrain**, pas faiblesse ; `gap_unreliable=true` |
+
+### T14. Fatigue de descente cumulée intra-séance (proxy excentrique)
+
+On ne mesure pas la CK, mais on **cumule la charge excentrique** D− pondérée par la raideur :
+
+```
+ecc_load = Σ_segments  D−_segment(m) × k(pente)
+  k(pente) :  −2 à −6 % → 0.5  ·  −6 à −12 % → 1.0  ·  ≤ −12 % → 1.8
+descent_fade = comparer 2e tiers vs 1er tiers : vitesse_descente ↓ > 10 %
+               À FC égale/↑ ET turn_rate stable (≠ terrain → fatigue) → fade réel
+```
+
+Sortie `descent_fade = none / moderate / marked`. Si `marked` + grosse `ecc_load` → réinjecter
+en **alerte récup ~4 j** sur les séances suivantes (cf. T6). Code voisin : `DownhillFatigueProfile`.
+
+### T15. Charge spécifique D+ : 3 axes non interchangeables
+
+| Axe | Formule | Capte | Quand |
+|---|---|---|---|
+| **km-effort ITRA** | `dist_km + D+_m/100` | volume + dénivelé (catégorisation) | comparer/ranger des sorties |
+| **Scarf-équivalent** | `dist_km + 7,92·D+_km` (×10 femmes) | **temps** équivalent plat | estimer/juger le temps |
+| **Time-on-feet × D±** | `durée_h` + `ecc_load` (T14) | **fatigue réelle** (excentrique + durée) | readiness ultra / B2B |
+
+→ La **charge PMC** reste sur rTSS/sRPE, mais on **affiche les 3** ; une divergence forte
+(km-effort bas mais time-on-feet long) = sortie « durée-dominante » → ne pas juger à l'allure.
+
+### T16. Durabilité chiffrée (découplage par tiers)
+
+Formaliser la durabilité (T7) en **ratio interne/externe par tiers** plutôt que début/fin :
+
+```
+dec_ratio(tiers) = FC_moy(tiers) / GAP_moy(tiers)   (ou FC / VAM en montée)
+fade = (dec_ratio_T3 − dec_ratio_T1) / dec_ratio_T1 × 100
+```
+
+| fade | Durabilité | Action |
+|---|---|---|
+| < 5 % | solide (gate readiness ultra OK) | progresser durée/D± |
+| 5–10 % | limite modérée | + volume aérobie long, fin de longue active |
+| > 10 % | faible | résistance fatigue (intensité/renfo en fin de longue), pas d'ajout D− dur |
+
+Garde-fou : `fade` ininterprétable si terrain T1 ≠ T3 → croiser `tech_index`/mix de buckets → `unknown`.
+
+### T17. Analyse B2B / time-on-feet (bloc 2 jours)
+
+| Signal (J2 vs J1) | Seuil | Lecture |
+|---|---|---|
+| VAM montée J2 / J1 | ≥ 0,90 | objectif B2B atteint (courir sur jambes fatiguées sans effondrement) |
+| FC montée J2 à VAM égale | ≤ +5 % | durabilité inter-jours OK |
+| `descent_fade` J2 (T14) | none/moderate | dommage excentrique géré |
+| time-on-feet cumulé/jour | **> 8 h** | au-delà : récup > bénéfice → **splitter** |
+
+→ Le verdict d'un B2B se lit à la **stabilité J2** (VAM, FC, fade), **jamais** à l'allure
+moyenne. Un J2 plus lent mais à VAM:FC stable = **réussi**.
 
 ---
 
@@ -311,7 +479,7 @@ SI RPE incohérent /données (RPE haut + FC basse) → suspecter méforme → al
 | Indicateur | Calcul | Lecture |
 |---|---|---|
 | **Monotony (Foster)** | moyenne ÷ écart-type des charges quotidiennes (semaine) | > ~2,0 = entraînement trop uniforme (risque) |
-| **Strain (Foster)** | charge hebdo × monotony | pic de strain = fenêtre de surmenage |
+| **Strain (Foster)** | charge hebdo × monotony | **pas de seuil universel** (dépend de l'unité de charge) → individualiser en z-score vs baseline 4–6 sem ; `z_strain > +1,5` = pic |
 | **Tendance EF / découplage** | sur N semaines, à zone constante | EF↑ / découplage↓ = **durabilité qui progresse** |
 | **Convergence niveau/VDOT** | allures réelles durablement hors fourchette supposée | ajuster doucement le `level`/VDOT (pas d'à-coup) |
 | **Points faibles rafraîchis** | statuts buckets montée/descente sur les dernières sorties | maintenir/lever le boost (climbing…) selon le réalisé, pas un profil figé |
@@ -323,8 +491,10 @@ SI RPE incohérent /données (RPE haut + FC basse) → suspecter méforme → al
   ressenti** (RPE). Code : `computeACWR`, `computeDailyPMC`, `getTsbZone`.
 - **HRV en GATE, pas optimiseur** : ln-rMSSD (moy. mobile 7 j) vs bande SWC (baseline ± 0,5×SD)
   → dans/au-dessus = séance dure OK ; sous la bande = easy/repos. Baseline ≥ 4 sem.
-- ⚠️ **Critiques ACWR** : couplage mathématique (l'aiguë est une composante de la chronique) +
-  « sweet spot » contesté → **garde-fou croisé**, jamais seul. Idem dérive 5/10 % = heuristique.
+- ⚠️ **Critiques ACWR** : couplage mathématique (l'aiguë est une composante de la chronique →
+  artefact reproductible même avec une chronique aléatoire) + « sweet spot » contesté. L'ACWR est
+  un **outil de monitoring de charge, PAS un prédicteur de blessure** (Hulin/Gabbett eux-mêmes
+  ont regretté le verbe « predicts ») → **garde-fou croisé**, jamais seul. Idem dérive 5/10 %.
 
 ### V6. Qualité & fiabilité d'un verdict
 
@@ -334,21 +504,114 @@ SI RPE incohérent /données (RPE haut + FC basse) → suspecter méforme → al
 - **Reproductibilité** : tous les seuils sont des **constantes documentées** ; mêmes entrées →
   même verdict. Aucune donnée envoyée à l'extérieur, aucun apprentissage opaque.
 
+### V7. ACWR en EWMA (variante recommandée)
+
+Le rolling average pèse tous les jours pareil ; l'**EWMA** (décroissance exponentielle) est plus
+sensible et physiologiquement plus juste.
+
+```
+lambda_aigue     = 2 / (7+1)  = 0.25
+lambda_chronique = 2 / (28+1) ≈ 0.069
+EWMA_j   = charge_j × lambda + EWMA_(j−1) × (1 − lambda)   # init = charge du 1er jour
+ACWR_ewma = EWMA_aigue / EWMA_chronique          # = MONITORING DE CHARGE, pas prédiction blessure
+
+SI ACWR_ewma ∈ [0.80 ; 1.30] → progression de charge saine
+SI ACWR_ewma > 1.50          → pic de charge → garde-fou (croiser TSB, HRV, RPE)
+SI ACWR_ewma < 0.80 (≥ 2 sem)→ désentraînement → ré-augmenter progressivement
+# GARDE-FOU : ACWR seul ne coupe JAMAIS la charge ; exiger ≥ 2 signaux convergents.
+```
+
+### V8. Readiness score pondéré auditable (gate, pas optimiseur)
+
+```
+# Sous-signaux normalisés en {+1 favorable, 0 neutre, −1 défavorable}
+s_hrv     : ln-rMSSD 7j ≥ borne_basse_SWC → +1 ; dans bande → 0 ; sous bande → −1   (poids 1.0)
+s_sommeil : ≥ baseline−0.5h → +1 ; −0.5 à −1h → 0 ; < −1h ou < 6h → −1               (poids 0.8)
+s_fcrepos : ≤ baseline+3 → +1 ; +3 à +7 → 0 ; > +7 bpm → −1                          (poids 0.7)
+s_acwr    : ∈ [0.80;1.30] → +1 ; 1.30–1.50 → 0 ; > 1.50 ou < 0.80 → −1               (poids 0.6)
+s_rpe     : RPE ≤ prévu → +1 ; +1 cran → 0 ; ≥ +2 crans → −1                         (poids 0.9)
+
+readiness = Σ(poids × signe) / Σ(poids des signaux connus)        # ∈ [−1 ; +1], auditable
+confiance = high SI ≥ 4 signaux dont HRV ; medium SI ≥ 3 ; low sinon
+
+SI readiness ≥ +0.33        → feu vert : qualité/longue comme prévu
+SI −0.33 < readiness < +0.33→ feu orange : maintenir le volume, downgrade l'intensité d'un cran
+SI readiness ≤ −0.33        → feu rouge : easy ou repos (gate prioritaire sur le plan)
+# GARDE-FOU : HRV sous SWC OU FCrepos > +7 → plafonne à feu orange même si le score global est ok.
+```
+
+### V9. Détection surmenage multi-signaux
+
+```
+# Fenêtre 7 j, charge quotidienne sRPE-load
+monotony = moyenne(charges_7j) / ecart_type(charges_7j)
+strain   = somme(charges_7j) × monotony
+z_strain = (strain − moyenne_baseline) / ecart_type_baseline      # individualisé (baseline 4–6 sem)
+
+SI monotony > 2.0                              → variété insuffisante → injecter 1 jour bas
+SI monotony > 2.0 ET charge_hebdo top-tercile  → risque maladie/NFOR élevé (combinaison Foster)
+SI z_strain > +1.5                             → pic de strain → semaine d'allègement
+SI (HRV 7j ↓ ≥ 3 sem) ET (EF/découplage qui se dégrade à zone constante) → suspicion overreaching
+# GARDE-FOU : ≥ 2 signaux convergents avant d'alléger.
+```
+
+### V10. Garde-fou REDs / faible disponibilité énergétique (LEA)
+
+```
+EA = (apport_kcal − depense_exercice_kcal) / FFM_kg      # si données dispo
+SI EA ≤ 30 kcal/kg FFM/j (plusieurs jours) → drapeau LEA → NE PAS prescrire de surcharge
+SI ≥ 2 signaux indirects { FCrepos basse+fatigue, HRV durablement effondrée, perte de poids non
+   voulue, blessures de stress répétées, perf en chute à charge stable, aménorrhée signalée }
+   → drapeau REDs → orienter nutrition/médical, geler la progression
+# GARDE-FOU : LEA prime sur tout verdict « trop_facile » et toute prescription d'intensité.
+#            Déterministe = signal d'orientation, JAMAIS un diagnostic médical.
+```
+
+### V11. Recalibrage VDOT / Critical Speed depuis le réalisé
+
+```
+# Sources admissibles : course officielle, test terrain (2 efforts max), séance T/I propre.
+VDOT_observe = VDOT(meilleure perf récente)        # équivalences Daniels ; CS via §A11
+
+SI |VDOT_observe − VDOT_courant| ≤ 1 pt                       → bruit, pas de changement
+SI VDOT_observe > VDOT_courant (≥ 2 perfs concordantes, ≥ 2 sem) → +1 pt max/cycle (anti-à-coup)
+SI VDOT_observe < VDOT_courant durablement (hors fatigue/chaleur) → −1 pt après check readiness
+# GARDE-FOU : recalibrer SEULEMENT sur effort valide (pas course C, pas chaleur, pas technique) ;
+#            plusieurs points > une perf isolée ; changement borné à ±1 pt/cycle.
+```
+
+### V12. Séance hors-cible légitime
+
+```
+SI séance taguée {course_C, terrain_impose, test_terrain, sortie_decouverte}
+   → NE PAS appliquer la grille trop_dur/trop_facile → verdict = "hors_cible" (neutre)
+   → alimente quand même charge/PMC/ACWR ; sert au recalibrage (V11) SI effort valide
+# GARDE-FOU : une course C dure ne déclenche PAS d'allègement automatique du bloc suivant
+#            (c'était l'objectif), mais compte dans monotony/strain et ACWR.
+```
+
 ---
 
 ## Sources principales
 
-**Découplage / EF / charge** : TrainingPeaks (aerobic decoupling, EF, Normalized Graded Pace,
-TSS/IF/PMC) · Friel (zones FC, TSB) · Foster (sRPE-load, monotony/strain) · fellrnr (decoupling).
-**Allure / pacing** : Daniels (VDOT, RPE par zone) · Steve Magness / runningwritings (pacing,
-fade) · Strava GAP.
-**Trail / pente** : Minetti 2002 (coût métabolique de la pente) · Naismith/Scarf/Langmuir
-(temps vs D±) · ITRA (km-effort) · Uphill Athlete (VAM, AeT/AnT, marche) · Koop/CTS trainright
-(descente, courir/marcher).
-**Descente / durabilité** : Vernillo & Millet (Sports Med 2017 ; économie en pente PMC8281813) ·
-dommages descente (PMC11129977) · repeated-bout (MDPI 12/6/169) · durabilité Maunder (PMC9977827).
-**Adaptation / readiness** : Gabbett/IOC ACWR (PMC7047972) + critiques (couplage mathématique,
-Williams EWMA) · HRV Kiviniemi/Vesterinen (PubMed 26909534) · REDs (consensus IOC 2023, BJSM).
+**Découplage / EF / charge** : TrainingPeaks (aerobic decoupling, EF, NGP, TSS/IF/PMC) ·
+test AeT 5 % vs 10 % débattu (Evoke Endurance) · Friel (zones FC, TSB) · Foster 1998
+(sRPE-load, monotony/strain ; PubMed 9662690) · fellrnr (decoupling, GAP).
+**Allure / pacing / fractionné** : Daniels (VDOT, RPE par zone) · runningwritings 2024 (récup
+des fractionnés) · Run Baldwin (ratios travail:récup) · Strava GAP.
+**Critical Speed / power** : Vanhatalo 2011 · High North Running (CS/CP) · Stryd / TrainingPeaks
+(running power, rTSS-power ; validité Stryd PMC7404478, sous-estimation puissance).
+**Trail / pente** : Minetti 2002 (J Appl Physiol 01177.2001 ; min marche −10 %/course −20 %) ·
+Scarf 2007 (PubMed 17454539 ; α≈7,92, 8:1 H / 10:1 F) · Naismith/Langmuir · ITRA (km-effort) ·
+EOTS (PMC4575035 ; transition ~7,5 km/h) · Uphill Athlete (VAM, AeT/AnT, marche) · Koop/CTS.
+**Descente / durabilité** : Vernillo & Millet (Sports Med 2017 ; économie en pente PMC8281813,
+optimum −14/−20 %) · dommages descente MVIC/CK ~4 j (PMC11129977) · repeated-bout (PMC12846201,
+PMC12617245) · durabilité Maunder (PMC9977827) ; durabilité terrain trail (IJSPP 2025) ;
+decoupling ratio ↔ perf (Front Sports Act Living 2025).
+**Adaptation / readiness** : ACWR critiques — couplage mathématique, « pas un prédicteur de
+blessure » (PMC8138569 Impellizzeri 2021 ; PubMed 33332011) ; EWMA (Williams 2017, RG 311860780) ·
+TSB/CTL/ATL (Friel, TrainingPeaks) · HRV/SWC Kiviniemi/Vesterinen (PubMed 26909534 ; PMC8006223) ·
+REDs / EA ≤ 30 kcal/kg FFM (consensus IOC 2023, BJSM) · VDOT/CS recalibrage (PMC11534629).
 
 > Les constantes « load-bearing » (bandes VAM, seuils dérive 5/10 %, magnitudes ACWR,
 > coefficients Minetti) sont des **garde-fous** : re-vérifier contre la source primaire avant
