@@ -6,6 +6,10 @@ import type { ProjectionResult } from './computeRaceProjection'
 import type { StreamData } from './streams'
 import { compareProjectionToActual, type SectionCompare } from './raceComparison'
 import { minettiGradePenalty } from './gpxCore'
+import { vamBand, VAM_BAND_LABEL } from './coach/sessionAnalysis'
+
+// Ré-export pour les consommateurs historiques (RaceResult) — source de vérité = sessionAnalysis.
+export { VAM_BAND_LABEL }
 
 // Étiquette d'arrêt posée par le coureur (avec ou sans pause de la montre).
 export type IncidentLabel = 'chute' | 'crampe' | 'ravito' | 'hydratation' | 'douleur' | 'autre'
@@ -151,14 +155,6 @@ function makeGradeAtKm(samples: { d: number; alt: number | null }[]): (km: numbe
     }
     return slope(pts[pts.length - 2], pts[pts.length - 1])
   }
-}
-
-/** Bande de niveau VAM (cf. knowledge T2). */
-function vamBandOf(vam: number): 'elite' | 'strong' | 'fair' | 'weak' {
-  return vam >= 900 ? 'elite' : vam >= 700 ? 'strong' : vam >= 500 ? 'fair' : 'weak'
-}
-export const VAM_BAND_LABEL: Record<'elite' | 'strong' | 'fair' | 'weak', string> = {
-  elite: 'niveau élite', strong: 'bon niveau', fair: 'niveau amateur correct', weak: 'à renforcer',
 }
 
 function projPaceAtKm(km: number, proj: ProjectionResult): number | null {
@@ -440,7 +436,7 @@ export function computeRaceDebrief(
       startKm: s.startKm, endKm: s.endKm, grade: 0, deltaS: s.deltaS,
       actualVamMH: actVam != null ? Math.round(actVam) : null,
       projVamMH: projVam != null ? Math.round(projVam) : null,
-      vamBand: actVam != null ? vamBandOf(Math.round(actVam)) : undefined,
+      vamBand: actVam != null ? vamBand(Math.round(actVam)) : undefined,
       outcome,
       note: outcome === 'onplan' ? 'Tenue comme prévu.'
         : outcome === 'better' ? `Mieux que prévu (${fmtDeltaShort(s.deltaS)}).`
