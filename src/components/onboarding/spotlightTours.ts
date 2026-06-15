@@ -22,7 +22,7 @@ export const PAGE_TOURS: PageTour[] = [
       { selector: '[data-tour="dash-race"]', title: 'Ta stratégie de course', body: 'Le cœur de Vorcelab : ta course visée, le compte à rebours et la projection de ton temps. Clique la carte pour ouvrir la stratégie détaillée (parcours, allures, ravito).' },
       { selector: '[data-tour="dash-coach"]', title: 'Ton coach, aujourd’hui', body: 'La séance proposée du jour (jamais imposée — tu choisis), ton renfo, et ton rythme des 7 derniers jours. Touche la carte pour ouvrir ton plan complet.' },
       { selector: '[data-tour="dash-state"]', title: 'Ton état du jour', body: 'Forme, fatigue et fraîcheur calculées depuis tes activités. Le graphe montre ta charge des 6 dernières semaines — survole pour le détail jour par jour.' },
-      { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison). Et avec « ⇅ Réorganiser », range ton dashboard dans l’ordre que TU veux.' },
+      { selector: '[data-tour="dash-recent"]', title: 'Ce mois & tes sorties', body: 'Ton volume du mois et tes dernières séances. Clique une sortie pour son débrief détaillé (allure, FC, dérive, comparaison). ⚑ Pense à étiqueter tes courses comme « course » : c’est ce qui nourrit ton calibrage (VDOT/VMA). Et avec « ⇅ Réorganiser », range ton dashboard dans l’ordre que TU veux.' },
     ],
   },
   {
@@ -30,7 +30,7 @@ export const PAGE_TOURS: PageTour[] = [
     match: (p) => p === '/coach',
     steps: [
       { selector: '.coach-hero', title: 'Ton cap vers le jour J', body: "La course visée, le compte à rebours et la périodisation complète (base → développement → spécifique → affûtage → course). La frise te montre où tu en es et le volume du plan." },
-      { selector: '.coach-engine', title: 'Ton moteur', body: "Ce que l'algo lit de toi : niveau (VDOT), forme (CTL), fraîcheur, durabilité, côtes. C'est ce qui calibre ton plan et justifie chaque séance." },
+      { selector: '.coach-engine', title: 'Ton moteur', body: "Ce que l'algo lit de toi : niveau (VDOT), VMA/seuil, forme (CTL), fraîcheur, durabilité, côtes. C'est ce qui calibre ton plan. ⚑ Étiquette tes courses comme « course » : ce sont tes efforts maximaux, et c'est ce qui fiabilise ton VDOT, ta VMA et ton calibrage." },
       { selector: '[data-tour="coach-week"]', title: 'Cette semaine', body: 'Tes séances proposées — jamais imposées. Tu choisis ta séance du jour, tu la lies à ton activité Strava, et le plan s’adapte à ton ressenti.' },
       { selector: '[data-tour="coach-renfo"]', title: 'Ton renfo, intégré', body: "Le renforcement vit ici, co-périodisé avec ta course : séance suggérée selon ta charge, bibliothèque par focus, et gestion de tes séances récentes (liaison Strava incluse)." },
     ],

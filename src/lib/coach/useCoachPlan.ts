@@ -9,6 +9,7 @@ import { applyReplan } from './replan'
 import { fuseRenfoIntoWeek } from './renfoFusion'
 import type { RunnerProfileComputed } from '../runnerProfile'
 import { deriveRunnerPaces, deriveAutoPrs } from '../runnerPaces'
+import { buildFitnessAnchor } from '../criticalSpeed'
 import { computeDailyPMC, computeACWR } from '../trainingLoad'
 import type { LinkActivity } from '../../components/SessionFeedback'
 
@@ -114,10 +115,22 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
   // Profil réel → signaux d'adaptation : niveau (VDOT) + points faibles (runner_profile).
   // VDOT : PR manuels d'abord, complétés par les PR AUTO dérivés des courses étiquetées.
   const autoPrs = useMemo(() => deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0]), [activities])
-  const vdot = useMemo(
-    () => deriveRunnerPaces({ ...(autoPrs ?? {}), ...((profile?.prs as Record<string, unknown>) ?? {}) }, profile?.vo2max)?.vdot ?? 45,
+  const runnerPaces = useMemo(
+    () => deriveRunnerPaces({ ...(autoPrs ?? {}), ...((profile?.prs as Record<string, unknown>) ?? {}) }, profile?.vo2max),
     [autoPrs, profile?.prs, profile?.vo2max],
   )
+  const vdot = runnerPaces?.vdot ?? 45
+
+  // Ancre de forme consolidée (VMA + CS) : calibrage déterministe depuis l'historique,
+  // réconcilié avec le seuil VDOT. (Le test demi-Cooper viendra l'affiner.)
+  const fitnessAnchor = useMemo(() => {
+    const merged = { ...(autoPrs ?? {}), ...((profile?.prs as Record<string, unknown>) ?? {}) }
+    const efforts = Object.values(merged)
+      .map((v) => v as { timeS?: number | null; dist?: number | null })
+      .filter((v) => typeof v?.timeS === 'number' && typeof v?.dist === 'number' && v.timeS! > 0 && v.dist! >= 1000)
+      .map((v) => ({ timeSec: v.timeS as number, distM: v.dist as number }))
+    return buildFitnessAnchor({ efforts, vdotThresholdSecPerKm: runnerPaces?.thresholdSecPerKm ?? null })
+  }, [autoPrs, profile?.prs, runnerPaces])
   const level = useMemo(() => levelFromVdot(vdot), [vdot])
   const weaknesses = useMemo(
     () => weaknessesFromRunnerProfile(profile?.runner_profile ?? null),
@@ -181,7 +194,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     isLoading,
     races, upcoming, targetRace, secondaryRaces,
     profile, activities,
-    vdot, level, weaknesses,
+    vdot, level, weaknesses, fitnessAnchor,
     loadSignals, pmcToday, currentCTL,
     daysPerWeek, motivation,
     plan, replan, displayWeeks, renfoFusion,
