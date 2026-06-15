@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import WeekMenu from './coach/WeekMenu'
 import { fuseRenfoIntoWeek } from '../lib/coach/renfoFusion'
+import { computeCoPerioWarnings } from '../lib/renfoUtils'
 import type { SessionLogRow } from '../lib/coach/sessionLog'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import { ChevronLeft, ChevronRight } from './coach/CoachIcons'
@@ -131,8 +132,15 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
   const week = weeks[off]
   const isCurrent = off === 0
 
+  // Co-périodisation (fatigue récente) — ne vaut que pour la semaine COURANTE.
+  // Source unique : focus à éviter / à privilégier, partagée par la séance proposée
+  // (fusion) ET les badges du détail renfo → jamais de contradiction.
+  const coPerio = isCurrent ? computeCoPerioWarnings(activities as Parameters<typeof computeCoPerioWarnings>[0]) : []
+  const avoided = new Set(coPerio.flatMap((w) => w.avoid))
+  const preferred = new Set(coPerio.flatMap((w) => w.prefer))
+
   // Séances de renfo fusionnées dans CETTE semaine (course + renfo, même menu).
-  const renfoSlots = fuseRenfoIntoWeek(week, renfoSessionsPerWeek ?? null)?.slots ?? []
+  const renfoSlots = fuseRenfoIntoWeek(week, renfoSessionsPerWeek ?? null, avoided)?.slots ?? []
 
   // Séances déjà validées (depuis session_log), clé `${workoutId}@${date}` —
   // distingue deux séances de même type (ex. deux footings) dans la semaine.
@@ -164,6 +172,8 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
         isCurrent={isCurrent}
         weekStartISO={week.weekStartISO}
         renfoSlots={renfoSlots}
+        renfoPreferred={preferred}
+        renfoAvoided={avoided}
         scale={isCurrent ? scale : undefined}
         doneByKey={doneByKey}
         onSaved={onSaved}

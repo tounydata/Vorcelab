@@ -61,7 +61,7 @@ function DifficultyDots({ level }: { level: number }) {
   )
 }
 
-export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, weekStartISO, renfoSlots, scale, doneByKey, onSaved }: {
+export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, weekStartISO, renfoSlots, renfoPreferred, renfoAvoided, scale, doneByKey, onSaved }: {
   week: PlanWeek
   vdot: number
   fcMax?: number | null
@@ -69,6 +69,9 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
   isCurrent: boolean
   weekStartISO?: string
   renfoSlots: RenfoSlot[]
+  /** Co-périodisation (source unique des badges recommandé / à éviter du détail renfo). */
+  renfoPreferred?: Set<string>
+  renfoAvoided?: Set<string>
   /** Modulation v3 : adapte la séance qualité ciblée (semaine courante). */
   scale?: { workoutId: string; dir: ModulationDir }
   /** Séances validées, clé `${workoutId}@${dateISO}` → badge « faite » + verdict. */
@@ -126,7 +129,7 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
         {selected.kind === 'renfo' ? (
           <>
             <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, color: 'var(--vl-text)', margin: '0 0 12px' }}>{selected.name}</div>
-            <RenfoDetail slotFocus={selected.focus} />
+            <RenfoDetail slotFocus={selected.focus} preferred={renfoPreferred} avoided={renfoAvoided} />
           </>
         ) : (
           <RunDetail
