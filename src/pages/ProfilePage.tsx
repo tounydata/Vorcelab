@@ -417,7 +417,6 @@ interface ProfileRow {
   fc_max?: number | null
   lactate_threshold?: number | null
   lactate_pace?: string | null
-  goals?: string | null
   sex?: string | null
   birthdate?: string | null
   avatar_url?: string | null
@@ -471,7 +470,6 @@ export default function ProfilePage() {
   const [fcMax, setFcMax] = useState('')
   const [lactate, setLactate] = useState('')
   const [lactatePace, setLactatePace] = useState('')
-  const [goals, setGoals] = useState('')
   const [formLoaded, setFormLoaded] = useState(false)
 
   // Records state
@@ -490,7 +488,7 @@ export default function ProfilePage() {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,nutrition_no_caffeine,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation,fc_zones')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,nutrition_no_caffeine,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation,fc_zones')
         .eq('id', user.id)
         .single()
       return data as ProfileRow | null
@@ -509,7 +507,6 @@ export default function ProfilePage() {
     setFcMax(profileRow.fc_max != null ? String(profileRow.fc_max) : '')
     setLactate(profileRow.lactate_threshold != null ? String(profileRow.lactate_threshold) : '')
     setLactatePace(profileRow.lactate_pace ?? '')
-    setGoals(profileRow.goals ?? '')
     setFormLoaded(true)
   }
 
@@ -555,7 +552,6 @@ export default function ProfilePage() {
       fc_max: fcMax ? parseInt(fcMax) : null,
       lactate_threshold: lactate ? parseInt(lactate) : null,
       lactate_pace: lactatePace || null,
-      goals: goals || null,
     })
     await refetch()
     setSaveMsg('Sauvegardé ✓')
@@ -635,18 +631,6 @@ export default function ProfilePage() {
                 <div className="fg">
                   <span className="fl">SEUIL LACTIQUE (/KM)</span>
                   <input className="fi" type="text" value={lactatePace} onChange={(e) => setLactatePace(e.target.value)} placeholder="4:50" />
-                </div>
-
-                <div className="fg">
-                  <span className="fl">OBJECTIFS</span>
-                  <textarea
-                    className="fi"
-                    value={goals}
-                    onChange={(e) => setGoals(e.target.value)}
-                    placeholder="Vos objectifs de course..."
-                    rows={3}
-                    style={{ resize: 'vertical' }}
-                  />
                 </div>
 
                 <button
