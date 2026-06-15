@@ -61,33 +61,55 @@ const HEAVY_FOCUSES = new Set(['force_lourde', 'pliometrie', 'excentrique'])
 
 /**
  * Construit la liste des focus renfo de la semaine selon la phase course et le
- * nombre de séances/semaine. En décharge (taper/course) : uniquement du léger.
+ * nombre de séances/semaine.
+ *  • `recovery` (décharge/affûtage OU récup post-course) : UNIQUEMENT du léger —
+ *    on est en DOMS/fatigue, donc pas de force lourde, pliométrie ni excentrique
+ *    (knowledge §9 : « pas de plio/excentrique en état de fatigue/DOMS »).
+ *  • `avoid` (co-périodisation, fatigue récente) : on ne programme jamais un focus
+ *    à éviter cette semaine — c'est la MÊME source que les badges « à éviter ».
+ *  • Lourd plafonné à **1×/sem** (knowledge §9 : maintien ~1×/sem ; le 2×/sem n'est
+ *    réservé qu'au bloc force-max dédié, pas un défaut imposé à tous).
  */
-function weeklyFocuses(phase: Phase, sessionsPerWeek: number): { focus: string; heavy: boolean }[] {
+function weeklyFocuses(phase: Phase, sessionsPerWeek: number, opts: { recovery: boolean; avoid: Set<string> }): { focus: string; heavy: boolean }[] {
   const dup = runningPhaseToDUP(phase)
   const n = Math.max(0, Math.min(6, sessionsPerWeek))
   if (n === 0) return []
-  if (dup === 'deload') {
-    return Array.from({ length: n }, (_, i) => ({ focus: DELOAD_FOCUSES[i % DELOAD_FOCUSES.length], heavy: false }))
+
+  const lightPool = LIGHT_FILLERS.filter((f) => !opts.avoid.has(f))
+  const fillers = lightPool.length > 0 ? lightPool : LIGHT_FILLERS
+  const light = (i: number) => ({ focus: fillers[i % fillers.length], heavy: false })
+
+  if (opts.recovery || dup === 'deload') {
+    const dl = DELOAD_FOCUSES.filter((f) => !opts.avoid.has(f))
+    const pool = dl.length > 0 ? dl : DELOAD_FOCUSES
+    return Array.from({ length: n }, (_, i) => ({ focus: pool[i % pool.length], heavy: false }))
   }
+
   const heavyFocus = HEAVY_FOCUS[dup]
-  const heavyCount = n >= 3 ? 2 : 1
+  // Un seul créneau lourd par semaine, et zéro si la fatigue récente l'interdit.
+  const heavyCount = opts.avoid.has(heavyFocus) ? 0 : 1
   const out: { focus: string; heavy: boolean }[] = []
   for (let i = 0; i < n; i++) {
-    if (i < heavyCount) out.push({ focus: heavyFocus, heavy: true })
-    else out.push({ focus: LIGHT_FILLERS[(i - heavyCount) % LIGHT_FILLERS.length], heavy: false })
+    out.push(i < heavyCount ? { focus: heavyFocus, heavy: true } : light(i - heavyCount))
   }
   return out
 }
 
 /**
  * Fusionne le renfo dans la semaine course. `sessionsPerWeek` vient du profil renfo.
+ * `avoid` = focus à éviter cette semaine (co-périodisation, fatigue récente) — passé
+ * pour que la séance PROPOSÉE et le badge « à éviter » ne se contredisent jamais.
  * Renvoie `null` si pas de renfo configuré (rien à afficher).
  */
-export function fuseRenfoIntoWeek(week: PlanWeek, sessionsPerWeek: number | null | undefined): RenfoFusion | null {
+export function fuseRenfoIntoWeek(
+  week: PlanWeek,
+  sessionsPerWeek: number | null | undefined,
+  avoid: Set<string> = new Set(),
+): RenfoFusion | null {
   const n = sessionsPerWeek ?? 0
   if (n <= 0) return null
-  const dupPhase = runningPhaseToDUP(week.phase)
+  const recovery = week.isPostRaceRecovery === true
+  const dupPhase: RenfoFusion['dupPhase'] = recovery ? 'deload' : runningPhaseToDUP(week.phase)
 
   // Cartographie des jours course de la semaine.
   const runByDay = new Map<number, PlannedSession[]>()
@@ -110,7 +132,7 @@ export function fuseRenfoIntoWeek(week: PlanWeek, sessionsPerWeek: number | null
   const eveOfKey = (d: number): boolean => d < 7 && keyDays.has(d + 1)
   const usable = (d: number): boolean => d !== raceDay
 
-  const focuses = weeklyFocuses(week.phase, n)
+  const focuses = weeklyFocuses(week.phase, n, { recovery, avoid })
   const assigned = new Set<number>()
   const slots: RenfoSlot[] = []
 
@@ -161,9 +183,11 @@ export function fuseRenfoIntoWeek(week: PlanWeek, sessionsPerWeek: number | null
   slots.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
 
   const note =
-    dupPhase === 'deload'
-      ? 'Phase d\'affûtage/décharge : renfo léger uniquement (mobilité, gainage) — aucun nouveau stimulus de force lourde près du jour J.'
-      : `Renfo synchronisé à ta phase course (${dupPhase}) et placé pour ne jamais fatiguer tes jambes la veille d'une séance clé.`
+    recovery
+      ? 'Récup post-course : renfo léger uniquement (mobilité, gainage, yoga) — pas de force lourde ni pliométrie tant que tes jambes encaissent encore la course.'
+      : dupPhase === 'deload'
+        ? 'Phase d\'affûtage/décharge : renfo léger uniquement (mobilité, gainage) — aucun nouveau stimulus de force lourde près du jour J.'
+        : `Renfo synchronisé à ta phase course (${dupPhase}), 1 créneau lourd max/semaine, placé pour ne jamais fatiguer tes jambes la veille d'une séance clé.`
 
   return { dupPhase, slots, note }
 }

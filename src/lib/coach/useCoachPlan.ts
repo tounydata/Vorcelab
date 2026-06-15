@@ -7,6 +7,7 @@ import { type CoachMotivation } from './motivation'
 import { levelFromVdot, weaknessesFromRunnerProfile } from './profileSignals'
 import { applyReplan } from './replan'
 import { fuseRenfoIntoWeek } from './renfoFusion'
+import { computeCoPerioWarnings } from '../renfoUtils'
 import type { RunnerProfileComputed } from '../runnerProfile'
 import { deriveRunnerPaces, deriveAutoPrs } from '../runnerPaces'
 import { buildFitnessAnchor } from '../criticalSpeed'
@@ -189,9 +190,16 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     },
   })
   const renfoSessionsPerWeek = renfoProfile?.sessions_per_week ?? null
+  // Co-périodisation (fatigue récente) → focus à éviter cette semaine. MÊME source
+  // que les badges « à éviter » du détail renfo : la séance proposée ne peut donc
+  // jamais contredire le badge.
+  const renfoAvoid = useMemo(
+    () => new Set(computeCoPerioWarnings(activities as Parameters<typeof computeCoPerioWarnings>[0]).flatMap((w) => w.avoid)),
+    [activities],
+  )
   const renfoFusion = useMemo(
-    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoSessionsPerWeek) : null),
-    [displayWeeks, renfoSessionsPerWeek],
+    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoSessionsPerWeek, renfoAvoid) : null),
+    [displayWeeks, renfoSessionsPerWeek, renfoAvoid],
   )
 
   return {

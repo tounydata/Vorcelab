@@ -74,4 +74,36 @@ describe('fuseRenfoIntoWeek', () => {
     const days = f.slots.map((sl) => sl.dayOfWeek)
     expect(new Set(days).size).toBe(days.length)
   })
+
+  it('plafonne le renfo LOURD à 1 par semaine (maintien, pas 2/3)', () => {
+    for (const n of [3, 4, 5, 6]) {
+      const heavy = fuseRenfoIntoWeek(buildWeek, n)!.slots.filter((sl) => sl.heavy)
+      expect(heavy.length).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('récup post-course : aucun renfo lourd (DOMS) malgré la phase', () => {
+    const postRace: PlanWeek = {
+      ...week('base', [
+        s({ dayOfWeek: 2, system: 'endurance', intensity: 'easy' }),
+        s({ dayOfWeek: 5, system: 'endurance', intensity: 'easy' }),
+      ]),
+      isPostRaceRecovery: true,
+    }
+    const f = fuseRenfoIntoWeek(postRace, 3)!
+    expect(f.dupPhase).toBe('deload')
+    expect(f.slots.every((sl) => !sl.heavy)).toBe(true)
+    expect(f.slots.some((sl) => sl.focus === 'force_lourde' || sl.focus === 'pliometrie')).toBe(false)
+  })
+
+  it('respecte le set « à éviter » : ne programme pas un focus lourd à éviter', () => {
+    const baseWk = week('base', [
+      s({ dayOfWeek: 2, system: 'vo2max', intensity: 'hard' }),
+      s({ dayOfWeek: 4, system: 'endurance', intensity: 'easy' }),
+    ])
+    // base → force lourde, mais on l'évite (sortie longue récente) → aucun lourd.
+    const f = fuseRenfoIntoWeek(baseWk, 3, new Set(['force_lourde', 'pliometrie']))!
+    expect(f.slots.some((sl) => sl.focus === 'force_lourde')).toBe(false)
+    expect(f.slots.every((sl) => !sl.heavy)).toBe(true)
+  })
 })

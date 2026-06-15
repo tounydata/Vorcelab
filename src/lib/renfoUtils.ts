@@ -4,6 +4,8 @@
 
 export interface Activity {
   start_date_local?: string
+  /** Repli quand l'activité ne porte que la date UTC (ex. flux coach partagé). */
+  start_date?: string
   type?: string
   sport_type?: string
   distance?: number
@@ -116,7 +118,7 @@ export function computeCoPerioWarnings(activities: Activity[]): CoPerioWarning[]
   for (const act of activities) {
     if (!isRunActivity(act)) continue  // ignore vélo, marche, etc.
 
-    const actMs = new Date(act.start_date_local ?? '').getTime()
+    const actMs = new Date(act.start_date_local ?? act.start_date ?? '').getTime()
     if (!actMs || actMs < cutoffMs) continue
 
     const daysAgo = Math.round((now - actMs) / 86400000)
