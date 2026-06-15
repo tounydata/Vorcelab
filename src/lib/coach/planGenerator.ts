@@ -56,6 +56,9 @@ export interface PlannedSession {
   intensity: Intensity
   targetDurationMin: number
   climbing: boolean
+  /** Objectif de D+ (m) pour les séances en côte/longue trail — fourchette indicative,
+   *  progressant vers le D+ de la course (cf. climbTargetBandM). null hors trail. */
+  climbTargetM?: { min: number; max: number } | null
   description: string
 }
 
@@ -222,6 +225,22 @@ function scaleDuration(baseMin: number, phase: Phase, isRecovery: boolean, weeks
   return Math.round(m / 5) * 5
 }
 
+/**
+ * Objectif de D+ (m) de la SORTIE LONGUE trail, en fourchette indicative, exprimé
+ * comme un % du D+ de la course qui MONTE vers le pic en spécifique puis redescend
+ * en affûtage (Uphill Athlete : « longue = % du D+ course », pics 50→100 % des totaux ;
+ * progression élévation ≤ +20 %/sem). Renvoie null hors trail (D+ course nul).
+ */
+export function longRunClimbBandM(phase: Phase, raceElevationM: number, isRecovery = false): { min: number; max: number } | null {
+  if (raceElevationM <= 0) return null
+  const frac: Record<Phase, number> = { base: 0.30, build: 0.45, specific: 0.58, taper: 0.35, race: 0 }
+  const f = frac[phase]
+  if (f <= 0) return null
+  const center = raceElevationM * f * (isRecovery ? 0.7 : 1)
+  const round10 = (x: number) => Math.max(0, Math.round(x / 10) * 10)
+  return { min: round10(center * 0.85), max: round10(center * 1.15) }
+}
+
 function toSession(workoutId: string, dayOfWeek: number, phase: Phase, isRecovery: boolean, weeksToGo = 0): PlannedSession {
   const w = getWorkout(workoutId)!
   return {
@@ -370,7 +389,9 @@ function buildTrainingWeek(
   // 1) Sortie longue (sauf B : mini-affûtage → pas de charge en plus de la course).
   if (weekRace?.priority !== 'B') {
     const longId = isTrail ? 'long_run_dplus' : 'long_run_flat'
-    sessions.push(toSession(longId, nextSlot(), phase, isRecovery, weeksToGo))
+    const longSession = toSession(longId, nextSlot(), phase, isRecovery, weeksToGo)
+    if (isTrail) longSession.climbTargetM = longRunClimbBandM(phase, input.raceElevationM, isRecovery)
+    sessions.push(longSession)
   }
 
   // 2) Séances de qualité selon la phase (réduites en semaine de décharge),
