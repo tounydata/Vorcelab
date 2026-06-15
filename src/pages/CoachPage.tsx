@@ -145,6 +145,12 @@ function fmtRaceDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+function fmtPaceMMSS(secPerKm: number): string {
+  const s = Math.max(0, Math.round(secPerKm))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+const ANCHOR_SOURCE_LABEL: Record<string, string> = { test: 'test', history: 'historique', vdot: 'VDOT' }
+
 export default function CoachPage() {
   const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
@@ -153,7 +159,7 @@ export default function CoachPage() {
   const {
     isLoading, upcoming, targetRace,
     profile, activities,
-    vdot, level, weaknesses,
+    vdot, level, weaknesses, fitnessAnchor,
     pmcToday, currentCTL,
     plan, replan, displayWeeks, renfoFusion,
   } = useCoachPlan(selectedRaceId)
@@ -304,6 +310,12 @@ export default function CoachPage() {
     : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
   const engine: { cl: string; v: string; sub: string; color: string }[] = [
     { cl: 'Niveau · VDOT', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
+    ...(fitnessAnchor ? [{
+      cl: 'VMA · seuil',
+      v: `${(fitnessAnchor.vmaMetersPerSec * 3.6).toFixed(1)}`,
+      sub: `km/h · CS ${fmtPaceMMSS(fitnessAnchor.csPaceSecPerKm)}/km · via ${ANCHOR_SOURCE_LABEL[fitnessAnchor.source]}`,
+      color: 'var(--vl-growth)',
+    }] : []),
     { cl: 'Fond · CTL', v: currentCTL != null ? String(currentCTL) : '—', sub: 'Charge chronique', color: 'var(--vl-ember)' },
     { cl: 'Fraîcheur · TSB', v: pmcToday ? (pmcToday.tsb > 0 ? `+${pmcToday.tsb}` : String(pmcToday.tsb)) : '—', sub: pmcToday ? (pmcToday.tsb > 5 ? 'Frais' : pmcToday.tsb < -10 ? 'Chargé' : 'Stable') : '—', color: 'var(--vl-status-peak)' },
     { cl: 'Durabilité', v: durability.v, sub: durability.sub, color: durability.color },
