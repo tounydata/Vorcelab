@@ -14,12 +14,14 @@ const FC_ZONES = [
 ]
 
 /** Carte « Mes allures » — allures d'entraînement réelles + zones FC. Null-safe. */
-export default function PaceZonesCard({ prs, vo2max, fcMax, bare = false }: {
+export default function PaceZonesCard({ prs, vo2max, fcMax, bare = false, showFcZones = true }: {
   prs?: Record<string, unknown> | null
   vo2max?: number | null
   fcMax?: number | null
   /** Rend le contenu sans la carte ni l'en-tête « MES ALLURES » (pour un accordéon). */
   bare?: boolean
+  /** Affiche les zones FC dérivées (désactivé si une carte FC éditable les remplace). */
+  showFcZones?: boolean
 }) {
   const rp = deriveRunnerPaces(prs, vo2max)
 
@@ -63,7 +65,7 @@ export default function PaceZonesCard({ prs, vo2max, fcMax, bare = false }: {
         </div>
       ) : null}
 
-      {fcMax ? (
+      {fcMax && showFcZones ? (
         <div>
           <div className="clabel" style={{ margin: '0 0 6px', fontSize: 9 }}>ZONES FC · %FCMAX {fcMax}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

@@ -4,6 +4,8 @@ import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import PaceZonesCard from '../components/PaceZonesCard'
+import HrZonesCard from '../components/HrZonesCard'
+import type { HrZoneConfig } from '../lib/hrZones'
 import ProfileTabs from '../components/ProfileTabs'
 import {
   fmtVam,
@@ -406,6 +408,7 @@ interface ProfileRow {
   coach_days_per_week?: number | null
   renfo_weekly_target?: number | null
   coach_motivation?: string | null
+  fc_zones?: HrZoneConfig | null
 }
 
 // ─── Tab styles ───────────────────────────────────────────────────────────────
@@ -458,6 +461,7 @@ export default function ProfilePage() {
 
   // Save state
   const [saveMsg, setSaveMsg] = useState('')
+  const [savingZones, setSavingZones] = useState(false)
 
   const { data: profileRow, isLoading, refetch } = useQuery<ProfileRow | null>({
     queryKey: ['profile-full', user?.id],
@@ -465,7 +469,7 @@ export default function ProfilePage() {
       if (!user) return null
       const { data } = await supabase
         .from('profiles')
-        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,nutrition_no_caffeine,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation')
+        .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,goals,sex,birthdate,avatar_url,prs,nutrition_level,nutrition_products,nutrition_no_caffeine,runner_profile,coach_days_per_week,renfo_weekly_target,coach_motivation,fc_zones')
         .eq('id', user.id)
         .single()
       return data as ProfileRow | null
@@ -758,7 +762,19 @@ export default function ProfilePage() {
           ) : (
             <>
               {/* Allures de référence (déplacées ici depuis le profil) */}
-              <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} />
+              <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} showFcZones={false} />
+              <HrZonesCard
+                config={profileRow?.fc_zones ?? null}
+                inputs={{ fcMax: profileRow?.fc_max, lthr: profileRow?.lactate_threshold }}
+                saving={savingZones}
+                onSave={async (cfg) => {
+                  if (!user) return
+                  setSavingZones(true)
+                  const { error } = await supabase.from('profiles').update({ fc_zones: cfg }).eq('id', user.id)
+                  if (!error) await queryClient.invalidateQueries({ queryKey: ['profile-full', user.id] })
+                  setSavingZones(false)
+                }}
+              />
 
               {/* Progress bar (auto or manual compute) */}
               {computing && (
