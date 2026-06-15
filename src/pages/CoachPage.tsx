@@ -9,6 +9,7 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/co
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
+import { vmaFromHalfCooperM, CS_TO_VMA } from '../lib/criticalSpeed'
 import RenfoSection from '../components/coach/RenfoSection'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
@@ -151,6 +152,47 @@ function fmtPaceMMSS(secPerKm: number): string {
 }
 const ANCHOR_SOURCE_LABEL: Record<string, string> = { test: 'test', history: 'historique', vdot: 'VDOT' }
 
+// Carte « Calibrons ton plan » : propose le test demi-Cooper (6 min) pour caler la
+// VMA/CS ; sinon le coach reste sur l'historique récent. Masquée une fois calibrée
+// par test (ou rejetée pour la session). Garde l'UX simple : une saisie, deux boutons.
+function CalibrationCard({ source, saving, onSave }: { source?: string; saving: boolean; onSave: (m: number) => void }) {
+  const [dismissed, setDismissed] = useState(false)
+  const [dist, setDist] = useState('')
+  if (source === 'test' || dismissed) return null
+  const m = parseInt(dist, 10)
+  const valid = Number.isFinite(m) && m >= 800 && m <= 3000
+  const vmaKmh = valid ? +(vmaFromHalfCooperM(m) * 3.6).toFixed(1) : null
+  const csKmh = vmaKmh != null ? +(vmaKmh * CS_TO_VMA).toFixed(1) : null
+  return (
+    <div className="card" style={{ borderLeft: '4px solid var(--vl-status-peak)', padding: '12px 16px', marginBottom: '1rem' }}>
+      <div style={{ fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>Calibrons ton plan</div>
+      <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5, marginBottom: 10 }}>
+        Fais un <strong>test VMA (demi-Cooper)</strong> : 6 min à fond après échauffement, et entre la distance couverte.
+        5 min qui rendent toutes tes allures plus justes. Sinon, on se base sur ton <strong>historique récent</strong>.
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <input
+          type="number" inputMode="numeric" value={dist} onChange={(e) => setDist(e.target.value)}
+          placeholder="Distance en 6 min (m)"
+          style={{ width: 170, padding: '7px 10px', background: 'var(--vl-surf-2)', color: 'var(--vl-text)', border: '1px solid var(--vl-line-2)', borderRadius: 6, fontFamily: 'var(--vl-mono)', fontSize: 13 }}
+        />
+        <button className="hbtn" disabled={!valid || saving} onClick={() => valid && onSave(m)}
+          style={{ background: valid ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: valid ? 'var(--vl-ink)' : 'var(--vl-text-3)', border: 'none', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Enregistrement…' : 'Enregistrer le test'}
+        </button>
+        <button className="hbtn" onClick={() => setDismissed(true)} style={{ fontSize: '.82rem' }}>
+          Utiliser mon historique
+        </button>
+      </div>
+      {csKmh != null && (
+        <div className="mono" style={{ fontSize: 11.5, color: 'var(--vl-text-3)', marginTop: 8 }}>
+          ≈ VMA {vmaKmh} km/h · CS (allure ~60 min) {csKmh} km/h
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CoachPage() {
   const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
@@ -172,6 +214,17 @@ export default function CoachPage() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['races'] }),
+  })
+
+  // Test demi-Cooper (6 min) → calibre la VMA/CS. NULL = fallback historique.
+  const demiCooperMut = useMutation({
+    mutationFn: async (distanceM: number) => {
+      const { error } = await supabase.from('profiles')
+        .update({ demi_cooper: { distanceM, dateISO: new Date().toISOString().slice(0, 10) } })
+        .eq('id', user!.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile-sessions'] }),
   })
 
   // ── Modulation v3 : le verdict de la dernière séance ajuste la prochaine ──
@@ -409,6 +462,9 @@ export default function CoachPage() {
           </div>
         ))}
       </div>
+
+      {/* Calibrage : propose le test demi-Cooper (sinon historique) — voir « VMA · seuil » ci-dessus. */}
+      <CalibrationCard source={fitnessAnchor?.source} saving={demiCooperMut.isPending} onSave={(mtr) => demiCooperMut.mutate(mtr)} />
 
       {/* ── 3 · POURQUOI CE PLAN : voix éditoriale (Fraunces assumé, cf. audit) ── */}
       {rationale.length > 0 && (

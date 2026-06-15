@@ -34,6 +34,8 @@ export interface CoachProfileRow {
   runner_profile?: RunnerProfileComputed | null
   coach_days_per_week?: number | null
   coach_motivation?: string | null
+  /** Test demi-Cooper (6 min) pour calibrer la VMA/CS. */
+  demi_cooper?: { distanceM?: number | null; dateISO?: string | null } | null
 }
 
 function todayISO(): string {
@@ -59,7 +61,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     queryKey: ['profile-sessions'],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation').eq('id', user!.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation,demi_cooper').eq('id', user!.id).maybeSingle()
       return (data ?? null) as CoachProfileRow | null
     },
   })
@@ -129,8 +131,9 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       .map((v) => v as { timeS?: number | null; dist?: number | null })
       .filter((v) => typeof v?.timeS === 'number' && typeof v?.dist === 'number' && v.timeS! > 0 && v.dist! >= 1000)
       .map((v) => ({ timeSec: v.timeS as number, distM: v.dist as number }))
-    return buildFitnessAnchor({ efforts, vdotThresholdSecPerKm: runnerPaces?.thresholdSecPerKm ?? null })
-  }, [autoPrs, profile?.prs, runnerPaces])
+    const halfCooperDistanceM = profile?.demi_cooper?.distanceM ?? null
+    return buildFitnessAnchor({ halfCooperDistanceM, efforts, vdotThresholdSecPerKm: runnerPaces?.thresholdSecPerKm ?? null })
+  }, [autoPrs, profile?.prs, profile?.demi_cooper, runnerPaces])
   const level = useMemo(() => levelFromVdot(vdot), [vdot])
   const weaknesses = useMemo(
     () => weaknessesFromRunnerProfile(profile?.runner_profile ?? null),
