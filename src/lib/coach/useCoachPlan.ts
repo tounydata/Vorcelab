@@ -188,9 +188,10 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       return data as { sessions_per_week?: number | null } | null
     },
   })
+  const renfoSessionsPerWeek = renfoProfile?.sessions_per_week ?? null
   const renfoFusion = useMemo(
-    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoProfile?.sessions_per_week ?? null) : null),
-    [displayWeeks, renfoProfile?.sessions_per_week],
+    () => (displayWeeks[0] ? fuseRenfoIntoWeek(displayWeeks[0], renfoSessionsPerWeek) : null),
+    [displayWeeks, renfoSessionsPerWeek],
   )
 
   return {
@@ -200,6 +201,6 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     vdot, level, weaknesses, fitnessAnchor,
     loadSignals, pmcToday, currentCTL,
     daysPerWeek, motivation,
-    plan, replan, displayWeeks, renfoFusion,
+    plan, replan, displayWeeks, renfoFusion, renfoSessionsPerWeek,
   }
 }

@@ -1,29 +1,12 @@
 import { useState } from 'react'
-import SessionBrowser, { type SessionBrowserLink } from './SessionBrowser'
-import { buildWeekCatalog } from '../lib/coach/catalog'
+import WeekMenu from './coach/WeekMenu'
+import { fuseRenfoIntoWeek } from '../lib/coach/renfoFusion'
 import type { SessionLogRow } from '../lib/coach/sessionLog'
-import { buildRecommendContext } from '../lib/coach/recommendContext'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import { ChevronLeft, ChevronRight } from './coach/CoachIcons'
-import { scaleWorkout, type ModulationDir } from '../lib/coach/sessionModulation'
-import type { Phase } from '../lib/coach/workouts'
-import type { RecommendContext } from '../lib/sessionRecommender'
+import { type ModulationDir } from '../lib/coach/sessionModulation'
+import type { PlanWeek } from '../lib/coach/planGenerator'
 import type { LinkActivity } from './SessionFeedback'
-
-export interface ProgramSession {
-  workoutId: string
-  dayOfWeek?: number
-  targetDurationMin?: number
-}
-
-export interface ProgramWeek {
-  weekIndex: number
-  weekStartISO?: string
-  phase: Phase
-  isRecovery: boolean
-  focus: string
-  sessions: readonly ProgramSession[]
-}
 
 function addDaysISO(weekStartISO: string, days: number): string {
   const d = new Date(weekStartISO + (weekStartISO.length <= 10 ? 'T00:00:00' : ''))
@@ -85,8 +68,8 @@ function HistoryWeekView({ week }: { week: HistoryWeek }) {
   )
 }
 
-export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, logs, onSaved, pastWeeks }: {
-  weeks: ProgramWeek[]
+export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, logs, onSaved, pastWeeks, renfoSessionsPerWeek }: {
+  weeks: PlanWeek[]
   vdot: number
   activities: LinkActivity[]
   fcMax?: number | null
@@ -97,6 +80,8 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
   onSaved?: () => void
   /** Semaines passées reconstruites depuis le journal (navigation arrière). */
   pastWeeks?: HistoryWeek[]
+  /** Renfo/sem. (réglages) → séances de renfo fusionnées dans la semaine. */
+  renfoSessionsPerWeek?: number | null
 }) {
   // `offset` = écart à la semaine courante (0 = cette semaine, <0 = passé, >0 = à venir).
   // Robuste si pastWeeks arrive après coup : on reste calé sur la semaine courante.
@@ -145,31 +130,19 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
   // ── Semaine courante ou à venir (plan) ──
   const week = weeks[off]
   const isCurrent = off === 0
-  const entries = buildWeekCatalog(week.sessions, vdot)
-  // Modulation v3 : on adapte la séance qualité ciblée (semaine courante uniquement).
-  const shownEntries = isCurrent && scale
-    ? entries.map((e) => e.template.id === scale.workoutId
-        ? { ...e, workout: scaleWorkout(e.workout, scale.dir).workout }
-        : e)
-    : entries
-  // Le contexte temps réel (charge/fraîcheur) ne vaut que pour la semaine courante.
-  const ctx: RecommendContext =
-    isCurrent ? buildRecommendContext(week.phase, activities, fcMax) : { phase: week.phase }
 
-  // Liaison Strava : seulement la semaine COURANTE (on ne lie pas une séance à venir).
-  const link: SessionBrowserLink | undefined =
-    isCurrent && week.weekStartISO
-      ? { vdot, fcMax: fcMax ?? null, weekStartISO: week.weekStartISO, weekPhase: week.phase, activities, sessions: week.sessions }
-      : undefined
+  // Séances de renfo fusionnées dans CETTE semaine (course + renfo, même menu).
+  const renfoSlots = fuseRenfoIntoWeek(week, renfoSessionsPerWeek ?? null)?.slots ?? []
 
-  // Séances déjà validées de la semaine affichée (depuis session_log), par workoutId.
-  const doneByWorkoutId = (() => {
+  // Séances déjà validées (depuis session_log), clé `${workoutId}@${date}` —
+  // distingue deux séances de même type (ex. deux footings) dans la semaine.
+  const doneByKey = (() => {
     const m = new Map<string, SessionLogRow>()
     if (!logs || !week.weekStartISO) return m
     for (const s of week.sessions) {
       const date = addDaysISO(week.weekStartISO, (s.dayOfWeek ?? 1) - 1)
       const row = logs.find((l) => l.planned_workout_id === s.workoutId && l.planned_date === date)
-      if (row) m.set(s.workoutId, row)
+      if (row) m.set(`${s.workoutId}@${date}`, row)
     }
     return m
   })()
@@ -182,7 +155,19 @@ export default function WeekProgram({ weeks, vdot, activities, fcMax, scale, log
         <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>{week.focus}</p>
       ) : null}
 
-      <SessionBrowser key={off} entries={shownEntries} ctx={ctx} link={link} doneByWorkoutId={doneByWorkoutId} onSaved={onSaved} />
+      <WeekMenu
+        key={off}
+        week={week}
+        vdot={vdot}
+        fcMax={fcMax}
+        activities={activities}
+        isCurrent={isCurrent}
+        weekStartISO={week.weekStartISO}
+        renfoSlots={renfoSlots}
+        scale={isCurrent ? scale : undefined}
+        doneByKey={doneByKey}
+        onSaved={onSaved}
+      />
     </div>
   )
 }

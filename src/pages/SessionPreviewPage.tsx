@@ -1,5 +1,7 @@
 import PaceZonesCard from '../components/PaceZonesCard'
-import WeekProgram, { type ProgramWeek } from '../components/WeekProgram'
+import WeekProgram from '../components/WeekProgram'
+import { getWorkout, type Phase } from '../lib/coach/workouts'
+import type { PlanWeek, PlannedSession } from '../lib/coach/planGenerator'
 import type { ActivityForLoad } from '../lib/trainingLoad'
 
 // Aperçu public (route additive, sans auth) : démonstration de la VUE HEBDOMADAIRE
@@ -7,10 +9,22 @@ import type { ActivityForLoad } from '../lib/trainingLoad'
 // librairie à parcourir.
 const VDOT = 50
 
-const SAMPLE_WEEKS: ProgramWeek[] = [
-  { weekIndex: 0, phase: 'build', isRecovery: false, focus: 'Développement du seuil.', sessions: [{ workoutId: 'endurance_easy' }, { workoutId: 'threshold_intervals' }, { workoutId: 'long_run_flat' }] },
-  { weekIndex: 1, phase: 'build', isRecovery: false, focus: 'On monte le volume.', sessions: [{ workoutId: 'endurance_easy' }, { workoutId: 'vo2_intervals' }, { workoutId: 'tempo_run' }] },
-  { weekIndex: 2, phase: 'specific', isRecovery: true, focus: 'Semaine de décharge.', sessions: [{ workoutId: 'recovery_jog' }, { workoutId: 'endurance_easy' }] },
+// Construit une séance planifiée d'exemple à partir d'un workout de la bibliothèque.
+function sample(workoutId: string, dayOfWeek: number): PlannedSession {
+  const t = getWorkout(workoutId)!
+  return {
+    dayOfWeek, workoutId, title: t.name, system: t.system, intensity: t.intensity,
+    targetDurationMin: 45, climbing: t.climbing, description: t.description,
+  }
+}
+function week(weekIndex: number, phase: Phase, isRecovery: boolean, focus: string, sessions: PlannedSession[]): PlanWeek {
+  return { weekIndex, weekStartISO: '', phase, isRecovery, volumeHours: 0, focus, sessions }
+}
+
+const SAMPLE_WEEKS: PlanWeek[] = [
+  week(0, 'build', false, 'Développement du seuil.', [sample('endurance_easy', 2), sample('threshold_intervals', 4), sample('long_run_flat', 7)]),
+  week(1, 'build', false, 'On monte le volume.', [sample('endurance_easy', 2), sample('vo2_intervals', 4), sample('tempo_run', 6)]),
+  week(2, 'specific', true, 'Semaine de décharge.', [sample('recovery_jog', 3), sample('endurance_easy', 5)]),
 ]
 
 // Une sortie dure récente → la reco met en avant le facile (badge), démo du contexte.

@@ -7,6 +7,7 @@ import PaceZonesCard from '../components/PaceZonesCard'
 import HrZonesCard from '../components/HrZonesCard'
 import type { HrZoneConfig } from '../lib/hrZones'
 import ProfileTabs from '../components/ProfileTabs'
+import CoachEngine from '../components/coach/CoachEngine'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -767,6 +768,9 @@ export default function ProfilePage() {
             <div className="loading"><div className="spinner" /></div>
           ) : (
             <>
+              {/* Ton moteur — ce que l'algo lit du coureur (déplacé depuis Coach). */}
+              <CoachEngine />
+
               {/* Allures de référence (déplacées ici depuis le profil) */}
               <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} showFcZones={false} />
               <HrZonesCard
