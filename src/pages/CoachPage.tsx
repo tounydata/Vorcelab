@@ -9,8 +9,7 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/co
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
-import { vmaFromHalfCooperM, CS_TO_VMA } from '../lib/criticalSpeed'
-import RenfoSection from '../components/coach/RenfoSection'
+import CalibrationPopup from '../components/coach/CalibrationPopup'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import BrandedLoader from '../components/BrandedLoader'
@@ -146,53 +145,6 @@ function fmtRaceDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function fmtPaceMMSS(secPerKm: number): string {
-  const s = Math.max(0, Math.round(secPerKm))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
-const ANCHOR_SOURCE_LABEL: Record<string, string> = { test: 'test', history: 'historique', vdot: 'VDOT' }
-
-// Carte « Calibrons ton plan » : propose le test demi-Cooper (6 min) pour caler la
-// VMA/CS ; sinon le coach reste sur l'historique récent. Masquée une fois calibrée
-// par test (ou rejetée pour la session). Garde l'UX simple : une saisie, deux boutons.
-function CalibrationCard({ source, saving, onSave }: { source?: string; saving: boolean; onSave: (m: number) => void }) {
-  const [dismissed, setDismissed] = useState(false)
-  const [dist, setDist] = useState('')
-  if (source === 'test' || dismissed) return null
-  const m = parseInt(dist, 10)
-  const valid = Number.isFinite(m) && m >= 800 && m <= 3000
-  const vmaKmh = valid ? +(vmaFromHalfCooperM(m) * 3.6).toFixed(1) : null
-  const csKmh = vmaKmh != null ? +(vmaKmh * CS_TO_VMA).toFixed(1) : null
-  return (
-    <div className="card" style={{ borderLeft: '4px solid var(--vl-status-peak)', padding: '12px 16px', marginBottom: '1rem' }}>
-      <div style={{ fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>Calibrons ton plan</div>
-      <div style={{ fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.5, marginBottom: 10 }}>
-        Fais un <strong>test VMA (demi-Cooper)</strong> : 6 min à fond après échauffement, et entre la distance couverte.
-        5 min qui rendent toutes tes allures plus justes. Sinon, on se base sur ton <strong>historique récent</strong>.
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <input
-          type="number" inputMode="numeric" value={dist} onChange={(e) => setDist(e.target.value)}
-          placeholder="Distance en 6 min (m)"
-          style={{ width: 170, padding: '7px 10px', background: 'var(--vl-surf-2)', color: 'var(--vl-text)', border: '1px solid var(--vl-line-2)', borderRadius: 6, fontFamily: 'var(--vl-mono)', fontSize: 13 }}
-        />
-        <button className="hbtn" disabled={!valid || saving} onClick={() => valid && onSave(m)}
-          style={{ background: valid ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: valid ? 'var(--vl-ink)' : 'var(--vl-text-3)', border: 'none', opacity: saving ? 0.6 : 1 }}>
-          {saving ? 'Enregistrement…' : 'Enregistrer le test'}
-        </button>
-        <button className="hbtn" onClick={() => setDismissed(true)} style={{ fontSize: '.82rem' }}>
-          Utiliser mon historique
-        </button>
-      </div>
-      {csKmh != null && (
-        <div className="mono" style={{ fontSize: 11.5, color: 'var(--vl-text-3)', marginTop: 8 }}>
-          ≈ VMA {vmaKmh} km/h · CS (allure ~60 min) {csKmh} km/h
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function CoachPage() {
   const user = useVLStore((s) => s.user)
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null)
@@ -201,9 +153,8 @@ export default function CoachPage() {
   const {
     isLoading, upcoming, targetRace,
     profile, activities,
-    vdot, level, weaknesses, fitnessAnchor,
-    pmcToday, currentCTL,
-    plan, replan, displayWeeks, renfoFusion,
+    vdot, fitnessAnchor,
+    plan, replan, displayWeeks, renfoSessionsPerWeek,
   } = useCoachPlan(selectedRaceId)
 
   // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
@@ -334,48 +285,17 @@ export default function CoachPage() {
           </div>
           <Link to="/race" className="hbtn" style={{ textDecoration: 'none', display: 'inline-block' }}>→ Calendrier</Link>
         </div>
-        {/* Le renfo vit ici même sans course cible : suggestion, bibliothèque, séances. */}
-        <RenfoSection fusion={null} />
       </div>
     )
   }
 
-  // ── Données « moteur » (ce que l'algo lit du coureur) ──
+  // ── Cap sur le jour J (héros) ──
   const raceDate = new Date(plan.race.dateISO + 'T00:00:00')
   const daysLeft = Math.max(0, Math.ceil((raceDate.getTime() - Date.now()) / 86_400_000))
   const currentPhase: Phase = plan.weeks[0]?.phase ?? 'base'
   const isPostRaceRecov = !!plan.weeks[0]?.isPostRaceRecovery
   const currentPhaseLabel = isPostRaceRecov ? 'RÉCUP' : PHASE_LABELS[currentPhase]
   const currentPhaseColor = isPostRaceRecov ? 'var(--vl-status-rest)' : PHASE_COLORS[currentPhase]
-  const LEVEL_LABELS: Record<string, string> = { beginner: 'Débutant', intermediate: 'Intermédiaire', advanced: 'Confirmé' }
-  const rp = profile?.runner_profile ?? null
-  const driftVal = rp?.hrDriftPct
-  const durability = driftVal != null
-    ? {
-        v: `${driftVal > 0 ? '+' : ''}${driftVal.toFixed(0)}%`,
-        sub: rp!.hrDriftStatus === 'marked' ? 'Faiblit en fin' : rp!.hrDriftStatus === 'moderate' ? 'Correcte' : 'Solide',
-        color: rp!.hrDriftStatus === 'marked' ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)',
-      }
-    : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
-  const climbWeak = weaknesses.includes('climbing')
-  const climb = rp
-    ? { v: climbWeak ? 'À renforcer' : 'OK', sub: climbWeak ? 'Point faible' : 'Point fort', color: climbWeak ? 'var(--vl-status-watch)' : 'var(--vl-status-prod)' }
-    : { v: '—', sub: 'Données à venir', color: 'var(--vl-text-3)' }
-  const engine: { cl: string; v: string; sub: string; color: string }[] = [
-    { cl: 'Niveau · VDOT', v: String(Math.round(vdot)), sub: LEVEL_LABELS[level] ?? level, color: 'var(--vl-text)' },
-    ...(fitnessAnchor ? [{
-      cl: 'VMA · seuil',
-      v: `${(fitnessAnchor.vmaMetersPerSec * 3.6).toFixed(1)}`,
-      sub: `km/h · CS ${fmtPaceMMSS(fitnessAnchor.csPaceSecPerKm)}/km · via ${ANCHOR_SOURCE_LABEL[fitnessAnchor.source]}`,
-      color: 'var(--vl-growth)',
-    }] : []),
-    { cl: 'Fond · CTL', v: currentCTL != null ? String(currentCTL) : '—', sub: 'Charge chronique', color: 'var(--vl-ember)' },
-    { cl: 'Fraîcheur · TSB', v: pmcToday ? (pmcToday.tsb > 0 ? `+${pmcToday.tsb}` : String(pmcToday.tsb)) : '—', sub: pmcToday ? (pmcToday.tsb > 5 ? 'Frais' : pmcToday.tsb < -10 ? 'Chargé' : 'Stable') : '—', color: 'var(--vl-status-peak)' },
-    { cl: 'Durabilité', v: durability.v, sub: durability.sub, color: durability.color },
-    { cl: 'Côtes · VAM', v: climb.v, sub: climb.sub, color: climb.color },
-  ]
-  // Rationale en prose (hors ligne périodisation, déjà visualisée par la frise).
-  const rationale = plan.rationale.filter((r) => !r.startsWith('Périodisation'))
 
   return (
     <div style={{ paddingBottom: '3rem' }}>
@@ -445,40 +365,14 @@ export default function CoachPage() {
         <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
 
-      {/* L'orientation d'entraînement (plaisir / équilibre / performance) se règle
-          désormais uniquement dans Profil › Paramètres. Elle pilote ce plan en arrière-plan. */}
+      {/* Calibrage VMA (demi-Cooper) proposé une fois par objectif, en début de prépa. */}
+      <CalibrationPopup raceId={targetRace.id} source={fitnessAnchor?.source} saving={demiCooperMut.isPending} onSave={(mtr) => demiCooperMut.mutate(mtr)} />
 
-      {/* ── 2 · TON MOTEUR : ce que l'algo lit du coureur (métriques en vedette) ── */}
-      <div className="coach-block-h">
-        <span className="coach-block-ttl">Ton moteur</span>
-        <span className="coach-block-sub">Ce que l'algo lit de toi</span>
-      </div>
-      <div className="coach-engine">
-        {engine.map((c) => (
-          <div key={c.cl} className="coach-cell">
-            <div className="coach-cell-cl">{c.cl}</div>
-            <div className="coach-cell-v" style={{ color: c.color }}>{c.v}</div>
-            <div className="coach-cell-sub">{c.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Calibrage : propose le test demi-Cooper (sinon historique) — voir « VMA · seuil » ci-dessus. */}
-      <CalibrationCard source={fitnessAnchor?.source} saving={demiCooperMut.isPending} onSave={(mtr) => demiCooperMut.mutate(mtr)} />
-
-      {/* ── 3 · POURQUOI CE PLAN : voix éditoriale (Fraunces assumé, cf. audit) ── */}
-      {rationale.length > 0 && (
-        <div className="coach-why">
-          <div className="coach-why-lab">Pourquoi ce plan</div>
-          {rationale.map((r, i) => <p key={i} className="coach-why-p">{r}</p>)}
-        </div>
-      )}
-
-
-      {/* ── 4 · CETTE SEMAINE : séances proposées (jamais imposées) ── */}
+      {/* ── CETTE SEMAINE (en premier) : le menu de la semaine — course + renfo,
+            tu choisis ta séance (jamais imposée). « Ton moteur » vit dans Profil › LABO. ── */}
       <div data-tour="coach-week" className="coach-block-h">
         <span className="coach-block-ttl">Cette semaine</span>
-        <span className="coach-block-sub">Proposition · tu choisis ta séance du jour</span>
+        <span className="coach-block-sub">Proposition · course + renfo · tu choisis ta séance</span>
       </div>
 
       {replan?.trigger ? (
@@ -514,13 +408,12 @@ export default function CoachPage() {
         logs={sessionLogs}
         onSaved={onSessionSaved}
         pastWeeks={pastWeeks}
+        renfoSessionsPerWeek={renfoSessionsPerWeek}
       />
-
-      {/* ── 5 · RENFO : intégré ici, co-périodisé (plus de page séparée) ── */}
-      <RenfoSection fusion={renfoFusion} />
 
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
         Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
+        Le renforcement est <strong>intégré à ta semaine</strong> et co-périodisé avec ta course.
       </div>
     </div>
   )

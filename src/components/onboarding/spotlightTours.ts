@@ -30,9 +30,7 @@ export const PAGE_TOURS: PageTour[] = [
     match: (p) => p === '/coach',
     steps: [
       { selector: '.coach-hero', title: 'Ton cap vers le jour J', body: "La course visée, le compte à rebours et la périodisation complète (base → développement → spécifique → affûtage → course). La frise te montre où tu en es et le volume du plan." },
-      { selector: '.coach-engine', title: 'Ton moteur', body: "Ce que l'algo lit de toi : niveau (VDOT), VMA/seuil, forme (CTL), fraîcheur, durabilité, côtes. C'est ce qui calibre ton plan. ⚑ Étiquette tes courses comme « course » : ce sont tes efforts maximaux, et c'est ce qui fiabilise ton VDOT, ta VMA et ton calibrage." },
-      { selector: '[data-tour="coach-week"]', title: 'Cette semaine', body: 'Tes séances proposées — jamais imposées. Tu choisis ta séance du jour, tu la lies à ton activité Strava, et le plan s’adapte à ton ressenti.' },
-      { selector: '[data-tour="coach-renfo"]', title: 'Ton renfo, intégré', body: "Le renforcement vit ici, co-périodisé avec ta course : séance suggérée selon ta charge, bibliothèque par focus, et gestion de tes séances récentes (liaison Strava incluse)." },
+      { selector: '[data-tour="coach-week"]', title: 'Ta semaine, séance par séance', body: "Le menu de ta semaine — course ET renfo, intégrés et co-périodisés. Clique une séance pour son détail : pour la course, profil + liaison Strava ; pour le renfo, la suggestion et les catégories (excentrique, tronc…). Tu choisis, rien n'est imposé. (« Ton moteur » VDOT/VMA/forme vit désormais dans Profil › LABO.)" },
     ],
   },
   {
