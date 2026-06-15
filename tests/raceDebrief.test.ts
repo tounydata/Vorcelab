@@ -101,6 +101,86 @@ describe('computeRaceDebrief — course régulière & cas limites', () => {
   })
 })
 
+describe('computeRaceDebrief — fidélité connaissance (GAP, durabilité, VAM, descente)', () => {
+  // Course vallonnée : montée 0–3 km (+300 m, ~10 %), descente 3–6 km (−300 m).
+  function hillyProjection(): ProjectionResult {
+    const samples = [100, 200, 300, 400, 300, 200, 100].map((alt, d) => ({ d, alt }))
+    return {
+      points: [], samples, microSegments: [],
+      sections: [
+        { type: 'up', startKm: 0, endKm: 3, dplus: 300, dminus: 0, dist: 3000, grade: 0.10 },
+        { type: 'down', startKm: 3, endKm: 6, dplus: 0, dminus: 300, dist: 3000, grade: -0.10 },
+      ],
+      sectionTimes: [1200, 900],
+      totalDistM: 6000, dplus: 300, dminus: 300, altMin: 100, altMax: 400,
+      estTimeS: 2100, timeMin: 2000, timeMax: 2300, confidence: 'good',
+      basePaceS: 300, isTrail: true, personalAdjustments: [],
+    } as unknown as ProjectionResult
+  }
+  // FC qui dérive (150 → 180) sur montée puis descente.
+  function hillyStreams(): StreamData {
+    const distance: number[] = [], time: number[] = [], heartrate: number[] = []
+    let t = 0
+    for (let i = 0; i <= 60; i++) {
+      const d = i * 100
+      if (i > 0) { t += 100 * ((i - 1) * 100 < 3000 ? 0.4 : 0.3) } // montée plus lente que descente
+      distance.push(d); time.push(t); heartrate.push(Math.round(150 + (i / 60) * 30))
+    }
+    return { distance: { data: distance }, time: { data: time }, heartrate: { data: heartrate } }
+  }
+
+  it('ajuste le découplage à la pente sur terrain vallonné', () => {
+    const d = computeRaceDebrief(hillyProjection(), hillyStreams())!
+    expect(d.decouplingGapAdjusted).toBe(true)
+    expect(d.decouplingPct).not.toBeNull()
+  })
+
+  it('ne « GAP-ajuste » pas une course plate', () => {
+    const d = computeRaceDebrief(projection(), positiveSplitStreams())!
+    expect(d.decouplingGapAdjusted).toBe(false)
+  })
+
+  it('calcule la durabilité par tiers et la charge excentrique', () => {
+    const d = computeRaceDebrief(hillyProjection(), hillyStreams())!
+    expect(d.durabilityFadePct).not.toBeNull()
+    expect(['solid', 'moderate', 'weak']).toContain(d.durabilityBand)
+    expect(d.eccLoadEq).toBeGreaterThan(0)   // descente −300 m pondérée
+  })
+
+  it('classe la VAM de montée (bande de niveau)', () => {
+    const d = computeRaceDebrief(hillyProjection(), hillyStreams())!
+    const climb = d.terrain.find((t) => t.kind === 'climb')
+    expect(climb).toBeTruthy()
+    expect(['elite', 'strong', 'fair', 'weak']).toContain(climb!.vamBand)
+  })
+
+  // Course roulante : descente au 1er tiers (rapide) et au dernier tiers (lente) → fade.
+  it('détecte l\'effondrement des descentes en fin de course', () => {
+    const proj = {
+      points: [], samples: [200, 120, 120, 120, 120, 120, 40].map((alt, d) => ({ d, alt })), microSegments: [],
+      sections: [
+        { type: 'down', startKm: 0, endKm: 1, dplus: 0, dminus: 80, dist: 1000, grade: -0.08 },
+        { type: 'flat', startKm: 1, endKm: 5, dplus: 0, dminus: 0, dist: 4000, grade: 0 },
+        { type: 'down', startKm: 5, endKm: 6, dplus: 0, dminus: 80, dist: 1000, grade: -0.08 },
+      ],
+      sectionTimes: [240, 1200, 480],
+      totalDistM: 6000, dplus: 0, dminus: 160, altMin: 40, altMax: 200, confidence: 'good',
+      estTimeS: 1920, timeMin: 1800, timeMax: 2100, basePaceS: 300, isTrail: true, personalAdjustments: [],
+    } as unknown as ProjectionResult
+    // Réel : 1re descente rapide (240 s/km), dernière lente (480 s/km).
+    const distance: number[] = [], time: number[] = []
+    let t = 0
+    for (let i = 0; i <= 60; i++) {
+      const d = i * 100
+      if (i > 0) { const prev = (i - 1) * 100; t += 100 * (prev < 1000 ? 0.24 : prev < 5000 ? 0.30 : 0.48) }
+      distance.push(d); time.push(t)
+    }
+    const d = computeRaceDebrief(proj, { distance: { data: distance }, time: { data: time } })!
+    expect(d.descentFade).toBe('marked')
+    expect(d.takeaways.some((tk) => /descente|excentrique/i.test(tk.text))).toBe(true)
+  })
+})
+
 describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
   // Course régulière 4:10/km avec un arrêt de 60 s pile à mi-course (km 5).
   function stoppedStreams(): StreamData {

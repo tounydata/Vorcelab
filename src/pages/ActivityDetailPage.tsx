@@ -11,7 +11,8 @@ import ShareStickers from '../components/ShareStickers'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
 import { buildSessionDebrief } from '../lib/sessionDebrief'
-import { computeDecoupling, type DurabilityStatus } from '../lib/durability'
+import { computeDecoupling, computeDurabilityThirds, type DurabilityStatus } from '../lib/durability'
+import { vamBand, VAM_BAND_LABEL, VAM_BAND_COLOR } from '../lib/coach/sessionAnalysis'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 import BrandedLoader from '../components/BrandedLoader'
 
@@ -167,8 +168,8 @@ function DualChart({
     >
       <defs>
         <linearGradient id="altGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+          <stop offset="0%" stopColor="var(--vl-growth)" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="var(--vl-growth)" stopOpacity="0.04" />
         </linearGradient>
         <clipPath id="chartClip">
           <rect x={padL} y={padT} width={cW} height={cH} />
@@ -183,7 +184,7 @@ function DualChart({
       <path d={altPath} fill="url(#altGrad)" clipPath="url(#chartClip)" />
       <path d={points.map((p, i) =>
         `${i === 0 ? 'M' : 'L'}${xOf(p.distKm).toFixed(1)},${yAlt(p.altM).toFixed(1)}`
-      ).join(' ')} fill="none" stroke="#3b82f6" strokeWidth="1.5" clipPath="url(#chartClip)" />
+      ).join(' ')} fill="none" stroke="var(--vl-growth)" strokeWidth="1.5" clipPath="url(#chartClip)" />
 
       {hrPoints.length > 5 && (
         <path d={hrPath} fill="none" stroke="var(--vl-ember)" strokeWidth="1.5" clipPath="url(#chartClip)" />
@@ -197,7 +198,7 @@ function DualChart({
       ))}
 
       {[altMin, Math.round((altMin + altMax) / 2), altMax].map(v => (
-        <text key={v} x={padL - 3} y={yAlt(v) + 3} textAnchor="end" fontSize="8" fill="#3b82f6" fontFamily="var(--vl-mono)">
+        <text key={v} x={padL - 3} y={yAlt(v) + 3} textAnchor="end" fontSize="8" fill="var(--vl-growth)" fontFamily="var(--vl-mono)">
           {Math.round(v)}
         </text>
       ))}
@@ -208,7 +209,7 @@ function DualChart({
         </text>
       ))}
 
-      <text x={padL - 3} y={padT + cH + 14} textAnchor="end" fontSize="7" fill="#3b82f6" fontFamily="var(--vl-mono)">alt</text>
+      <text x={padL - 3} y={padT + cH + 14} textAnchor="end" fontSize="7" fill="var(--vl-growth)" fontFamily="var(--vl-mono)">alt</text>
       {hrPoints.length > 5 && (
         <text x={padL + cW + 3} y={padT + cH + 14} textAnchor="start" fontSize="7" fill="var(--vl-ember)" fontFamily="var(--vl-mono)">fc</text>
       )}
@@ -220,7 +221,7 @@ function DualChart({
         <g>
           <rect x={tooltip.x} y={tooltip.y} width="76" height="40" rx="3" fill="var(--vl-bg)" stroke="var(--vl-line)" strokeWidth="0.8" opacity="0.95" />
           <text x={tooltip.x + 4} y={tooltip.y + 13} fontSize="8" fill="var(--vl-text)" fontFamily="var(--vl-mono)">{tooltip.km}</text>
-          <text x={tooltip.x + 4} y={tooltip.y + 24} fontSize="8" fill="#3b82f6" fontFamily="var(--vl-mono)">{tooltip.alt}</text>
+          <text x={tooltip.x + 4} y={tooltip.y + 24} fontSize="8" fill="var(--vl-growth)" fontFamily="var(--vl-mono)">{tooltip.alt}</text>
           <text x={tooltip.x + 4} y={tooltip.y + 35} fontSize="8" fill="var(--vl-ember)" fontFamily="var(--vl-mono)">{tooltip.hr}</text>
         </g>
       )}
@@ -263,7 +264,7 @@ function RouteMap({
         maxZoom: 19,
       }).addTo(map)
     }
-    const poly = L.polyline(latlng, { color: '#E5562A', weight: 3 }).addTo(map)
+    const poly = L.polyline(latlng, { color: '#d6803e', weight: 3 }).addTo(map)
     map.fitBounds(poly.getBounds(), { padding: [20, 20] })
     polyRef.current = poly
     mapRef.current = map
@@ -282,7 +283,7 @@ function RouteMap({
     }
     if (latlng[best]) {
       markerRef.current = L.circleMarker(latlng[best], {
-        radius: 6, fillColor: '#fff', color: '#E5562A', weight: 2, fillOpacity: 1,
+        radius: 6, fillColor: '#fff', color: '#d6803e', weight: 2, fillOpacity: 1,
       }).addTo(mapRef.current)
     }
   }, [hoverKm, distArr, latlng])
@@ -379,7 +380,7 @@ function VamSectionsCard({ dist, alt, time }: { dist: number[]; alt: number[]; t
                   {fmtTime(Math.round(s.timeS))}
                 </td>
                 <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700,
-                  color: s.vam >= 900 ? 'var(--vl-growth)' : s.vam >= 600 ? 'var(--vl-amber)' : 'var(--vl-ember)' }}>
+                  color: s.vam > 0 ? VAM_BAND_COLOR[vamBand(s.vam)] : 'var(--vl-text-3)' }}>
                   {s.vam > 0 ? fmtVam(s.vam) : '—'}
                 </td>
               </tr>
@@ -703,11 +704,10 @@ function AthleteProfileCard({ streams }: { streams: StreamData }) {
 
   const { avgVAM, maxVAM, avgRecovery, avgDownhill, uphillSections } = data
 
+  // Bandes alignées sur la connaissance partagée (knowledge T2 : 900/700/500).
   const vamLevel = maxVAM == null ? null
-    : maxVAM > 1000 ? { l: 'Excellent', c: 'var(--vl-growth)' }
-    : maxVAM > 700  ? { l: 'Bon',       c: 'var(--vl-growth)' }
-    : maxVAM > 400  ? { l: 'Moyen',     c: 'var(--vl-amber)' }
-    : { l: 'À développer', c: 'var(--vl-ember)' }
+    : { l: ({ elite: 'Excellent', strong: 'Bon', fair: 'Correct', weak: 'À développer' } as const)[vamBand(maxVAM)],
+        c: VAM_BAND_COLOR[vamBand(maxVAM)] }
 
   const recovLevel = avgRecovery == null ? null
     : avgRecovery > 30 ? { l: 'Rapide',    c: 'var(--vl-growth)' }
@@ -753,8 +753,7 @@ function AthleteProfileCard({ streams }: { streams: StreamData }) {
       </div>
       {avgVAM != null && vamLevel && (
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.72rem', color: 'var(--vl-text-2)', lineHeight: 1.65 }}>
-          <strong>Grimpeur :</strong> VAM {avgVAM} m/h —{' '}
-          {avgVAM > 700 ? 'niveau trail compétitif.' : avgVAM > 400 ? 'bon niveau trail loisir.' : 'marge de progression en montée.'}
+          <strong>Grimpeur :</strong> VAM {avgVAM} m/h — {VAM_BAND_LABEL[vamBand(avgVAM)]}.
           {avgRecovery != null && recovLevel && (
             <><br /><strong>Récupération cardio :</strong> −{avgRecovery} bpm/min post-montée — {avgRecovery > 25 ? 'excellente capacité.' : avgRecovery > 15 ? 'capacité correcte.' : 'à travailler — programme Récup dans Renfo.'}</>
           )}
@@ -813,7 +812,7 @@ function StreamsSection({ stravaActivityId }: { activityId: string; stravaActivi
           </div>
           <DualChart points={chartPts} onHoverKm={setHoverKm} />
           <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 9, color: 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)' }}>
-            <span style={{ color: '#3b82f6' }}>■ Altitude (m)</span>
+            <span style={{ color: 'var(--vl-growth)' }}>■ Altitude (m)</span>
             {hr && <span style={{ color: 'var(--vl-ember)' }}>— FC (bpm)</span>}
           </div>
         </div>
@@ -839,8 +838,9 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
   const data = buildSessionInsights(activity, streams ?? {}, fcMax)
   const { type, drift, insights, hasHR } = data
 
-  // Durabilité : découplage allure:FC (perte d'efficacité 2e moitié) sur les sorties longues.
+  // Durabilité : découplage GAP:FC (ajusté à la pente) + durabilité par tiers (knowledge T7/T16).
   const decoupling = streams ? computeDecoupling(streams) : null
+  const durabThirds = streams ? computeDurabilityThirds(streams) : null
   const DURABILITY_COLOR: Record<DurabilityStatus, string> = {
     strong: 'var(--vl-growth)', moderate: 'var(--vl-amber)', deficit: 'var(--vl-ember)', unknown: 'var(--vl-text-3)',
   }
@@ -870,11 +870,19 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
           </div>
         )}
         {decoupling != null && (
-          <div title="Perte d'efficacité allure:FC entre la 1re et la 2e moitié (< 5 % = bonne durabilité)">
+          <div title={`Perte d'efficacité ${decoupling.gapAdjusted ? 'GAP:FC (ajustée à la pente)' : 'allure:FC'} entre la 1re et la 2e moitié (< 5 % = bonne durabilité)`}>
             <div style={{ fontSize: 20, fontWeight: 700, color: DURABILITY_COLOR[decoupling.status] }}>
               {decoupling.decouplingPct > 0 ? '+' : ''}{decoupling.decouplingPct.toFixed(1)}%
             </div>
-            <div className="slbl" style={{ fontSize: 10 }}>Durabilité (découplage)</div>
+            <div className="slbl" style={{ fontSize: 10 }}>Découplage{decoupling.gapAdjusted ? ' GAP:FC' : ''}</div>
+          </div>
+        )}
+        {durabThirds != null && (
+          <div title="Chute d'efficacité GAP:FC entre le 1er et le dernier tiers — lecture de la durabilité de fin d'effort (knowledge T16)">
+            <div style={{ fontSize: 20, fontWeight: 700, color: DURABILITY_COLOR[durabThirds.status] }}>
+              {durabThirds.fadePct > 0 ? '−' : '+'}{Math.abs(durabThirds.fadePct).toFixed(1)}%
+            </div>
+            <div className="slbl" style={{ fontSize: 10 }}>Durabilité (tiers)</div>
           </div>
         )}
         {insights.map(ins => (

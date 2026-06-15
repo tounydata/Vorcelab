@@ -5,6 +5,11 @@
 import type { ProjectionResult } from './computeRaceProjection'
 import type { StreamData } from './streams'
 import { compareProjectionToActual, type SectionCompare } from './raceComparison'
+import { minettiGradePenalty } from './gpxCore'
+import { vamBand, VAM_BAND_LABEL } from './coach/sessionAnalysis'
+
+// Ré-export pour les consommateurs historiques (RaceResult) — source de vérité = sessionAnalysis.
+export { VAM_BAND_LABEL }
 
 // Étiquette d'arrêt posée par le coureur (avec ou sans pause de la montre).
 export type IncidentLabel = 'chute' | 'crampe' | 'ravito' | 'hydratation' | 'douleur' | 'autre'
@@ -46,6 +51,8 @@ export interface TerrainVerdict {
   deltaS: number               // réel − projeté
   actualVamMH: number | null   // VAM réelle (montées)
   projVamMH: number | null
+  // Bande de niveau VAM (cf. knowledge T2) : élite ≥900 · bon ≥700 · correct ≥500 · faible <500.
+  vamBand?: 'elite' | 'strong' | 'fair' | 'weak'
   outcome: 'better' | 'worse' | 'onplan'
   note: string
 }
@@ -84,7 +91,13 @@ export interface RaceDebrief {
   hasHR: boolean
   avgHR: number | null
   maxHR: number | null
-  decouplingPct: number | null // dérive aérobie (Pa:HR) H1→H2
+  decouplingPct: number | null // dérive aérobie (GAP:FC) H1→H2
+  // true = découplage ajusté à la pente (course avec relief) ; sur terrain plat l'ajustement
+  // est neutre. Cf. knowledge T4/T7 : le découplage allure:FC brut est ininterprétable en D±.
+  decouplingGapAdjusted: boolean
+  // Durabilité (knowledge T16) : chute d'efficacité GAP:FC entre 1er et dernier tiers (%).
+  durabilityFadePct: number | null
+  durabilityBand: 'solid' | 'moderate' | 'weak' | null
   hrDriftPredicted: boolean
   zones: { z: number; pct: number }[] | null
 
@@ -99,6 +112,10 @@ export interface RaceDebrief {
   // ── Enseignements & profil ──
   takeaways: DebriefTakeaway[]
   raceVamMH: number | null     // VAM globale de montée sur la course
+  // Charge excentrique de la descente (knowledge T14) : D− pondéré par la raideur (m éq.).
+  eccLoadEq: number | null
+  // Fade de descente : vitesse réelle en descente, 1er vs dernier tiers de course.
+  descentFade: 'none' | 'moderate' | 'marked' | null
 
   // ── Arrêts (crampes, longs ravitos…) : détectés quand la distance stagne ──
   stops: { startKm: number; durationS: number; isRavito: boolean }[]
@@ -122,6 +139,22 @@ function altAtKm(km: number, samples: { d: number; alt: number | null }[]): numb
     }
   }
   return pts[pts.length - 1].alt
+}
+
+/** Pente (fraction, ex 0,08 = +8 %) au km donné, depuis le profil d'altitude projeté. */
+function makeGradeAtKm(samples: { d: number; alt: number | null }[]): (km: number) => number {
+  const pts = samples.filter((s): s is { d: number; alt: number } => s.alt != null)
+  if (pts.length < 2) return () => 0
+  const slope = (a: { d: number; alt: number }, b: { d: number; alt: number }): number => {
+    const dm = (b.d - a.d) * 1000
+    return dm > 0 ? (b.alt - a.alt) / dm : 0
+  }
+  return (km: number): number => {
+    for (let i = 1; i < pts.length; i++) {
+      if (km <= pts[i].d) return slope(pts[i - 1], pts[i])
+    }
+    return slope(pts[pts.length - 2], pts[pts.length - 1])
+  }
 }
 
 function projPaceAtKm(km: number, proj: ProjectionResult): number | null {
@@ -208,6 +241,17 @@ export function computeRaceDebrief(
   if (!cmp) return null
 
   const timeAtKm = makeTimeAtKm(dist, time)
+  const gradeAtKm = makeGradeAtKm(proj.samples)
+  // Relief significatif → on ajuste le découplage à la pente (sinon ajustement neutre).
+  const courseHasRelief = (proj.dplus ?? 0) + (proj.dminus ?? 0) > 30
+  const idxAtKm = (km: number): number => {
+    const target = km * 1000
+    if (target <= dist[0]) return 0
+    if (target >= dist[dist.length - 1]) return dist.length - 1
+    let lo = 0, hi = dist.length - 1
+    while (lo + 1 < hi) { const m = (lo + hi) >> 1; if (dist[m] < target) lo = m; else hi = m }
+    return hi
+  }
   const totalKm = Math.min(cmp.projDistKm, cmp.actualDistKm)
 
   // ── Arrêts → temps en mouvement. Toute l'analyse d'allure/pacing/exécution se base
@@ -320,6 +364,8 @@ export function computeRaceDebrief(
   const hr = stream.heartrate?.data
   const hasHR = !!hr && hr.length === dist.length && hr.some((v) => v > 0)
   let avgHR: number | null = null, maxHR: number | null = null, decouplingPct: number | null = null
+  let durabilityFadePct: number | null = null
+  let durabilityBand: 'solid' | 'moderate' | 'weak' | null = null
   let zones: { z: number; pct: number }[] | null = null
   if (hasHR && hr) {
     const valid = hr.filter((v) => v > 0)
@@ -330,18 +376,34 @@ export function computeRaceDebrief(
     const halfM = (totalKm / 2) * 1000
     let mid = 0
     while (mid < dist.length - 1 && dist[mid] < halfM) mid++
-    const eff = (lo: number, hi: number): number | null => {
-      const dd = dist[hi] - dist[lo], dt = time[hi] - time[lo]
+    // Efficacité GAP:FC sur un intervalle d'indices : on remplace la vitesse brute par une
+    // distance AJUSTÉE À LA PENTE (Minetti) pour que le découplage reste interprétable en
+    // terrain vallonné (cf. knowledge T4/T7). Sur du plat, l'ajustement est neutre (×1).
+    const gapEff = (lo: number, hi: number): number | null => {
+      const dt = time[hi] - time[lo]
       if (dt <= 0) return null
-      let hsum = 0, hn = 0
+      let gapDist = 0, hsum = 0, hn = 0
+      for (let i = lo + 1; i <= hi; i++) {
+        const stepD = dist[i] - dist[i - 1]
+        if (stepD <= 0) continue
+        const midKm = (dist[i] + dist[i - 1]) / 2 / 1000
+        gapDist += stepD * (1 + minettiGradePenalty(gradeAtKm(midKm)))
+      }
       for (let i = lo; i <= hi; i++) if (hr[i] > 0) { hsum += hr[i]; hn++ }
-      if (!hn) return null
-      const speed = dd / dt
+      if (!hn || gapDist <= 0) return null
       const meanHr = hsum / hn
-      return meanHr > 0 ? speed / meanHr : null
+      return meanHr > 0 ? (gapDist / dt) / meanHr : null
     }
-    const e1 = eff(0, mid), e2 = eff(mid, dist.length - 1)
+    const e1 = gapEff(0, mid), e2 = gapEff(mid, dist.length - 1)
     if (e1 != null && e2 != null && e1 > 0) decouplingPct = ((e1 - e2) / e1) * 100
+
+    // Durabilité (knowledge T16) : efficacité GAP:FC du 1er vs dernier tiers de course.
+    const third = totalKm / 3
+    const efA = gapEff(0, idxAtKm(third)), efC = gapEff(idxAtKm(2 * third), dist.length - 1)
+    if (efA != null && efC != null && efA > 0) {
+      durabilityFadePct = ((efA - efC) / efA) * 100
+      durabilityBand = durabilityFadePct <= 5 ? 'solid' : durabilityFadePct <= 10 ? 'moderate' : 'weak'
+    }
 
     if (fcMax && fcMax > 0) {
       const buckets = [0, 0, 0, 0, 0]
@@ -356,6 +418,7 @@ export function computeRaceDebrief(
     }
   }
   const hrDriftPredicted = (proj.personalAdjustments ?? []).some((a) => /dérive cardiaque/i.test(a.label))
+  const decouplingGapAdjusted = decouplingPct != null && courseHasRelief
 
   // ── Terrain : montées & descentes clés, réel vs projeté ──
   const terrain: TerrainVerdict[] = []
@@ -373,6 +436,7 @@ export function computeRaceDebrief(
       startKm: s.startKm, endKm: s.endKm, grade: 0, deltaS: s.deltaS,
       actualVamMH: actVam != null ? Math.round(actVam) : null,
       projVamMH: projVam != null ? Math.round(projVam) : null,
+      vamBand: actVam != null ? vamBand(Math.round(actVam)) : undefined,
       outcome,
       note: outcome === 'onplan' ? 'Tenue comme prévu.'
         : outcome === 'better' ? `Mieux que prévu (${fmtDeltaShort(s.deltaS)}).`
@@ -398,6 +462,37 @@ export function computeRaceDebrief(
 
   // VAM globale de montée sur la course (D+ total / temps total)
   const raceVamMH = movingS > 0 ? Math.round(proj.dplus / (movingS / 3600)) : null
+
+  // ── Charge excentrique & fade de descente (knowledge T14) ──
+  // Charge excentrique = D− pondéré par la raideur (le freinage raide casse plus les jambes).
+  const kEcc = (gradeAbs: number) => gradeAbs >= 0.12 ? 1.8 : gradeAbs >= 0.06 ? 1.0 : gradeAbs >= 0.02 ? 0.5 : 0
+  let eccLoadEq: number | null = null
+  let accEcc = 0, anyDown = false
+  for (const s of proj.sections) {
+    if (s.type === 'down' && s.dminus > 0) {
+      anyDown = true
+      const distM = Math.max(1, (s.endKm - s.startKm) * 1000)
+      accEcc += s.dminus * kEcc(s.dminus / distM)
+    }
+  }
+  if (anyDown) eccLoadEq = Math.round(accEcc)
+  // Fade de descente : vitesse réelle en descente, 1er vs dernier tiers (descente « subie » en fin).
+  let descentFade: 'none' | 'moderate' | 'marked' | null = null
+  {
+    const thirdKm = totalKm / 3
+    const downSpeeds = (lo: number, hi: number): number[] =>
+      proj.sections.map((s, i) => ({ s, c: sections[i] }))
+        .filter(({ s }) => s.type === 'down' && s.dminus > 0 && (s.startKm + s.endKm) / 2 >= lo && (s.startKm + s.endKm) / 2 < hi)
+        .map(({ s, c }) => (c.actualS > 0 ? (s.endKm - s.startKm) / (c.actualS / 3600) : null))
+        .filter((v): v is number => v != null && v > 0)
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length
+    const first = downSpeeds(0, thirdKm), last = downSpeeds(2 * thirdKm, totalKm + 1e-6)
+    if (first.length && last.length) {
+      const v1 = avg(first), v3 = avg(last)
+      const fade = v1 > 0 ? ((v1 - v3) / v1) * 100 : 0
+      descentFade = fade > 10 ? 'marked' : fade > 5 ? 'moderate' : 'none'
+    }
+  }
 
   // ── Note d'exécution (0..100) : pacing + fidélité au plan + maîtrise de l'effort ──
   const splitScore = clamp(100 - Math.max(0, splitPct) * 4, 40, 100)
@@ -463,6 +558,9 @@ export function computeRaceDebrief(
   }
   if (splitPct >= 8) candidates.push({ tone: 'work', text: `Pars plus prudent : ralentissement de ${splitPct.toFixed(0)} % en 2ᵉ moitié. Vise un négatif split.` })
   if (decouplingPct != null && decouplingPct >= 10) candidates.push({ tone: 'work', text: `Dérive cardiaque élevée (+${decouplingPct.toFixed(0)} %) — travaille l'endurance fondamentale et la nutrition en course.` })
+  else if (decouplingPct != null && decouplingPct >= 5) candidates.push({ tone: 'info', text: `Légère dérive cardiaque (+${decouplingPct.toFixed(0)} %) — entretiens l'endurance fondamentale ; vise un découplage < 5 % avant d'ajouter de l'intensité.` })
+  if (durabilityBand === 'weak') candidates.push({ tone: 'work', text: `Durabilité en baisse en fin de course (efficacité GAP:FC −${durabilityFadePct!.toFixed(0)} % au dernier tiers) — volume aérobie long + résistance à la fatigue (intensité/renfo en fin de longue).` })
+  if (descentFade === 'marked') candidates.push({ tone: 'work', text: `Tes descentes se sont effondrées en fin de course${eccLoadEq ? ` (charge excentrique ~${eccLoadEq} m éq.)` : ''} — renfo excentrique + habituation à la descente ≥ 6-8 sem avant la prochaine.` })
   const worstUp = terrain.find((t) => t.kind === 'climb' && t.outcome === 'worse')
   if (worstUp) candidates.push({ tone: 'work', text: `Les montées t'ont coûté du temps — intègre des séances de côtes / renforcement.` })
   const worstTech = terrain.find((t) => t.kind === 'descent_tech' && t.outcome === 'worse')
@@ -496,6 +594,9 @@ export function computeRaceDebrief(
     avgHR,
     maxHR,
     decouplingPct,
+    decouplingGapAdjusted,
+    durabilityFadePct,
+    durabilityBand,
     hrDriftPredicted,
     zones,
     sections,
@@ -504,6 +605,8 @@ export function computeRaceDebrief(
     terrain,
     takeaways,
     raceVamMH,
+    eccLoadEq,
+    descentFade,
     stops,
     stopCount,
     stoppedS,

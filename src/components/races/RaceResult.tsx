@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectionResult } from '../../lib/computeRaceProjection'
 import { findRaceActivity, toActivityLite, type ActivityLite } from '../../lib/raceComparison'
-import { computeRaceDebrief, INCIDENTS, type RaceDebrief, type DebriefPoint, type RaceAnnotation, type IncidentLabel } from '../../lib/raceDebrief'
+import { computeRaceDebrief, INCIDENTS, VAM_BAND_LABEL, type RaceDebrief, type DebriefPoint, type RaceAnnotation, type IncidentLabel } from '../../lib/raceDebrief'
 import { fetchStreams } from '../../lib/streams'
 import { fmtHM } from '../../lib/raceStrategyView'
 
@@ -442,13 +442,19 @@ function CardiacBlock({ d }: { d: RaceDebrief }) {
   const drift = d.decouplingPct
   const driftColor = drift == null ? 'var(--vl-text-2)' : drift < 5 ? FASTER : drift < 10 ? 'var(--vl-amber)' : SLOWER
   const driftWord = drift == null ? '—' : drift < 5 ? 'maîtrisé' : drift < 10 ? 'modéré' : 'élevé'
+  const fade = d.durabilityFadePct
+  const fadeColor = d.durabilityBand === 'solid' ? FASTER : d.durabilityBand === 'moderate' ? 'var(--vl-amber)' : SLOWER
+  const fadeWord = d.durabilityBand === 'solid' ? 'solide' : d.durabilityBand === 'moderate' ? 'modérée' : 'à renforcer'
   return (
     <div className="card" style={{ padding: '16px 18px' }}>
       <div className="clabel" style={{ marginBottom: 12 }}>EFFORT CARDIAQUE</div>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: d.zones ? 14 : 0 }}>
         <Stat label="FC MOY." value={d.avgHR != null ? `${d.avgHR}` : '—'} unit="bpm" />
         <Stat label="FC MAX" value={d.maxHR != null ? `${d.maxHR}` : '—'} unit="bpm" />
-        <Stat label="DÉRIVE H1→H2" value={drift != null ? `${drift >= 0 ? '+' : ''}${drift.toFixed(0)}%` : '—'} unit={driftWord} color={driftColor} />
+        <Stat label={d.decouplingGapAdjusted ? 'DÉRIVE GAP:FC' : 'DÉRIVE H1→H2'} value={drift != null ? `${drift >= 0 ? '+' : ''}${drift.toFixed(0)}%` : '—'} unit={driftWord} color={driftColor} />
+        {fade != null && (
+          <Stat label="DURABILITÉ" value={`${fade > 0 ? '−' : '+'}${Math.abs(fade).toFixed(0)}%`} unit={fadeWord} color={fadeColor} />
+        )}
       </div>
       {drift != null && (
         <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', lineHeight: 1.45, marginBottom: d.zones ? 14 : 0 }}>
@@ -457,6 +463,7 @@ function CardiacBlock({ d }: { d: RaceDebrief }) {
             : drift < 10
               ? 'Légère dérive en 2ᵉ moitié — l\'effort a coûté un peu plus cher sur la fin.'
               : 'Forte dérive : à allure égale, ta FC a grimpé — signe de fatigue, chaleur ou nutrition à revoir.'}
+          {d.decouplingGapAdjusted ? ' Dérive ajustée à la pente (GAP:FC), donc interprétable malgré le dénivelé.' : ''}
           {d.hrDriftPredicted ? ' La projection l\'avait anticipé.' : ''}
         </div>
       )}
@@ -496,9 +503,18 @@ function TerrainBlock({ d }: { d: RaceDebrief }) {
             <div className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 3 }}>
               {t.note}
               {t.actualVamMH != null && t.projVamMH != null ? ` · VAM ${t.actualVamMH} vs ${t.projVamMH} m/h prévue` : ''}
+              {t.vamBand ? ` (${VAM_BAND_LABEL[t.vamBand]})` : ''}
             </div>
           </div>
         ))}
+        {d.descentFade === 'marked' && (
+          <div style={{ borderLeft: `3px solid ${SLOWER}`, paddingLeft: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>Fatigue de descente</span>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)', marginTop: 3 }}>
+              Tes descentes ont nettement ralenti en fin de course{d.eccLoadEq ? ` · charge excentrique ~${d.eccLoadEq} m éq.` : ''} — renfo excentrique + habituation descente avant la prochaine.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
