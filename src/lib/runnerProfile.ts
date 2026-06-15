@@ -257,6 +257,13 @@ export function fmtSpeed(speedKmH: number | null): string {
   return `${speedKmH.toFixed(1)} km/h`
 }
 
+/** Allure de course (min:sec/km) depuis une vitesse en km/h — en course on parle en allure. */
+export function fmtPaceFromKmh(speedKmH: number | null): string {
+  if (speedKmH == null || speedKmH <= 0) return '—'
+  const secPerKm = Math.round(3600 / speedKmH)
+  return `${Math.floor(secPerKm / 60)}:${String(secPerKm % 60).padStart(2, '0')}/km`
+}
+
 export function fmtDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
