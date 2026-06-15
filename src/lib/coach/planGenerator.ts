@@ -10,6 +10,7 @@ import {
 } from './workouts'
 import { adaptCatalog, distanceFocusFromKm, type AdaptProfile } from './adaptCatalog'
 import { motivationBias, type CoachMotivation } from './motivation'
+import { computePostRaceRecovery, type CompletedRace } from './postRaceRecovery'
 
 export interface PlanInput {
   raceName: string
@@ -34,6 +35,9 @@ export interface PlanInput {
   /** Courses secondaires (B/C) tombant dans la fenêtre du plan — intégrées comme
    *  rodage (C) ou mini-affûtage (B), sans casser la prépa de la course principale. */
   secondaryRaces?: SecondaryRace[]
+  /** Dernière course TERMINÉE (récente) — déclenche un bloc de récup post-course en
+   *  début de plan (reverse taper) ; durée ∝ distance + D+ (cf. postRaceRecovery). */
+  recentRace?: CompletedRace
 }
 
 /** Course secondaire dans la fenêtre du plan (priorité B = objectif secondaire, C = rodage). */
@@ -60,6 +64,8 @@ export interface PlanWeek {
   weekStartISO: string
   phase: Phase
   isRecovery: boolean
+  /** Semaine de récupération POST-COURSE (reverse taper après une course terminée). */
+  isPostRaceRecovery?: boolean
   /** Volume course indicatif de la semaine, en heures. */
   volumeHours: number
   focus: string
@@ -411,6 +417,48 @@ function buildTrainingWeek(
   return { weekIndex, weekStartISO, phase, isRecovery, volumeHours, focus, sessions }
 }
 
+/**
+ * Semaine de RÉCUPÉRATION POST-COURSE (reverse taper) : que des footings très faciles,
+ * aucune intensité, volume réduit qui remonte progressivement (1re semaine la plus légère).
+ * `offset` = 0 pour la 1re semaine post-course (la plus douce), `total` = nb de semaines de récup.
+ */
+function buildPostRaceRecoveryWeek(
+  input: PlanInput,
+  weekIndex: number,
+  weekStartISO: string,
+  phase: Phase,
+  offset: number,
+  total: number,
+  isTrail: boolean,
+): PlanWeek {
+  // Reverse taper : la 1re semaine est la plus légère, on remonte ensuite.
+  const ramp = total <= 1 ? 0.55 : offset === 0 ? 0.4 : Math.min(0.75, 0.6 + (offset - 1) * 0.15)
+  const days = Math.max(3, Math.min(6, input.daysPerWeek) - 1) // un jour de moins qu'à l'habitude
+  const sessions: PlannedSession[] = []
+  const slots = DAY_SLOTS.slice(0, days).sort((a, b) => a - b)
+  let totalMin = 0
+  for (let i = 0; i < days; i++) {
+    // Que du facile : surtout récup, un footing d'endurance possible en milieu de bloc.
+    const id = (offset === 0 || i === 0 || i === days - 1)
+      ? 'recovery_jog'
+      : (isTrail ? 'hike_recovery' : 'endurance_easy')
+    const w = getWorkout(id)!
+    const dur = Math.max(20, Math.round((w.baseDurationMin * ramp) / 5) * 5)
+    totalMin += dur
+    sessions.push({
+      dayOfWeek: slots[i], workoutId: w.id, title: w.name, system: w.system,
+      intensity: w.intensity, targetDurationMin: dur, climbing: false, description: w.description,
+    })
+  }
+  sessions.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+  return {
+    weekIndex, weekStartISO, phase, isRecovery: true, isPostRaceRecovery: true,
+    volumeHours: Math.round((totalMin / 60) * 10) / 10,
+    focus: `Récupération post-course (semaine ${offset + 1}/${total}) — footings très faciles, zéro intensité. On laisse cicatriser muscles, SNC et immunité avant de relancer la charge.`,
+    sessions,
+  }
+}
+
 export function generateTrainingPlan(input: PlanInput): TrainingPlan {
   const isTrail = isTrailRace(input.raceType, input.raceElevationM)
   const weeksToRace = weeksUntil(input.todayISO, input.raceDateISO)
@@ -433,12 +481,34 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
     return buildTrainingWeek(input, i, weekStartISO, phase, isRecovery, isTrail, weeksToGo, weekRace)
   })
 
+  // ── Récupération POST-COURSE : si une course vient d'être terminée et qu'on est
+  // encore dans sa fenêtre de récup, on convertit les 1res semaines (hors taper/course)
+  // en récup (reverse taper). La récup « mange » donc sur le début de la prépa suivante.
+  let postRaceWeeksApplied = 0
+  if (input.recentRace) {
+    const rec = computePostRaceRecovery(input.recentRace, input.todayISO)
+    if (rec?.inWindow) {
+      for (let i = 0; i < weeks.length && postRaceWeeksApplied < rec.recoveryWeeks; i++) {
+        if (weeks[i].phase === 'taper' || weeks[i].phase === 'race') break // ne jamais écraser un affûtage imminent
+        weeks[i] = buildPostRaceRecoveryWeek(input, i, weeks[i].weekStartISO, weeks[i].phase, postRaceWeeksApplied, rec.recoveryWeeks, isTrail)
+        postRaceWeeksApplied++
+      }
+    }
+  }
+
   const phaseBreakdown = phases.reduce(
     (acc, p) => { acc[p] = (acc[p] ?? 0) + 1; return acc },
     { base: 0, build: 0, specific: 0, taper: 0, race: 0 } as Record<Phase, number>,
   )
 
   const rationale: string[] = []
+  if (postRaceWeeksApplied > 0 && input.recentRace) {
+    rationale.push(
+      `Récupération post-course : ${postRaceWeeksApplied} semaine${postRaceWeeksApplied > 1 ? 's' : ''} de reverse taper ` +
+      `après ${input.recentRace.distanceKm} km / ${input.recentRace.elevationM} m D+ ` +
+      `(durée de récup ∝ distance + dénivelé excentrique) avant de relancer la charge.`,
+    )
+  }
   rationale.push(
     `${input.raceName} — ${input.raceDistanceKm} km / ${input.raceElevationM} m D+ ` +
     `(${isTrail ? 'trail' : 'route'}) dans ${weeksToRace} semaine${weeksToRace > 1 ? 's' : ''}.`,

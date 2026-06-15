@@ -285,6 +285,9 @@ export default function CoachPage() {
   const raceDate = new Date(plan.race.dateISO + 'T00:00:00')
   const daysLeft = Math.max(0, Math.ceil((raceDate.getTime() - Date.now()) / 86_400_000))
   const currentPhase: Phase = plan.weeks[0]?.phase ?? 'base'
+  const isPostRaceRecov = !!plan.weeks[0]?.isPostRaceRecovery
+  const currentPhaseLabel = isPostRaceRecov ? 'RÉCUP' : PHASE_LABELS[currentPhase]
+  const currentPhaseColor = isPostRaceRecov ? 'var(--vl-status-rest)' : PHASE_COLORS[currentPhase]
   const LEVEL_LABELS: Record<string, string> = { beginner: 'Débutant', intermediate: 'Intermédiaire', advanced: 'Confirmé' }
   const rp = profile?.runner_profile ?? null
   const driftVal = rp?.hrDriftPct
@@ -367,7 +370,7 @@ export default function CoachPage() {
           <div className="coach-cd">
             <div className="coach-cd-n">{daysLeft}</div>
             <div className="coach-cd-u">jours</div>
-            <div className="coach-cd-ph" style={{ color: PHASE_COLORS[currentPhase] }}>▸ {PHASE_LABELS[currentPhase]}</div>
+            <div className="coach-cd-ph" style={{ color: currentPhaseColor }}>▸ {currentPhaseLabel}</div>
           </div>
         </div>
 
