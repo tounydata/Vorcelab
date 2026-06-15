@@ -7,7 +7,7 @@ import PaceZonesCard from '../components/PaceZonesCard'
 import ProfileTabs from '../components/ProfileTabs'
 import {
   fmtVam,
-  fmtSpeed,
+  fmtPaceFromKmh,
   statusColor,
   statusLabel,
   confidenceLabel,
@@ -26,6 +26,27 @@ import {
 import { buildRunnerProfile, fetchActivitiesForProfile, fillMissingWeather, saveRunnerProfile } from '../lib/buildRunnerProfile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Secondes → chrono lisible (m:ss ou h:mm:ss). */
+function fmtSecsToClock(s: number): string {
+  const sec = Math.round(s)
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), ss = sec % 60
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`
+}
+
+/** Normalise une valeur de record (string, secondes, ou objet {time|value|timeS}) en texte éditable. */
+function prToStr(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (typeof v === 'number') return v > 0 ? fmtSecsToClock(v) : ''
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    if (typeof o.time === 'string') return o.time
+    if (typeof o.value === 'string') return o.value
+    const n = o.timeS ?? o.timeSec ?? o.value ?? o.time
+    if (typeof n === 'number') return fmtSecsToClock(n)
+  }
+  return ''
+}
 
 function RecoveryStatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
@@ -113,10 +134,10 @@ function BucketCard({ bucketKey, stats }: { bucketKey: BucketKey; stats: BucketS
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginBottom: 6 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: statusColor(stats.status) }}>
-            {isUp ? fmtVam(stats.vamMH) : fmtSpeed(stats.avgSpeedKmH)}
+            {isUp ? fmtVam(stats.vamMH) : fmtPaceFromKmh(stats.avgSpeedKmH)}
           </div>
           <div className="slbl" style={{ fontSize: 10 }}>
-            {isUp ? `VAM · ${fmtSpeed(stats.avgSpeedKmH)}` : 'Vitesse'}
+            {isUp ? `VAM · ${fmtPaceFromKmh(stats.avgSpeedKmH)}` : 'Allure'}
           </div>
         </div>
 
@@ -252,7 +273,7 @@ function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
           )}
           {rp.postClimbResumeSpeedKmH != null && (
             <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
-              reprise {rp.postClimbResumeSpeedKmH.toFixed(1)} km/h
+              reprise {fmtPaceFromKmh(rp.postClimbResumeSpeedKmH)}
             </span>
           )}
           {rp.postClimbRecoveryStatus === 'unknown' && rp.postClimbHrRecoveryBpmPerMin == null && (
@@ -308,7 +329,7 @@ function RecoveryBucketRow({ label, rec }: { label: string; rec: RecoveryBucketS
       </div>
       <div style={{ fontSize: 10, color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
         {rec.hrDropBpmPerMin != null && `${rec.hrDropBpmPerMin.toFixed(0)} bpm/min`}
-        {rec.resumeSpeedKmH != null && ` · reprise ${rec.resumeSpeedKmH.toFixed(1)} km/h`}
+        {rec.resumeSpeedKmH != null && ` · reprise ${fmtPaceFromKmh(rec.resumeSpeedKmH)}`}
         {rec.speedDropVsNormalPct != null && rec.speedDropVsNormalPct > 0 && ` (−${rec.speedDropVsNormalPct.toFixed(0)}%)`}
         {` · ${rec.sampleCount} événement(s)`}
         {' · '}{confidenceLabel(rec.confidence)}
@@ -662,8 +683,7 @@ export default function ProfilePage() {
                   const raw = profileRow?.prs ?? {}
                   const flat: Record<string, string> = {}
                   for (const k of ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra']) {
-                    const v = raw[k]
-                    flat[k] = typeof v === 'string' ? v : (v && typeof v === 'object' ? String((v as Record<string,unknown>).time ?? (v as Record<string,unknown>).value ?? '') : '')
+                    flat[k] = prToStr(raw[k])
                   }
                   setPrsEdit(flat)
                   setPrsMode('edit')
@@ -716,6 +736,8 @@ export default function ProfilePage() {
                       setPrsMode('view')
                       setPrsSaveMsg('Sauvegardé ✓')
                       setTimeout(() => setPrsSaveMsg(''), 2000)
+                    } else {
+                      setPrsSaveMsg(`⚠ Échec de la sauvegarde : ${error.message}`)
                     }
                   }}
                 >
@@ -725,11 +747,11 @@ export default function ProfilePage() {
                   Annuler
                 </button>
               </div>
-              {prsSaveMsg && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--vl-growth)', fontFamily: 'var(--vl-mono)' }}>{prsSaveMsg}</div>}
+              {prsSaveMsg && <div style={{ marginTop: 6, fontSize: 11, color: prsSaveMsg.startsWith('⚠') ? 'var(--vl-ember)' : 'var(--vl-growth)', fontFamily: 'var(--vl-mono)' }}>{prsSaveMsg}</div>}
             </>
           ) : (
             (() => {
-              const formatPr = (v: unknown) => typeof v === 'string' ? v : v && typeof v === 'object' ? String((v as Record<string,unknown>).time ?? (v as Record<string,unknown>).value ?? '') : String(v)
+              const formatPr = prToStr
               const entries = Object.entries(profileRow?.prs ?? {}).filter(([, v]) => formatPr(v))
               return entries.length > 0 ? (
                 <div>

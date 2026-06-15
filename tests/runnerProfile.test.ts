@@ -11,6 +11,7 @@ import {
   computeConfidenceFromCount,
   fmtVam,
   fmtSpeed,
+  fmtPaceFromKmh,
   fmtDuration,
   statusColor,
   statusLabel,
@@ -100,6 +101,18 @@ describe('fmtSpeed', () => {
   it('formats speed with km/h suffix to 1 decimal', () => {
     expect(fmtSpeed(10)).toBe('10.0 km/h')
     expect(fmtSpeed(12.34)).toBe('12.3 km/h')
+  })
+})
+
+describe('fmtPaceFromKmh', () => {
+  it('convertit la vitesse en allure min:sec/km', () => {
+    expect(fmtPaceFromKmh(15)).toBe('4:00/km')   // 3600/15 = 240 s
+    expect(fmtPaceFromKmh(12)).toBe('5:00/km')
+    expect(fmtPaceFromKmh(10)).toBe('6:00/km')
+  })
+  it('gère null / vitesse nulle', () => {
+    expect(fmtPaceFromKmh(null)).toBe('—')
+    expect(fmtPaceFromKmh(0)).toBe('—')
   })
 })
 
