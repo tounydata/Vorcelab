@@ -95,10 +95,6 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
   const planDoneCount = planSessions.filter((s) => s.done).length
 
-  // Imports Strava pas encore reliés à un type de renfo (30 derniers jours).
-  const cutoff30 = isoDate(new Date(Date.now() - 30 * 86_400_000))
-  const renfoUncategorized = renfoLogs.filter((r) => !r.focus && r.session_date && r.session_date >= cutoff30).length
-
   const accent = phase ? PHASE_COLORS[phase] : 'var(--vl-line)'
 
   // ── Rendu d'une cellule de jour : couleur = état, contour = planifié non fait ──
@@ -233,32 +229,7 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
               )
             })}
           </div>
-
-          {/* Séances du plan de la semaine — faites en grisé + ✓ */}
-          {planSessions.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 11 }}>
-              {planSessions.map((s, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, opacity: s.done ? 0.45 : 1 }}>
-                  <span style={{ width: 12, textAlign: 'center', color: s.done ? 'var(--vl-growth)' : 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)', fontSize: 11 }}>{s.done ? '✓' : '·'}</span>
-                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', width: 16 }}>{WEEK_LETTERS[s.dayOfWeek - 1]}</span>
-                  <span style={{ color: 'var(--vl-text-2)', textDecoration: s.done ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
-
-      {/* ── Alerte : séances Strava à relier au renfo ── */}
-      {renfoUncategorized > 0 && (
-        <Link to="/coach" style={{ textDecoration: 'none' }}>
-          <div style={{ background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)', border: '1px solid color-mix(in oklab, var(--vl-amber) 35%, transparent)', borderRadius: 6, padding: '7px 10px', marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--vl-amber)', minWidth: 0 }}>
-              {renfoUncategorized} séance{renfoUncategorized > 1 ? 's' : ''} Strava à relier au renfo
-            </span>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: 'var(--vl-amber)', flexShrink: 0, letterSpacing: '.08em' }}>LIER →</span>
-          </div>
-        </Link>
       )}
     </div>
   )
