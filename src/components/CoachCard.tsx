@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
+import { listSessionLog } from '../lib/coach/sessionLog'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import type { Phase } from '../lib/coach/workouts'
 import { RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
@@ -49,6 +51,9 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
   renfoWeeklyTarget: number
 }) {
   const { isLoading, targetRace, plan, displayWeeks, renfoFusion } = useCoachPlan()
+  // Séances réellement LIÉES (journal) → une séance n'est « faite » que si elle a été liée,
+  // pas parce qu'une sortie Strava (peut-être non liée) existe ce jour-là.
+  const { data: sessionLogs = [] } = useQuery({ queryKey: ['session-log-all'], queryFn: () => listSessionLog(120) })
 
   const now = new Date()
   const todayDow = ((now.getDay() + 6) % 7) + 1 // 1 = lundi … 7 = dimanche
@@ -77,8 +82,18 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
   })
 
   const weekStartStr = isoDate(weekStart)
-  const runsWeekCount = activities.filter((a) => isRunning(a.type) && (a.start_date_local ?? a.start_date)?.slice(0, 10) >= weekStartStr).length
   const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
+
+  // Séances du PLAN cette semaine (hors course) + lesquelles sont LIÉES (journal).
+  const planSessions = (week0?.sessions ?? [])
+    .filter((s) => s.system !== 'race')
+    .map((s) => {
+      const ds = weekDays[s.dayOfWeek - 1]?.ds
+      const linked = sessionLogs.some((l) => l.planned_workout_id === s.workoutId && l.planned_date === ds)
+      return { dayOfWeek: s.dayOfWeek, title: s.title, done: linked }
+    })
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+  const planDoneCount = planSessions.filter((s) => s.done).length
 
   // Imports Strava pas encore reliés à un type de renfo (30 derniers jours).
   const cutoff30 = isoDate(new Date(Date.now() - 30 * 86_400_000))
@@ -192,7 +207,7 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
             <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--vl-text-3)' }}>CETTE SEMAINE</span>
             <div style={{ display: 'flex', gap: 14, fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
-              <span><strong style={{ color: 'var(--vl-ember)', fontSize: 13 }}>{runsWeekCount}</strong> course{runsWeekCount > 1 ? 's' : ''}</span>
+              <span><strong style={{ color: 'var(--vl-ember)', fontSize: 13 }}>{planDoneCount}/{planSessions.length}</strong> séance{planSessions.length > 1 ? 's' : ''}</span>
               <span><strong style={{ color: RENFO, fontSize: 13 }}>{renfoWeekCount}/{renfoWeeklyTarget}</strong> renfo</span>
             </div>
           </div>
@@ -218,6 +233,19 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
               )
             })}
           </div>
+
+          {/* Séances du plan de la semaine — faites en grisé + ✓ */}
+          {planSessions.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 11 }}>
+              {planSessions.map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, opacity: s.done ? 0.45 : 1 }}>
+                  <span style={{ width: 12, textAlign: 'center', color: s.done ? 'var(--vl-growth)' : 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)', fontSize: 11 }}>{s.done ? '✓' : '·'}</span>
+                  <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', width: 16 }}>{WEEK_LETTERS[s.dayOfWeek - 1]}</span>
+                  <span style={{ color: 'var(--vl-text-2)', textDecoration: s.done ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
