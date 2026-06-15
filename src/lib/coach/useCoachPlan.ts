@@ -82,6 +82,18 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     () => races.filter((r) => r.date.slice(0, 10) >= today),
     [races, today],
   )
+  // Dernière course TERMINÉE récente (≤ 35 j) avec une distance connue → bloc de
+  // récupération post-course en début de plan (cf. postRaceRecovery).
+  const recentRace = useMemo(() => {
+    const past = races
+      .filter((r) => r.date.slice(0, 10) < today && (r.distance ?? 0) > 0)
+      .sort((a, b) => b.date.localeCompare(a.date))
+    const last = past[0]
+    if (!last) return undefined
+    const days = (Date.parse(today) - Date.parse(last.date.slice(0, 10))) / 86_400_000
+    if (days > 35) return undefined
+    return { dateISO: last.date.slice(0, 10), distanceKm: last.distance ?? 0, elevationM: last.elevation ?? 0 }
+  }, [races, today])
   // Cible = choix manuel, sinon la prochaine course A (objectif principal),
   // sinon la prochaine course tout court.
   const targetRace = useMemo(
@@ -140,8 +152,9 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       weaknesses,
       motivation,
       secondaryRaces,
+      recentRace,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces, recentRace])
 
   // Replanification RÉACTIVE : la charge RÉELLE (ACWR/forme) ajuste la semaine courante.
   const replan = useMemo(

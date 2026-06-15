@@ -592,6 +592,41 @@ SI séance taguée {course_C, terrain_impose, test_terrain, sortie_decouverte}
 
 ---
 
+## Récupération post-course (avant de relancer un programme)
+
+Après une course, le nouveau programme **commence par un bloc de récupération** (*reverse
+taper*) **avant** de relancer la charge — sinon on empile la fatigue sur des tissus encore
+abîmés. La durée n'est **pas un forfait fixe** : elle est **proportionnelle à la demande**
+(distance × intensité × dénivelé excentrique).
+
+| Course | Récup recommandée | Notes |
+|---|---|---|
+| 5K–10K | **~3–5 j** | reprise easy rapide |
+| Semi | **~1 semaine** | |
+| 30K | **~10–11 j** | |
+| **Marathon / 50K** | **~2 semaines** | repère « 2 semaines » classique (reverse taper) |
+| 50 mi / 80K | **~3 semaines** | |
+| 100K+ | **~4 semaines** | |
+
+**Surcharge dénivelé (excentrique)** : le D− (descentes) ajoute des dommages musculaires
+(perte de force ~4 j, CK élevé) → **+2 j (≥500 m), +4 j (≥1200 m), +7 j (≥2500 m)**.
+
+**Forme du bloc** : footings **très faciles uniquement**, **zéro intensité**, volume réduit qui
+**remonte progressivement** (1re semaine la plus légère). On laisse récupérer **muscles + SNC +
+immunité**. La récup « mange » sur le début de la prépa suivante (elle ne s'ajoute pas).
+
+```
+recoveryDays = bucket(distance) + bumpDplus(D+)
+recoveryWeeks = min(3, ceil(joursRestants / 7))   # joursRestants = recoveryDays − joursÉcoulés
+SI une course terminée < recoveryDays jours → démarrer le plan par `recoveryWeeks` semaines
+   de reverse taper (easy only), SANS écraser un affûtage de course imminente.
+```
+
+→ Code : `postRaceRecovery.ts` (`recoveryDaysForRace`, `computePostRaceRecovery`) +
+`planGenerator.ts` (`buildPostRaceRecoveryWeek`, override des 1res semaines).
+
+---
+
 ## Sources principales
 
 **Découplage / EF / charge** : TrainingPeaks (aerobic decoupling, EF, NGP, TSS/IF/PMC) ·

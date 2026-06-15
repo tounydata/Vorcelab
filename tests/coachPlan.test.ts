@@ -23,6 +23,47 @@ function makeInput(over: Partial<PlanInput> = {}): PlanInput {
   }
 }
 
+// ─── Récupération post-course ─────────────────────────────────────────────────
+
+describe('generateTrainingPlan — récupération post-course', () => {
+  it('démarre par des semaines de récup après une course récente (marathon)', () => {
+    const plan = generateTrainingPlan(makeInput({
+      todayISO: '2026-06-21',
+      raceDateISO: '2026-09-13', // ~12 semaines plus tard
+      recentRace: { dateISO: '2026-06-18', distanceKm: 42, elevationM: 0 }, // marathon il y a 3 j
+    }))
+    expect(plan.weeks[0].isPostRaceRecovery).toBe(true)
+    expect(plan.weeks[1].isPostRaceRecovery).toBe(true)        // ~2 semaines
+    expect(plan.weeks[2].isPostRaceRecovery).toBeFalsy()
+    // que de l'easy, aucune séance dure
+    const hard = plan.weeks[0].sessions.filter((s) => s.intensity === 'hard')
+    expect(hard.length).toBe(0)
+    expect(plan.rationale.some((r) => /Récupération post-course/i.test(r))).toBe(true)
+  })
+
+  it('reverse taper : la 1re semaine est plus légère que la 2e', () => {
+    const plan = generateTrainingPlan(makeInput({
+      recentRace: { dateISO: '2026-06-18', distanceKm: 42, elevationM: 0 },
+    }))
+    expect(plan.weeks[0].volumeHours).toBeLessThanOrEqual(plan.weeks[1].volumeHours)
+  })
+
+  it('pas de récup si aucune course récente', () => {
+    const plan = generateTrainingPlan(makeInput())
+    expect(plan.weeks[0].isPostRaceRecovery).toBeFalsy()
+  })
+
+  it('n\'écrase jamais un affûtage imminent (course très proche)', () => {
+    // Course dans 2 semaines → phases [taper, race] : pas de place pour la récup.
+    const plan = generateTrainingPlan(makeInput({
+      todayISO: '2026-06-21',
+      raceDateISO: '2026-07-05',
+      recentRace: { dateISO: '2026-06-18', distanceKm: 42, elevationM: 0 },
+    }))
+    expect(plan.weeks.every((w) => !w.isPostRaceRecovery)).toBe(true)
+  })
+})
+
 // ─── isTrailRace ────────────────────────────────────────────────────────────
 
 describe('isTrailRace', () => {
