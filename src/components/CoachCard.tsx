@@ -1,5 +1,7 @@
 import { Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
+import { listSessionLog } from '../lib/coach/sessionLog'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import type { Phase } from '../lib/coach/workouts'
 import { RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
@@ -49,6 +51,9 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
   renfoWeeklyTarget: number
 }) {
   const { isLoading, targetRace, plan, displayWeeks, renfoFusion } = useCoachPlan()
+  // Séances réellement LIÉES (journal) → une séance n'est « faite » que si elle a été liée,
+  // pas parce qu'une sortie Strava (peut-être non liée) existe ce jour-là.
+  const { data: sessionLogs = [] } = useQuery({ queryKey: ['session-log-all'], queryFn: () => listSessionLog(120) })
 
   const now = new Date()
   const todayDow = ((now.getDay() + 6) % 7) + 1 // 1 = lundi … 7 = dimanche
@@ -79,14 +84,14 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
   const weekStartStr = isoDate(weekStart)
   const renfoWeekCount = [...new Set(renfoLogs.filter((r) => r.session_date && r.session_date >= weekStartStr).map((r) => r.session_date))].length
 
-  // Séances du PLAN cette semaine (hors course) + lesquelles sont faites (jour avec une sortie).
+  // Séances du PLAN cette semaine (hors course) + lesquelles sont LIÉES (journal).
   const planSessions = (week0?.sessions ?? [])
     .filter((s) => s.system !== 'race')
-    .map((s) => ({
-      dayOfWeek: s.dayOfWeek,
-      title: s.title,
-      done: !!weekDays[s.dayOfWeek - 1]?.doneRun,
-    }))
+    .map((s) => {
+      const ds = weekDays[s.dayOfWeek - 1]?.ds
+      const linked = sessionLogs.some((l) => l.planned_workout_id === s.workoutId && l.planned_date === ds)
+      return { dayOfWeek: s.dayOfWeek, title: s.title, done: linked }
+    })
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
   const planDoneCount = planSessions.filter((s) => s.done).length
 
