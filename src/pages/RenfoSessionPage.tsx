@@ -19,6 +19,7 @@ import {
   type ExerciseLog,
 } from '../lib/renfoUtils'
 import BrandedLoader from '../components/BrandedLoader'
+import OneRMTestPopup from '../components/coach/OneRMTestPopup'
 
 type Stage =
   | { stage: 'warmup' }
@@ -73,6 +74,25 @@ export default function RenfoSessionPage() {
     },
     enabled: !!user,
   })
+
+  // 1RM enregistrés (renfo_max_lifts) → proposer le test de force si la séance est
+  // chargée (force lourde) et qu'aucun 1RM n'est posé.
+  const { data: maxLifts = [], isFetched: maxLiftsFetched } = useQuery({
+    queryKey: ['renfo-max-lifts'],
+    queryFn: async () => {
+      const { data } = await supabase.from('renfo_max_lifts').select('exercise_id,one_rm').eq('user_id', user!.id)
+      return data ?? []
+    },
+    enabled: !!user,
+  })
+  const [show1rm, setShow1rm] = useState(false)
+  const [oneRmSeen, setOneRmSeen] = useState(false)
+  useEffect(() => {
+    if (focusKey === 'force_lourde' && maxLiftsFetched && maxLifts.length === 0 && !oneRmSeen) {
+      setShow1rm(true)
+      setOneRmSeen(true)
+    }
+  }, [focusKey, maxLiftsFetched, maxLifts.length, oneRmSeen])
 
   const dupOverride = useRunningDUPOverride()
   const phase = get4WeekPhase(dupOverride)
@@ -370,6 +390,14 @@ export default function RenfoSessionPage() {
         <div className="clabel" style={{ marginBottom: '1.5rem', color }}>{meta.label ?? focusKey}</div>
 
         {locationToggle}
+
+        {/* Test de force (1RM) — pour prescrire en force max sur les séances chargées */}
+        {focusKey === 'force_lourde' && (
+          <button className="hbtn" onClick={() => setShow1rm(true)} style={{ marginBottom: '1rem', fontSize: '.82rem' }}>
+            🏋 Calibrer ma force (test 1RM){maxLifts.length === 0 ? ' — recommandé' : ''}
+          </button>
+        )}
+        <OneRMTestPopup open={show1rm} onClose={() => setShow1rm(false)} />
 
         {/* Échauffement block — shown when warmup_text is defined in FOCUS_META */}
         {meta.warmup_text && (
