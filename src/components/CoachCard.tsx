@@ -5,6 +5,7 @@ import { listSessionLog } from '../lib/coach/sessionLog'
 import { PHASE_LABELS } from '../lib/coach/planGenerator'
 import type { Phase } from '../lib/coach/workouts'
 import { RENFO_FOCUS_SHORT } from '../lib/coach/renfoFusion'
+import { FOCUS_META } from '../lib/renfoData'
 import type { SessionLog } from '../lib/renfoUtils'
 
 // ─── Carte COACH du dashboard — repensée pour répondre à UNE question : ───────
@@ -166,13 +167,18 @@ export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: {
             </div>
           )}
           {todayRenfo && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 9 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', color: RENFO, background: 'color-mix(in oklab, var(--color-renfo) 16%, transparent)', borderRadius: 4, padding: '3px 8px', flexShrink: 0 }}>
                 + RENFO
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vl-text)' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--vl-text)' }}>
                 {RENFO_FOCUS_SHORT[todayRenfo.focus] ?? todayRenfo.focus}
               </span>
+              {FOCUS_META[todayRenfo.focus]?.duration_min ? (
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
+                  {FOCUS_META[todayRenfo.focus].duration_min} min
+                </span>
+              ) : null}
               {todayRenfo.heavy && (
                 <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', letterSpacing: '.05em' }}>LOURD</span>
               )}
