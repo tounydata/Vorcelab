@@ -791,7 +791,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
-              {key === 'coach' && <CoachCard activities={activities} renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
+              {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
               {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'month' && (
           <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>

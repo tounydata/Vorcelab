@@ -361,8 +361,6 @@ export default function CoachPage() {
 
         {/* Frise de périodisation (phases groupées, semaine en cours mise en avant) */}
         <PeriodizationArc weeks={plan.weeks} weeksToRace={plan.weeksToRace} distanceKm={plan.race.distanceKm} />
-
-        <div className="coach-seal"><span className="coach-seal-dot" />Plan déterministe · calcul 100 % local · aucune IA · aucune donnée envoyée</div>
       </div>
 
       {/* Calibrage VMA (demi-Cooper) proposé une fois par objectif, en début de prépa. */}
@@ -372,7 +370,6 @@ export default function CoachPage() {
             tu choisis ta séance (jamais imposée). « Ton moteur » vit dans Profil › LABO. ── */}
       <div data-tour="coach-week" className="coach-block-h">
         <span className="coach-block-ttl">Cette semaine</span>
-        <span className="coach-block-sub">Proposition · course + renfo · tu choisis ta séance</span>
       </div>
 
       {replan?.trigger ? (
