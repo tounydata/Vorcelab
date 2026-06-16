@@ -75,6 +75,16 @@ describe('fuseRenfoIntoWeek', () => {
     expect(new Set(days).size).toBe(days.length)
   })
 
+  it('suggère Pilates et haut du corps au fil des semaines (rotation)', () => {
+    const seen = new Set<string>()
+    for (let wk = 0; wk < 8; wk++) {
+      const week: PlanWeek = { ...buildWeek, weekIndex: wk }
+      for (const sl of fuseRenfoIntoWeek(week, 4)!.slots) seen.add(sl.focus)
+    }
+    expect(seen.has('pilates_coureur')).toBe(true)
+    expect(seen.has('haut_corps')).toBe(true)
+  })
+
   it('plafonne le renfo LOURD à 1 par semaine (maintien, pas 2/3)', () => {
     for (const n of [3, 4, 5, 6]) {
       const heavy = fuseRenfoIntoWeek(buildWeek, n)!.slots.filter((sl) => sl.heavy)
