@@ -1006,6 +1006,93 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'monster walk fessier moyen prévention genou'
   },
 
+  balance_unipodal: {
+    id: 'balance_unipodal',
+    name_fr: 'Équilibre unipodal',
+    name_tech: 'Single-leg balance (proprioception)',
+    category: 'mobilite',
+    primary_muscles: ['stabilisateurs cheville', 'pied', 'fessier moyen'],
+    benefits: ['stabilite', 'resilience'],
+    variants: [
+      {
+        id: 'balance_sol',
+        name: 'Équilibre au sol',
+        required_equipment: {},
+        priority: 1,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['yeux ouverts', 'yeux fermés', 'tête qui tourne'],
+        unit: 's',
+        default_sets: 3, default_reps: 40, target_rpe: 5,
+        rest_seconds: 20
+      },
+      {
+        id: 'balance_instable',
+        name: 'Équilibre sur surface instable',
+        required_equipment: {},
+        priority: 2,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['coussin / oreiller', 'avec lancers de balle', 'mini-squats'],
+        unit: 's',
+        default_sets: 3, default_reps: 40, target_rpe: 6,
+        rest_seconds: 20
+      }
+    ],
+    position: 'Debout sur une jambe, genou légèrement fléchi (souple, pas verrouillé). Bassin horizontal, regard à l\'horizon. Pied d\'appui ancré, orteils relâchés.',
+    movement: 'Tenir l\'équilibre sans osciller ni poser le pied libre. Progresser : yeux ouverts → yeux fermés → surface instable (coussin). Si trop facile, tourner la tête lentement. 30-45 s par jambe.',
+    common_errors: 'Verrouiller le genou d\'appui. Bassin qui s\'affaisse côté jambe libre (manque de moyen fessier). S\'agripper en crispant les orteils. Bloquer sa respiration.',
+    youtube_search: 'single leg balance proprioception cheville prévention entorse coureur'
+  },
+
+  y_balance: {
+    id: 'y_balance',
+    name_fr: 'Y-balance (touches dirigées)',
+    name_tech: 'Y-balance / Star excursion',
+    category: 'mobilite',
+    primary_muscles: ['stabilisateurs cheville', 'fessier moyen', 'quadriceps'],
+    benefits: ['stabilite', 'resilience'],
+    variants: [
+      {
+        id: 'y_balance_bw',
+        name: 'Y-balance poids de corps',
+        required_equipment: {},
+        priority: 1,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['3 directions', 'amplitude réduite (débutant)'],
+        default_sets: 2, default_reps: 6, target_rpe: 6,
+        rest_seconds: 30
+      }
+    ],
+    position: 'Debout sur une jambe, mains aux hanches, genou d\'appui légèrement fléchi. Jambe libre prête à aller chercher loin.',
+    movement: 'Avec la jambe libre, tendre le pied le plus loin possible et effleurer le sol : devant, diagonale arrière-interne, diagonale arrière-externe. Revenir au centre en contrôle sans poser le pied d\'appui. 6 touches par direction et par jambe.',
+    common_errors: 'Poser le pied d\'appui / perdre l\'équilibre (réduire l\'amplitude). Pencher tout le buste au lieu de tendre la jambe. Genou d\'appui qui part vers l\'intérieur.',
+    youtube_search: 'y balance star excursion équilibre dynamique cheville coureur'
+  },
+
+  hop_and_stick: {
+    id: 'hop_and_stick',
+    name_fr: 'Saut-stabilisation unipodal',
+    name_tech: 'Hop and stick',
+    category: 'pliometrie',
+    primary_muscles: ['mollets', 'quadriceps', 'stabilisateurs cheville/genou'],
+    benefits: ['resilience', 'stabilite'],
+    variants: [
+      {
+        id: 'hop_stick_av',
+        name: 'Saut + réception figée',
+        required_equipment: {},
+        priority: 1,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['petit saut avant', 'distance moyenne', 'latéral'],
+        default_sets: 3, default_reps: 5, target_rpe: 7,
+        rest_seconds: 60
+      }
+    ],
+    position: 'Debout sur une jambe, genou souple, bras prêts à équilibrer.',
+    movement: 'Petit saut (avant ou latéral), atterrir sur UNE jambe en amortissant (genou fléchi, hanche en arrière). FIGER l\'atterrissage 2 s sans osciller ni laisser le genou rentrer. 5 par jambe. Le contrôle prime sur la distance.',
+    common_errors: 'Atterrir raide (genou tendu). Genou qui s\'effondre vers l\'intérieur (valgus). Continuer à sautiller sans figer. Chercher la distance au détriment du contrôle.',
+    youtube_search: 'hop and stick single leg landing contrôle genou cheville trail'
+  },
+
   hip_thrust: {
     id: 'hip_thrust',
     name_fr: 'Hip thrust',
@@ -1699,13 +1786,13 @@ export const INTER_SET_REST: Record<string, any> = {
 
 export const SESSION_EXERCISES: Record<string, string[]> = {
   force_lourde:           ['squat_lourd','rdl','bulgare','hip_thrust','lunge_marcheur','step_up','lateral_lunge'],
-  pliometrie:             ['pogo_jumps','bondissements','drop_jumps','lateral_bound','box_jump'],
+  pliometrie:             ['pogo_jumps','bondissements','drop_jumps','lateral_bound','box_jump','hop_and_stick'],
   excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
   excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
   pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep','pilates_clam','pilates_dead_bug','pilates_bridge_series'],
   haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
-  mobilite:               ['hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
+  mobilite:               ['balance_unipodal','y_balance','hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
   yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
   stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book','tibialis_anterior_stretch','hip_flexor_couch','adductor_squat_stretch'],
 };
