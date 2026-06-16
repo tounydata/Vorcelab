@@ -1092,6 +1092,108 @@ export const RENFO_EXERCISES = {
     youtube_search: 'hop and stick single leg landing contrôle genou cheville trail'
   },
 
+  ankle_hops: {
+    id: 'ankle_hops',
+    name_fr: 'Sauts de cheville',
+    name_tech: 'Ankle hops',
+    category: 'pliometrie',
+    primary_muscles: ['mollets', 'tendon d\'Achille', 'pied'],
+    benefits: ['economie_course', 'resilience'],
+    variants: [
+      {
+        id: 'ankle_hops_bip',
+        name: 'Sauts de cheville bipodal',
+        required_equipment: {},
+        priority: 1,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['sur place', 'avant/arrière'],
+        default_sets: 3, default_reps: 20, target_rpe: 6,
+        rest_seconds: 60
+      }
+    ],
+    position: 'Debout, pieds largeur de hanches, jambes quasi tendues, cheville raide, appui sur l\'avant-pied.',
+    movement: 'Petits rebonds rapides en restant sur l\'avant-pied, contact au sol le plus court possible (< 250 ms). Amplitude minimale, fréquence élevée. C\'est l\'entrée la plus douce en pliométrie — prépare tendons et raideur avant le pogo.',
+    common_errors: 'Plier les genoux (ça devient un squat jump). Contacts longs et mous. Talons qui touchent le sol.',
+    youtube_search: 'ankle hops pliométrie débutant raideur cheville coureur'
+  },
+
+  sl_pogo: {
+    id: 'sl_pogo',
+    name_fr: 'Sauts unipodaux',
+    name_tech: 'Single-leg pogo / hops',
+    category: 'pliometrie',
+    primary_muscles: ['mollets', 'quadriceps', 'stabilisateurs cheville/genou'],
+    benefits: ['economie_course', 'resilience'],
+    variants: [
+      {
+        id: 'sl_pogo_place',
+        name: 'Pogo unipodal',
+        required_equipment: {},
+        priority: 1,
+        load_type: 'bodyweight_variant',
+        load_variant_options: ['sur place', 'vers l\'avant', 'continu'],
+        default_sets: 3, default_reps: 10, target_rpe: 8,
+        rest_seconds: 90
+      }
+    ],
+    position: 'En équilibre sur une jambe, genou souple, cheville raide, appui sur l\'avant-pied.',
+    movement: 'Rebonds rapides sur UNE jambe, contact court, genou qui reste dans l\'axe du pied. La course étant unipodale, c\'est le saut le plus spécifique. 10 par jambe, contrôle > hauteur. Progression : sur place → vers l\'avant → continu.',
+    common_errors: 'Genou qui rentre vers l\'intérieur. Contacts longs. Partir en rotation / perdre l\'axe.',
+    youtube_search: 'single leg pogo hops pliométrie spécifique course unipodal'
+  },
+
+  deadlift: {
+    id: 'deadlift',
+    name_fr: 'Soulevé de terre lourd',
+    name_tech: 'Deadlift (trap-bar / barre)',
+    category: 'force_lourde',
+    primary_muscles: ['chaîne postérieure', 'fessiers', 'ischio-jambiers', 'dorsaux'],
+    benefits: ['force_max', 'economie_course', 'resilience'],
+    variants: [
+      { id: 'deadlift_barre', name: 'Soulevé barre (trap-bar idéal)', required_equipment: { barbell: true }, priority: 1, load_type: 'external_kg', default_sets: 4, default_reps: 4, target_rpe: 8.5, rest_seconds: 150 },
+      { id: 'deadlift_haltere', name: 'Soulevé haltères / kettlebell', required_equipment_any: [{ dumbbells_max_kg: 24 }], priority: 2, load_type: 'external_kg', default_sets: 4, default_reps: 8, target_rpe: 8, rest_seconds: 120 }
+    ],
+    position: 'Pieds largeur de hanches, barre (ou trap-bar) contre les tibias. Dos neutre, gainage serré, épaules au-dessus de la barre, regard devant.',
+    movement: 'Pousser le sol avec les jambes en gardant le dos neutre ; hanches et épaules montent ENSEMBLE. Finir hanches verrouillées (fessiers serrés), sans hyperextension. Descendre contrôlé en repoussant les hanches vers l\'arrière. Charge lourde : 3-5 reps (force max → économie de course).',
+    common_errors: 'Dos rond (lombaires). Barre qui s\'éloigne des jambes. Hanches qui montent avant les épaules (bon-matin). Hyperextension en haut.',
+    youtube_search: 'trap bar deadlift soulevé de terre force coureur économie de course'
+  },
+
+  soleus_raise: {
+    id: 'soleus_raise',
+    name_fr: 'Mollet assis lourd (soléaire)',
+    name_tech: 'Seated / bent-knee calf raise',
+    category: 'force_lourde',
+    primary_muscles: ['soléaire', 'tendon d\'Achille'],
+    benefits: ['force_max', 'resilience', 'economie_course'],
+    variants: [
+      { id: 'soleus_assis_charge', name: 'Mollet assis lesté', required_equipment_any: [{ dumbbells_max_kg: 30 }, { barbell: true }], priority: 1, load_type: 'external_kg', default_sets: 4, default_reps: 12, target_rpe: 8, rest_seconds: 90 },
+      { id: 'soleus_unipodal_bw', name: 'Mollet genou fléchi unipodal', required_equipment: {}, priority: 2, load_type: 'bodyweight_variant', load_variant_options: ['au sol', 'sur step'], default_sets: 3, default_reps: 20, target_rpe: 7, rest_seconds: 60 }
+    ],
+    position: 'Assis, genoux fléchis ~90°, avant-pieds sur un step ou au sol, charge posée sur les cuisses (haltères/barre). Talons libres de descendre.',
+    movement: 'Monter sur la pointe des pieds en poussant fort, contracter le mollet 1s en haut. Descendre lentement (2-3s) jusqu\'à l\'étirement complet. Genou fléchi = cible le SOLÉAIRE (sollicité ~6-8× le poids de corps en course, souvent sous-entraîné).',
+    common_errors: 'Amplitude partielle (ne pas descendre assez). Rebondir en bas. Charge trop légère — le soléaire est puissant, il faut charger lourd.',
+    youtube_search: 'seated calf raise soléaire genou fléchi course à pied'
+  },
+
+  overhead_press: {
+    id: 'overhead_press',
+    name_fr: 'Développé épaules',
+    name_tech: 'Overhead / landmine press',
+    category: 'haut_corps',
+    primary_muscles: ['épaules', 'triceps', 'gainage'],
+    benefits: ['resilience', 'stabilite'],
+    variants: [
+      { id: 'ohp_haltere', name: 'Développé haltères debout', required_equipment_any: [{ dumbbells_max_kg: 20 }], priority: 1, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 7.5, rest_seconds: 90 },
+      { id: 'ohp_landmine', name: 'Landmine press', required_equipment: { barbell: true }, priority: 2, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 7.5, rest_seconds: 90 },
+      { id: 'ohp_pike', name: 'Pompes piquées (poids de corps)', required_equipment: {}, priority: 3, load_type: 'bodyweight_variant', load_variant_options: ['pike au sol', 'pieds surélevés'], default_sets: 3, default_reps: 8, target_rpe: 7, rest_seconds: 60 }
+    ],
+    position: 'Debout, gainage serré (fessiers/abdos), charge au niveau des épaules, coudes sous les poignets.',
+    movement: 'Pousser la charge au-dessus de la tête SANS cambrer le bas du dos. Verrouiller en haut, bras près des oreilles. Descendre contrôlé. Renforce le portage de sac / bâtons et la posture de fin de course.',
+    common_errors: 'Cambrer le bas du dos (compenser avec les lombaires). Pousser vers l\'avant au lieu de vertical. Hausser les épaules vers les oreilles.',
+    youtube_search: 'développé épaules debout haltères course trail portage sac posture'
+  },
+
   hip_thrust: {
     id: 'hip_thrust',
     name_fr: 'Hip thrust',
@@ -1784,13 +1886,13 @@ export const INTER_SET_REST = {
 
 
 export const SESSION_EXERCISES = {
-  force_lourde:           ['squat_lourd','rdl','bulgare','hip_thrust','lunge_marcheur','step_up','lateral_lunge'],
-  pliometrie:             ['pogo_jumps','bondissements','drop_jumps','lateral_bound','box_jump','hop_and_stick'],
+  force_lourde:           ['squat_lourd','deadlift','rdl','hip_thrust','bulgare','lunge_marcheur','step_up','lateral_lunge','soleus_raise'],
+  pliometrie:             ['pogo_jumps','ankle_hops','sl_pogo','bondissements','drop_jumps','lateral_bound','box_jump','hop_and_stick'],
   excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
   excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
   pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep','pilates_clam','pilates_dead_bug','pilates_bridge_series'],
-  haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
+  haut_corps:             ['tractions_or_row','overhead_press','pompes','face_pull','ytw_prone'],
   mobilite:               ['balance_unipodal','y_balance','hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
   yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
   stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book','tibialis_anterior_stretch','hip_flexor_couch','adductor_squat_stretch'],
