@@ -26,13 +26,14 @@ function fmtDur(sec: number): string {
   return `${m}:${String(sec % 60).padStart(2, '0')}`
 }
 
-function BlockRow({ block }: { block: Block }) {
-  // Allure cible exprimée en fourchette ±15 s/km.
-  const detail = block.paceSecPerKm
+function BlockRow({ block, effortMode }: { block: Block; effortMode: 'pace' | 'rpe' }) {
+  // Allure cible (±15 s/km) ou RPE. En trail/côte (effortMode='rpe') l'allure est
+  // trompeuse (D+, terrain) → on pilote à l'EFFORT : RPE prioritaire.
+  const paceStr = block.paceSecPerKm
     ? `${formatPace(block.paceSecPerKm - 15)}–${formatPace(block.paceSecPerKm + 15)}/km`
-    : typeof block.rpe === 'number'
-      ? `RPE ${block.rpe}`
-      : ''
+    : ''
+  const rpeStr = typeof block.rpe === 'number' ? `RPE ${block.rpe}` : ''
+  const detail = effortMode === 'rpe' ? (rpeStr || paceStr) : (paceStr || rpeStr)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
       <span style={{ width: 4, height: 18, borderRadius: 2, background: barColor(block.kind, block.zone), flexShrink: 0 }} />
@@ -47,8 +48,9 @@ function BlockRow({ block }: { block: Block }) {
   )
 }
 
-/** Écran de séance — profil d'intensité (barres) + liste des blocs. Présentationnel. */
-export default function SessionProfile({ workout }: { workout: Workout }) {
+/** Écran de séance — profil d'intensité (barres) + liste des blocs. Présentationnel.
+ *  `effortMode='rpe'` (trail/côte) : pilote à l'effort plutôt qu'à l'allure. */
+export default function SessionProfile({ workout, effortMode = 'pace' }: { workout: Workout; effortMode?: 'pace' | 'rpe' }) {
   const bars = workoutChartBars(workout)
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
@@ -81,7 +83,7 @@ export default function SessionProfile({ workout }: { workout: Workout }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         {workout.blocks.map((b, i) => (
-          <BlockRow key={i} block={b} />
+          <BlockRow key={i} block={b} effortMode={effortMode} />
         ))}
       </div>
     </div>
