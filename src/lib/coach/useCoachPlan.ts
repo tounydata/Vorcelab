@@ -35,6 +35,8 @@ export interface CoachProfileRow {
   runner_profile?: RunnerProfileComputed | null
   coach_days_per_week?: number | null
   coach_motivation?: string | null
+  /** Objectif de séances de renfo/semaine (réglé dans Réglages) — pilote le renfo du plan. */
+  renfo_weekly_target?: number | null
   /** Test demi-Cooper (6 min) pour calibrer la VMA/CS. */
   demi_cooper?: { distanceM?: number | null; dateISO?: string | null } | null
 }
@@ -62,7 +64,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     queryKey: ['profile-sessions'],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation,demi_cooper').eq('id', user!.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('prs,vo2max,fc_max,runner_profile,coach_days_per_week,coach_motivation,renfo_weekly_target,demi_cooper').eq('id', user!.id).maybeSingle()
       return (data ?? null) as CoachProfileRow | null
     },
   })
@@ -180,7 +182,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
   )
   const displayWeeks = useMemo(() => replan?.weeks ?? plan?.weeks ?? [], [replan, plan])
 
-  // Profil renfo (séances/sem.) → fusion du renforcement dans la semaine course.
+  // Profil renfo (séances/sem.) → repli si l'objectif Réglages n'est pas posé.
   const { data: renfoProfile } = useQuery({
     queryKey: ['renfo-profile-coach', user?.id],
     enabled: !!user,
@@ -189,7 +191,10 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       return data as { sessions_per_week?: number | null } | null
     },
   })
-  const renfoSessionsPerWeek = renfoProfile?.sessions_per_week ?? null
+  // Nombre de renfo/sem. = objectif RÉGLAGES (renfo_weekly_target, le knob utilisateur
+  // ET le compteur dashboard) → repli profil renfo (onboarding) → défaut 3. Une seule
+  // source : le renfo SUGGÉRÉ par l'algo colle au nombre affiché à l'utilisateur.
+  const renfoSessionsPerWeek = profile?.renfo_weekly_target ?? renfoProfile?.sessions_per_week ?? 3
   // Co-périodisation (fatigue récente) → focus à éviter cette semaine. MÊME source
   // que les badges « à éviter » du détail renfo : la séance proposée ne peut donc
   // jamais contredire le badge.
