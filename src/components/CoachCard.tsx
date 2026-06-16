@@ -145,7 +145,7 @@ export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: {
         /* ── Proposition du jour (jamais imposée) ── */
         <Link to="/coach" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: 'var(--vl-text-3)', marginBottom: 7 }}>
-            AUJOURD'HUI · {dateLabel}
+            SÉANCES SUGGÉRÉES · {dateLabel}
           </div>
           {todayRun ? (
             <>
