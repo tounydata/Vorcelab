@@ -55,8 +55,11 @@ const HEAVY_FOCUS: Record<'force' | 'volume' | 'puissance', string> = {
   volume: 'force_lourde',
   puissance: 'pliometrie',
 }
-const LIGHT_FILLERS = ['tronc', 'mobilite', 'yoga_coureur']
-const DELOAD_FOCUSES = ['mobilite', 'yoga_coureur', 'stretching']
+// Focus légers (faible fatigue jambes) rotés sur les jours calmes. Inclut Pilates
+// (core) et haut du corps : ils existent dans la bibliothèque et doivent être
+// SUGGÉRÉS, pas seulement choisissables à la main.
+const LIGHT_FILLERS = ['tronc', 'mobilite', 'yoga_coureur', 'pilates_coureur', 'haut_corps']
+const DELOAD_FOCUSES = ['mobilite', 'yoga_coureur', 'stretching', 'pilates_coureur']
 const HEAVY_FOCUSES = new Set(['force_lourde', 'pliometrie', 'excentrique'])
 
 /**
@@ -70,19 +73,22 @@ const HEAVY_FOCUSES = new Set(['force_lourde', 'pliometrie', 'excentrique'])
  *  • Lourd plafonné à **1×/sem** (knowledge §9 : maintien ~1×/sem ; le 2×/sem n'est
  *    réservé qu'au bloc force-max dédié, pas un défaut imposé à tous).
  */
-function weeklyFocuses(phase: Phase, sessionsPerWeek: number, opts: { recovery: boolean; avoid: Set<string> }): { focus: string; heavy: boolean }[] {
+function weeklyFocuses(phase: Phase, sessionsPerWeek: number, opts: { recovery: boolean; avoid: Set<string>; rotate?: number }): { focus: string; heavy: boolean }[] {
   const dup = runningPhaseToDUP(phase)
   const n = Math.max(0, Math.min(6, sessionsPerWeek))
   if (n === 0) return []
 
+  // Rotation par semaine : les focus légers défilent au fil des semaines (sinon seuls
+  // les premiers de la liste sortiraient toujours, et Pilates/haut-corps jamais).
+  const rot = ((opts.rotate ?? 0) % 1000 + 1000) % 1000
   const lightPool = LIGHT_FILLERS.filter((f) => !opts.avoid.has(f))
   const fillers = lightPool.length > 0 ? lightPool : LIGHT_FILLERS
-  const light = (i: number) => ({ focus: fillers[i % fillers.length], heavy: false })
+  const light = (i: number) => ({ focus: fillers[(rot + i) % fillers.length], heavy: false })
 
   if (opts.recovery || dup === 'deload') {
     const dl = DELOAD_FOCUSES.filter((f) => !opts.avoid.has(f))
     const pool = dl.length > 0 ? dl : DELOAD_FOCUSES
-    return Array.from({ length: n }, (_, i) => ({ focus: pool[i % pool.length], heavy: false }))
+    return Array.from({ length: n }, (_, i) => ({ focus: pool[(rot + i) % pool.length], heavy: false }))
   }
 
   const heavyFocus = HEAVY_FOCUS[dup]
@@ -132,7 +138,7 @@ export function fuseRenfoIntoWeek(
   const eveOfKey = (d: number): boolean => d < 7 && keyDays.has(d + 1)
   const usable = (d: number): boolean => d !== raceDay
 
-  const focuses = weeklyFocuses(week.phase, n, { recovery, avoid })
+  const focuses = weeklyFocuses(week.phase, n, { recovery, avoid, rotate: week.weekIndex })
   const assigned = new Set<number>()
   const slots: RenfoSlot[] = []
 
