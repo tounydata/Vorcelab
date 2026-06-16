@@ -29,24 +29,13 @@ const INTENSITY: Record<string, { label: string; color: string }> = {
   hard: { label: 'Soutenu', color: 'var(--vl-ember)' },
 }
 
-interface ActivityLite {
-  start_date: string
-  start_date_local?: string
-  type: string
-}
-
 type RenfoLogLite = Pick<SessionLog, 'focus' | 'session_date'>
-
-function isRunning(type: string) {
-  return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(type)
-}
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: {
-  activities: ActivityLite[]
+export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: {
   renfoLogs: RenfoLogLite[]
   renfoWeeklyTarget: number
 }) {
@@ -66,19 +55,17 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
   const isRaceDay = todayRun?.system === 'race'
   const intensity = todayRun && !isRaceDay ? INTENSITY[todayRun.intensity] ?? null : null
 
-  // ── Semaine EN COURS (lundi → dimanche) : fait + planifié, alignée aux compteurs ──
+  // ── Semaine EN COURS (lundi → dimanche) : un jour ne se colore QUE s'il est
+  //    « fait » = séance du coach LIÉE/validée (journal) ou renfo loggé. Le planifié
+  //    NON fait reste neutre (pas de couleur tant que rien n'est validé). ──
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7))
   const todayStr = isoDate(now)
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i)
     const ds = isoDate(d)
-    const dow = i + 1
-    const doneRun = activities.some((a) => (a.start_date_local ?? a.start_date)?.slice(0, 10) === ds && isRunning(a.type))
+    const doneRun = sessionLogs.some((l) => l.planned_date === ds)
     const doneRenfo = renfoLogs.some((r) => r.session_date === ds)
-    const plannedRun = !!week0?.sessions.some((s) => s.dayOfWeek === dow && s.system !== 'race')
-    const plannedRace = !!week0?.sessions.some((s) => s.dayOfWeek === dow && s.system === 'race')
-    const plannedRenfo = !!renfoFusion?.slots.some((sl) => sl.dayOfWeek === dow)
-    return { letter: WEEK_LETTERS[i], ds, doneRun, doneRenfo, plannedRun, plannedRace, plannedRenfo, isToday: ds === todayStr, isPast: ds < todayStr }
+    return { letter: WEEK_LETTERS[i], ds, doneRun, doneRenfo, isToday: ds === todayStr, isPast: ds < todayStr }
   })
 
   const weekStartStr = isoDate(weekStart)
@@ -97,14 +84,11 @@ export default function CoachCard({ activities, renfoLogs, renfoWeeklyTarget }: 
 
   const accent = phase ? PHASE_COLORS[phase] : 'var(--vl-line)'
 
-  // ── Rendu d'une cellule de jour : couleur = état, contour = planifié non fait ──
+  // ── Rendu d'une cellule de jour : couleur UNIQUEMENT si fait (lié/validé). ──
   const RENFO = 'var(--color-renfo)'
   function dayVisual(d: typeof weekDays[number]): { bg: string; border: string; dot: string | null } {
     if (d.doneRun) return { bg: 'var(--vl-ember)', border: 'transparent', dot: d.doneRenfo ? RENFO : null }
     if (d.doneRenfo) return { bg: RENFO, border: 'transparent', dot: null }
-    if (d.plannedRace) return { bg: 'transparent', border: 'var(--vl-ember)', dot: null }
-    if (d.plannedRun && !d.isPast) return { bg: 'color-mix(in oklab, var(--vl-ember) 16%, transparent)', border: 'color-mix(in oklab, var(--vl-ember) 55%, transparent)', dot: null }
-    if (d.plannedRenfo && !d.isPast) return { bg: 'color-mix(in oklab, var(--color-renfo) 14%, transparent)', border: 'color-mix(in oklab, var(--color-renfo) 50%, transparent)', dot: null }
     return { bg: 'var(--vl-surf-2)', border: 'var(--vl-line)', dot: null }
   }
 
