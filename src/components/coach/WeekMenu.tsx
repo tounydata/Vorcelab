@@ -210,6 +210,8 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
   const template = getWorkout(item.workoutId)!
   let workout = structureWorkout(template, vdot)
   if (isCurrent && scale && scale.workoutId === item.workoutId) workout = scaleWorkout(workout, scale.dir).workout
+  // Trail/côte : l'allure est trompeuse (D+, terrain) → on pilote à l'EFFORT (RPE).
+  const effortMode: 'pace' | 'rpe' = template.climbing ? 'rpe' : 'pace'
 
   const link: SessionLinkCtx | undefined =
     isCurrent && weekStartISO && item.dateISO
@@ -233,7 +235,12 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
           Objectif D+ · <strong>{fmtClimb(item.climbTargetM)}</strong> <span style={{ color: 'var(--vl-text-3)' }}>(fourchette — progresse vers le D+ de ta course)</span>
         </div>
       ) : null}
-      <SessionProfile workout={workout} />
+      {effortMode === 'rpe' ? (
+        <div style={{ margin: '0 0 12px', fontFamily: 'var(--vl-mono)', fontSize: 11.5, color: 'var(--vl-text-3)', lineHeight: 1.5 }}>
+          Séance trail/côte : pilote à l'<strong style={{ color: 'var(--vl-text-2)' }}>effort (RPE)</strong>, pas à l'allure — le D+ et le terrain la faussent.
+        </div>
+      ) : null}
+      <SessionProfile workout={workout} effortMode={effortMode} />
       {doneRow && (
         <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 'var(--vl-r-sm)', border: '1px solid var(--vl-growth)', background: 'color-mix(in srgb, var(--vl-growth) 12%, transparent)', fontSize: 12.5, color: 'var(--vl-growth)' }}>
           ✓ Séance déjà validée — verdict : {VERDICT_FR[doneRow.verdict] ?? doneRow.verdict}
