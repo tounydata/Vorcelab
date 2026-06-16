@@ -39,6 +39,7 @@ type RunItem = {
   durationMin: number
   intensity: Intensity
   isKey: boolean
+  climbTargetM?: { min: number; max: number } | null
   dateISO?: string
 }
 type RenfoItem = {
@@ -50,6 +51,10 @@ type RenfoItem = {
   heavy: boolean
 }
 type Item = RunItem | RenfoItem
+
+function fmtClimb(b: { min: number; max: number }): string {
+  return b.min === b.max ? `${b.max} m D+` : `${b.min}–${b.max} m D+`
+}
 
 function DifficultyDots({ level }: { level: number }) {
   return (
@@ -96,6 +101,7 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
       durationMin: s.targetDurationMin ?? wk.totalMin,
       intensity: t.intensity,
       isKey: t.intensity === 'hard' || KEY_SYSTEMS.has(t.system),
+      climbTargetM: s.climbTargetM ?? null,
       dateISO: weekStartISO ? addDaysISO(weekStartISO, (s.dayOfWeek ?? 1) - 1) : undefined,
     })
   }
@@ -171,8 +177,11 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
               ) : null}
             </div>
             <div style={{ fontFamily: 'var(--vl-display)', fontSize: 19, color: 'var(--vl-text)', letterSpacing: '.01em', marginBottom: 6 }}>{it.name}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)' }}>{it.durationMin} min</span>
+              {it.kind === 'run' && it.climbTargetM ? (
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-growth)' }}>{fmtClimb(it.climbTargetM)}</span>
+              ) : null}
               {it.kind === 'run' ? <DifficultyDots level={INTENSITY_DOTS[it.intensity]} /> : null}
             </div>
           </button>
@@ -218,7 +227,12 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
   return (
     <div>
       <div style={{ fontFamily: 'var(--vl-display)', fontSize: 22, color: 'var(--vl-text)', margin: '0 0 4px' }}>{item.name}</div>
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.4 }}>{item.description}</p>
+      <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--vl-text-2)', lineHeight: 1.4 }}>{item.description}</p>
+      {item.climbTargetM ? (
+        <div style={{ margin: '0 0 12px', fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-growth)' }}>
+          Objectif D+ · <strong>{fmtClimb(item.climbTargetM)}</strong> <span style={{ color: 'var(--vl-text-3)' }}>(fourchette — progresse vers le D+ de ta course)</span>
+        </div>
+      ) : null}
       <SessionProfile workout={workout} />
       {doneRow && (
         <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 'var(--vl-r-sm)', border: '1px solid var(--vl-growth)', background: 'color-mix(in srgb, var(--vl-growth) 12%, transparent)', fontSize: 12.5, color: 'var(--vl-growth)' }}>

@@ -4,6 +4,7 @@ import {
   allocatePhases,
   weeksUntil,
   isTrailRace,
+  longRunClimbBandM,
   WORKOUT_IDS,
   type PlanInput,
 } from '../src/lib/coach/planGenerator'
@@ -237,5 +238,47 @@ describe('generateTrainingPlan', () => {
     const plan = generateTrainingPlan(makeInput())
     expect(plan.rationale.length).toBeGreaterThanOrEqual(3)
     expect(plan.rationale[0]).toContain('Test Race')
+  })
+})
+
+describe('longRunClimbBandM — rampe de D+ trail', () => {
+  it('null hors trail (D+ course nul)', () => {
+    expect(longRunClimbBandM('specific', 0)).toBeNull()
+    expect(longRunClimbBandM('race', 1500)).toBeNull()
+  })
+
+  it('monte vers le pic en spécifique (base < build < spécifique)', () => {
+    const base = longRunClimbBandM('base', 1000)!
+    const build = longRunClimbBandM('build', 1000)!
+    const spe = longRunClimbBandM('specific', 1000)!
+    expect(base.max).toBeLessThan(build.max)
+    expect(build.max).toBeLessThan(spe.max)
+  })
+
+  it('reste une fraction du D+ course (pic < D+ total)', () => {
+    const spe = longRunClimbBandM('specific', 1000)!
+    expect(spe.max).toBeLessThan(1000)
+    expect(spe.min).toBeGreaterThan(0)
+  })
+
+  it('réduit en semaine de décharge', () => {
+    const normal = longRunClimbBandM('build', 1000, false)!
+    const recov = longRunClimbBandM('build', 1000, true)!
+    expect(recov.max).toBeLessThan(normal.max)
+  })
+
+  it('le plan trail attache un objectif de D+ à la sortie longue', () => {
+    const plan = generateTrainingPlan(makeInput({ raceDistanceKm: 45, raceElevationM: 2500, raceType: 'Trail' }))
+    const longWithClimb = plan.weeks
+      .flatMap((w) => w.sessions)
+      .find((s) => s.system === 'long' && s.climbTargetM)
+    expect(longWithClimb).toBeDefined()
+    expect(longWithClimb!.climbTargetM!.max).toBeGreaterThan(0)
+  })
+
+  it('le plan route n\'attache pas de D+', () => {
+    const plan = generateTrainingPlan(makeInput({ raceDistanceKm: 42, raceElevationM: 0, raceType: 'Road' }))
+    const anyClimb = plan.weeks.flatMap((w) => w.sessions).some((s) => s.climbTargetM)
+    expect(anyClimb).toBe(false)
   })
 })
