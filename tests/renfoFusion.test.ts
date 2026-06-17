@@ -29,8 +29,8 @@ describe('fuseRenfoIntoWeek', () => {
     expect(fuseRenfoIntoWeek(buildWeek, null)).toBeNull()
   })
 
-  it('synchronise la phase DUP à la phase course (build → volume)', () => {
-    expect(fuseRenfoIntoWeek(buildWeek, 2)!.dupPhase).toBe('volume')
+  it('synchronise la phase DUP à la phase course (build → force max)', () => {
+    expect(fuseRenfoIntoWeek(buildWeek, 2)!.dupPhase).toBe('force')
   })
 
   it('place le bon nombre de séances', () => {

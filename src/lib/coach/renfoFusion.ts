@@ -11,8 +11,10 @@
 //    on EMPILE le renfo lourd sur un jour de qualité (renfo APRÈS la course), pour
 //    garder les jours faciles réellement faciles.
 //  • Synchronisation à la périodisation course (co-périodisation, runningPhaseToDUP) :
-//    force en base, volume en build, puissance en spécifique, DÉCHARGE en taper/course
-//    — aucun nouveau stimulus de force lourde près du jour J.
+//    VOLUME (adaptation anatomique) en base, FORCE MAX en build, PUISSANCE en
+//    spécifique, DÉCHARGE en taper/course — aucun nouveau stimulus de force lourde
+//    près du jour J. (On ne met PAS le volume/hypertrophie en build, quand l'intensité
+//    course monte.)
 //  • Bénéfice établi : force + pliométrie améliorent l'économie de course et
 //    réduisent les blessures (méta-analyse Lauersen 2014 ; Blagrove ; Beattie).
 
