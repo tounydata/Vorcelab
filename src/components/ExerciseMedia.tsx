@@ -1,6 +1,7 @@
 import { useState } from 'react'
 // @ts-ignore — renfoData est en JS sans types
 import { getExerciseGifUrl, RENFO_FOCUS_COLORS as _COLORS } from '../lib/renfoData'
+import { getExerciseMediaUrl } from '../lib/renfoMedia'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 
@@ -73,7 +74,8 @@ export default function ExerciseMedia({
   exerciseId, category, variant = 'full',
 }: { exerciseId: string; category?: string; variant?: 'thumb' | 'full' }) {
   const [errored, setErrored] = useState(false)
-  const url = getExerciseGifUrl(exerciseId) as string | null
+  // Démo : free-exercise-db (domaine public, mappé) en priorité, sinon storage existant.
+  const url = getExerciseMediaUrl(exerciseId) ?? (getExerciseGifUrl(exerciseId) as string | null)
   const color = RENFO_FOCUS_COLORS[category ?? ''] ?? '#7c3aed'
   const showImg = !!url && !errored
 
