@@ -42,7 +42,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
         required_equipment: { barbell: true },
         priority: 1,
         load_type: 'external_kg',
-        default_sets: 5, default_reps: 5, target_rpe: 8,
+        default_sets: 5, default_reps: 4, target_rpe: 8.5,
         rest_seconds: 180
       },
       {
@@ -94,7 +94,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
         required_equipment: { barbell: true },
         priority: 1,
         load_type: 'external_kg',
-        default_sets: 4, default_reps: 6, target_rpe: 8,
+        default_sets: 4, default_reps: 5, target_rpe: 8.5,
         rest_seconds: 150
       },
       {
@@ -1203,7 +1203,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
     primary_muscles: ['grand fessier', 'ischio-jambiers'],
     benefits: ['force_max', 'economie_course', 'resilience'],
     variants: [
-      { id: 'hip_thrust_barbell', name: 'Hip thrust barre', required_equipment: { barbell: true, bench: true }, priority: 1, load_type: 'external_kg', default_sets: 4, default_reps: 8, target_rpe: 8, rest_seconds: 120 },
+      { id: 'hip_thrust_barbell', name: 'Hip thrust barre', required_equipment: { barbell: true, bench: true }, priority: 1, load_type: 'external_kg', default_sets: 4, default_reps: 5, target_rpe: 8.5, rest_seconds: 120 },
       { id: 'hip_thrust_haltere', name: 'Hip thrust haltère', required_equipment_any: [{ dumbbells_max_kg: 20 }], priority: 2, load_type: 'external_kg', default_sets: 4, default_reps: 10, target_rpe: 8, rest_seconds: 90 },
       { id: 'hip_thrust_bw', name: 'Hip thrust poids de corps', required_equipment: {}, priority: 3, load_type: 'bodyweight_variant', load_variant_options: ['au sol', 'épaules sur banc', 'unilatéral'], default_sets: 3, default_reps: 15, target_rpe: 7, rest_seconds: 60 }
     ],
