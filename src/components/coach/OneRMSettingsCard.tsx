@@ -90,7 +90,7 @@ export default function OneRMSettingsCard() {
       </div>
 
       <button className="hbtn" onClick={() => setTestOpen(true)} style={{ marginTop: 14, fontSize: '.82rem' }}>
-        🏋 Estimer par un test (demi-Cooper de la force)
+        🏋 Faire le test de force guidé
       </button>
 
       <OneRMTestPopup open={testOpen} onClose={() => setTestOpen(false)} onSaved={() => qc.invalidateQueries({ queryKey: ['renfo-max-lifts'] })} />
