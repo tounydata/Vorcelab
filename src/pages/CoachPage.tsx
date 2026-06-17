@@ -153,7 +153,7 @@ export default function CoachPage() {
   const {
     isLoading, upcoming, targetRace,
     profile, activities,
-    vdot, fitnessAnchor,
+    vdot,
     plan, replan, displayWeeks, renfoSessionsPerWeek,
   } = useCoachPlan(selectedRaceId)
 
@@ -172,6 +172,18 @@ export default function CoachPage() {
     mutationFn: async (distanceM: number) => {
       const { error } = await supabase.from('profiles')
         .update({ demi_cooper: { distanceM, dateISO: new Date().toISOString().slice(0, 10) } })
+        .eq('id', user!.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile-sessions'] }),
+  })
+
+  // « Plus tard » sur le pop-up de calibrage → on persiste le report CÔTÉ SERVEUR
+  // (sinon navigation privée = re-proposé à chaque visite). Reste refaisable en LABO.
+  const demiCooperSkipMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('profiles')
+        .update({ demi_cooper: { skipped: true, dateISO: new Date().toISOString().slice(0, 10) } })
         .eq('id', user!.id)
       if (error) throw error
     },
@@ -364,7 +376,7 @@ export default function CoachPage() {
       </div>
 
       {/* Calibrage VMA (demi-Cooper) proposé une fois par objectif, en début de prépa. */}
-      <CalibrationPopup raceId={targetRace.id} source={fitnessAnchor?.source} saving={demiCooperMut.isPending} onSave={(mtr) => demiCooperMut.mutate(mtr)} />
+      <CalibrationPopup show={!!profile && !profile.demi_cooper} saving={demiCooperMut.isPending} onSave={(mtr) => demiCooperMut.mutate(mtr)} onSkip={() => demiCooperSkipMut.mutate()} />
 
       {/* ── CETTE SEMAINE (en premier) : le menu de la semaine — course + renfo,
             tu choisis ta séance (jamais imposée). « Ton moteur » vit dans Profil › LABO. ── */}

@@ -37,8 +37,8 @@ export interface CoachProfileRow {
   coach_motivation?: string | null
   /** Objectif de séances de renfo/semaine (réglé dans Réglages) — pilote le renfo du plan. */
   renfo_weekly_target?: number | null
-  /** Test demi-Cooper (6 min) pour calibrer la VMA/CS. */
-  demi_cooper?: { distanceM?: number | null; dateISO?: string | null } | null
+  /** Test demi-Cooper (6 min) pour calibrer la VMA/CS. `skipped` = report persisté. */
+  demi_cooper?: { distanceM?: number | null; dateISO?: string | null; skipped?: boolean } | null
 }
 
 function todayISO(): string {
