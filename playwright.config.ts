@@ -24,11 +24,6 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' },
     },
     {
-      name: 'legacy',
-      testMatch: /e2e\/legacy\/.*\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4174' },
-    },
-    {
       name: 'react-auth',
       testMatch: /e2e\/react-auth\/.*\.spec\.ts/,
       dependencies: ['setup'],
@@ -45,12 +40,6 @@ export default defineConfig({
       url: 'http://localhost:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-    },
-    {
-      command: 'node e2e/legacy-server.mjs',
-      url: 'http://localhost:4174',
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
     },
   ],
 })
