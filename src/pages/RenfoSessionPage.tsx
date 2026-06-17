@@ -534,6 +534,26 @@ export default function RenfoSessionPage() {
               />
             </div>
           </div>
+          {/* Mémoire de surcharge : ce que tu avais fait la dernière fois sur cet exo
+              (la charge proposée ci-dessus est déjà progressée via computeNextLoad). */}
+          {(() => {
+            const last = (logsByExo[exo.exercise_id] ?? [])[0]
+            if (!last) return null
+            const perf = [
+              last.load_kg ? `${last.load_kg} kg` : null,
+              `${last.reps_completed ?? '?'}${isHold ? 's' : ' reps'}`,
+              last.rpe ? `RPE ${last.rpe}` : null,
+            ].filter(Boolean).join(' · ')
+            const when = last.session_date
+              ? new Date(last.session_date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+              : null
+            return (
+              <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, marginTop: 10, color: 'var(--vl-text-3)' }}>
+                Dernière fois{when ? ` (${when})` : ''} : <strong style={{ color: 'var(--vl-text-2)' }}>{perf}</strong>
+                {isLoadExo && last.completed_all_reps && (last.rpe ?? 9) <= 7 ? ' — c\'était facile, vise plus lourd' : ''}
+              </div>
+            )
+          })()}
         </div>
 
         <div className="card" style={{ marginBottom: '1.5rem' }}>
