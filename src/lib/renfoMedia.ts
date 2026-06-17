@@ -43,6 +43,26 @@ const FED_MEDIA: Record<string, string> = {
   solaire_stretch: 'Standing_Soleus_And_Achilles_Stretch',
   ischio_debout: 'Standing_Hamstring_and_Calf_Stretch',
   hip_flexor_couch: 'Intermediate_Hip_Flexor_and_Quad_Stretch',
+  it_band_stretch: 'Iliotibial_Tract-SMR',
+  adductor_squat_stretch: 'Adductor_Groin',
+  butterfly: 'Intermediate_Groin_Stretch',
+  pigeon_actif: 'IT_Band_and_Glute_Stretch',
+  lizard_pose: 'Kneeling_Hip_Flexor',
+  cat_cow: 'Cat_Stretch',
+  child_pose: 'Childs_Pose',
+  supine_twist: 'Spinal_Stretch',
+  reclined_twist: 'Spinal_Stretch',
+  open_book: 'Torso_Rotation',
+  // force / unilatéral
+  bulgare: 'Split_Squat_with_Dumbbells',
+  cossack_squat: 'Barbell_Side_Split_Squat',
+  single_leg_squat: 'Single-Leg_High_Box_Squat',
+  step_down: 'Step-up_with_Knee_Raise',
+  copenhagen_plank: 'Cable_Hip_Adduction',
+  suitcase_carry: 'Rickshaw_Carry',
+  ytw_prone: 'Lying_Rear_Delt_Raise',
+  lateral_bound: 'Lateral_Bound',
+  pilates_roll_up: 'Sit-Up',
 }
 
 /** Frames de la démo (2 images départ→arrivée à boucler), ou null → placeholder. */
