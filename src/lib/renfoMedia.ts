@@ -1,52 +1,78 @@
 // Démos d'exercices issues de free-exercise-db (yuhonas) — licence Unlicense
-// (domaine public, ré-hébergeable). Images statiques (position d'exécution).
-// Mapping FAIT À LA MAIN, haute confiance uniquement : un exercice non listé
-// retombe proprement sur le placeholder SVG. À enrichir au fil du temps.
-// Source : https://github.com/yuhonas/free-exercise-db (Unlicense)
+// (domaine public, ré-hébergeable). Chaque exercice a 2 images (position de départ
+// et d'arrivée) : on les BOUCLE pour obtenir un mouvement animé (cf. ExerciseMedia),
+// 100 % libre de droits. Mapping fait à la main, haute confiance ; un exercice non
+// listé retombe sur le placeholder SVG. Source : github.com/yuhonas/free-exercise-db
 
 const FED_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises'
 
-// id d'exercice Vorcelab → chemin image free-exercise-db.
+// id d'exercice Vorcelab → DOSSIER free-exercise-db (qui contient 0.jpg + 1.jpg).
 const FED_MEDIA: Record<string, string> = {
-  squat_lourd: 'Barbell_Squat/0.jpg',
-  deadlift: 'Trap_Bar_Deadlift/0.jpg',
-  rdl: 'Romanian_Deadlift/0.jpg',
-  hip_thrust: 'Barbell_Hip_Thrust/0.jpg',
-  lunge_marcheur: 'Bodyweight_Walking_Lunge/0.jpg',
-  step_up: 'Step-up_with_Knee_Raise/0.jpg',
-  mollets_lourds: 'Rocking_Standing_Calf_Raise/0.jpg',
-  soleus_raise: 'Seated_Calf_Raise/0.jpg',
-  mollet_excentrique: 'Seated_Calf_Raise/0.jpg',
-  single_leg_glute_bridge: 'Single_Leg_Glute_Bridge/0.jpg',
+  squat_lourd: 'Barbell_Squat',
+  deadlift: 'Trap_Bar_Deadlift',
+  rdl: 'Romanian_Deadlift',
+  hip_thrust: 'Barbell_Hip_Thrust',
+  lunge_marcheur: 'Bodyweight_Walking_Lunge',
+  step_up: 'Step-up_with_Knee_Raise',
+  mollets_lourds: 'Rocking_Standing_Calf_Raise',
+  soleus_raise: 'Seated_Calf_Raise',
+  mollet_excentrique: 'Seated_Calf_Raise',
+  single_leg_glute_bridge: 'Single_Leg_Glute_Bridge',
   // pliométrie
-  box_jump: 'Front_Box_Jump/0.jpg',
-  drop_jumps: 'Depth_Jump_Leap/0.jpg',
-  bondissements: 'Lateral_Bound/0.jpg',
-  hop_and_stick: 'Single-Leg_Hop_Progression/0.jpg',
-  sl_pogo: 'Single-Leg_Hop_Progression/0.jpg',
+  box_jump: 'Front_Box_Jump',
+  drop_jumps: 'Depth_Jump_Leap',
+  bondissements: 'Lateral_Bound',
+  hop_and_stick: 'Single-Leg_Hop_Progression',
+  sl_pogo: 'Single-Leg_Hop_Progression',
   // tronc
-  dead_bug: 'Dead_Bug/0.jpg',
-  pallof_press: 'Pallof_Press/0.jpg',
-  core_rotation: 'Russian_Twist/0.jpg',
-  side_plank_hipdrop: 'Push_Up_to_Side_Plank/0.jpg',
+  dead_bug: 'Dead_Bug',
+  pallof_press: 'Pallof_Press',
+  core_rotation: 'Russian_Twist',
+  side_plank_hipdrop: 'Push_Up_to_Side_Plank',
   // haut du corps
-  pompes: 'Clock_Push-Up/0.jpg',
-  tractions_or_row: 'Scapular_Pull-Up/0.jpg',
-  face_pull: 'Face_Pull/0.jpg',
-  overhead_press: 'Dumbbell_Shoulder_Press/0.jpg',
+  pompes: 'Clock_Push-Up',
+  tractions_or_row: 'Scapular_Pull-Up',
+  face_pull: 'Face_Pull',
+  overhead_press: 'Dumbbell_Shoulder_Press',
   // pilates
-  pilates_dead_bug: 'Dead_Bug/0.jpg',
-  pilates_swimming: 'Superman/0.jpg',
-  pilates_bridge_series: 'Barbell_Glute_Bridge/0.jpg',
+  pilates_dead_bug: 'Dead_Bug',
+  pilates_swimming: 'Superman',
+  pilates_bridge_series: 'Barbell_Glute_Bridge',
   // étirements
-  gastrocnemien_stretch: 'Standing_Gastrocnemius_Calf_Stretch/0.jpg',
-  solaire_stretch: 'Standing_Soleus_And_Achilles_Stretch/0.jpg',
-  ischio_debout: 'Standing_Hamstring_and_Calf_Stretch/0.jpg',
-  hip_flexor_couch: 'Intermediate_Hip_Flexor_and_Quad_Stretch/0.jpg',
+  gastrocnemien_stretch: 'Standing_Gastrocnemius_Calf_Stretch',
+  solaire_stretch: 'Standing_Soleus_And_Achilles_Stretch',
+  ischio_debout: 'Standing_Hamstring_and_Calf_Stretch',
+  hip_flexor_couch: 'Intermediate_Hip_Flexor_and_Quad_Stretch',
+  it_band_stretch: 'Iliotibial_Tract-SMR',
+  adductor_squat_stretch: 'Adductor_Groin',
+  butterfly: 'Intermediate_Groin_Stretch',
+  pigeon_actif: 'IT_Band_and_Glute_Stretch',
+  lizard_pose: 'Kneeling_Hip_Flexor',
+  cat_cow: 'Cat_Stretch',
+  child_pose: 'Childs_Pose',
+  supine_twist: 'Spinal_Stretch',
+  reclined_twist: 'Spinal_Stretch',
+  open_book: 'Torso_Rotation',
+  // force / unilatéral
+  bulgare: 'Split_Squat_with_Dumbbells',
+  cossack_squat: 'Barbell_Side_Split_Squat',
+  single_leg_squat: 'Single-Leg_High_Box_Squat',
+  step_down: 'Step-up_with_Knee_Raise',
+  copenhagen_plank: 'Cable_Hip_Adduction',
+  suitcase_carry: 'Rickshaw_Carry',
+  ytw_prone: 'Lying_Rear_Delt_Raise',
+  lateral_bound: 'Lateral_Bound',
+  pilates_roll_up: 'Sit-Up',
 }
 
-/** URL de la démo (image) d'un exercice, ou null si pas de mapping (→ placeholder). */
+/** Frames de la démo (2 images départ→arrivée à boucler), ou null → placeholder. */
+export function getExerciseMediaFrames(id: string): string[] | null {
+  const folder = FED_MEDIA[id]
+  if (!folder) return null
+  return [`${FED_BASE}/${folder}/0.jpg`, `${FED_BASE}/${folder}/1.jpg`]
+}
+
+/** Première frame (compat / vignette statique). */
 export function getExerciseMediaUrl(id: string): string | null {
-  const path = FED_MEDIA[id]
-  return path ? `${FED_BASE}/${path}` : null
+  return getExerciseMediaFrames(id)?.[0] ?? null
 }
