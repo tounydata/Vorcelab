@@ -1317,7 +1317,7 @@ export const RENFO_EXERCISES = {
     id: 'single_leg_glute_bridge',
     name_fr: 'Pont fessier 1 jambe',
     name_tech: 'Single Leg Glute Bridge',
-    category: 'excentrique',
+    category: 'mobilite',
     primary_muscles: ['grand fessier', 'ischio-jambiers', 'stabilisateurs lombaires'],
     benefits: ['resilience', 'stabilite', 'prevention_blessure'],
     variants: [
@@ -1893,7 +1893,7 @@ export const SESSION_EXERCISES = {
   tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
   pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep','pilates_clam','pilates_dead_bug','pilates_bridge_series'],
   haut_corps:             ['tractions_or_row','overhead_press','pompes','face_pull','ytw_prone'],
-  mobilite:               ['balance_unipodal','y_balance','hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','cossack_squat'],
+  mobilite:               ['balance_unipodal','y_balance','hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','single_leg_glute_bridge','cossack_squat'],
   yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
   stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book','tibialis_anterior_stretch','hip_flexor_couch','adductor_squat_stretch'],
 };

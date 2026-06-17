@@ -236,3 +236,21 @@ export function fmtRestTimer(s: number): string {
 export function calcE1rm(loadKg: number, reps: number): number {
   return Math.round(loadKg * (1 + reps / 30) * 10) / 10
 }
+
+/**
+ * Progression des exercices NON chargés (poids de corps, tenues, bandes) : on
+ * augmente reps/durée quand la dernière fois était facile (toutes les reps faites
+ * ET RPE ≤ 7). Sinon on répète l'objectif. `isHold` → progression en secondes (+5),
+ * sinon +2 reps. Plafonné pour éviter l'emballement.
+ */
+export function computeNextReps(logs: ExerciseLog[], baseReps: number, isHold = false): number {
+  const last = logs?.[0]
+  if (!last || last.reps_completed == null) return baseReps
+  const done = last.reps_completed
+  const easy = last.completed_all_reps === true && (last.rpe ?? 9) <= 7
+  const step = isHold ? 5 : 2
+  const cap = baseReps + (isHold ? 30 : 6)
+  if (easy) return Math.min(done + step, cap)
+  // Dur ou inachevé → on répète (sans descendre sous l'objectif de base).
+  return Math.max(baseReps, done)
+}

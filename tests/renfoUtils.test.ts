@@ -8,6 +8,7 @@ import {
   todayStr,
   fmtRestTimer,
   calcE1rm,
+  computeNextReps,
   type DUPPhase4,
   type Activity,
   type ExerciseLog,
@@ -472,5 +473,26 @@ describe('calcE1rm', () => {
   it('rounds to 1 decimal place', () => {
     const result = calcE1rm(75, 8)
     expect(result).toBe(Math.round(result * 10) / 10)
+  })
+})
+
+describe('computeNextReps — progression des exos non chargés', () => {
+  const log = (p: Partial<{ reps_completed: number; rpe: number; completed_all_reps: boolean }>) =>
+    ([{ session_date: '2026-06-01', exercise_id: 'x', load_kg: null, e1rm: null, reps_completed: 12, rpe: 6, completed_all_reps: true, ...p }])
+
+  it('sans historique → objectif de base', () => {
+    expect(computeNextReps([], 12)).toBe(12)
+  })
+  it('dernière fois facile (toutes reps, RPE ≤ 7) → +2 reps', () => {
+    expect(computeNextReps(log({ reps_completed: 12, rpe: 6, completed_all_reps: true }), 12)).toBe(14)
+  })
+  it('tenue facile → +5 s', () => {
+    expect(computeNextReps(log({ reps_completed: 40, rpe: 6, completed_all_reps: true }), 40, true)).toBe(45)
+  })
+  it('dernière fois dure (RPE 9) → on répète', () => {
+    expect(computeNextReps(log({ reps_completed: 12, rpe: 9, completed_all_reps: true }), 12)).toBe(12)
+  })
+  it('plafonné (pas d\'emballement)', () => {
+    expect(computeNextReps(log({ reps_completed: 30, rpe: 5, completed_all_reps: true }), 12)).toBe(18) // 12 + 6
   })
 })
