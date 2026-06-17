@@ -59,15 +59,22 @@ export function get4WeekPhase(override?: DUPPhase4): DUPPhase4 {
 }
 
 /**
- * Co-périodisation : mappe la phase du plan COURSE → phase DUP renfo, pour que la
- * force suive la course (force en base, volume en build, puissance en spécifique,
- * décharge en taper/course — pas de nouveau stimulus de force lourde près du jour J).
+ * Co-périodisation : mappe la phase du plan COURSE → phase DUP renfo.
+ *  • BASE → VOLUME (adaptation anatomique : reps plus hautes, prépa tendons/tissus,
+ *    quand l'intensité course est basse — c'est le bon moment pour le volume).
+ *  • BUILD → FORCE MAX (lourd, peu de reps, peu de fatigue métabolique) : quand
+ *    l'intensité course MONTE, on évite le volume/hypertrophie (fatigue inutile, et
+ *    un coureur ne veut pas de masse).
+ *  • SPÉCIFIQUE → PUISSANCE (pliométrie/explosivité, transfert vers la vitesse).
+ *  • TAPER/COURSE → DÉCHARGE (aucun nouveau stimulus de force lourde près du jour J).
+ * (Réf. Blagrove ; recherche interne 01/03/08 — l'ancien base→force/build→volume
+ *  mettait l'hypertrophie au pire moment.)
  */
 export type RunningPhase = 'base' | 'build' | 'specific' | 'taper' | 'race'
 export function runningPhaseToDUP(phase: RunningPhase): DUPPhase4 {
   switch (phase) {
-    case 'base': return 'force'
-    case 'build': return 'volume'
+    case 'base': return 'volume'
+    case 'build': return 'force'
     case 'specific': return 'puissance'
     case 'taper':
     case 'race': return 'deload'

@@ -11,8 +11,8 @@ describe('currentPlanPhase', () => {
 
 describe('runningPhaseToDUP — co-périodisation', () => {
   it('mappe la phase course → DUP renfo', () => {
-    expect(runningPhaseToDUP('base')).toBe('force')
-    expect(runningPhaseToDUP('build')).toBe('volume')
+    expect(runningPhaseToDUP('base')).toBe('volume')
+    expect(runningPhaseToDUP('build')).toBe('force')
     expect(runningPhaseToDUP('specific')).toBe('puissance')
     expect(runningPhaseToDUP('taper')).toBe('deload')
     expect(runningPhaseToDUP('race')).toBe('deload')
