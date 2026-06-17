@@ -63,6 +63,11 @@ const FED_MEDIA: Record<string, string> = {
   ytw_prone: 'Lying_Rear_Delt_Raise',
   lateral_bound: 'Lateral_Bound',
   pilates_roll_up: 'Sit-Up',
+  // mobilité / prévention
+  monster_walk: 'Monster_Walk',
+  hip_abduction: 'Thigh_Abductor',
+  knee_to_wall: 'Ankle_Circles',
+  skips: 'Fast_Skipping',
 }
 
 /** Frames de la démo (2 images départ→arrivée à boucler), ou null → placeholder. */
