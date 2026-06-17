@@ -7,6 +7,7 @@ import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts
 import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
 import StravaConnection from '../components/StravaConnection'
 import RenfoEquipmentEditor from '../components/RenfoEquipmentEditor'
+import OneRMSettingsCard from '../components/coach/OneRMSettingsCard'
 import ProfileTabs from '../components/ProfileTabs'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 
@@ -200,6 +201,9 @@ export default function SettingsPage() {
                 <div className="mlabel" style={{ color: 'var(--vl-ember)', marginTop: 14, fontSize: 11 }}>Bibliothèque d'exercices →</div>
               </Link>
             </div>
+
+            {/* 1RM (force) : voir / saisir / estimer par test */}
+            <OneRMSettingsCard />
 
             {/* Éditeur de matériel renfo (maison / salle), intégré ici */}
             <div className="clabel" style={{ margin: '1.25rem 0 0.6rem', color: '#a78bfa', letterSpacing: '.12em' }}>MATÉRIEL RENFO</div>
