@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 // @ts-ignore — renfoData est en JS sans types
 import { getExerciseGifUrl, RENFO_FOCUS_COLORS as _COLORS } from '../lib/renfoData'
-import { getExerciseMediaUrl } from '../lib/renfoMedia'
+import { getExerciseMediaFrames } from '../lib/renfoMedia'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 
@@ -74,8 +74,20 @@ export default function ExerciseMedia({
   exerciseId, category, variant = 'full',
 }: { exerciseId: string; category?: string; variant?: 'thumb' | 'full' }) {
   const [errored, setErrored] = useState(false)
-  // Démo : free-exercise-db (domaine public, mappé) en priorité, sinon storage existant.
-  const url = getExerciseMediaUrl(exerciseId) ?? (getExerciseGifUrl(exerciseId) as string | null)
+  const [frame, setFrame] = useState(0)
+  // Démo : free-exercise-db (domaine public) — 2 images départ↔arrivée qu'on BOUCLE
+  // pour animer le mouvement. Repli : gif du storage existant. Sinon placeholder.
+  const fedFrames = getExerciseMediaFrames(exerciseId)
+  const gifUrl = fedFrames ? null : (getExerciseGifUrl(exerciseId) as string | null)
+  useEffect(() => {
+    setErrored(false)
+    setFrame(0)
+    if (!fedFrames || fedFrames.length < 2) return
+    const t = setInterval(() => setFrame((f) => (f + 1) % fedFrames.length), 750)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseId])
+  const url = fedFrames ? fedFrames[frame] : gifUrl
   const color = RENFO_FOCUS_COLORS[category ?? ''] ?? '#7c3aed'
   const showImg = !!url && !errored
 
