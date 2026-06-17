@@ -15,7 +15,7 @@ const FOCUS_META = _FOCUS_META as Record<string, any>
 const RENFO_FOCUS_COLORS = _RENFO_FOCUS_COLORS as Record<string, string>
 import {
   get4WeekPhase, applyDeloadModifiers,
-  computeNextLoad, calcE1rm, fmtRestTimer, todayStr,
+  computeNextLoad, computeNextReps, calcE1rm, fmtRestTimer, todayStr,
   type ExerciseLog,
 } from '../lib/renfoUtils'
 import BrandedLoader from '../components/BrandedLoader'
@@ -186,9 +186,13 @@ export default function RenfoSessionPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const exo: any = session.exercises[exoIdx]
     if (!exo) return
-    const suggested = computeNextLoad(logsByExo[exo.exercise_id] ?? [])
+    const exoLogs = logsByExo[exo.exercise_id] ?? []
+    const suggested = computeNextLoad(exoLogs)
     setLoad(suggested !== null ? suggested : '')
-    setReps(exo.reps)
+    // Exos chargés → reps = cible (la progression passe par la charge). Non chargés
+    // (poids de corps, tenues, bandes) → on progresse les reps/durée selon le ressenti.
+    const isLoadExo = exo.load_type === 'external_kg'
+    setReps(isLoadExo ? exo.reps : computeNextReps(exoLogs, exo.reps, exo.unit === 's'))
     setRpe(exo.target_rpe ?? 8)
   }, [exoIdx]) // eslint-disable-line
 
