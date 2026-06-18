@@ -5,62 +5,81 @@ import { getExerciseMediaFrames } from '../lib/renfoMedia'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 
-// ── Glyphes SVG par catégorie (placeholder « démo à venir », zéro emoji) ──────
-// Tracés simples en currentColor → recolorés par la couleur du focus.
+// ── Glyphes SVG par catégorie, ANIMÉS (mouvement « vivant », 100 % maison, zéro
+// licence) — utilisés en placeholder quand l'exercice n'a pas de photo de démo. ──
 function Glyph({ category, size = 48 }: { category?: string; size?: number }) {
   const common = {
     width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
     stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
   }
+  const spline = { calcMode: 'spline' as const, keyTimes: '0;0.5;1', keySplines: '0.4 0 0.6 1;0.4 0 0.6 1', repeatCount: 'indefinite' as const }
   switch (category) {
     case 'force_lourde':
     case 'haut_corps':
-      // haltère
+      // haltère qui se soulève
       return (
         <svg {...common}>
-          <path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" />
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="0 1.5; 0 -2; 0 1.5" dur="1.5s" {...spline} />
+            <path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" />
+          </g>
         </svg>
       )
     case 'pliometrie':
-      // saut / chevron haut
+      // saut qui rebondit
       return (
         <svg {...common}>
-          <path d="M12 4l6 7h-4v9h-4v-9H6z" />
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="0 2; 0 -2.5; 0 2" dur="0.9s" {...spline} />
+            <path d="M12 4l6 7h-4v9h-4v-9H6z" />
+          </g>
         </svg>
       )
     case 'excentrique':
     case 'excentrique_pliometrie':
-      // descente contrôlée / chevron bas
+      // descente contrôlée
       return (
         <svg {...common}>
-          <path d="M12 20l6-7h-4V4h-4v9H6z" />
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="0 -2; 0 2; 0 -2" dur="1.8s" {...spline} />
+            <path d="M12 20l6-7h-4V4h-4v9H6z" />
+          </g>
         </svg>
       )
     case 'tronc':
-      // gainage / noyau
+      // gainage qui se gaine (léger balancement)
       return (
         <svg {...common}>
-          <path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z" />
-          <path d="M12 8v8M8.5 12h7" />
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="-4 12 12; 4 12 12; -4 12 12" dur="2.6s" {...spline} />
+            <path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z" />
+            <path d="M12 8v8M8.5 12h7" />
+          </g>
         </svg>
       )
     case 'mobilite':
-      // flèches circulaires
+      // flèches qui tournent
       return (
         <svg {...common}>
-          <path d="M20 12a8 8 0 1 1-2.3-5.6" />
-          <path d="M20 4v4h-4" />
+          <g>
+            <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="3.2s" repeatCount="indefinite" />
+            <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+            <path d="M20 4v4h-4" />
+          </g>
         </svg>
       )
     case 'yoga_coureur':
     case 'pilates_coureur':
     case 'stretching':
     default:
-      // silhouette en mouvement
+      // silhouette qui s'étire (balancement doux)
       return (
         <svg {...common}>
-          <circle cx="12" cy="5" r="2" />
-          <path d="M12 7v6M12 9l-4 2M12 9l4 2M12 13l-3 6M12 13l3 6" />
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="-5 12 14; 5 12 14; -5 12 14" dur="2.4s" {...spline} />
+            <circle cx="12" cy="5" r="2" />
+            <path d="M12 7v6M12 9l-4 2M12 9l4 2M12 13l-3 6M12 13l3 6" />
+          </g>
         </svg>
       )
   }
@@ -115,12 +134,7 @@ export default function ExerciseMedia({
       {showImg ? (
         <img src={url!} alt="" loading="lazy" onError={() => setErrored(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       ) : (
-        <>
-          <Glyph category={category} size={56} />
-          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: '0.6rem', letterSpacing: '0.12em', opacity: 0.85 }}>
-            DÉMO À VENIR
-          </span>
-        </>
+        <Glyph category={category} size={56} />
       )}
     </div>
   )
