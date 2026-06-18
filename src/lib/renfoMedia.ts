@@ -65,16 +65,56 @@ const FED_MEDIA: Record<string, string> = {
   pilates_roll_up: 'Sit-Up',
   // mobilité / prévention
   monster_walk: 'Monster_Walk',
-  hip_abduction: 'Thigh_Abductor',
   knee_to_wall: 'Ankle_Circles',
+  // — Ajouts (recherche multi-sources, confiance haute/moyenne) —
+  nordic: 'Floor_Glute-Ham_Raise',
+  hip_9090: '90_90_Hamstring',
+  goblet_squat: 'Goblet_Squat',
+  leg_press: 'Leg_Press',
+  inverted_row: 'Inverted_Row',
+  tractions: 'Pullups',
   skips: 'Fast_Skipping',
+  squat_tempo: 'Bodyweight_Squat',
+  hip_abduction: 'Thigh_Abductor',
+  chop_bande: 'Standing_Cable_Wood_Chop',
+  figure_4_piriforme: 'Ankle_On_The_Knee',
+  lateral_lunge: 'Barbell_Side_Split_Squat',
+  balance_unipodal: 'Balance_Board',
 }
 
-/** Frames de la démo (2 images départ→arrivée à boucler), ou null → placeholder. */
+// Démos hors free-exercise-db, en URL explicites (1 image/gif, ou 2 frames à
+// boucler). Sources et licences — ZONES GRISES ASSUMÉES, à créditer (cf. plus bas) :
+//  • wger.de/media .......... CC-BY-SA 4.0 (attribution + partage à l'identique)
+//  • media.musclewiki.com ... usage non commercial / attribution (zone grise)
+//  • cdn.jsdelivr.net (ExerciseDB mirror) ... licence incertaine (zone grise)
+//  • upload.wikimedia.org ... CC (Commons) — images lourdes, hotlink ; en cas de
+//    rate-limit (429) l'app retombe proprement sur le picto animé (onError).
+// Crédits détaillés : voir MEDIA_CREDITS.md.
+const EXTRA_MEDIA: Record<string, string[]> = {
+  single_leg_rdl: ['https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@main/glutes/dumbbell-single-leg-deadlift.gif'],
+  reverse_nordic: ['https://wger.de/media/exercise-images/909/159222d9-c1e4-46ae-89ee-6a2dfaab978d.png'],
+  bird_dog: [
+    'https://media.musclewiki.com/media/uploads/og-male-Bodyweight-bird-dog-front.jpg',
+    'https://media.musclewiki.com/media/uploads/og-male-Bodyweight-bird-dog-side.jpg',
+  ],
+  pilates_clam: [
+    'https://media.musclewiki.com/media/uploads/og-male-Recovery-clamshells-1-side-lying-front.jpg',
+    'https://media.musclewiki.com/media/uploads/og-male-Recovery-clamshells-1-side-lying-side.jpg',
+  ],
+  pilates_hundred: [
+    'https://media.musclewiki.com/media/uploads/og-male-Pilates-hundred-front.jpg',
+    'https://media.musclewiki.com/media/uploads/og-male-Pilates-hundred-side.jpg',
+  ],
+  downward_dog: ['https://upload.wikimedia.org/wikipedia/commons/5/57/Downward-Facing-Dog.JPG'],
+  low_lunge: ['https://upload.wikimedia.org/wikipedia/commons/5/5c/J%C3%B3ga_Anjaneyasana.jpg'],
+  warrior_3: ['https://upload.wikimedia.org/wikipedia/commons/4/45/Virabhadrasana_III_from_back.jpg'],
+}
+
+/** Frames de la démo (1 gif/image, ou 2 images départ→arrivée à boucler), ou null → placeholder. */
 export function getExerciseMediaFrames(id: string): string[] | null {
   const folder = FED_MEDIA[id]
-  if (!folder) return null
-  return [`${FED_BASE}/${folder}/0.jpg`, `${FED_BASE}/${folder}/1.jpg`]
+  if (folder) return [`${FED_BASE}/${folder}/0.jpg`, `${FED_BASE}/${folder}/1.jpg`]
+  return EXTRA_MEDIA[id] ?? null
 }
 
 /** Première frame (compat / vignette statique). */
