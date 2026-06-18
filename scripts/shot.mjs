@@ -11,6 +11,21 @@
 // Le navigateur chromium est dans /opt/pw-browsers (PLAYWRIGHT_BROWSERS_PATH).
 
 import { chromium } from '@playwright/test'
+import { existsSync, readdirSync } from 'node:fs'
+
+// Le navigateur préinstallé peut ne pas matcher la version de Playwright. On
+// cherche un chromium sous /opt/pw-browsers (SHOT_CHROME force un chemin précis).
+function findChrome() {
+  if (process.env.SHOT_CHROME) return process.env.SHOT_CHROME
+  const root = '/opt/pw-browsers'
+  if (!existsSync(root)) return null
+  for (const d of readdirSync(root).filter((n) => n.startsWith('chromium-')).sort().reverse()) {
+    const p = `${root}/${d}/chrome-linux/chrome`
+    if (existsSync(p)) return p
+  }
+  return null
+}
+const CHROME = findChrome()
 
 const BASE = process.env.SHOT_BASE ?? 'http://localhost:5173'
 const EMAIL = process.env.SHOT_EMAIL ?? 'test@vorcelab.app'
@@ -24,7 +39,7 @@ const url = (r) => `${BASE}/${r.replace(/^\//, '')}`
 // Le navigateur préinstallé peut ne pas matcher la version de Playwright : on
 // autorise un chemin explicite (SHOT_CHROME) pour éviter un re-téléchargement.
 const browser = await chromium.launch({
-  ...(process.env.SHOT_CHROME ? { executablePath: process.env.SHOT_CHROME } : {}),
+  ...(CHROME ? { executablePath: CHROME } : {}),
   // L'environnement headless intercepte le TLS avec une CA inconnue de Chromium :
   // toute requête HTTPS (Supabase, fonts) échouait en « Failed to fetch »
   // (net::ERR_CERT_AUTHORITY_INVALID). On ignore l'erreur de certif (capture only).
