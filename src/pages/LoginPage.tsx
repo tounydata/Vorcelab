@@ -4,7 +4,7 @@ import { useVLStore } from '../store/vlStore'
 
 type Mode = 'password' | 'magic' | 'reset' | 'signup'
 
-const REDIRECT = `${window.location.origin}/Vorcelab/app/#/`
+const REDIRECT = `${window.location.origin}${import.meta.env.BASE_URL}#/`
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('password')

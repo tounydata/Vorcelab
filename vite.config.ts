@@ -8,16 +8,16 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       // SW scope = base path (GitHub Pages subdir)
-      scope: '/Vorcelab/app/',
+      scope: '/',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg}'],
         // MapLibre (~1 Mo) : hors précache → chargé à la 1ʳᵉ ouverture d'une carte 3D,
         // puis mis en cache runtime. Garde l'install PWA légère.
         globIgnores: ['**/maplibre-gl-*.js'],
         // HashRouter : toute navigation revient sur index.html
-        navigateFallback: '/Vorcelab/app/index.html',
+        navigateFallback: '/index.html',
         // Ne pas mettre en cache les appels Supabase auth (sécurité)
-        navigateFallbackDenylist: [/^\/Vorcelab\/app\/api/],
+        navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
             // Bundle MapLibre (lazy) — CacheFirst une fois téléchargé
@@ -70,11 +70,11 @@ export default defineConfig({
         background_color: '#0d0d0d',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/Vorcelab/app/',
-        start_url: '/Vorcelab/app/',
+        scope: '/',
+        start_url: '/',
         icons: [
           {
-            src: '/Vorcelab/app/icon.svg',
+            src: '/icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable',
@@ -83,7 +83,7 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/Vorcelab/app/',
+  base: '/',
   resolve: { alias: { '@': '/src' } },
   build: {
     rollupOptions: {

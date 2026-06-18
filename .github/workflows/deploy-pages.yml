@@ -32,19 +32,16 @@ jobs:
         run: npm run build
       - name: Prepare pages
         run: |
-          mkdir -p .pages .pages/app
+          mkdir -p .pages
 
-          # Root — redirect immédiat vers l'app React
-          printf '<meta http-equiv="refresh" content="0;url=/Vorcelab/app/"><script>location.replace("/Vorcelab/app/")</script>' > .pages/index.html
-          printf '<meta http-equiv="refresh" content="0;url=/Vorcelab/app/"><script>location.replace("/Vorcelab/app/")</script>' > .pages/404.html
+          # App React servie à la RACINE du domaine custom (vorcelab.app)
+          cp -r dist/. .pages/
 
-          # Assets pour la page de redirection racine
-          cp style.css  .pages/style.css
-          [ -f og.svg ]      && cp og.svg      .pages/og.svg      || true
-          [ -f favicon.svg ] && cp favicon.svg .pages/favicon.svg || true
+          # SPA fallback : toute URL inconnue renvoie l'app
+          cp .pages/index.html .pages/404.html
 
-          # React app
-          cp -r dist/. .pages/app/
+          # Domaine custom GitHub Pages
+          echo 'vorcelab.app' > .pages/CNAME
 
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
