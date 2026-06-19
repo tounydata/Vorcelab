@@ -2,6 +2,7 @@
   "expo": {
     "name": "Vorcelab",
     "slug": "vorcelab",
+    "owner": "tountouny",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -46,6 +47,15 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1419a298-b148-4b1f-912d-f19fe18e2558"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1419a298-b148-4b1f-912d-f19fe18e2558"
     }
   }
 }
