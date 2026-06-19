@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# App config doit être versionné (le .gitignore racine ignore app.json globalement).
+!app.json
