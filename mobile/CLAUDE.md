@@ -27,10 +27,19 @@ strictement identique au CSS n'est pas atteignable (polices, sous‑pixel). On v
 l'**équivalence fidèle** du design et du comportement — mais **jamais** au prix d'une
 fonctionnalité ou d'un contenu en moins.
 
+### Portages réalisés en FULL
+- `Coach` : `CoachPage.tsx` porté à l'identique + le moteur `src/lib/coach/`
+  (périodisation `planGenerator`/`workouts`, replanification réactive `replan`,
+  modulation v3 `sessionModulation`, calibration demi‑Cooper, fusion renfo
+  `renfoFusion`, menu de la semaine `WeekProgram`/`WeekMenu`, feedback + verdict
+  `SessionFeedback`/`verdictFromActivity`, frise de périodisation en SVG natif).
+  Les libs pures sont des copies à l'octet près du web ; le hook `useCoachPlan`
+  est adapté au pattern loader natif (Supabase direct au lieu de TanStack Query),
+  calculs identiques.
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
-- `Réglages` : actuellement lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
+- `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
   profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
-- `Coach` : actuellement placeholder → porter **tout** `CoachPage.tsx` + le moteur
-  `src/lib/coach/` (périodisation, replanification, calibration, séances…).
 - Écrans restants à porter en full : détail d'activité, stratégie de course + carte,
-  renfo (bibliothèque + séance), ajout de course.
+  renfo (bibliothèque + séance — les liens `/renfo/session/:focus` et
+  `/renfo/library` du Coach les attendent), ajout de course.
