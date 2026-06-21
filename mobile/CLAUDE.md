@@ -46,8 +46,18 @@ fonctionnalité ou d'un contenu en moins.
   l'octet près (`renfoProgram`, `renfoMedia`, `oneRepMax`). Limites physiques :
   bips Web Audio → `Vibration` native ; input date → chips des 7 derniers jours.
 
+- `Ajout de course` : `AddRacePage` → `app/race/add` (branché au Calendrier).
+- `Détail d'activité` : `ActivityDetailPage` (~1160 l) porté en full → `app/activities/[activityId]` :
+  débrief, répartition FC, lecture de séance, facteurs de course (météo Open-Meteo),
+  profil altitude+FC (SVG, survol tactile), tracé GPS (carte WebView + Leaflet, fond
+  relief MapTiler — `RouteMap`), montées/VAM, profil athlète, qualité de séance
+  (dérive/découplage/durabilité), métriques, charge TRIMP, marquage course, et
+  **partage en story** (stickers Canvas via WebView, identiques au web, partagés par
+  `expo-sharing`). Libs pures copiées (`sessionDebrief`, `durability`, `weather`,
+  `gpxCore`, `sessionAnalysis`, `staticMap` adapté). Carte/partage : WebView (validé
+  par le propriétaire — reste compatible Expo Go).
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
 - `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
   profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
-- Écrans restants à porter en full : détail d'activité, stratégie de course + carte,
-  ajout de course.
+- Écrans restants à porter en full : stratégie de course + carte 3D (`RaceStrategyPage`).

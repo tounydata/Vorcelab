@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { Logo } from '@/components/Logo'
 import { useAuth } from '@/lib/auth'
 import { duration, isRunning, km, pace, shortDate } from '@/lib/format'
@@ -21,6 +22,7 @@ type Activity = {
 
 export default function Dashboard() {
   const { session } = useAuth()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [name, setName] = useState<string | null>(null)
@@ -106,7 +108,7 @@ export default function Dashboard() {
           <Text style={{ color: colors.text3, fontSize: 13 }}>Aucune activité enregistrée.</Text>
         ) : (
           recent.map((a) => (
-            <View key={a.id} style={[card, { marginBottom: space.sm }]}>
+            <Pressable key={a.id} onPress={() => router.push(`/activities/${a.id}` as never)} style={[card, { marginBottom: space.sm }]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flex: 1, paddingRight: space.md }}>
                   <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
@@ -121,7 +123,7 @@ export default function Dashboard() {
                   <Text style={{ color: colors.text3, fontSize: 12, marginTop: 2 }}>{duration(a.moving_time)}</Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>

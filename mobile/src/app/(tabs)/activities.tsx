@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { colors, radius, space } from '@/lib/theme'
 
@@ -83,6 +84,7 @@ function computePeriods(acts: Activity[]): PeriodStats[] {
 }
 
 export default function Activities() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [all, setAll] = useState<Activity[]>([])
   const [search, setSearch] = useState('')
@@ -193,7 +195,7 @@ export default function Activities() {
               {filtered.length} sortie{filtered.length > 1 ? 's' : ''}
             </Text>
             {filtered.map((a) => (
-              <View key={a.id} style={[card, { marginBottom: space.sm, flexDirection: 'row', alignItems: 'center' }]}>
+              <Pressable key={a.id} onPress={() => router.push(`/activities/${a.id}` as never)} style={[card, { marginBottom: space.sm, flexDirection: 'row', alignItems: 'center' }]}>
                 <View style={{ flex: 1, paddingRight: space.md }}>
                   <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
                     {a.name}
@@ -206,7 +208,7 @@ export default function Activities() {
                 <View style={{ backgroundColor: colors.surf3, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
                   <Text style={{ color: colors.text2, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>{runBadge(a)}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </>
         )}
