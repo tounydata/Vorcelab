@@ -27,10 +27,37 @@ strictement identique au CSS n'est pas atteignable (polices, sous‑pixel). On v
 l'**équivalence fidèle** du design et du comportement — mais **jamais** au prix d'une
 fonctionnalité ou d'un contenu en moins.
 
+### Portages réalisés en FULL
+- `Coach` : `CoachPage.tsx` porté à l'identique + le moteur `src/lib/coach/`
+  (périodisation `planGenerator`/`workouts`, replanification réactive `replan`,
+  modulation v3 `sessionModulation`, calibration demi‑Cooper, fusion renfo
+  `renfoFusion`, menu de la semaine `WeekProgram`/`WeekMenu`, feedback + verdict
+  `SessionFeedback`/`verdictFromActivity`, frise de périodisation en SVG natif).
+  Les libs pures sont des copies à l'octet près du web ; le hook `useCoachPlan`
+  est adapté au pattern loader natif (Supabase direct au lieu de TanStack Query),
+  calculs identiques.
+
+- `Renfo` : `RenfoLibraryPage`, `RenfoExerciseDetailPage` (graphe 1RM en SVG natif)
+  et `RenfoSessionPage` (déroulé complet warmup → série → repos minuté → bilan,
+  progression de charge `computeNextLoad`, DUP/deload, test 1RM guidé `OneRMTestPopup`,
+  sélection lieu maison/salle, média d'exercice animé `ExerciseMedia`) portés en full.
+  Routes `app/renfo/library`, `app/renfo/library/[exerciseId]`,
+  `app/renfo/session/[focusKey]` — branchées depuis le Coach. Libs pures copiées à
+  l'octet près (`renfoProgram`, `renfoMedia`, `oneRepMax`). Limites physiques :
+  bips Web Audio → `Vibration` native ; input date → chips des 7 derniers jours.
+
+- `Ajout de course` : `AddRacePage` → `app/race/add` (branché au Calendrier).
+- `Détail d'activité` : `ActivityDetailPage` (~1160 l) porté en full → `app/activities/[activityId]` :
+  débrief, répartition FC, lecture de séance, facteurs de course (météo Open-Meteo),
+  profil altitude+FC (SVG, survol tactile), tracé GPS (carte WebView + Leaflet, fond
+  relief MapTiler — `RouteMap`), montées/VAM, profil athlète, qualité de séance
+  (dérive/découplage/durabilité), métriques, charge TRIMP, marquage course, et
+  **partage en story** (stickers Canvas via WebView, identiques au web, partagés par
+  `expo-sharing`). Libs pures copiées (`sessionDebrief`, `durability`, `weather`,
+  `gpxCore`, `sessionAnalysis`, `staticMap` adapté). Carte/partage : WebView (validé
+  par le propriétaire — reste compatible Expo Go).
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
-- `Réglages` : actuellement lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
+- `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
   profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
-- `Coach` : actuellement placeholder → porter **tout** `CoachPage.tsx` + le moteur
-  `src/lib/coach/` (périodisation, replanification, calibration, séances…).
-- Écrans restants à porter en full : détail d'activité, stratégie de course + carte,
-  renfo (bibliothèque + séance), ajout de course.
+- Écrans restants à porter en full : stratégie de course + carte 3D (`RaceStrategyPage`).

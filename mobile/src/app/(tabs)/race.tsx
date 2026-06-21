@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { colors, radius, space } from '@/lib/theme'
@@ -38,6 +39,7 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { 
 export default function RaceCalendar() {
   const { session } = useAuth()
   const uid = session?.user.id
+  const router = useRouter()
   const [cursor, setCursor] = useState(new Date())
   const [races, setRaces] = useState<Race[]>([])
   const [acts, setActs] = useState<Activity[]>([])
@@ -46,13 +48,16 @@ export default function RaceCalendar() {
   const year = cursor.getFullYear()
   const month = cursor.getMonth()
 
-  useEffect(() => {
+  const loadRaces = useCallback(() => {
     supabase
       .from('race_calendar')
       .select('id,name,date,distance,elevation,type')
       .order('date', { ascending: true })
       .then(({ data }) => setRaces((data as Race[]) ?? []))
   }, [])
+
+  // Recharge à chaque retour sur l'onglet → une course ajoutée apparaît aussitôt.
+  useFocusEffect(loadRaces)
 
   const loadMonth = useCallback(async () => {
     const start = new Date(year, month, 1).toISOString()
@@ -127,9 +132,9 @@ export default function RaceCalendar() {
         {/* En-tête */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.lg }}>
           <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800' }}>Calendrier</Text>
-          <View style={{ backgroundColor: colors.ember, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7, opacity: 0.5 }}>
+          <Pressable onPress={() => router.push('/race/add')} style={{ backgroundColor: colors.ember, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7 }}>
             <Text style={{ color: colors.bg, fontWeight: '800', fontSize: 12 }}>+ Ajouter</Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* Navigation mois */}
