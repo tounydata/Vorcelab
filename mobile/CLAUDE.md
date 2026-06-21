@@ -37,9 +37,17 @@ fonctionnalité ou d'un contenu en moins.
   est adapté au pattern loader natif (Supabase direct au lieu de TanStack Query),
   calculs identiques.
 
+- `Renfo` : `RenfoLibraryPage`, `RenfoExerciseDetailPage` (graphe 1RM en SVG natif)
+  et `RenfoSessionPage` (déroulé complet warmup → série → repos minuté → bilan,
+  progression de charge `computeNextLoad`, DUP/deload, test 1RM guidé `OneRMTestPopup`,
+  sélection lieu maison/salle, média d'exercice animé `ExerciseMedia`) portés en full.
+  Routes `app/renfo/library`, `app/renfo/library/[exerciseId]`,
+  `app/renfo/session/[focusKey]` — branchées depuis le Coach. Libs pures copiées à
+  l'octet près (`renfoProgram`, `renfoMedia`, `oneRepMax`). Limites physiques :
+  bips Web Audio → `Vibration` native ; input date → chips des 7 derniers jours.
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
 - `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
   profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
 - Écrans restants à porter en full : détail d'activité, stratégie de course + carte,
-  renfo (bibliothèque + séance — les liens `/renfo/session/:focus` et
-  `/renfo/library` du Coach les attendent), ajout de course.
+  ajout de course.
