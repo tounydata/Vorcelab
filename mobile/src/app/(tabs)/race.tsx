@@ -201,7 +201,7 @@ export default function RaceCalendar() {
           <View style={{ marginBottom: space.lg }}>
             <Text style={mlabel}>PROCHAINES COURSES</Text>
             {upcoming.map((race) => (
-              <View key={race.id} style={row}>
+              <Pressable key={race.id} onPress={() => router.push(`/race/${race.id}` as never)} style={row}>
                 <Text style={{ color: race.type === 'trail' ? colors.ember : colors.growth, fontSize: 16 }}>
                   {race.type === 'trail' ? '⛰' : '→'}
                 </Text>
@@ -216,7 +216,7 @@ export default function RaceCalendar() {
                 <Text style={{ color: colors.ember, fontSize: 15, fontWeight: '800' }}>
                   {daysLeft(race.date) === 0 ? "Auj." : `${daysLeft(race.date)}j`}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
@@ -226,7 +226,7 @@ export default function RaceCalendar() {
           <View>
             <Text style={mlabel}>COURSES PASSÉES</Text>
             {past.map((race) => (
-              <View key={race.id} style={row}>
+              <Pressable key={race.id} onPress={() => router.push(`/race/${race.id}` as never)} style={row}>
                 <Text style={{ color: colors.text3, fontSize: 16 }}>{race.type === 'trail' ? '⛰' : '→'}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text2, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{race.name}</Text>
@@ -236,7 +236,7 @@ export default function RaceCalendar() {
                     {race.elevation ? ` · ${race.elevation}m D+` : ''}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}

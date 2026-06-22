@@ -57,7 +57,19 @@ fonctionnalité ou d'un contenu en moins.
   `gpxCore`, `sessionAnalysis`, `staticMap` adapté). Carte/partage : WebView (validé
   par le propriétaire — reste compatible Expo Go).
 
+- `Stratégie de course` : `RaceStrategyPage` (~2400 l avec ses composants) portée en
+  full → `app/race/[raceId]` : projection (`computeRaceProjection`), profil d'effort
+  SVG interactif (survol tactile), **carte 3D MapLibre** (WebView + relief MapTiler,
+  `RouteMap3D`), conditions météo (Open-Meteo + pénalités profil), sections clés,
+  toutes-sections, nutrition, **plan assistance** (ravitos + checkpoints, `CrewPlan`),
+  **débrief post-course** (`RaceResult` : verdict, allure prévu/réel en SVG, étiquetage
+  des arrêts, pacing, cardiaque, terrain, banc d'essai, enseignements). Import GPX via
+  `expo-document-picker` + parseur regex natif (sans DOMParser). Partage via la feuille
+  native (`Share`). Branchée depuis le Calendrier (lignes de course cliquables).
+  Carte 3D/import : WebView + deps natives (validé par le propriétaire, Expo Go OK).
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
 - `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
   profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
-- Écrans restants à porter en full : stratégie de course + carte 3D (`RaceStrategyPage`).
+- Limites physiques natives (≠ simplification) : impression (`window.print`) absente
+  du menu stratégie ; saisie date/heure en texte faute de date-picker sans dépendance.
