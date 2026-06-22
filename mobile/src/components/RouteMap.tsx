@@ -67,7 +67,7 @@ export default function RouteMap({
       <WebView
         ref={webRef}
         originWhitelist={['*']}
-        source={{ html }}
+        source={{ html, baseUrl: 'https://tounydata.github.io' }}
         injectedJavaScript={markerJs}
         onLoadEnd={() => webRef.current?.injectJavaScript(markerJs)}
         style={{ flex: 1, backgroundColor: colors.bg }}

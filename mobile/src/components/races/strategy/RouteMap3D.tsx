@@ -83,7 +83,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         <WebView
           ref={webRef}
           originWhitelist={['*']}
-          source={{ html }}
+          source={{ html, baseUrl: 'https://tounydata.github.io' }}
           injectedJavaScript={cursorJs}
           onLoadEnd={() => webRef.current?.injectJavaScript(cursorJs)}
           style={{ flex: 1, backgroundColor: colors.surf2 }}
