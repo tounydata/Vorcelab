@@ -4,6 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { colors, radius, space } from '@/lib/theme'
+import CoachEngine from '@/components/profile/CoachEngine'
+import CalibrationCard from '@/components/profile/CalibrationCard'
+import PaceZonesCard from '@/components/PaceZonesCard'
+import HrZonesCard from '@/components/HrZonesCard'
+import type { HrZoneConfig } from '@/lib/hrZones'
+import { buildRunnerProfile, fetchActivitiesForProfile, fillMissingWeather, saveRunnerProfile } from '@/lib/buildRunnerProfile'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -299,6 +305,7 @@ interface ProfileRow {
   birthdate?: string | null
   prs?: Record<string, unknown> | null
   runner_profile?: RunnerProfileComputed | null
+  fc_zones?: HrZoneConfig | null
 }
 
 type TabKey = 'compte' | 'records' | 'analyse'
@@ -327,11 +334,17 @@ export default function ProfileScreen() {
   const [prsMode, setPrsMode] = useState<'view' | 'edit'>('view')
   const [prsSaveMsg, setPrsSaveMsg] = useState('')
 
+  // LABO : recalcul du profil coureur + zones FC.
+  const [computing, setComputing] = useState(false)
+  const [computeProgress, setComputeProgress] = useState(0)
+  const [computeLabel, setComputeLabel] = useState('')
+  const [savingZones, setSavingZones] = useState(false)
+
   async function load() {
     if (!user) return
     const { data } = await supabase
       .from('profiles')
-      .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,sex,birthdate,prs,runner_profile')
+      .select('id,name,weight,height,vo2max,fc_max,lactate_threshold,lactate_pace,sex,birthdate,prs,runner_profile,fc_zones')
       .eq('id', user.id)
       .single()
     const r = (data as ProfileRow) ?? null
@@ -368,6 +381,31 @@ export default function ProfileScreen() {
     await load()
     setSaveMsg('Sauvegardé ✓')
     setTimeout(() => setSaveMsg(''), 3000)
+  }
+
+  async function handleComputeProfile() {
+    if (!user) return
+    setComputing(true); setComputeProgress(0); setComputeLabel('Chargement des activités…')
+    try {
+      const acts = await fetchActivitiesForProfile(user.id, 50)
+      setComputeLabel('Synchronisation météo manquante…')
+      await fillMissingWeather(user.id, acts, (done, total) => setComputeLabel(`Météo ${done}/${total}…`))
+      const rpNew = await buildRunnerProfile(acts, row?.fc_max ?? 185, (pct, label) => { setComputeProgress(pct); setComputeLabel(label) })
+      await saveRunnerProfile(user.id, rpNew)
+      await load()
+    } catch (e) {
+      console.error('[VL] compute profile error:', e)
+    } finally {
+      setComputing(false); setComputeProgress(0); setComputeLabel('')
+    }
+  }
+
+  async function saveZones(cfg: HrZoneConfig) {
+    if (!user) return
+    setSavingZones(true)
+    const { error } = await supabase.from('profiles').update({ fc_zones: cfg }).eq('id', user.id)
+    if (!error) await load()
+    setSavingZones(false)
   }
 
   const rp = row?.runner_profile
@@ -522,8 +560,38 @@ export default function ProfileScreen() {
         ) : (
           // ── LABO ──
           <>
+            {/* Ton moteur — ce que l'algo lit du coureur. */}
+            <CoachEngine />
+
+            {/* Calibrage VMA (demi-Cooper) — accessible à tout moment. */}
+            <CalibrationCard />
+
+            {/* Allures de référence + zones FC éditables. */}
+            <PaceZonesCard prs={row?.prs} vo2max={row?.vo2max} fcMax={row?.fc_max} showFcZones={false} />
+            <HrZonesCard config={row?.fc_zones ?? null} inputs={{ fcMax: row?.fc_max, lthr: row?.lactate_threshold }} saving={savingZones} onSave={saveZones} />
+
+            {/* Progression (recalcul). */}
+            {computing ? (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 11, color: colors.text2, marginBottom: 6 }}>{computeLabel}</Text>
+                <View style={{ height: 3, backgroundColor: colors.surf, borderRadius: 2, overflow: 'hidden' }}>
+                  <View style={{ height: '100%', width: `${computeProgress}%`, backgroundColor: colors.ember, borderRadius: 2 }} />
+                </View>
+              </View>
+            ) : null}
+
             {rp ? (
               <>
+                {/* En-tête analyse : date + FCmax + bouton recalcul. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
+                  <Text style={{ fontSize: 9, color: colors.text3, flex: 1 }}>
+                    Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')} · FCmax {row?.fc_max ?? rp.fcMax} bpm{!row?.fc_max ? ' (défaut)' : ''}
+                    {rp.analyzedRuns != null ? ` · ${rp.analyzedRuns} sorties` : ''} · {Math.round(rp.totalStreamSeconds / 3600)}h analysées
+                  </Text>
+                  <Pressable onPress={() => !computing && handleComputeProfile()} disabled={computing} style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 }}>
+                    <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>↺ Recalculer</Text>
+                  </Pressable>
+                </View>
                 {!row?.fc_max ? (
                   <View style={{ marginBottom: 10, padding: 12, borderRadius: 6, backgroundColor: 'rgba(214,128,62,0.10)', borderWidth: 1, borderColor: colors.ember }}>
                     <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ FCmax non renseignée — calcul basé sur 185 bpm par défaut. Les pourcentages FCmax et l'efficacité cardio sont inexacts. Renseigne ta FCmax dans l'onglet PROFIL puis recalcule.</Text>
@@ -534,11 +602,6 @@ export default function ProfileScreen() {
                     <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ Ta FCmax ({row.fc_max} bpm) a changé depuis le dernier calcul — l'analyse ci-dessous utilise encore {rp.fcMax} bpm.</Text>
                   </View>
                 ) : null}
-
-                <Text style={{ fontSize: 9, color: colors.text3, marginBottom: 10 }}>
-                  Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')} · FCmax {row?.fc_max ?? rp.fcMax} bpm{!row?.fc_max ? ' (défaut)' : ''}
-                  {rp.analyzedRuns != null ? ` · ${rp.analyzedRuns} sorties` : ''} · {Math.round(rp.totalStreamSeconds / 3600)}h analysées
-                </Text>
 
                 {rp.analyzedMonths && rp.analyzedMonths.length > 0 ? (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
@@ -567,9 +630,14 @@ export default function ProfileScreen() {
                   )
                 })}
               </>
-            ) : (
-              <View style={cardS}><Text style={{ color: colors.text3, fontSize: 13 }}>Analyse en cours de chargement…</Text></View>
-            )}
+            ) : !computing ? (
+              <View style={cardS}>
+                <Text style={{ color: colors.text3, fontSize: 13, marginBottom: 10 }}>Profil non encore calculé — lance l'analyse de tes sorties (allures par gradient, récup, dérive cardiaque…).</Text>
+                <Pressable onPress={handleComputeProfile} style={({ pressed }) => ({ backgroundColor: colors.ember, borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
+                  <Text style={{ color: colors.bg, fontWeight: '700' }}>Calculer mon profil</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </>
         )}
       </ScrollView>
