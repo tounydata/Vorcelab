@@ -68,8 +68,22 @@ fonctionnalité ou d'un contenu en moins.
   native (`Share`). Branchée depuis le Calendrier (lignes de course cliquables).
   Carte 3D/import : WebView + deps natives (validé par le propriétaire, Expo Go OK).
 
+- `Réglages` : `ProfilePage.tsx` porté en full — onglets PROFIL / RECORDS / LABO.
+  LABO complété : « Ton moteur » (`CoachEngine`), calibrage demi‑Cooper permanent
+  (`CalibrationCard`), allures de référence (`PaceZonesCard`), zones FC éditables
+  (`HrZonesCard`), **recalcul du profil coureur** (`buildRunnerProfile` +
+  `fetchActivitiesForProfile` + `fillMissingWeather`) avec barre de progression,
+  plus l'analyse existante (profil par gradient, conditions météo, récup par
+  gradient, dérive cardiaque).
+- `Dashboard` : `DashboardPage.tsx` porté en full → statut d'entraînement (PMC 42 j
+  en SVG + statut multi‑facteurs ACWR/CTL/EF + triad), widget course (countdown +
+  **projection live** `useRaceProjection` + tracé GPX + mini‑alti SVG), `CoachCard`
+  (séance du jour + frise semaine), « ce mois » + dernières sorties, sections
+  **réorganisables** (▲▼ + persistance `dashboard_layout`), recalcul profil en tâche
+  de fond + rattrapage Strava→renfo (`syncStravaRenfo`).
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
-- `Réglages` : si encore lean → porter **tout** `ProfilePage.tsx` (~930 lignes :
-  profil coureur calculé, météo & contexte, récup post‑montée, dérive cardiaque…).
+- (aucune — tous les écrans web sont portés.) Onboarding / tour guidé non requis sur natif.
 - Limites physiques natives (≠ simplification) : impression (`window.print`) absente
-  du menu stratégie ; saisie date/heure en texte faute de date-picker sans dépendance.
+  du menu stratégie ; saisie date/heure en texte faute de date-picker sans dépendance ;
+  réorganisation du dashboard via ▲▼ (le drag&drop pointer du web → boutons natifs).
