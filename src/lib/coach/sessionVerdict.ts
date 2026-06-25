@@ -160,7 +160,7 @@ export function compileSessionSignals(
 
 // Poids de chaque axe dans le score de difficulté (+ = trop dur, − = trop facile).
 const AXIS_WEIGHT: Record<VerdictSignal['axis'], number> = {
-  ressenti: 1.0, fc: 0.9, derive: 0.7, allure: 0.8,
+  ressenti: 1.0, fc: 1.05, derive: 0.7, allure: 0.8,
 }
 
 /**

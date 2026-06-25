@@ -142,7 +142,7 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
             item={selected}
             vdot={vdot} fcMax={fcMax ?? null} activities={activities}
             isCurrent={isCurrent} weekStartISO={weekStartISO} weekPhase={week.phase}
-            scale={scale} doneRow={doneRowFor(selected)}
+            scale={scale} doneRow={doneRowFor(selected)} doneByKey={doneByKey}
             validated={validated} onValidate={() => setValidated(true)} onSaved={onSaved}
           />
         )}
@@ -193,7 +193,11 @@ export default function WeekMenu({ week, vdot, fcMax, activities, isCurrent, wee
 }
 
 // Détail d'une séance COURSE : profil structuré + validation / liaison Strava.
-function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, weekPhase, scale, doneRow, validated, onValidate, onSaved }: {
+function activityId(a: LinkActivity): string {
+  return String(a.strava_activity_id ?? a.id ?? a.start_date)
+}
+
+function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, weekPhase, scale, doneRow, doneByKey, validated, onValidate, onSaved }: {
   item: RunItem
   vdot: number
   fcMax: number | null
@@ -203,6 +207,7 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
   weekPhase?: string
   scale?: { workoutId: string; dir: ModulationDir }
   doneRow?: SessionLogRow
+  doneByKey?: Map<string, SessionLogRow>
   validated: boolean
   onValidate: () => void
   onSaved?: () => void
@@ -212,6 +217,17 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
   if (isCurrent && scale && scale.workoutId === item.workoutId) workout = scaleWorkout(workout, scale.dir).workout
   // Trail/côte : l'allure est trompeuse (D+, terrain) → on pilote à l'EFFORT (RPE).
   const effortMode: 'pace' | 'rpe' = template.climbing ? 'rpe' : 'pace'
+
+  // IDs des activités déjà liées à une autre séance (pour exclure les candidats déjà pris).
+  const selfKey = item.dateISO ? `${item.workoutId}@${item.dateISO}` : null
+  const linkedActivityIds = new Set<string>()
+  if (doneByKey) {
+    for (const [key, row] of doneByKey) {
+      if (key !== selfKey && row.strava_activity_id) {
+        linkedActivityIds.add(row.strava_activity_id)
+      }
+    }
+  }
 
   const link: SessionLinkCtx | undefined =
     isCurrent && weekStartISO && item.dateISO
@@ -223,8 +239,14 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
           expectedDurationMin: item.durationMin,
           workoutId: item.workoutId,
           activities,
+          linkedActivityIds,
         }
       : undefined
+
+  // Activité Strava liée (pour affichage dans le détail de la séance validée).
+  const linkedActivity = doneRow?.strava_activity_id
+    ? activities.find((a) => activityId(a) === doneRow.strava_activity_id)
+    : null
 
   return (
     <div>
@@ -242,8 +264,24 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
       ) : null}
       <SessionProfile workout={workout} effortMode={effortMode} />
       {doneRow && (
-        <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 'var(--vl-r-sm)', border: '1px solid var(--vl-growth)', background: 'color-mix(in srgb, var(--vl-growth) 12%, transparent)', fontSize: 12.5, color: 'var(--vl-growth)' }}>
-          ✓ Séance déjà validée — verdict : {VERDICT_FR[doneRow.verdict] ?? doneRow.verdict}
+        <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 'var(--vl-r-sm)', border: '1px solid var(--vl-growth)', background: 'color-mix(in srgb, var(--vl-growth) 12%, transparent)', fontSize: 12.5 }}>
+          <div style={{ color: 'var(--vl-growth)', marginBottom: linkedActivity ? 6 : 0 }}>
+            ✓ Séance déjà validée — verdict : {VERDICT_FR[doneRow.verdict] ?? doneRow.verdict}
+          </div>
+          {linkedActivity && (
+            <div style={{ color: 'var(--vl-text-2)', fontSize: 12, display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+              <span>{linkedActivity.name ?? 'Sortie Strava'}</span>
+              {linkedActivity.distance != null && (
+                <span style={{ fontFamily: 'var(--vl-mono)' }}>{(linkedActivity.distance / 1000).toFixed(1)} km</span>
+              )}
+              {linkedActivity.moving_time != null && (
+                <span style={{ fontFamily: 'var(--vl-mono)' }}>{Math.round(linkedActivity.moving_time / 60)} min</span>
+              )}
+              {linkedActivity.total_elevation_gain != null && linkedActivity.total_elevation_gain > 0 && (
+                <span style={{ fontFamily: 'var(--vl-mono)', color: 'var(--vl-growth)' }}>+{Math.round(linkedActivity.total_elevation_gain)} m</span>
+              )}
+            </div>
+          )}
         </div>
       )}
       {validated ? (

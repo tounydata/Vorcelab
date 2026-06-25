@@ -47,6 +47,8 @@ export interface SessionLinkCtx {
   expectedDurationMin: number | null
   workoutId: string
   activities: LinkActivity[]
+  /** IDs des activités Strava déjà liées à d'autres séances (exclues des candidats). */
+  linkedActivityIds?: Set<string>
 }
 
 const VERDICT_STYLE: Record<SessionVerdict, { label: string; color: string }> = {
@@ -68,9 +70,12 @@ export default function SessionFeedback({ link, onSaved }: { link?: SessionLinkC
   const painAssessment = reason === 'Douleur' && painLevel !== null ? assessPain({ level: painLevel }) : null
 
   // Candidates d'activités (course à pied, semaine lundi→dimanche), classées.
+  // Les activités déjà liées à une autre séance sont exclues.
   const candidates = useMemo(() => {
     if (!link) return []
-    return matchCandidates(link.weekStartISO, link.plannedDayOfWeek, link.expectedDurationMin, link.activities)
+    const all = matchCandidates(link.weekStartISO, link.plannedDayOfWeek, link.expectedDurationMin, link.activities)
+    if (!link.linkedActivityIds?.size) return all
+    return all.filter((c) => !link.linkedActivityIds!.has(activityId(c.activity)))
   }, [link])
 
   function activityId(a: LinkActivity): string {
