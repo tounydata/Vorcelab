@@ -884,9 +884,6 @@ export default function DashboardPage() {
         <BrandedLoader />
       ) : (
         <>
-          {/* ── Bannière aujourd'hui — orientation douce ── */}
-          <TodayBanner activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
-
           {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}
           {sectionOrder.map((key, idx) => (
             <div
