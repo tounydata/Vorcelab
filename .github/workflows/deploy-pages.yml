@@ -30,6 +30,8 @@ jobs:
         run: npm ci
       - name: Build React app
         run: npm run build
+        env:
+          VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
       - name: Prepare pages
         run: |
           mkdir -p .pages
