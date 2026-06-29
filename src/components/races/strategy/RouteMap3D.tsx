@@ -98,10 +98,6 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         scrollZoom: false,            // ne pas piéger le scroll de page
         cooperativeGestures: true,    // mobile : 2 doigts pour bouger
         attributionControl: { compact: true },
-        // no-referrer : contournement restriction origine clé MapTiler (domaine vorcelab.app
-        // non listé). Supprime l'en-tête Referer → MapTiler accepte si la clé le permet.
-        // Fix définitif : ajouter vorcelab.app dans le dashboard MapTiler ou VITE_MAPTILER_KEY.
-        transformRequest: (url) => ({ url, referrerPolicy: 'no-referrer' }),
       })
       mapRef.current = map
 
