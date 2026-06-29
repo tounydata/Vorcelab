@@ -14,6 +14,39 @@ interface Activity {
   start_date: string
   type: string
   sport_type: string | null
+  average_heartrate?: number | null
+  average_speed?: number | null
+  suffer_score?: number | null
+}
+
+function activityVerdict(a: Activity): string | null {
+  const km = a.distance / 1000
+  const isTrail = a.sport_type === 'TrailRun' || a.sport_type === 'Trail Run'
+  const dplus = a.total_elevation_gain ?? 0
+  const secPerKm = a.moving_time / km
+  const pace = secPerKm
+
+  const parts: string[] = []
+
+  // Type d'effort
+  if (km >= 20) parts.push('Sortie longue')
+  else if (km >= 12) parts.push('Sortie medium')
+  else if (pace < 270 && km >= 5) parts.push('Séance rapide') // < 4:30/km
+  else if (km < 6) parts.push('Sortie courte')
+  else parts.push('Footing')
+
+  // Relief
+  if (isTrail && dplus > 800) parts.push(`${Math.round(dplus)} m D+ — sérieux`)
+  else if (isTrail && dplus > 400) parts.push(`${Math.round(dplus)} m D+`)
+  else if (!isTrail && dplus > 200) parts.push('vallonné')
+
+  // Cardio
+  if (a.average_heartrate) {
+    if (a.average_heartrate < 145) parts.push('FC facile')
+    else if (a.average_heartrate > 175) parts.push('FC élevée')
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 // Seules les sorties course/trail sont analysables (allure, FC, D+, profil coureur).
@@ -101,7 +134,7 @@ export default function ActivitiesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
+        .select('id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type,average_heartrate,average_speed,suffer_score')
         .order('start_date', { ascending: false })
       if (error) throw error
       return (data ?? []) as Activity[]
@@ -190,10 +223,18 @@ export default function ActivitiesPage() {
           <div className="acts-grid">
             {filtered.map((a) => (
               <NavLink key={a.id} to={`/activities/${a.id}`} className="act-card" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="act-name">{a.name}</div>
+                  {(() => {
+                    const v = activityVerdict(a)
+                    return v ? (
+                      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10.5, color: 'var(--vl-growth)', marginBottom: 3, letterSpacing: '.04em' }}>
+                        {v}
+                      </div>
+                    ) : null
+                  })()}
                   <div className="act-meta">
-                    {formatDate(a.start_date)} · {formatKm(a.distance)} km · {formatTime(a.moving_time)} · ↑{Math.round(a.total_elevation_gain ?? 0)} m
+                    {formatDate(a.start_date)} · {formatKm(a.distance)} km · {formatTime(a.moving_time)} · ↑{Math.round(a.total_elevation_gain ?? 0)} m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}
                   </div>
                 </div>
                 <div>

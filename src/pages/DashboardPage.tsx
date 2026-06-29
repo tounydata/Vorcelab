@@ -224,27 +224,44 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </div>
         {/* TSB — fraîcheur seulement, sans label "risque blessure" */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--vl-text-2)', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800,
+            color: today.tsb > 10 ? 'var(--vl-status-peak)' : today.tsb > 0 ? 'var(--vl-status-prod)' : today.tsb > -10 ? 'var(--vl-amber)' : 'var(--vl-status-over)',
+            lineHeight: 1 }}>
             {today.tsb > 0 ? `+${today.tsb}` : today.tsb}
           </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>FRAÎCHEUR</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>
+            FRAÎCHEUR{' '}
+            <span
+              title="Forme - Fatigue. Positif = tu es frais et reposé. Négatif = tu es chargé. Entre -10 et +10 : zone optimale de performance."
+              style={{ cursor: 'help', opacity: .7, fontSize: 9 }}
+            >?</span>
+          </div>
         </div>
       </div>
 
       {/* ── Triad parlant : libellé clair + état (chiffre brut en secondaire) ── */}
       <div className="dash-triad" style={{ marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FORME</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            FORME{' '}
+            <span title="Fitness aérobie accumulé (CTL). Se construit sur 42 jours. Solide = bonne base d'endurance." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--vl-status-prod)', lineHeight: 1.05, marginTop: 3 }}>{formeWord}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>fond {today.ctl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FATIGUE</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            FATIGUE{' '}
+            <span title="Charge récente (ATL sur 7 jours). Élevée après une grosse semaine — normal. Basse = tu es reposé." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: fatigueColor, lineHeight: 1.05, marginTop: 3 }}>{fatigueWord}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>récente {today.atl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>ÉQUILIBRE</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            ÉQUILIBRE{' '}
+            <span title="Ratio charge récente / charge chronique (ACWR). Optimal entre 0.8 et 1.3. Au-dessus de 1.5 : risque de blessure si ça dure." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: equil.color, lineHeight: 1.05, marginTop: 3 }}>{equil.word}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>{acwr.ratio != null ? `charge ×${acwr.ratio.toFixed(2)}` : 'calibrage'}</div>
         </div>
@@ -514,11 +531,117 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   )
 }
 
-// ─── Suggested focuses ────────────────────────────────────────────────────────
+// ─── Today banner — non-directive orientation card ───────────────────────────
+// Shows training state + 2-3 suggested options. User chooses freely.
+
+const TODAY_OPTIONS: Record<string, { label: string; desc: string; href: string }[]> = {
+  productif: [
+    { label: 'Fractionné', desc: 'séance qualité', href: '/coach' },
+    { label: 'Sortie longue', desc: 'endurance fondamentale', href: '/coach' },
+    { label: 'Renfo', desc: 'force complémentaire', href: '/coach' },
+  ],
+  pic: [
+    { label: 'Activation courte', desc: 'qualité à faible volume', href: '/coach' },
+    { label: 'Footing d\'éveil', desc: 'maintien de la vivacité', href: '/coach' },
+  ],
+  maintien: [
+    { label: 'Footing facile', desc: 'Z2, nez qui respire', href: '/coach' },
+    { label: 'Renfo', desc: 'maintien musculaire', href: '/coach' },
+    { label: 'Sortie longue', desc: 'base aérobie', href: '/coach' },
+  ],
+  recuperation: [
+    { label: 'Footing léger', desc: '20-30 min maxi, Z1', href: '/coach' },
+    { label: 'Repos actif', desc: 'vélo, marche, natation', href: '/coach' },
+  ],
+  charge_elevee: [
+    { label: 'Repos', desc: 'récupération passive', href: '/coach' },
+    { label: 'Footing très léger', desc: '20 min Z1, si tu dois bouger', href: '/coach' },
+  ],
+  surmenage: [
+    { label: 'Repos total', desc: 'priorité absolue', href: '/coach' },
+    { label: 'Récup active', desc: 'mobilité légère seulement', href: '/coach' },
+  ],
+  desentrainement: [
+    { label: 'Sortie longue', desc: 'reconstruire la base', href: '/coach' },
+    { label: 'Fractionné léger', desc: 'réactiver les filières', href: '/coach' },
+    { label: 'Renfo', desc: 'préserver la force', href: '/coach' },
+  ],
+  improductif: [
+    { label: 'Footing Z2 pur', desc: 'allure confortable, FC stable', href: '/coach' },
+    { label: 'Renfo', desc: 'stimulus neuro sans cardio', href: '/coach' },
+    { label: 'Repos', desc: 'si le corps résiste', href: '/coach' },
+  ],
+}
+
+function TodayBanner({
+  activities,
+  renfoLogs,
+  fcMax,
+}: {
+  activities: Activity2[]
+  renfoLogs: SessionLog[]
+  fcMax?: number | null
+}) {
+  const renfoActs: ActivityForLoad[] = renfoLogs
+    .filter((r) => r.session_date)
+    .map((r) => {
+      const f = r.focus ?? ''
+      const sport = f.includes('yoga') || f.includes('stretching') ? 'Yoga' : f.includes('pilates') ? 'Pilates' : 'WeightTraining'
+      return { start_date: r.session_date! + 'T12:00:00', type: sport, sport_type: sport, moving_time: (r.duration_min ?? 40) * 60 }
+    })
+  const pmc = computeDailyPMC([...activities, ...renfoActs], fcMax, { totalDays: 90, displayDays: 42 })
+  if (pmc.length === 0) return null
+  const today = pmc[pmc.length - 1]
+  if (!today || today.calibrating) return null
+
+  const acwr = computeACWR(pmc)
+  const status = computeMultiStatus(pmc, acwr, activities, fcMax ?? 185)
+  const opts = TODAY_OPTIONS[status.key]
+  if (!opts) return null
+
+  return (
+    <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <div style={{
+          fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 800,
+          color: status.color, letterSpacing: '.01em', textTransform: 'uppercase',
+        }}>
+          {status.label}
+        </div>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10.5, color: 'var(--vl-text-2)' }}>
+          {status.sub}
+        </div>
+      </div>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--vl-text-3)', marginBottom: 8 }}>
+        Qu'est-ce que tu fais aujourd'hui ?
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+        {opts.map((opt) => (
+          <a
+            key={opt.label}
+            href={`#${opt.href}`}
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px',
+              background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line-2)',
+              borderRadius: 'var(--vl-r-sm)', textDecoration: 'none', color: 'inherit',
+              transition: 'border-color .15s',
+            }}
+            onMouseOver={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--vl-ember)')}
+            onMouseOut={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--vl-line-2)')}
+          >
+            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--vl-text)' }}>{opt.label}</span>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>{opt.desc}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 // ─── Dashboard réorganisable : l'ordre des sections appartient à l'utilisateur ──
-const DASH_SECTIONS = ['race', 'coach', 'state', 'month'] as const
+const DASH_SECTIONS = ['today', 'race', 'coach', 'state', 'month'] as const
 const SECTION_LABELS: Record<string, string> = {
+  today: "Aujourd'hui",
   race: 'Stratégie de course',
   coach: 'Coach',
   state: "Statut d'entraînement",
@@ -790,6 +913,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
               )}
+              {key === 'today' && <TodayBanner activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
               {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
               {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
