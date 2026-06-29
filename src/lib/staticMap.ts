@@ -37,6 +37,9 @@ export function toPixel(lon: number, lat: number, center: Center, w: number, h: 
 
 // Clé MapTiler frontend par défaut (publique dans le bundle navigateur, c'est normal).
 // Protégée côté MapTiler par restriction d'origine HTTP : tounydata.github.io + localhost.
+// ⚠ L'app est maintenant sur vorcelab.app → ajouter ce domaine dans le dashboard MapTiler
+//   (Account → API keys → Edit → Allowed HTTP Origins) OU définir VITE_MAPTILER_KEY
+//   avec une clé qui autorise vorcelab.app (secret GitHub Actions : VITE_MAPTILER_KEY).
 // Surchargeable via VITE_MAPTILER_KEY.
 const DEFAULT_MAPTILER_KEY = 'UIAKCRlncKBkhN0ZLh8q'
 

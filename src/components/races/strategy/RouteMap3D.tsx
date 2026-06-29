@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Map as MlMap, Marker as MlMarker } from 'maplibre-gl'
 import type { GpxPoint } from '../../../lib/computeRaceProjection'
 import type { ProfileMarker } from './ElevationProfile'
@@ -63,6 +63,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const cursorMarkerRef = useRef<MlMarker | null>(null)
   const cumRef = useRef<number[]>([])
   const readyRef = useRef(false)
+  const [mapError, setMapError] = useState(false)
 
   // ── Construction de la carte (une fois par tracé) ──────────────────────────
   useEffect(() => {
@@ -97,11 +98,21 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         scrollZoom: false,            // ne pas piéger le scroll de page
         cooperativeGestures: true,    // mobile : 2 doigts pour bouger
         attributionControl: { compact: true },
+        // no-referrer : contournement restriction origine clé MapTiler (domaine vorcelab.app
+        // non listé). Supprime l'en-tête Referer → MapTiler accepte si la clé le permet.
+        // Fix définitif : ajouter vorcelab.app dans le dashboard MapTiler ou VITE_MAPTILER_KEY.
+        transformRequest: (url) => ({ url, referrerPolicy: 'no-referrer' }),
       })
       mapRef.current = map
 
+      map.on('error', (e) => {
+        // Style 403 (clé MapTiler restreinte au mauvais domaine) → affiche un repli lisible.
+        if (!cancelled && e.error?.status === 403) setMapError(true)
+      })
+
       map.on('load', () => {
         if (!map || cancelled) return
+        setMapError(false)
         // Relief 3D
         map.addSource('dem', { type: 'raster-dem', url: cfg.terrain })
         map.setTerrain({ source: 'dem', exaggeration: 2.5 })  // relief bien marqué même dézoomé
@@ -195,6 +206,12 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
       </div>
       <div style={{ position: 'relative', flex: 1, margin: '0 12px 12px', borderRadius: 'var(--vl-r-sm)', overflow: 'hidden', background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        {mapError && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'color-mix(in srgb, var(--vl-surf-2) 70%, var(--vl-bg))' }}>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-3)', letterSpacing: '.12em' }}>CARTE 3D INDISPONIBLE</span>
+            <span style={{ fontSize: 11.5, color: 'var(--vl-text-3)', maxWidth: 300, textAlign: 'center', lineHeight: 1.5 }}>Clé MapTiler non autorisée pour ce domaine. Ajouter <b>vorcelab.app</b> dans le dashboard MapTiler ou configurer le secret <code>VITE_MAPTILER_KEY</code>.</span>
+          </div>
+        )}
         {/* Rotation : pour voir le tracé quand une crête le masque */}
         <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
           <button title="Tourner à gauche" aria-label="Tourner à gauche" onClick={() => rotateBy(-40)} style={ctrlBtn}>⟲</button>
