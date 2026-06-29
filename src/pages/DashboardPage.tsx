@@ -639,8 +639,9 @@ function TodayBanner({
 }
 
 // ─── Dashboard réorganisable : l'ordre des sections appartient à l'utilisateur ──
-const DASH_SECTIONS = ['race', 'coach', 'state', 'month'] as const
+const DASH_SECTIONS = ['today', 'race', 'coach', 'state', 'month'] as const
 const SECTION_LABELS: Record<string, string> = {
+  today: "Aujourd'hui",
   race: 'Stratégie de course',
   coach: 'Coach',
   state: "Statut d'entraînement",
@@ -883,9 +884,6 @@ export default function DashboardPage() {
         <BrandedLoader />
       ) : (
         <>
-          {/* ── Bannière aujourd'hui — orientation douce ── */}
-          <TodayBanner activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />
-
           {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}
           {sectionOrder.map((key, idx) => (
             <div
@@ -915,6 +913,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
               )}
+              {key === 'today' && <TodayBanner activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
               {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
               {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}

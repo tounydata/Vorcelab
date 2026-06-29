@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
-import { allocatePhases, PHASE_LABELS } from '../lib/coach/planGenerator'
+import { allocatePhases, PHASE_LABELS, type PlannedSession, type PlanWeek } from '../lib/coach/planGenerator'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
 import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/coach/sessionModulation'
 import { structureWorkout } from '../lib/coach/structureWorkout'
@@ -143,6 +143,76 @@ function PeriodizationArc({ weeks, weeksToRace, distanceKm }: {
 
 function fmtRaceDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/** Retourne la séance du jour ou la prochaine séance de la semaine, si la semaine est en cours. */
+function findTodayOrNextSession(week: PlanWeek): { session: PlannedSession; isToday: boolean } | null {
+  if (!week?.sessions?.length) return null
+  const today = new Date()
+  const todayISO = today.toISOString().slice(0, 10)
+  const weekStart = week.weekStartISO
+  const weekEndISO = new Date(new Date(weekStart + 'T00:00:00').getTime() + 6 * 86_400_000).toISOString().slice(0, 10)
+  if (todayISO < weekStart || todayISO > weekEndISO) return null
+  const todayDow = today.getDay() === 0 ? 7 : today.getDay()
+  const sorted = [...week.sessions].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+  const todaySession = sorted.find((s) => s.dayOfWeek === todayDow)
+  if (todaySession) return { session: todaySession, isToday: true }
+  const next = sorted.find((s) => s.dayOfWeek > todayDow)
+  return next ? { session: next, isToday: false } : null
+}
+
+const INTENSITY_LABEL: Record<string, string> = {
+  easy: 'Endurance fondamentale',
+  moderate: 'Allure soutenue',
+  hard: 'Intensité',
+  very_hard: 'Haute intensité',
+  recovery: 'Récupération active',
+}
+const SYSTEM_LABEL: Record<string, string> = {
+  aerobic: 'Aérobie',
+  quality: 'Qualité',
+  strength: 'Force',
+  race_specific: 'Spécifique course',
+}
+
+function TodayCTA({ week, phaseColor }: { week: PlanWeek; phaseColor: string }) {
+  const found = findTodayOrNextSession(week)
+  if (!found) return null
+  const { session, isToday } = found
+  const intensityLbl = INTENSITY_LABEL[session.intensity] ?? session.intensity
+  const systemLbl = SYSTEM_LABEL[session.system] ?? session.system
+  return (
+    <div style={{
+      background: 'var(--vl-ember)', borderRadius: 'var(--vl-r)',
+      padding: '18px 20px', marginBottom: '1rem',
+      boxShadow: '0 2px 12px color-mix(in srgb, var(--vl-ember) 30%, transparent)',
+    }}>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--vl-ink)', opacity: .65, marginBottom: 6 }}>
+        {isToday ? 'Séance du jour' : 'Prochaine séance cette semaine'}
+      </div>
+      <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.55rem', fontWeight: 800, color: 'var(--vl-ink)', lineHeight: 1.1, marginBottom: 8 }}>
+        {session.title}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: session.description ? 10 : 0 }}>
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, background: 'rgba(0,0,0,.15)', color: 'var(--vl-ink)', borderRadius: 4, padding: '2px 8px' }}>
+          {session.targetDurationMin} min
+        </span>
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'rgba(0,0,0,.55)', letterSpacing: '.04em' }}>
+          {intensityLbl} · {systemLbl}
+        </span>
+        {session.climbTargetM && (
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'rgba(0,0,0,.55)' }}>
+            ↑ {session.climbTargetM.min}–{session.climbTargetM.max} m D+
+          </span>
+        )}
+      </div>
+      {session.description && (
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(0,0,0,.6)', borderTop: '1px solid rgba(0,0,0,.12)', paddingTop: 8 }}>
+          {session.description}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function CoachPage() {
@@ -383,6 +453,9 @@ export default function CoachPage() {
       <div data-tour="coach-week" className="coach-block-h">
         <span className="coach-block-ttl">Cette semaine</span>
       </div>
+
+      {/* ── CTA séance du jour (ou prochaine séance) ── */}
+      <TodayCTA week={plan.weeks[0]} phaseColor={currentPhaseColor} />
 
       {replan?.trigger ? (
         <div className="card" style={{ borderLeft: `4px solid ${replan.trigger === 'surcharge' ? 'var(--vl-ember)' : 'var(--vl-status-watch)'}`, padding: '10px 14px', marginBottom: '1rem' }}>
