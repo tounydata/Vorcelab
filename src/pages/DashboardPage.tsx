@@ -224,27 +224,44 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
         </div>
         {/* TSB — fraîcheur seulement, sans label "risque blessure" */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--vl-text-2)', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.4rem', fontWeight: 800,
+            color: today.tsb > 10 ? 'var(--vl-status-peak)' : today.tsb > 0 ? 'var(--vl-status-prod)' : today.tsb > -10 ? 'var(--vl-amber)' : 'var(--vl-status-over)',
+            lineHeight: 1 }}>
             {today.tsb > 0 ? `+${today.tsb}` : today.tsb}
           </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>FRAÎCHEUR</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>
+            FRAÎCHEUR{' '}
+            <span
+              title="Forme - Fatigue. Positif = tu es frais et reposé. Négatif = tu es chargé. Entre -10 et +10 : zone optimale de performance."
+              style={{ cursor: 'help', opacity: .7, fontSize: 9 }}
+            >?</span>
+          </div>
         </div>
       </div>
 
       {/* ── Triad parlant : libellé clair + état (chiffre brut en secondaire) ── */}
       <div className="dash-triad" style={{ marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FORME</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            FORME{' '}
+            <span title="Fitness aérobie accumulé (CTL). Se construit sur 42 jours. Solide = bonne base d'endurance." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: 'var(--vl-status-prod)', lineHeight: 1.05, marginTop: 3 }}>{formeWord}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>fond {today.ctl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>FATIGUE</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            FATIGUE{' '}
+            <span title="Charge récente (ATL sur 7 jours). Élevée après une grosse semaine — normal. Basse = tu es reposé." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: fatigueColor, lineHeight: 1.05, marginTop: 3 }}>{fatigueWord}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>récente {today.atl}</div>
         </div>
         <div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>ÉQUILIBRE</div>
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', letterSpacing: '.1em' }}>
+            ÉQUILIBRE{' '}
+            <span title="Ratio charge récente / charge chronique (ACWR). Optimal entre 0.8 et 1.3. Au-dessus de 1.5 : risque de blessure si ça dure." style={{ cursor: 'help', opacity: .7, fontSize: 9 }}>?</span>
+          </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.3rem', fontWeight: 800, color: equil.color, lineHeight: 1.05, marginTop: 3 }}>{equil.word}</div>
           <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3 }}>{acwr.ratio != null ? `charge ×${acwr.ratio.toFixed(2)}` : 'calibrage'}</div>
         </div>

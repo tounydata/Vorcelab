@@ -146,36 +146,41 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           )}
 
           {step === 'perfs' && (
-            <StepShell icon={<IHeart size={26} />} title="Tes perfs" sub="Pour calculer tes allures (VDOT)">
-              <p style={pStyle}>Renseigne ce que tu connais — tout est optionnel et modifiable plus tard.</p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input className="fi" type="number" placeholder="VO2max" value={vo2max} onChange={(e) => setVo2max(e.target.value)} />
-                <input className="fi" type="number" placeholder="FC max (bpm)" value={fcMax} onChange={(e) => setFcMax(e.target.value)} />
-              </div>
-              <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                Pas de VO2max ? Si Strava est connecté, Vorcelab l'estime à partir de tes courses.
-              </p>
-            </StepShell>
+            <PerfStep
+              vo2max={vo2max} setVo2max={setVo2max}
+              fcMax={fcMax} setFcMax={setFcMax}
+            />
           )}
 
           {step === 'strava' && (
-            <StepShell icon={<ILink size={26} />} title="Connecte ta montre" sub="Strava — synchronise tes activités">
+            <StepShell icon={<ILink size={26} />} title="Connecte Strava" sub="La source de toute l'analyse">
               <p style={pStyle}>
-                En connectant <strong>Strava</strong>, Vorcelab analyse tes sorties (allure, FC, dérive cardiaque, D+)
-                pour estimer ta forme, tes points faibles et adapter ton plan automatiquement.
+                Vorcelab a besoin de tes sorties pour analyser ta <strong>forme, ta dérive cardiaque, ton D+ réel</strong> et adapter ton plan semaine après semaine.
+              </p>
+              <p style={pStyle}>
+                Strava est le canal le plus simple — ta montre Garmin, Polar ou Apple Watch y pousse déjà tout.
               </p>
               {stravaConfigured() ? (
-                <button className="btn-primary" onClick={startStravaOAuth} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <ILink size={16} /> Connecter Strava
-                </button>
+                <>
+                  <button
+                    className="btn-primary"
+                    onClick={startStravaOAuth}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#FC4C02' }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                    </svg>
+                    Connecter Strava
+                  </button>
+                  <p style={{ ...pStyle, fontSize: 11, color: 'var(--vl-text-3)', margin: 0 }}>
+                    Pas de Strava ? Tu pourras importer tes fichiers .GPX / .FIT plus tard.
+                  </p>
+                </>
               ) : (
                 <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                  Connexion Strava bientôt disponible. Cette étape est optionnelle.
+                  Connexion Strava bientôt disponible.
                 </p>
               )}
-              <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)' }}>
-                Tu pourras aussi (re)connecter Strava plus tard depuis le menu. Étape optionnelle.
-              </p>
             </StepShell>
           )}
 
@@ -246,6 +251,56 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
         )}
       </div>
     </div>
+  )
+}
+
+// PerfStep : VO2max / FC max cachés sous "Avancé" pour ne pas effrayer les coureurs lambda
+function PerfStep({
+  vo2max, setVo2max, fcMax, setFcMax,
+}: {
+  vo2max: string; setVo2max: (v: string) => void
+  fcMax: string; setFcMax: (v: string) => void
+}) {
+  const [showAdv, setShowAdv] = useState(false)
+  return (
+    <StepShell icon={<IHeart size={26} />} title="Tes perfs" sub="Pour calibrer tes allures et zones">
+      <p style={pStyle}>
+        Si tu as déjà couru un test d'effort ou si tu connais ta <strong>FC max</strong>, renseigne-la ci-dessous.
+        Sinon, Vorcelab l'estime automatiquement à partir de tes sorties Strava.
+      </p>
+      <p style={{ ...pStyle, fontSize: 12, color: 'var(--vl-text-3)', marginBottom: 0 }}>
+        Tu peux tout laisser vide et affiner plus tard dans le profil.
+      </p>
+      {showAdv ? (
+        <>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>FC max (bpm)</label>
+              <input className="fi" type="number" placeholder="ex : 185" value={fcMax} onChange={(e) => setFcMax(e.target.value)} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>VO2max (ml/kg/min)</label>
+              <input className="fi" type="number" placeholder="ex : 52" value={vo2max} onChange={(e) => setVo2max(e.target.value)} />
+            </div>
+          </div>
+          <button
+            className="auth-link"
+            style={{ textAlign: 'left', fontSize: 11 }}
+            onClick={() => setShowAdv(false)}
+          >
+            Masquer
+          </button>
+        </>
+      ) : (
+        <button
+          className="hbtn"
+          style={{ marginTop: 8, alignSelf: 'flex-start' }}
+          onClick={() => setShowAdv(true)}
+        >
+          Saisir mes données avancées →
+        </button>
+      )}
+    </StepShell>
   )
 }
 
