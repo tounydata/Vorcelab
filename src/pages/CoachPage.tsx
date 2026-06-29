@@ -175,7 +175,7 @@ const SYSTEM_LABEL: Record<string, string> = {
   race_specific: 'Spécifique course',
 }
 
-function TodayCTA({ week, phaseColor }: { week: PlanWeek; phaseColor: string }) {
+function TodayCTA({ week }: { week: PlanWeek }) {
   const found = findTodayOrNextSession(week)
   if (!found) return null
   const { session, isToday } = found
@@ -455,7 +455,7 @@ export default function CoachPage() {
       </div>
 
       {/* ── CTA séance du jour (ou prochaine séance) ── */}
-      <TodayCTA week={plan.weeks[0]} phaseColor={currentPhaseColor} />
+      <TodayCTA week={plan.weeks[0]} />
 
       {replan?.trigger ? (
         <div className="card" style={{ borderLeft: `4px solid ${replan.trigger === 'surcharge' ? 'var(--vl-ember)' : 'var(--vl-status-watch)'}`, padding: '10px 14px', marginBottom: '1rem' }}>
