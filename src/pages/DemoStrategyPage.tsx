@@ -79,7 +79,7 @@ export default function DemoStrategyPage() {
         background: 'var(--vl-ember)', padding: '11px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
       }}>
-        <div style={{ display: 'flex', align: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--vl-ink)', opacity: .65 }}>
             Démo · parcours fictif
           </span>
