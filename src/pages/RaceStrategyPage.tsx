@@ -16,6 +16,8 @@ import RaceResult from '../components/races/RaceResult'
 import { fetchTerrainSurfaces } from '../lib/terrain'
 import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
+import ProGate from '../components/ProGate'
+import { usePlanTier } from '../lib/usePlanTier'
 
 interface Race {
   id: string
@@ -188,6 +190,23 @@ export default function RaceStrategyPage() {
       return (data ?? {}) as Record<string, unknown>
     },
   })
+
+  // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
+  const { tier } = usePlanTier()
+  const { data: racesWithGpxCount = 0 } = useQuery<number>({
+    queryKey: ['races-with-gpx-count'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('race_calendar')
+        .select('id', { count: 'exact', head: true })
+        .not('gpx_data', 'is', null)
+      if (error) return 0
+      return count ?? 0
+    },
+  })
+  // Gated si : plan free + cette course n'a pas encore de GPX + au moins 1 autre course en a déjà un
+  const isGated = tier !== 'pro' && !race?.gpx_data && racesWithGpxCount >= 1
 
   // ── Météo J-10 : prévision sur la fenêtre de course (départ → arrivée estimée) ──
   // On utilise baseEstTimeS (passe sans terrain) pour que la clé de cache coïncide
@@ -608,14 +627,18 @@ export default function RaceStrategyPage() {
       )}
 
       {!projection && !isComputing && (
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div className="clabel" style={{ marginBottom: '1rem' }}>CHARGER LE GPX</div>
-          <div className="mlabel" style={{ marginBottom: '1.25rem' }}>
-            Importez le fichier GPX de la course pour générer votre stratégie personnalisée
+        isGated ? (
+          <ProGate feature="les stratégies GPX illimitées" />
+        ) : (
+          <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+            <div className="clabel" style={{ marginBottom: '1rem' }}>CHARGER LE GPX</div>
+            <div className="mlabel" style={{ marginBottom: '1.25rem' }}>
+              Importez le fichier GPX de la course pour générer votre stratégie personnalisée
+            </div>
+            <button className="hbtn" onClick={() => fileInputRef.current?.click()}>Sélectionner un fichier .gpx</button>
+            <input ref={fileInputRef} type="file" accept=".gpx" onChange={handleFileChange} style={{ display: 'none' }} />
           </div>
-          <button className="hbtn" onClick={() => fileInputRef.current?.click()}>Sélectionner un fichier .gpx</button>
-          <input ref={fileInputRef} type="file" accept=".gpx" onChange={handleFileChange} style={{ display: 'none' }} />
-        </div>
+        )
       )}
 
       {saveStatus === 'saving' && <div className="mlabel" style={{ margin: '0.5rem 0' }}>Sauvegarde…</div>}

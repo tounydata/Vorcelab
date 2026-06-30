@@ -221,7 +221,6 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
-      <div className="clabel" style={{ marginBottom: '0.75rem' }}>CONDITIONS MÉTÉO & CONTEXTE</div>
       <div style={{ fontSize: 11, color: 'var(--vl-text-3)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
         Impact mesuré sur <em>tes</em> sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Quand tes données sont peu nombreuses, on s'appuie sur un socle physiologique (la chaleur, par ex., ralentit <em>toujours</em> un humain) et on l'affine au fil de tes sorties. Positif = tu es plus lent. Alimentera l'algorithme de projection.
       </div>
@@ -264,8 +263,6 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
 function GlobalAnalysisCard({ rp }: { rp: RunnerProfileComputed }) {
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
-      <div className="clabel" style={{ marginBottom: '0.75rem' }}>ANALYSE GLOBALE</div>
-
       <div style={{ marginBottom: '0.75rem' }}>
         <div className="mlabel" style={{ marginBottom: 4 }}>Récupération post-montée</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -360,7 +357,6 @@ function RecoveryByBucketSection({ rp }: { rp: RunnerProfileComputed }) {
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
-      <div className="clabel" style={{ marginBottom: '0.75rem' }}>RÉCUPÉRATION PAR GRADIENT</div>
 
       {hasClimb && (
         <>
@@ -431,6 +427,28 @@ interface ProfileRow {
   renfo_weekly_target?: number | null
   coach_motivation?: string | null
   fc_zones?: HrZoneConfig | null
+}
+
+// ─── Collapsible block ────────────────────────────────────────────────────────
+
+function CollapsibleBlock({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div style={{ marginBottom: '0.25rem' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          padding: '6px 0', marginBottom: open ? '0.5rem' : '0.75rem',
+        }}
+      >
+        <span className="clabel" style={{ fontSize: '0.7rem', letterSpacing: '.12em' }}>{title}</span>
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▾</span>
+      </button>
+      {open && children}
+    </div>
+  )
 }
 
 // ─── Tab styles ───────────────────────────────────────────────────────────────
@@ -652,12 +670,13 @@ export default function ProfilePage() {
           </div>
 
           {/* Card ARCHIVE STRAVA */}
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <div className="clabel" style={{ marginBottom: '0.5rem' }}>HISTORIQUE COMPLET — ARCHIVE STRAVA</div>
-            <div style={{ fontSize: 12, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
-              Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.
+          <CollapsibleBlock title="HISTORIQUE COMPLET — ARCHIVE STRAVA" defaultOpen={false}>
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: 12, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
+                Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.
+              </div>
             </div>
-          </div>
+          </CollapsibleBlock>
         </>
       )}
 
@@ -770,12 +789,13 @@ export default function ProfilePage() {
           ) : (
             <>
               {/* Ton moteur — ce que l'algo lit du coureur (déplacé depuis Coach). */}
-              <CoachEngine />
-
-              {/* Calibrage VMA (demi-Cooper) — accessible à tout moment ici. */}
-              <CalibrationCard />
+              <CollapsibleBlock title="MOTEUR & CALIBRAGE">
+                <CoachEngine />
+                <CalibrationCard />
+              </CollapsibleBlock>
 
               {/* Allures de référence (déplacées ici depuis le profil) */}
+              <CollapsibleBlock title="ZONES D'EFFORT">
               <PaceZonesCard prs={profileRow?.prs} vo2max={profileRow?.vo2max} fcMax={profileRow?.fc_max} showFcZones={false} />
               <HrZonesCard
                 config={profileRow?.fc_zones ?? null}
@@ -789,6 +809,7 @@ export default function ProfilePage() {
                   setSavingZones(false)
                 }}
               />
+              </CollapsibleBlock>
 
               {/* Progress bar (auto or manual compute) */}
               {computing && (
@@ -886,11 +907,18 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  <GlobalAnalysisCard rp={rp} />
-                  <ConditionPenaltiesCard rp={rp} />
-                  <RecoveryByBucketSection rp={rp} />
-                  <div className="clabel" style={{ marginBottom: '0.5rem' }}>PROFIL PAR GRADIENT</div>
-
+                  <CollapsibleBlock title="ANALYSE GLOBALE">
+                    <GlobalAnalysisCard rp={rp} />
+                  </CollapsibleBlock>
+                  {rp.conditionPenalties && Object.keys(rp.conditionPenalties).length > 0 && (
+                    <CollapsibleBlock title="CONDITIONS MÉTÉO & CONTEXTE" defaultOpen={false}>
+                      <ConditionPenaltiesCard rp={rp} />
+                    </CollapsibleBlock>
+                  )}
+                  <CollapsibleBlock title="RÉCUPÉRATION PAR GRADIENT" defaultOpen={false}>
+                    <RecoveryByBucketSection rp={rp} />
+                  </CollapsibleBlock>
+                  <CollapsibleBlock title="PROFIL PAR GRADIENT">
                   {/* All 7 buckets — always shown */}
                   {GRADE_BUCKETS.map((b) => {
                     const bkey = b.key as BucketKey
@@ -911,6 +939,7 @@ export default function ProfilePage() {
                       </div>
                     )
                   })}
+                  </CollapsibleBlock>
                 </>
               )}
 
