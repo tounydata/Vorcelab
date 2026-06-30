@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { usePlanTier } from '../lib/usePlanTier'
+import { useVLStore } from '../store/vlStore'
 import OnboardingGate from './onboarding/OnboardingGate'
 import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
 import StravaConnection from './StravaConnection'
@@ -126,6 +128,9 @@ export default function Layout() {
   const { isDark, toggle } = useTheme()
   const { pathname } = useLocation()
   const queryClient = useQueryClient()
+  const { isAdmin } = usePlanTier()
+  const viewAs = useVLStore((s) => s.viewAs)
+  const setViewAs = useVLStore((s) => s.setViewAs)
   // Le renfo vit sous l'onglet Coach (fusion coach complet) : /renfo/* allume Coach.
   const coachAlsoActive = pathname.startsWith('/renfo')
 
@@ -191,6 +196,23 @@ export default function Layout() {
         ))}
 
         <div className="sidebar-bottom">
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}
+            >
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700,
+                letterSpacing: '.1em', color: 'var(--vl-ember)',
+                background: 'color-mix(in oklab, var(--vl-ember) 10%, transparent)',
+                border: '1px solid color-mix(in oklab, var(--vl-ember) 40%, transparent)',
+                borderRadius: 7, padding: '6px 10px',
+              }}>
+                <span>⚙</span> ADMIN
+              </div>
+            </NavLink>
+          )}
           <div style={{ marginBottom: 8 }}><StravaConnection variant="full" /></div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
             <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
@@ -226,7 +248,33 @@ export default function Layout() {
         </div>
       </div>
 
-      <div className="app-main">
+      {viewAs && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 8000,
+          background: 'color-mix(in oklab, var(--vl-ember) 92%, black)',
+          color: 'var(--vl-ink)', padding: '8px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontFamily: 'var(--vl-mono)', fontSize: 11, fontWeight: 600,
+          boxShadow: '0 2px 12px rgba(255,80,30,0.4)',
+        }}>
+          <span>
+            👁 Vue en tant que <strong>{viewAs.name ?? viewAs.email}</strong>
+            <span style={{ fontWeight: 400, opacity: 0.75, marginLeft: 6 }}>
+              · Plan {viewAs.plan_tier.toUpperCase()}{viewAs.is_admin ? ' (admin)' : ''}
+            </span>
+          </span>
+          <button
+            onClick={() => setViewAs(null)}
+            style={{
+              background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.3)',
+              color: 'var(--vl-ink)', borderRadius: 6, padding: '3px 10px',
+              cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700,
+            }}
+          >✕ Quitter</button>
+        </div>
+      )}
+
+      <div className="app-main" style={viewAs ? { paddingTop: 38 } : undefined}>
         <main>
           <Outlet />
         </main>

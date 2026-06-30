@@ -12,6 +12,8 @@ interface PlanRow {
 
 export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: boolean } {
   const user = useVLStore((s) => s.user)
+  const viewAs = useVLStore((s) => s.viewAs)
+
   const { data, isLoading } = useQuery<PlanRow | null>({
     queryKey: ['plan-tier', user?.id],
     enabled: !!user,
@@ -27,11 +29,18 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: bo
     },
   })
 
-  const rawTier = (data?.plan_tier ?? 'free') as PlanTier
-  const expires = data?.plan_expires_at ? new Date(data.plan_expires_at) : null
-  // PRO expiré → repasse free automatiquement
-  const tier: PlanTier = rawTier === 'pro' && expires && expires < new Date() ? 'free' : rawTier
-  const isAdmin = data?.is_admin === true
+  // En mode "Vue en tant que", on utilise les données du user simulé.
+  const source: PlanRow | null = viewAs
+    ? { plan_tier: viewAs.plan_tier, plan_expires_at: viewAs.plan_expires_at, is_admin: viewAs.is_admin }
+    : (data ?? null)
 
-  return { tier, isAdmin, isLoading }
+  const isAdmin = source?.is_admin === true
+  const rawTier = (source?.plan_tier ?? 'free') as PlanTier
+  const expires = source?.plan_expires_at ? new Date(source.plan_expires_at) : null
+  // Admin = PRO permanent · PRO expiré → free auto
+  const tier: PlanTier = isAdmin ? 'pro'
+    : rawTier === 'pro' && expires && expires < new Date() ? 'free'
+    : rawTier
+
+  return { tier, isAdmin, isLoading: viewAs ? false : isLoading }
 }
