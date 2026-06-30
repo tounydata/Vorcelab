@@ -175,8 +175,28 @@ export default function LoginPage() {
             ))}
           </div>
 
+          {/* Demo CTA */}
+          <a
+            href="#/demo"
+            style={{
+              marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '9px 14px', borderRadius: 'var(--vl-r-sm)',
+              border: '1px solid rgba(214,128,62,.35)', background: 'rgba(214,128,62,.07)',
+              textDecoration: 'none', color: 'var(--vl-ember)',
+              fontFamily: 'var(--vl-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.08em',
+              transition: 'border-color .15s',
+            }}
+            onMouseOver={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--vl-ember)')}
+            onMouseOut={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(214,128,62,.35)')}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" /><path d="M9 4v16M15 6v16" />
+            </svg>
+            VOIR LA DÉMO GPX →
+          </a>
+
           {/* Footer note */}
-          <div style={{ marginTop: '1.5rem', fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.1em', color: 'var(--vl-text-3)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '1rem', fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.1em', color: 'var(--vl-text-3)', lineHeight: 1.6 }}>
             SPÉCIALISTE TRAIL · COACH DÉTERMINISTE<br />PAS DE BOÎTE NOIRE IA
           </div>
         </div>
