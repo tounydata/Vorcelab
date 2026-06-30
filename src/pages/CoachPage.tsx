@@ -511,7 +511,12 @@ export default function CoachPage() {
           lockedWeeks={displayWeeks.length - FREE_WEEKS}
           distanceKm={plan.race.distanceKm}
           raceName={plan.race.name}
-          onUpgrade={() => openModal({ raceName: plan.race.name })}
+          onUpgrade={() => openModal({
+            vdot,
+            weeksToRace: plan.weeksToRace,
+            distanceKm: plan.race.distanceKm,
+            raceName: plan.race.name,
+          })}
         />
       )}
 

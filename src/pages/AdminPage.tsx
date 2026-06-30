@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useVLStore } from '../store/vlStore'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import StatsTab from '../components/admin/StatsTab'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -392,6 +393,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('users')
   const qc = useQueryClient()
   const { openModal } = useUpgradeModal()
+  const { vdot, targetRace, plan } = useCoachPlan()
 
   const { data: users = [], isLoading } = useQuery<AdminUser[]>({
     queryKey: ['admin-users'],
@@ -440,7 +442,12 @@ export default function AdminPage() {
             ✦ ADMIN
           </span>
           <button
-            onClick={() => openModal()}
+            onClick={() => openModal(targetRace ? {
+              vdot,
+              distanceKm: targetRace.distance ?? 0,
+              weeksToRace: plan?.weeksToRace ?? 0,
+              raceName: targetRace.name,
+            } : null)}
             style={{
               fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.1em',
               color: 'var(--vl-text-2)', background: 'var(--vl-surf-2)',
