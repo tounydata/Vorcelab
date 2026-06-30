@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
@@ -698,23 +698,6 @@ export default function DashboardPage() {
 
   const recent = runs.slice(0, 4)
 
-  // Statut d'entraînement calculé une fois, partagé avec CoachCard
-  const trainingStatus = useMemo(() => {
-    const renfoActs: ActivityForLoad[] = renfoLogs
-      .filter((r) => r.session_date)
-      .map((r) => {
-        const f = r.focus ?? ''
-        const sport = f.includes('yoga') || f.includes('stretching') ? 'Yoga' : f.includes('pilates') ? 'Pilates' : 'WeightTraining'
-        return { start_date: r.session_date! + 'T12:00:00', type: sport, sport_type: sport, moving_time: (r.duration_min ?? 40) * 60 }
-      })
-    const pmc = computeDailyPMC([...pmcActs, ...renfoActs], fcMax, { totalDays: 90, displayDays: 42 })
-    if (!pmc.length) return null
-    const today = pmc[pmc.length - 1]
-    if (!today || today.calibrating) return null
-    const acwr = computeACWR(pmc)
-    return computeMultiStatus(pmc, acwr, pmcActs, fcMax ?? 185)
-  }, [pmcActs, renfoLogs, fcMax])
-
   // ── Ordre des sections : synchronisé entre appareils (profiles.dashboard_layout),
   // localStorage en cache local, drag & drop (pointer events) + ▲▼ en secours. ──
   const [sectionOrder, setSectionOrder] = useState<string[]>(loadSectionOrder)
@@ -823,7 +806,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
-              {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} trainingStatus={trainingStatus} />}
+              {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
               {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'month' && (
           <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>
