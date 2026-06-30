@@ -11,6 +11,7 @@ import { listSessionLog } from '../lib/coach/sessionLog'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { useTrackEvent } from '../lib/useTrackEvent'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
 import CalibrationPopup from '../components/coach/CalibrationPopup'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
@@ -227,6 +228,9 @@ export default function CoachPage() {
 
   const { tier } = usePlanTier()
   const { openModal } = useUpgradeModal()
+  const track = useTrackEvent()
+
+  useEffect(() => { track('coach_viewed') }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2 premières semaines gratuites ; le reste nécessite PRO.
   const FREE_WEEKS = 2

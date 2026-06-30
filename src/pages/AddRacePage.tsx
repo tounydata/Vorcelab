@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
 // Création d'une course (objectif) → insertion dans race_calendar. Remplace l'ancien
 // stub désactivé : la course n'était jusqu'ici créable que via l'onboarding.
@@ -20,6 +21,7 @@ export default function AddRacePage() {
   const { user } = useVLStore()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const track = useTrackEvent()
 
   const [name, setName] = useState('')
   const [date, setDate] = useState('')
@@ -48,6 +50,7 @@ export default function AddRacePage() {
       if (error) throw error
     },
     onSuccess: () => {
+      track('race_created', { name: name.trim(), distance: km, type, priority })
       qc.invalidateQueries({ queryKey: ['races'] })
       qc.invalidateQueries({ queryKey: ['coach'] })
       navigate('/race')
