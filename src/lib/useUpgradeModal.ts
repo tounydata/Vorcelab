@@ -1,9 +1,6 @@
 import { create } from 'zustand'
 
 export interface PerformanceTeaser {
-  vdot: number
-  weeksToRace: number
-  distanceKm: number
   raceName: string
 }
 

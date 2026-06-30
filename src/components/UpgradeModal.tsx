@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
-import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const STRIPE_ANNUAL_URL: string = (import.meta as any).env?.VITE_STRIPE_ANNUAL_URL ?? ''
@@ -71,16 +70,6 @@ export default function UpgradeModal() {
   }, [open])
 
   if (!open) return null
-
-  const weeksToRace = teaser?.weeksToRace ?? 0
-  const vdotGain = estimateVdotGain(weeksToRace)
-  const currentVdot = teaser?.vdot ?? 0
-  const distM = (teaser?.distanceKm ?? 0) * 1000
-  const currentTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot, distM) : null
-  const coachTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot + vdotGain, distM) : null
-  const savedSeconds = currentTimeS && coachTimeS ? currentTimeS - coachTimeS : 0
-  const savedMin = Math.floor(savedSeconds / 60)
-  const savedSec = Math.round(savedSeconds % 60)
 
   function handleCTA() {
     const url = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
@@ -165,62 +154,9 @@ export default function UpgradeModal() {
               color: 'rgba(255,255,255,0.35)', letterSpacing: '.04em',
             }}>
               {teaser.raceName}
-              {teaser.distanceKm > 0 ? ` · ${teaser.distanceKm} km` : ''}
-              {weeksToRace > 0 ? ` · ${weeksToRace} sem. de plan` : ''}
             </div>
           )}
         </div>
-
-        {/* ── Perf comparison ─────────────────────────────────────────────── */}
-        {currentTimeS && coachTimeS && (
-          <div style={{
-            padding: '24px 32px 20px',
-            borderBottom: '1px solid var(--vl-line)',
-            background: 'var(--vl-surf-2)',
-          }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-              alignItems: 'center', gap: 16,
-            }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--vl-text-3)', textTransform: 'uppercase', marginBottom: 8 }}>Aujourd'hui</div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>
-                  {fmtRaceTime(currentTimeS)}
-                </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6 }}>VDOT {Math.round(currentVdot)}</div>
-              </div>
-
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                border: '1.5px solid var(--vl-ember)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--vl-ember)', fontSize: 16, fontWeight: 700,
-              }}>→</div>
-
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--vl-ember)', textTransform: 'uppercase', marginBottom: 8 }}>Avec le coach</div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
-                  {fmtRaceTime(coachTimeS)}
-                </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6 }}>VDOT {Math.round(currentVdot + vdotGain)}</div>
-              </div>
-            </div>
-
-            {savedMin > 0 && (
-              <div style={{
-                marginTop: 16, textAlign: 'center',
-                padding: '9px 16px', borderRadius: 10,
-                background: 'color-mix(in oklab, var(--vl-ember) 10%, transparent)',
-                border: '1px solid color-mix(in oklab, var(--vl-ember) 30%, transparent)',
-              }}>
-                <span style={{ fontFamily: 'var(--vl-display)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--vl-ember)' }}>
-                  −{savedMin}min{savedSec > 0 ? ` ${savedSec}sec` : ''}
-                </span>
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginLeft: 8 }}>de gain estimé sur {teaser?.distanceKm} km</span>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── Perks ───────────────────────────────────────────────────────── */}
         <div style={{ padding: '20px 32px', borderBottom: '1px solid var(--vl-line)' }}>

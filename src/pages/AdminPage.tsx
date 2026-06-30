@@ -440,7 +440,7 @@ export default function AdminPage() {
             ✦ ADMIN
           </span>
           <button
-            onClick={() => openModal({ vdot: 40, weeksToRace: 14, distanceKm: 42, raceName: 'Aperçu modal PRO' })}
+            onClick={() => openModal()}
             style={{
               fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.1em',
               color: 'var(--vl-text-2)', background: 'var(--vl-surf-2)',
