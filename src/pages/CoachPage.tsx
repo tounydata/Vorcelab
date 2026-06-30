@@ -9,6 +9,9 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId } from '../lib/co
 import { structureWorkout } from '../lib/coach/structureWorkout'
 import { listSessionLog } from '../lib/coach/sessionLog'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
+import { usePlanTier } from '../lib/usePlanTier'
+import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
 import CalibrationPopup from '../components/coach/CalibrationPopup'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
@@ -221,6 +224,14 @@ export default function CoachPage() {
     vdot,
     plan, replan, displayWeeks, renfoSessionsPerWeek,
   } = useCoachPlan(selectedRaceId)
+
+  const { tier } = usePlanTier()
+  const { openModal } = useUpgradeModal()
+
+  // 2 premières semaines gratuites ; le reste nécessite PRO.
+  const FREE_WEEKS = 2
+  const isGated = tier !== 'pro' && displayWeeks.length > FREE_WEEKS
+  const visibleWeeks = isGated ? displayWeeks.slice(0, FREE_WEEKS) : displayWeeks
 
   // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
   const qc = useQueryClient()
@@ -477,7 +488,7 @@ export default function CoachPage() {
       ) : null}
 
       <WeekProgram
-        weeks={displayWeeks}
+        weeks={visibleWeeks}
         vdot={vdot}
         activities={activities}
         fcMax={profile?.fc_max}
@@ -488,9 +499,129 @@ export default function CoachPage() {
         renfoSessionsPerWeek={renfoSessionsPerWeek}
       />
 
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
-        Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
-        Le renforcement est <strong>intégré à ta semaine</strong> et co-périodisé avec ta course.
+      {/* ── Gate PRO : plan complet après les 2 semaines gratuites ── */}
+      {isGated && plan && (
+        <CoachProTeaser
+          vdot={vdot}
+          weeksToRace={plan.weeksToRace}
+          lockedWeeks={displayWeeks.length - FREE_WEEKS}
+          distanceKm={plan.race.distanceKm}
+          raceName={plan.race.name}
+          onUpgrade={() => openModal({
+            vdot,
+            weeksToRace: plan.weeksToRace,
+            distanceKm: plan.race.distanceKm,
+            raceName: plan.race.name,
+          })}
+        />
+      )}
+
+      {!isGated && (
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 16, lineHeight: 1.6 }}>
+          Les séances sont une <strong>proposition</strong> : tu restes libre de ton calendrier et de ton choix.
+          Le renforcement est <strong>intégré à ta semaine</strong> et co-périodisé avec ta course.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Teaser inline affiché sous les 2 semaines gratuites ──────────────────────
+function CoachProTeaser({
+  vdot, weeksToRace, lockedWeeks, distanceKm, raceName, onUpgrade,
+}: {
+  vdot: number
+  weeksToRace: number
+  lockedWeeks: number
+  distanceKm: number
+  raceName: string
+  onUpgrade: () => void
+}) {
+  const gain = estimateVdotGain(weeksToRace)
+  const distM = distanceKm * 1000
+  const currentTimeS = distM > 0 && vdot > 0 ? predictRaceTimeS(vdot, distM) : null
+  const coachTimeS = distM > 0 && vdot > 0 ? predictRaceTimeS(vdot + gain, distM) : null
+
+  return (
+    <div style={{ marginTop: '1.5rem' }}>
+      {/* Semaines verrouillées — aperçu empilé */}
+      <div style={{ position: 'relative', marginBottom: '0.75rem', height: 88 }}>
+        {[2, 1, 0].map((i) => (
+          <div key={i} style={{
+            position: 'absolute',
+            top: i * 10, left: i * 4, right: i * 4,
+            height: 64,
+            background: 'var(--vl-surf)',
+            border: '1px solid var(--vl-line)',
+            borderRadius: 10,
+            opacity: 0.35 + i * 0.2,
+          }} />
+        ))}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 4,
+        }}>
+          <span style={{ fontSize: 18 }}>🔒</span>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
+            {lockedWeeks} semaine{lockedWeeks > 1 ? 's' : ''} verrouillée{lockedWeeks > 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Card upgrade */}
+      <div className="card" style={{ borderLeft: '4px solid var(--vl-ember)', padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span style={{
+            fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700,
+            letterSpacing: '.14em', color: 'var(--vl-ember)',
+            background: 'color-mix(in oklab, var(--vl-ember) 12%, transparent)',
+            border: '1px solid var(--vl-ember)', borderRadius: 999, padding: '3px 10px',
+          }}>✦ PRO</span>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>
+            Plan complet {raceName && `· ${raceName}`}
+          </span>
+        </div>
+
+        {/* Comparaison */}
+        {currentTimeS && coachTimeS && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 24px 1fr', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, letterSpacing: '.08em', color: 'var(--vl-text-3)', marginBottom: 4 }}>AUJOURD'HUI</div>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>
+                {fmtRaceTime(currentTimeS)}
+              </div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 4 }}>
+                VDOT {Math.round(vdot)}
+              </div>
+            </div>
+            <div style={{ color: 'var(--vl-ember)', textAlign: 'center', fontSize: 16 }}>→</div>
+            <div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8.5, letterSpacing: '.08em', color: 'var(--vl-ember)', marginBottom: 4 }}>AVEC LE COACH</div>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.6rem', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
+                {fmtRaceTime(coachTimeS)}
+              </div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 4 }}>
+                visée VDOT {Math.round(vdot + gain)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onUpgrade}
+          style={{
+            width: '100%', background: 'var(--vl-ember)', color: 'var(--vl-ink)',
+            border: 'none', borderRadius: 10, padding: '12px',
+            fontFamily: 'var(--vl-display)', fontSize: '0.95rem', fontWeight: 800,
+            letterSpacing: '.05em', cursor: 'pointer',
+          }}
+        >
+          DÉBLOQUER LE PLAN COMPLET →
+        </button>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', textAlign: 'center', marginTop: 8 }}>
+          50€/an · 5€/mois sans engagement
+        </div>
       </div>
     </div>
   )

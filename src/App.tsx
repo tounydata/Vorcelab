@@ -22,6 +22,7 @@ import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
 import BrandedLoader from './components/BrandedLoader'
 import DemoStrategyPage from './pages/DemoStrategyPage'
+import UpgradeModal from './components/UpgradeModal'
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -76,6 +77,7 @@ export default function App() {
 
   return (
     <HashRouter>
+      <UpgradeModal />
       <Routes>
         {/* Routes publiques — sans authentification */}
         <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />

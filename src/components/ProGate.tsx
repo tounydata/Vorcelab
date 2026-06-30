@@ -1,8 +1,8 @@
-import { Link } from 'react-router'
+import { useUpgradeModal } from '../lib/useUpgradeModal'
 
 const PRO_PERKS = [
   { icon: '🗺', label: 'Stratégies GPX illimitées', sub: 'Toutes tes courses, chaque édition' },
-  { icon: '🤖', label: 'Plan coach complet', sub: 'Toutes les semaines, pas seulement la première' },
+  { icon: '🗓', label: 'Plan coach complet', sub: 'Toutes les semaines, pas seulement les deux premières' },
   { icon: '📊', label: 'Analyse avancée', sub: 'Comparaison prévu/réel, VDOT auto-calibré' },
   { icon: '⚡', label: 'Accès prioritaire', sub: 'Nouvelles fonctionnalités en avant-première' },
 ]
@@ -12,6 +12,8 @@ interface ProGateProps {
 }
 
 export default function ProGate({ feature = 'cette fonctionnalité' }: ProGateProps) {
+  const { openModal } = useUpgradeModal()
+
   return (
     <div style={{ padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 0 }}>
       <div style={{
@@ -44,13 +46,13 @@ export default function ProGate({ feature = 'cette fonctionnalité' }: ProGatePr
         ))}
       </div>
 
-      <Link
-        to="/settings"
+      <button
+        onClick={() => openModal()}
         className="btn-primary"
-        style={{ textDecoration: 'none', display: 'inline-block', padding: '12px 28px', fontSize: '1rem', fontFamily: 'var(--vl-display)', fontWeight: 800, letterSpacing: '.04em' }}
+        style={{ padding: '12px 28px', fontSize: '1rem', fontFamily: 'var(--vl-display)', fontWeight: 800, letterSpacing: '.04em', border: 'none', cursor: 'pointer' }}
       >
         PASSER À PRO →
-      </Link>
+      </button>
       <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 12 }}>
         Ta stratégie GPX existante reste toujours accessible.
       </div>
