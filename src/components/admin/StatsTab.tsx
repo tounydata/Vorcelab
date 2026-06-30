@@ -62,7 +62,6 @@ function BarChart({ data, valueKey, color, height = 56 }: {
   height?: number
 }) {
   const max = Math.max(...data.map(d => (d[valueKey] as number) ?? 0), 1)
-  const last7 = data.slice(-7)
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height }}>
       {data.map((d, i) => {
