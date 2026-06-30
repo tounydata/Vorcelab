@@ -27,11 +27,13 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: bo
     },
   })
 
+  const isAdmin = data?.is_admin === true
   const rawTier = (data?.plan_tier ?? 'free') as PlanTier
   const expires = data?.plan_expires_at ? new Date(data.plan_expires_at) : null
-  // PRO expiré → repasse free automatiquement
-  const tier: PlanTier = rawTier === 'pro' && expires && expires < new Date() ? 'free' : rawTier
-  const isAdmin = data?.is_admin === true
+  // Admin = PRO permanent · PRO expiré → free auto
+  const tier: PlanTier = isAdmin ? 'pro'
+    : rawTier === 'pro' && expires && expires < new Date() ? 'free'
+    : rawTier
 
   return { tier, isAdmin, isLoading }
 }
