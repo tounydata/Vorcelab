@@ -348,20 +348,38 @@ export default function RaceListPage() {
                   </div>
                 </div>
 
-                {/* Days left */}
-                <Link
-                  to={`/race/${race.id}`}
-                  style={{
-                    fontFamily: 'var(--vl-display)',
-                    fontSize: '1rem',
-                    fontWeight: 800,
-                    color: 'var(--vl-ember)',
-                    textDecoration: 'none',
-                    flexShrink: 0,
-                  }}
-                >
-                  {dl === 0 ? 'Aujourd\'hui →' : `${dl}j →`}
-                </Link>
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <Link
+                    to="/coach"
+                    style={{
+                      fontFamily: 'var(--vl-mono)',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '.08em',
+                      color: 'var(--vl-ink)',
+                      background: 'var(--vl-ember)',
+                      borderRadius: 4,
+                      padding: '4px 8px',
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    PRÉPARER →
+                  </Link>
+                  <Link
+                    to={`/race/${race.id}`}
+                    style={{
+                      fontFamily: 'var(--vl-display)',
+                      fontSize: '1rem',
+                      fontWeight: 800,
+                      color: 'var(--vl-ember)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {dl === 0 ? 'Auj →' : `${dl}j →`}
+                  </Link>
+                </div>
               </div>
             )
           })}
