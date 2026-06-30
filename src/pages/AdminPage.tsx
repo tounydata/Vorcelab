@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Navigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { usePlanTier } from '../lib/usePlanTier'
+import { useVLStore } from '../store/vlStore'
+import { useUpgradeModal } from '../lib/useUpgradeModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +98,16 @@ function UserActions({ user, onDone }: { user: AdminUser; onDone: () => void }) 
     else { setMsg('✓ Révoqué'); setTimeout(onDone, 800) }
   }
 
+  async function resetPassword() {
+    setBusy(true); setMsg('')
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: window.location.origin + '/#/profile/settings',
+    })
+    setBusy(false)
+    if (error) setMsg('Erreur : ' + error.message)
+    else setMsg('✓ Email de reset envoyé')
+  }
+
   const btn = (label: string, onClick: () => void, danger = false) => (
     <button
       key={label}
@@ -129,6 +141,7 @@ function UserActions({ user, onDone }: { user: AdminUser; onDone: () => void }) 
         {btn('+ 6 mois', () => grant(6))}
         {btn('PRO permanent', () => grant(null))}
         {user.plan_tier === 'pro' && btn('Révoquer → FREE', revoke, true)}
+        {btn('📧 Reset mdp', resetPassword)}
       </div>
       {msg && (
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: msg.startsWith('✓') ? 'var(--vl-growth)' : 'var(--vl-ember)', marginTop: 8 }}>
@@ -179,6 +192,21 @@ function UserRow({ user }: { user: AdminUser }) {
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const qc = useQueryClient()
+  const setViewAs = useVLStore((s) => s.setViewAs)
+  const viewAs = useVLStore((s) => s.viewAs)
+  const navigate = useNavigate()
+
+  function handleViewAs() {
+    setViewAs({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      plan_tier: user.plan_tier,
+      plan_expires_at: user.plan_expires_at,
+      is_admin: user.is_admin,
+    })
+    navigate('/')
+  }
 
   return (
     <div style={{ border: '1px solid var(--vl-line)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
@@ -220,12 +248,26 @@ function UserRow({ user }: { user: AdminUser }) {
       {expanded && (
         <>
           <UserActions user={user} onDone={() => { setExpanded(false); qc.invalidateQueries({ queryKey: ['admin-users'] }) }} />
-          <div style={{ padding: '0 16px 8px', display: 'flex', gap: 8 }}>
+          <div style={{ padding: '0 16px 10px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowHistory((v) => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', padding: 0 }}
             >
               {showHistory ? '▴ Masquer historique' : '▾ Voir historique'}
+            </button>
+            <button
+              onClick={handleViewAs}
+              style={{
+                background: viewAs?.id === user.id
+                  ? 'color-mix(in oklab, var(--vl-ember) 15%, transparent)'
+                  : 'var(--vl-surf-2)',
+                border: `1px solid ${viewAs?.id === user.id ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
+                color: viewAs?.id === user.id ? 'var(--vl-ember)' : 'var(--vl-text-2)',
+                borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 600,
+              }}
+            >
+              👁 Vue en tant que
             </button>
           </div>
           {showHistory && <GrantHistory userId={user.id} />}
@@ -241,6 +283,7 @@ export default function AdminPage() {
   const { isAdmin, isLoading: tierLoading } = usePlanTier()
   const [search, setSearch] = useState('')
   const qc = useQueryClient()
+  const { openModal } = useUpgradeModal()
 
   const { data: users = [], isLoading } = useQuery<AdminUser[]>({
     queryKey: ['admin-users'],
@@ -284,9 +327,22 @@ export default function AdminPage() {
             {users.length} utilisateur{users.length > 1 ? 's' : ''} · <span style={{ color: 'var(--vl-ember)' }}>{proCount} PRO actif{proCount > 1 ? 's' : ''}</span>
           </div>
         </div>
-        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.12em', color: 'var(--vl-ember)', background: 'color-mix(in oklab, var(--vl-ember) 10%, transparent)', border: '1px solid var(--vl-ember)', borderRadius: 999, padding: '3px 10px' }}>
-          ✦ ADMIN
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.12em', color: 'var(--vl-ember)', background: 'color-mix(in oklab, var(--vl-ember) 10%, transparent)', border: '1px solid var(--vl-ember)', borderRadius: 999, padding: '3px 10px' }}>
+            ✦ ADMIN
+          </span>
+          <button
+            onClick={() => openModal({ vdot: 52, weeksToRace: 14, distanceKm: 42, raceName: 'Aperçu modal PRO' })}
+            style={{
+              fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.1em',
+              color: 'var(--vl-text-2)', background: 'var(--vl-surf-2)',
+              border: '1px solid var(--vl-line)', borderRadius: 999, padding: '3px 10px',
+              cursor: 'pointer',
+            }}
+          >
+            👁 Prévisualiser modal PRO
+          </button>
+        </div>
       </div>
 
       {/* Accès rapide : passer tous les utilisateurs en test */}
