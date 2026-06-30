@@ -201,7 +201,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 55, climbing: false,
     phases: ['build', 'specific'],
     levels: INT_ADV, distances: ['10k', 'half'], target: 'threshold',
-    description: 'Ex : 6-8×5 min au seuil, récup 1 min. Volume seuil fractionné, fraîcheur préservée (Daniels).',
+    description: '6 à 8 blocs de 5 min au seuil, récup 1 min entre chaque. Volume au seuil fractionné, fraîcheur préservée (Daniels).',
   },
   {
     id: 'over_under',
@@ -228,7 +228,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 55, climbing: true,
     phases: ['specific'],
     levels: INT_ADV, distances: ['half', 'marathon', 'ultra'], target: 'climbing',
-    description: 'Ex : 3-4×6-8 min à effort seuil en montée régulière. Seuil + puissance de montée (Uphill Athlete/Canova).',
+    description: '3 à 4 montées de 6 à 8 min à effort seuil. Seuil + puissance de montée (Uphill Athlete/Canova).',
   },
   {
     id: 'marathon_pace',
@@ -320,7 +320,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 50, climbing: true,
     phases: ['build', 'specific'],
     levels: INT_ADV, distances: ['10k', 'ultra'], target: 'climbing',
-    description: 'Ex : 5-6×(2-3 min montée à effort I), récup descente. VO2max + force de montée, faible impact (Uphill Athlete).',
+    description: '5 à 6 montées de 2 à 3 min à effort VO2max, récup en descente. VO2max + force de montée, faible impact (Uphill Athlete).',
   },
 
   // ── Vitesse & économie ────────────────────────────────────────────────────
@@ -349,7 +349,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 45, climbing: true,
     phases: ['base', 'build'],
     levels: INT_ADV, distances: ['half', 'marathon', 'ultra'], target: 'climbing',
-    description: 'Ex : 8-10×8-45 s en côte raide, récup descente. Force-vitesse, puissance et économie sans impact.',
+    description: '8 à 10 sprints en côte raide (10–30 sec chacun), récup en descente marchée. Puissance, vivacité et économie sans traumatisme d\'impact.',
   },
   {
     id: 'reps_r_200',
@@ -376,7 +376,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 30, climbing: false,
     phases: ['base', 'build'],
     levels: ['advanced'], distances: ['5k', '10k'], target: 'speed',
-    description: 'Ex : 6-8×60-80 m quasi-max, récup 2-3 min. Puissance et vitesse pure neuromusculaire (Magness).',
+    description: '6 à 8 sprints de 60–80 m quasi-max, récup 2–3 min. Puissance et vitesse neuromusculaire (Magness).',
   },
   {
     id: 'fartlek',
@@ -423,7 +423,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 65, climbing: false,
     phases: ['specific'],
     levels: ['advanced'], distances: ['half'], target: 'race_specificity',
-    description: 'Ex : 3-4×4-5 km à allure semi, récup 2-3 min. Allure objectif semi, endurance au seuil (Pfitzinger/Canova).',
+    description: '3 à 4 blocs de 4 à 5 km à allure semi-marathon, récup 2–3 min. Endurance à vitesse-seuil (Pfitzinger/Canova).',
   },
   {
     id: 'race_marathon',
@@ -432,7 +432,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 90, climbing: false,
     phases: ['specific'],
     levels: INT_ADV, distances: ['marathon'], target: 'race_specificity',
-    description: 'Ex : 2-3×6-10 km à allure marathon, récup 1-2 km facile. Automatiser l\'allure marathon (Pfitzinger/Daniels).',
+    description: '2 à 3 blocs de 6 à 10 km à allure marathon, récup 1–2 km facile. Automatiser le rythme course (Pfitzinger/Daniels).',
   },
   {
     id: 'canova_special',
@@ -564,7 +564,7 @@ export const WORKOUTS: readonly WorkoutTemplate[] = [
     baseDurationMin: 50, climbing: true, trailOnly: true,
     phases: ['base', 'build'],
     levels: INT_ADV, distances: ['ultra'], target: 'climbing',
-    description: 'Ex : 4-6×3-4 min montée raide en force (cadence basse, port. sac). Force-endurance des jambes (Uphill Athlete).',
+    description: '4 à 6 montées raides de 3 à 4 min en force (cadence basse, sac possible). Force-endurance des jambes (Uphill Athlete).',
   },
   {
     id: 'strength_link',

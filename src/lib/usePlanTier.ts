@@ -4,21 +4,34 @@ import { useVLStore } from '../store/vlStore'
 
 export type PlanTier = 'free' | 'pro'
 
-export function usePlanTier(): { tier: PlanTier; isLoading: boolean } {
+interface PlanRow {
+  plan_tier: string | null
+  plan_expires_at: string | null
+  is_admin: boolean | null
+}
+
+export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: boolean } {
   const user = useVLStore((s) => s.user)
-  const { data, isLoading } = useQuery<PlanTier>({
+  const { data, isLoading } = useQuery<PlanRow | null>({
     queryKey: ['plan-tier', user?.id],
     enabled: !!user,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('plan_tier')
+        .select('plan_tier, plan_expires_at, is_admin')
         .eq('id', user!.id)
         .single()
-      if (error) return 'free'
-      return (data?.plan_tier ?? 'free') as PlanTier
+      if (error) return null
+      return data as PlanRow
     },
   })
-  return { tier: data ?? 'free', isLoading }
+
+  const rawTier = (data?.plan_tier ?? 'free') as PlanTier
+  const expires = data?.plan_expires_at ? new Date(data.plan_expires_at) : null
+  // PRO expiré → repasse free automatiquement
+  const tier: PlanTier = rawTier === 'pro' && expires && expires < new Date() ? 'free' : rawTier
+  const isAdmin = data?.is_admin === true
+
+  return { tier, isAdmin, isLoading }
 }
