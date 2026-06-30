@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useVLStore } from '../store/vlStore'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import StatsTab from '../components/admin/StatsTab'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -383,9 +384,12 @@ function UserRow({ user }: { user: AdminUser }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
+type AdminTab = 'users' | 'stats'
+
 export default function AdminPage() {
   const { isAdmin, isLoading: tierLoading } = usePlanTier()
   const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<AdminTab>('users')
   const qc = useQueryClient()
   const { openModal } = useUpgradeModal()
 
@@ -449,6 +453,27 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Onglets */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: '1.5rem' }}>
+        {([['users', 'Utilisateurs'], ['stats', 'Statistiques']] as [AdminTab, string][]).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            style={{
+              fontFamily: 'var(--vl-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.06em',
+              padding: '7px 16px', borderRadius: 8, cursor: 'pointer',
+              background: tab === key ? 'var(--vl-ember)' : 'var(--vl-surf-2)',
+              color: tab === key ? 'var(--vl-ink)' : 'var(--vl-text-2)',
+              border: `1px solid ${tab === key ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
+              transition: 'all 0.15s',
+            }}
+          >{label}</button>
+        ))}
+      </div>
+
+      {tab === 'stats' && <StatsTab />}
+
+      {tab === 'users' && <>
       {/* Accès rapide : passer tous les utilisateurs en test */}
       <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px' }}>
         <div className="clabel" style={{ marginBottom: 8 }}>ACCÈS RAPIDE — TEST GLOBAL</div>
@@ -488,6 +513,7 @@ export default function AdminPage() {
       ) : (
         filtered.map((u) => <UserRow key={u.id} user={u} />)
       )}
+      </>}
     </div>
   )
 }
