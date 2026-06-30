@@ -18,6 +18,7 @@ import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
 import ProGate from '../components/ProGate'
 import { usePlanTier } from '../lib/usePlanTier'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
 interface Race {
   id: string
@@ -193,6 +194,8 @@ export default function RaceStrategyPage() {
 
   // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
   const { tier } = usePlanTier()
+  const track = useTrackEvent()
+  useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps
   const { data: racesWithGpxCount = 0 } = useQuery<number>({
     queryKey: ['races-with-gpx-count'],
     staleTime: 60_000,

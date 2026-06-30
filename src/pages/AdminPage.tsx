@@ -152,6 +152,102 @@ function UserActions({ user, onDone }: { user: AdminUser; onDone: () => void }) 
   )
 }
 
+// ─── Helpers événements ───────────────────────────────────────────────────────
+
+interface ActivityEvent {
+  event_id: string
+  user_id?: string
+  user_email?: string
+  user_name?: string | null
+  event: string
+  meta: Record<string, unknown>
+  created_at: string
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  session_start:     '🟢 Ouverture app',
+  coach_viewed:      '🗓 Coach consulté',
+  race_created:      '🏁 Course créée',
+  strategy_viewed:   '🗺 Stratégie vue',
+  activities_viewed: '📊 Activités vues',
+  strava_connected:  '🔗 Strava connecté',
+  gpx_uploaded:      '📍 GPX uploadé',
+  plan_upgraded:     '✦ Passé PRO',
+}
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60_000)
+  if (m < 1) return "à l'instant"
+  if (m < 60) return `il y a ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `il y a ${h}h`
+  const d = Math.floor(h / 24)
+  return `il y a ${d}j`
+}
+
+function EventLine({ ev, showUser = false }: { ev: ActivityEvent; showUser?: boolean }) {
+  const label = EVENT_LABELS[ev.event] ?? ev.event
+  const raceName = ev.meta?.name as string | undefined
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--vl-line)' }}>
+      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-2)', flexShrink: 0, minWidth: 160 }}>{label}{raceName ? ` — ${raceName}` : ''}</span>
+      {showUser && (
+        <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {ev.user_name ?? ev.user_email}
+        </span>
+      )}
+      <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', flexShrink: 0, marginLeft: 'auto' }}>{fmtRelative(ev.created_at)}</span>
+    </div>
+  )
+}
+
+// ─── Feed global d'activité ───────────────────────────────────────────────────
+
+function ActivityFeed() {
+  const { data: events = [], isLoading } = useQuery<ActivityEvent[]>({
+    queryKey: ['admin-activity-feed'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_get_activity_feed', { limit_n: 60 })
+      if (error) return []
+      return data as ActivityEvent[]
+    },
+  })
+
+  if (isLoading) return <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', padding: '8px 0' }}>Chargement…</div>
+  if (!events.length) return <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', padding: '8px 0' }}>Aucun événement pour l'instant</div>
+
+  return (
+    <div>
+      {events.map((ev) => <EventLine key={ev.event_id} ev={ev} showUser />)}
+    </div>
+  )
+}
+
+// ─── Activité d'un utilisateur spécifique ────────────────────────────────────
+
+function UserActivity({ userId }: { userId: string }) {
+  const { data: events = [], isLoading } = useQuery<ActivityEvent[]>({
+    queryKey: ['admin-user-activity', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_get_user_activity', { target_user_id: userId, limit_n: 20 })
+      if (error) return []
+      return data as ActivityEvent[]
+    },
+  })
+
+  if (isLoading) return <div style={{ padding: '8px 16px', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>Chargement…</div>
+  if (!events.length) return <div style={{ padding: '8px 16px', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>Aucune activité enregistrée</div>
+
+  return (
+    <div style={{ padding: '8px 16px 12px', borderTop: '1px solid var(--vl-line)' }}>
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--vl-text-3)', marginBottom: 6 }}>ACTIVITÉ RÉCENTE</div>
+      {events.map((ev) => <EventLine key={ev.event_id} ev={ev} />)}
+    </div>
+  )
+}
+
 // ─── Historique des grants pour un utilisateur ───────────────────────────────
 
 function GrantHistory({ userId }: { userId: string }) {
@@ -191,6 +287,7 @@ function GrantHistory({ userId }: { userId: string }) {
 function UserRow({ user }: { user: AdminUser }) {
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showActivity, setShowActivity] = useState(false)
   const qc = useQueryClient()
   const setViewAs = useVLStore((s) => s.setViewAs)
   const viewAs = useVLStore((s) => s.viewAs)
@@ -253,7 +350,13 @@ function UserRow({ user }: { user: AdminUser }) {
               onClick={() => setShowHistory((v) => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', padding: 0 }}
             >
-              {showHistory ? '▴ Masquer historique' : '▾ Voir historique'}
+              {showHistory ? '▴ Masquer grants' : '▾ Voir grants'}
+            </button>
+            <button
+              onClick={() => setShowActivity((v) => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', padding: 0 }}
+            >
+              {showActivity ? '▴ Masquer activité' : '▾ Voir activité'}
             </button>
             <button
               onClick={handleViewAs}
@@ -271,6 +374,7 @@ function UserRow({ user }: { user: AdminUser }) {
             </button>
           </div>
           {showHistory && <GrantHistory userId={user.id} />}
+          {showActivity && <UserActivity userId={user.id} />}
         </>
       )}
     </div>
@@ -359,6 +463,12 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Feed d'activité global */}
+      <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px' }}>
+        <div className="clabel" style={{ marginBottom: 10 }}>ACTIVITÉ RÉCENTE — TOUS LES USERS</div>
+        <ActivityFeed />
       </div>
 
       {/* Recherche */}

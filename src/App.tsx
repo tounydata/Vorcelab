@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
@@ -49,22 +49,38 @@ function PrivateRoutes() {
   return <Outlet />
 }
 
+function trackSessionStart(userId: string) {
+  supabase.from('user_events').insert({ user_id: userId, event: 'session_start', meta: {} }).then(() => undefined)
+  supabase.rpc('update_last_seen').then(() => undefined)
+}
+
 export default function App() {
   const { setUser, setSessionLoaded } = useVLStore()
+  const trackedSession = useRef<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // Marqueur « était connecté sur cet appareil » : si la session disparaît
-      // (navigation privée, token expiré), le login explique POURQUOI on se relog
-      // au lieu d'afficher le formulaire sans contexte. Effacé à la déconnexion
-      // volontaire (boutons Déconnexion).
-      if (session?.user) localStorage.setItem('vl-had-session', '1')
+      if (session?.user) {
+        localStorage.setItem('vl-had-session', '1')
+        if (trackedSession.current !== session.user.id) {
+          trackedSession.current = session.user.id
+          trackSessionStart(session.user.id)
+        }
+      }
       setUser(session?.user ?? null)
       setSessionLoaded(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) localStorage.setItem('vl-had-session', '1')
+      if (session?.user) {
+        localStorage.setItem('vl-had-session', '1')
+        if (trackedSession.current !== session.user.id) {
+          trackedSession.current = session.user.id
+          trackSessionStart(session.user.id)
+        }
+      } else {
+        trackedSession.current = null
+      }
       setUser(session?.user ?? null)
     })
 
