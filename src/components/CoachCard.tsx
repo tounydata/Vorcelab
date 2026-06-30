@@ -36,9 +36,10 @@ function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: {
+export default function CoachCard({ renfoLogs, renfoWeeklyTarget, trainingStatus }: {
   renfoLogs: RenfoLogLite[]
   renfoWeeklyTarget: number
+  trainingStatus?: { label: string; color: string; sub: string } | null
 }) {
   const { isLoading, targetRace, plan, displayWeeks, renfoFusion } = useCoachPlan()
   // Séances réellement LIÉES (journal) → une séance n'est « faite » que si elle a été liée,
@@ -95,13 +96,18 @@ export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: {
 
   return (
     <div data-tour="dash-coach" className="card" style={{ marginBottom: '1.5rem', padding: '16px 18px', borderLeft: `4px solid ${accent}` }}>
-      {/* ── En-tête : COACH · phase ............ MON PLAN → ── */}
+      {/* ── En-tête : COACH · phase · statut ............ MON PLAN → ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.16em', color: 'var(--vl-text-2)' }}>COACH</span>
           {phase && (
             <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em', color: accent, background: `color-mix(in oklab, ${accent} 14%, transparent)`, borderRadius: 4, padding: '2px 7px', textTransform: 'uppercase' }}>
               {PHASE_LABELS[phase]?.toUpperCase?.() ?? phase}
+            </span>
+          )}
+          {trainingStatus && (
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', color: trainingStatus.color, textTransform: 'uppercase' }}>
+              · {trainingStatus.label}
             </span>
           )}
         </div>

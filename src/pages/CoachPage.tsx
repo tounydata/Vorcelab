@@ -193,7 +193,7 @@ function TodayCTA({ week }: { week: PlanWeek }) {
       <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.55rem', fontWeight: 800, color: 'var(--vl-ink)', lineHeight: 1.1, marginBottom: 8 }}>
         {session.title}
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: session.description ? 10 : 0 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, background: 'rgba(0,0,0,.15)', color: 'var(--vl-ink)', borderRadius: 4, padding: '2px 8px' }}>
           {session.targetDurationMin} min
         </span>
@@ -206,11 +206,6 @@ function TodayCTA({ week }: { week: PlanWeek }) {
           </span>
         )}
       </div>
-      {session.description && (
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(0,0,0,.6)', borderTop: '1px solid rgba(0,0,0,.12)', paddingTop: 8 }}>
-          {session.description}
-        </div>
-      )}
     </div>
   )
 }

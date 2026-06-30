@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
@@ -531,117 +531,9 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   )
 }
 
-// ─── Today banner — non-directive orientation card ───────────────────────────
-// Shows training state + 2-3 suggested options. User chooses freely.
-
-const TODAY_OPTIONS: Record<string, { label: string; desc: string; href: string }[]> = {
-  productif: [
-    { label: 'Fractionné', desc: 'séance qualité', href: '/coach' },
-    { label: 'Sortie longue', desc: 'endurance fondamentale', href: '/coach' },
-    { label: 'Renfo', desc: 'force complémentaire', href: '/coach' },
-  ],
-  pic: [
-    { label: 'Activation courte', desc: 'qualité à faible volume', href: '/coach' },
-    { label: 'Footing d\'éveil', desc: 'maintien de la vivacité', href: '/coach' },
-  ],
-  maintien: [
-    { label: 'Footing facile', desc: 'Z2, nez qui respire', href: '/coach' },
-    { label: 'Renfo', desc: 'maintien musculaire', href: '/coach' },
-    { label: 'Sortie longue', desc: 'base aérobie', href: '/coach' },
-  ],
-  recuperation: [
-    { label: 'Footing léger', desc: '20-30 min maxi, Z1', href: '/coach' },
-    { label: 'Repos actif', desc: 'vélo, marche, natation', href: '/coach' },
-  ],
-  charge_elevee: [
-    { label: 'Repos', desc: 'récupération passive', href: '/coach' },
-    { label: 'Footing très léger', desc: '20 min Z1, si tu dois bouger', href: '/coach' },
-  ],
-  surmenage: [
-    { label: 'Repos total', desc: 'priorité absolue', href: '/coach' },
-    { label: 'Récup active', desc: 'mobilité légère seulement', href: '/coach' },
-  ],
-  desentrainement: [
-    { label: 'Sortie longue', desc: 'reconstruire la base', href: '/coach' },
-    { label: 'Fractionné léger', desc: 'réactiver les filières', href: '/coach' },
-    { label: 'Renfo', desc: 'préserver la force', href: '/coach' },
-  ],
-  improductif: [
-    { label: 'Footing Z2 pur', desc: 'allure confortable, FC stable', href: '/coach' },
-    { label: 'Renfo', desc: 'stimulus neuro sans cardio', href: '/coach' },
-    { label: 'Repos', desc: 'si le corps résiste', href: '/coach' },
-  ],
-}
-
-function TodayBanner({
-  activities,
-  renfoLogs,
-  fcMax,
-}: {
-  activities: Activity2[]
-  renfoLogs: SessionLog[]
-  fcMax?: number | null
-}) {
-  const renfoActs: ActivityForLoad[] = renfoLogs
-    .filter((r) => r.session_date)
-    .map((r) => {
-      const f = r.focus ?? ''
-      const sport = f.includes('yoga') || f.includes('stretching') ? 'Yoga' : f.includes('pilates') ? 'Pilates' : 'WeightTraining'
-      return { start_date: r.session_date! + 'T12:00:00', type: sport, sport_type: sport, moving_time: (r.duration_min ?? 40) * 60 }
-    })
-  const pmc = computeDailyPMC([...activities, ...renfoActs], fcMax, { totalDays: 90, displayDays: 42 })
-  if (pmc.length === 0) return null
-  const today = pmc[pmc.length - 1]
-  if (!today || today.calibrating) return null
-
-  const acwr = computeACWR(pmc)
-  const status = computeMultiStatus(pmc, acwr, activities, fcMax ?? 185)
-  const opts = TODAY_OPTIONS[status.key]
-  if (!opts) return null
-
-  return (
-    <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
-        <div style={{
-          fontFamily: 'var(--vl-display)', fontSize: '1.1rem', fontWeight: 800,
-          color: status.color, letterSpacing: '.01em', textTransform: 'uppercase',
-        }}>
-          {status.label}
-        </div>
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 10.5, color: 'var(--vl-text-2)' }}>
-          {status.sub}
-        </div>
-      </div>
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--vl-text-3)', marginBottom: 8 }}>
-        Qu'est-ce que tu fais aujourd'hui ?
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-        {opts.map((opt) => (
-          <a
-            key={opt.label}
-            href={`#${opt.href}`}
-            style={{
-              display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px',
-              background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line-2)',
-              borderRadius: 'var(--vl-r-sm)', textDecoration: 'none', color: 'inherit',
-              transition: 'border-color .15s',
-            }}
-            onMouseOver={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--vl-ember)')}
-            onMouseOut={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--vl-line-2)')}
-          >
-            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--vl-text)' }}>{opt.label}</span>
-            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)' }}>{opt.desc}</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ─── Dashboard réorganisable : l'ordre des sections appartient à l'utilisateur ──
-const DASH_SECTIONS = ['today', 'race', 'coach', 'state', 'month'] as const
+const DASH_SECTIONS = ['race', 'coach', 'state', 'month'] as const
 const SECTION_LABELS: Record<string, string> = {
-  today: "Aujourd'hui",
   race: 'Stratégie de course',
   coach: 'Coach',
   state: "Statut d'entraînement",
@@ -806,6 +698,23 @@ export default function DashboardPage() {
 
   const recent = runs.slice(0, 4)
 
+  // Statut d'entraînement calculé une fois, partagé avec CoachCard
+  const trainingStatus = useMemo(() => {
+    const renfoActs: ActivityForLoad[] = renfoLogs
+      .filter((r) => r.session_date)
+      .map((r) => {
+        const f = r.focus ?? ''
+        const sport = f.includes('yoga') || f.includes('stretching') ? 'Yoga' : f.includes('pilates') ? 'Pilates' : 'WeightTraining'
+        return { start_date: r.session_date! + 'T12:00:00', type: sport, sport_type: sport, moving_time: (r.duration_min ?? 40) * 60 }
+      })
+    const pmc = computeDailyPMC([...pmcActs, ...renfoActs], fcMax, { totalDays: 90, displayDays: 42 })
+    if (!pmc.length) return null
+    const today = pmc[pmc.length - 1]
+    if (!today || today.calibrating) return null
+    const acwr = computeACWR(pmc)
+    return computeMultiStatus(pmc, acwr, pmcActs, fcMax ?? 185)
+  }, [pmcActs, renfoLogs, fcMax])
+
   // ── Ordre des sections : synchronisé entre appareils (profiles.dashboard_layout),
   // localStorage en cache local, drag & drop (pointer events) + ▲▼ en secours. ──
   const [sectionOrder, setSectionOrder] = useState<string[]>(loadSectionOrder)
@@ -913,9 +822,8 @@ export default function DashboardPage() {
                   </span>
                 </div>
               )}
-              {key === 'today' && <TodayBanner activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'race' && nextRace && <NextRaceWidget race={nextRace} />}
-              {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} />}
+              {key === 'coach' && <CoachCard renfoLogs={renfoLogs} renfoWeeklyTarget={renfoWeeklyTarget} trainingStatus={trainingStatus} />}
               {key === 'state' && <TrainingStatusCard activities={pmcActs} renfoLogs={renfoLogs} fcMax={fcMax} />}
               {key === 'month' && (
           <div data-tour="dash-recent" className="card" style={{ marginBottom: '1.5rem' }}>
