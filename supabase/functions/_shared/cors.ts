@@ -1,4 +1,6 @@
 const STATIC_ORIGINS = new Set([
+  'https://vorcelab.app',
+  'https://www.vorcelab.app',
   'https://tounydata.github.io',
   'http://localhost:5173',
   'http://localhost:4173',
@@ -25,13 +27,13 @@ const dynamicOrigins: string[] = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
 
 function resolveOrigin(requestOrigin: string | null): string {
   if (!requestOrigin) {
-    return 'http://localhost:5173'
+    return 'https://vorcelab.app'
   }
 
   const normalizedRequestOrigin = normalizeOrigin(requestOrigin)
 
   if (!normalizedRequestOrigin) {
-    return 'http://localhost:5173'
+    return 'https://vorcelab.app'
   }
 
   if (

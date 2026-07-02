@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const STATIC_ORIGINS = new Set([
+  'https://vorcelab.app',
+  'https://www.vorcelab.app',
   'https://tounydata.github.io',
   'http://localhost:5173',
   'http://localhost:4173',
