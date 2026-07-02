@@ -4,10 +4,8 @@ import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTime
 import { useVLStore } from '../store/vlStore'
 import { useTrackEvent } from '../lib/useTrackEvent'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const STRIPE_ANNUAL_URL: string = (import.meta as any).env?.VITE_STRIPE_ANNUAL_URL ?? ''
-const STRIPE_MONTHLY_URL: string = (import.meta as any).env?.VITE_STRIPE_MONTHLY_URL ?? ''
-/* eslint-enable @typescript-eslint/no-explicit-any */
+const STRIPE_ANNUAL_URL: string = import.meta.env.VITE_STRIPE_ANNUAL_URL ?? ''
+const STRIPE_MONTHLY_URL: string = import.meta.env.VITE_STRIPE_MONTHLY_URL ?? ''
 
 const IconStar = () => (
   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

@@ -5,7 +5,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/race')
+    await page.goto('/#/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('STRATÉGIES DE COURSE')).toBeVisible()
 
@@ -16,7 +16,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/race')
+    await page.goto('/#/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const empty   = page.getByText('Aucune course')
@@ -32,7 +32,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/race')
+    await page.goto('/#/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByRole('link', { name: /Dashboard/i })).toBeVisible()
 
@@ -43,7 +43,7 @@ test.describe('Stratégie / Race (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/race/00000000-0000-0000-0000-000000000000')
+    await page.goto('/#/race/00000000-0000-0000-0000-000000000000')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Soit la page stratégie charge (sans GPX), soit 404

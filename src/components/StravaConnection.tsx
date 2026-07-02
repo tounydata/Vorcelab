@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPA_URL } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 
 // Connexion Strava — composant partagé. `compact` = état + sync (header mobile,
 // non envahissant) ; `full` = état + connecter/déconnecter/forcer sync (sidebar
 // desktop, onglet Réglages).
-const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
 interface StravaStatus {
   connected: boolean
@@ -109,6 +108,10 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
           DÉCONNECTER
         </button>
+      </div>
+      {/* Attribution requise par les guidelines de marque Strava */}
+      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 6, textAlign: 'center' }}>
+        POWERED BY STRAVA
       </div>
     </div>
   ) : (

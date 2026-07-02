@@ -1,7 +1,6 @@
 // Port exact de fetchStreams (activity-analysis.js)
-import { supabase } from './supabase'
+import { supabase, SUPA_URL } from './supabase'
 
-const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
 export interface StreamData {
   heartrate?: { data: number[] }

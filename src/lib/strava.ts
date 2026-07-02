@@ -1,9 +1,8 @@
 // Connexion Strava (OAuth) côté front. Le client_id est PUBLIC (il apparaît dans
 // l'URL d'autorisation) ; le secret reste dans l'edge function strava-oauth.
 // Configurer VITE_STRAVA_CLIENT_ID dans l'environnement de build.
-import { supabase } from './supabase'
+import { supabase, SUPA_URL } from './supabase'
 
-const SUPA_URL = 'https://wanzrkdgqmcctwvnbmuv.supabase.co'
 
 // client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
 // Override possible via VITE_STRAVA_CLIENT_ID. Le secret reste côté edge function.
