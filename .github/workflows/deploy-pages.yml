@@ -32,6 +32,9 @@ jobs:
         run: npm run build
         env:
           VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
+          # Stripe Payment Links (modal upgrade PRO) — sans eux le CTA retombe sur mailto:
+          VITE_STRIPE_MONTHLY_URL: ${{ secrets.VITE_STRIPE_MONTHLY_URL }}
+          VITE_STRIPE_ANNUAL_URL: ${{ secrets.VITE_STRIPE_ANNUAL_URL }}
       - name: Prepare pages
         run: |
           mkdir -p .pages

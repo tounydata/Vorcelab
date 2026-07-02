@@ -11,6 +11,9 @@ export type AppEvent =
   | 'strava_connected'
   | 'gpx_uploaded'
   | 'plan_upgraded'
+  | 'progate_view'
+  | 'upgrade_modal_open'
+  | 'upgrade_cta_click'
 
 export function useTrackEvent() {
   const user = useVLStore((s) => s.user)
