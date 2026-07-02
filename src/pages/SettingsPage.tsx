@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
 import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
 import StravaConnection from '../components/StravaConnection'
+import SubscriptionCard from '../components/SubscriptionCard'
 import RenfoEquipmentEditor from '../components/RenfoEquipmentEditor'
 import OneRMSettingsCard from '../components/coach/OneRMSettingsCard'
 import ProfileTabs from '../components/ProfileTabs'
@@ -208,6 +209,9 @@ export default function SettingsPage() {
             {/* Éditeur de matériel renfo (maison / salle), intégré ici */}
             <div className="clabel" style={{ margin: '1.25rem 0 0.6rem', color: '#a78bfa', letterSpacing: '.12em' }}>MATÉRIEL RENFO</div>
             <RenfoEquipmentEditor />
+
+            {/* Abonnement PRO : statut, upgrade, gestion via portail Stripe */}
+            <SubscriptionCard />
 
             {/* Card COMPTE */}
             <div className="card" style={{ margin: '1.25rem 0 1rem' }}>

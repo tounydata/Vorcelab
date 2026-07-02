@@ -10,7 +10,7 @@ interface PlanRow {
   is_admin: boolean | null
 }
 
-export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: boolean } {
+export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; expiresAt: Date | null; isLoading: boolean } {
   const user = useVLStore((s) => s.user)
   const viewAs = useVLStore((s) => s.viewAs)
 
@@ -42,5 +42,5 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; isLoading: bo
     : rawTier === 'pro' && expires && expires < new Date() ? 'free'
     : rawTier
 
-  return { tier, isAdmin, isLoading: viewAs ? false : isLoading }
+  return { tier, isAdmin, expiresAt: expires, isLoading: viewAs ? false : isLoading }
 }
