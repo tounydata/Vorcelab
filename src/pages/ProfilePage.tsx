@@ -7,6 +7,7 @@ import PaceZonesCard from '../components/PaceZonesCard'
 import HrZonesCard from '../components/HrZonesCard'
 import type { HrZoneConfig } from '../lib/hrZones'
 import ProfileTabs from '../components/ProfileTabs'
+import StravaArchiveImport from '../components/StravaArchiveImport'
 import CoachEngine from '../components/coach/CoachEngine'
 import CalibrationCard from '../components/coach/CalibrationCard'
 import {
@@ -669,13 +670,9 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Card ARCHIVE STRAVA */}
+          {/* Card ARCHIVE STRAVA — import du ZIP d'export dans strava_activities */}
           <CollapsibleBlock title="HISTORIQUE COMPLET — ARCHIVE STRAVA" defaultOpen={false}>
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: 12, color: 'var(--vl-text-2)', lineHeight: 1.6 }}>
-                Strava → Paramètres → Mes données → Demander une archive → uploade le ZIP reçu par email.
-              </div>
-            </div>
+            <StravaArchiveImport />
           </CollapsibleBlock>
         </>
       )}
