@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
+import { useVLStore } from '../store/vlStore'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const STRIPE_ANNUAL_URL: string = (import.meta as any).env?.VITE_STRIPE_ANNUAL_URL ?? ''
@@ -56,6 +57,7 @@ const PERKS = [
 
 export default function UpgradeModal() {
   const { open, teaser, closeModal } = useUpgradeModal()
+  const user = useVLStore((s) => s.user)
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
   const [mounted, setMounted] = useState(false)
 
@@ -82,9 +84,14 @@ export default function UpgradeModal() {
   const savedSec = Math.round(savedSeconds % 60)
 
   function handleCTA() {
-    const url = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
-    else window.open('mailto:hello@vorcelab.com?subject=Passer%20à%20PRO', '_blank')
+    const base = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
+    if (base) {
+      // Stripe Payment Links acceptent ?client_reference_id= pour retrouver l'user côté webhook
+      const url = user?.id ? `${base}?client_reference_id=${user.id}&prefilled_email=${encodeURIComponent(user.email ?? '')}` : base
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else {
+      window.open('mailto:hello@vorcelab.com?subject=Passer%20à%20PRO', '_blank')
+    }
   }
 
   return (

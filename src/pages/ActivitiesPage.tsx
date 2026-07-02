@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { NavLink } from 'react-router'
 import { supabase } from '../lib/supabase'
+import { useTrackEvent } from '../lib/useTrackEvent'
 import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
 
@@ -126,6 +127,8 @@ function computePeriods(acts: Activity[]): PeriodStats[] {
 type TypeFilter = 'tout' | 'trail' | 'route'
 
 export default function ActivitiesPage() {
+  const track = useTrackEvent()
+  useEffect(() => { track('activities_viewed') }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('tout')
 
