@@ -18,6 +18,7 @@ import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
 import ProGate from '../components/ProGate'
 import { usePlanTier } from '../lib/usePlanTier'
+import { useAutoUpgradeModal } from '../lib/useAutoUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
 
 interface Race {
@@ -210,6 +211,9 @@ export default function RaceStrategyPage() {
   })
   // Gated si : plan free + cette course n'a pas encore de GPX + au moins 1 autre course en a déjà un
   const isGated = tier !== 'pro' && !race?.gpx_data && racesWithGpxCount >= 1
+
+  // Free qui atteint la stratégie verrouillée → popup PRO auto (1×/session).
+  useAutoUpgradeModal(isGated, 'strategy')
 
   // ── Météo J-10 : prévision sur la fenêtre de course (départ → arrivée estimée) ──
   // On utilise baseEstTimeS (passe sans terrain) pour que la clé de cache coïncide
