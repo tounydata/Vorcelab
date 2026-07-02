@@ -50,7 +50,7 @@ jobs:
           echo 'vorcelab.app' > .pages/CNAME
 
           touch .pages/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: .pages
       - id: deployment
