@@ -49,9 +49,13 @@ jobs:
           # Pages publiques du sitemap : GitHub Pages sert le fallback 404.html
           # avec un statut HTTP 404 (non indexable) → on matérialise ces routes
           # en vraies copies d'index.html pour qu'elles répondent 200.
+          # Canonical + og:url réécrits par page : sinon chaque copie garde le
+          # canonical de la home et Google replie tout sur vorcelab.app/.
           for route in login demo legal/cgu legal/confidentialite; do
             mkdir -p ".pages/$route"
-            cp .pages/index.html ".pages/$route/index.html"
+            sed -e "s|href=\"https://vorcelab.app/\"|href=\"https://vorcelab.app/$route/\"|" \
+                -e "s|content=\"https://vorcelab.app/\"|content=\"https://vorcelab.app/$route/\"|" \
+                .pages/index.html > ".pages/$route/index.html"
           done
 
           # Domaine custom GitHub Pages
