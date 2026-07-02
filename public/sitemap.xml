@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://vorcelab.app/</loc></url>
-  <url><loc>https://vorcelab.app/login</loc></url>
-  <url><loc>https://vorcelab.app/demo</loc></url>
-  <url><loc>https://vorcelab.app/legal/cgu</loc></url>
-  <url><loc>https://vorcelab.app/legal/confidentialite</loc></url>
+  <!-- URLs avec slash final : GitHub Pages sert ces routes comme des index de
+       répertoire (/login → 301 → /login/) — le sitemap liste la destination 200. -->
+  <url><loc>https://vorcelab.app/login/</loc></url>
+  <url><loc>https://vorcelab.app/demo/</loc></url>
+  <url><loc>https://vorcelab.app/legal/cgu/</loc></url>
+  <url><loc>https://vorcelab.app/legal/confidentialite/</loc></url>
 </urlset>
