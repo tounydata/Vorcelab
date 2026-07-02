@@ -14,6 +14,8 @@ export type AppEvent =
   | 'progate_view'
   | 'upgrade_modal_open'
   | 'upgrade_cta_click'
+  | 'dashboard_pro_card_click'
+  | 'subscription_manage_click'
 
 export function useTrackEvent() {
   const user = useVLStore((s) => s.user)

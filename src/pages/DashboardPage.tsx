@@ -11,6 +11,7 @@ import {
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
 import CoachCard from '../components/CoachCard'
+import ProUpgradeCard from '../components/ProUpgradeCard'
 import { useRaceProjection } from '../lib/useRaceProjection'
 import { fmtRaceTimeS } from '../lib/raceStrategyView'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
@@ -776,6 +777,9 @@ export default function DashboardPage() {
         <BrandedLoader />
       ) : (
         <>
+          {/* Incitation PRO (comptes gratuits uniquement, masquable) — au-dessus des sections. */}
+          <ProUpgradeCard />
+
           {/* ── Sections réorganisables : l'ordre appartient à l'utilisateur ── */}
           {sectionOrder.map((key, idx) => (
             <div
