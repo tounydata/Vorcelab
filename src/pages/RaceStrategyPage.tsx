@@ -144,7 +144,7 @@ export default function RaceStrategyPage() {
   }
 
   function copyShareUrl(token: string) {
-    const url = `${window.location.origin}${window.location.pathname}#/s/${token}`
+    const url = `${window.location.origin}/s/${token}`
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)

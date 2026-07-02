@@ -103,7 +103,7 @@ function UserActions({ user, onDone }: { user: AdminUser; onDone: () => void }) 
   async function resetPassword() {
     setBusy(true); setMsg('')
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: window.location.origin + '/#/profile/settings',
+      redirectTo: window.location.origin + '/profile/settings',
     })
     setBusy(false)
     if (error) setMsg('Erreur : ' + error.message)

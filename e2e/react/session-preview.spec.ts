@@ -6,7 +6,7 @@ test.describe('Aperçu hebdomadaire', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/#/preview/session')
+    await page.goto('/preview/session')
 
     await expect(page.getByRole('heading', { name: 'Aperçu hebdomadaire' })).toBeVisible()
     await expect(page.getByText('MES ALLURES')).toBeVisible()

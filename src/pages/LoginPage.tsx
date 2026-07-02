@@ -7,7 +7,7 @@ import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 type Tab = 'login' | 'signup'
 type SecondaryMode = 'magic' | 'reset' | null
 
-const REDIRECT = `${window.location.origin}${import.meta.env.BASE_URL}#/`
+const REDIRECT = `${window.location.origin}${import.meta.env.BASE_URL}`
 
 // Pitch content — why Vorcelab beats generic running apps
 const PITCH_POINTS = [
@@ -178,7 +178,7 @@ export default function LoginPage() {
 
           {/* Demo CTA */}
           <a
-            href="#/demo"
+            href="/demo"
             style={{
               marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '9px 14px', borderRadius: 'var(--vl-r-sm)',

@@ -5,7 +5,7 @@ test.describe('Dashboard (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Titre dans le contenu principal (pas la sidebar)
@@ -18,7 +18,7 @@ test.describe('Dashboard (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     await expect(page.getByText('KM CE MOIS')).toBeVisible()
@@ -32,7 +32,7 @@ test.describe('Dashboard (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('DERNIÈRES SORTIES')).toBeVisible()
 
@@ -43,7 +43,7 @@ test.describe('Dashboard (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Clic sur le lien de la sidebar desktop (premier <nav>)

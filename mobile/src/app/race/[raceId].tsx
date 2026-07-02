@@ -181,7 +181,7 @@ export default function RaceStrategyScreen() {
     setMenuOpen(false)
     const token = race.share_token ?? uuid()
     if (!race.share_token) await supabase.from('race_calendar').update({ share_token: token }).eq('id', raceId!)
-    await Share.share({ message: `https://vorcelab.app/#/s/${token}` })
+    await Share.share({ message: `https://vorcelab.app/s/${token}` })
     loadRace()
   }
   async function stopShare() { setMenuOpen(false); await supabase.from('race_calendar').update({ share_token: null }).eq('id', raceId!); loadRace() }

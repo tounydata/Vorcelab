@@ -51,7 +51,7 @@ setup('créer la session de test', async ({ page }) => {
   }
 
   // ── 3. Injecter la session dans le localStorage du navigateur ─────────────
-  await page.goto('http://localhost:4173/#/')
+  await page.goto('http://localhost:4173/')
   await page.evaluate(
     ([key, val]) => localStorage.setItem(key, val),
     [SUPA_KEY, JSON.stringify(session)] as [string, string]

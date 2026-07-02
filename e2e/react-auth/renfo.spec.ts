@@ -5,7 +5,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo')
+    await page.goto('/renfo')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('RENFORCEMENT')).toBeVisible()
 
@@ -16,7 +16,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo')
+    await page.goto('/renfo')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const focuses = ['Force lourde', 'Pliométrie', 'Tronc', 'Yoga du coureur', 'Pilates coureur', 'Stretching']
@@ -31,7 +31,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo')
+    await page.goto('/renfo')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const phases = ['FORCE', 'VOLUME', 'PUISSANCE', 'DÉCHARGE']
@@ -45,7 +45,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/session/yoga_coureur')
+    await page.goto('/renfo/session/yoga_coureur')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Doit afficher soit le warmup, soit des exercices, soit "Aucun exercice"
@@ -60,7 +60,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/session/pilates_coureur')
+    await page.goto('/renfo/session/pilates_coureur')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const content = page.locator('main').getByText(/LANCER|Hundred|Side Kick|Aucun exercice/i)
@@ -73,7 +73,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/session/force_lourde')
+    await page.goto('/renfo/session/force_lourde')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Au moins un exercice ou le bouton LANCER
@@ -87,7 +87,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/library')
+    await page.goto('/renfo/library')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('BIBLIOTHÈQUE', { exact: false })).toBeVisible()
 
@@ -103,7 +103,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/library/squat_lourd')
+    await page.goto('/renfo/library/squat_lourd')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     await expect(page.locator('main').getByText(/Squat/i, { exact: false }).first()).toBeVisible({ timeout: 8_000 })
@@ -115,7 +115,7 @@ test.describe('Renfo (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo/settings')
+    await page.goto('/renfo/settings')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('RÉGLAGES RENFO')).toBeVisible()
     await expect(page.locator('main').getByText('Séances par semaine')).toBeVisible()

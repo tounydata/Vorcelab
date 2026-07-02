@@ -6,7 +6,7 @@ test.describe('React app — smoke', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
 
     await expect(page).toHaveTitle(/VORCELAB/)
     expect(pageErrors, 'aucune erreur JS non gérée').toHaveLength(0)
@@ -16,7 +16,7 @@ test.describe('React app — smoke', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/#/')
+    await page.goto('/')
 
     // Visiteur sans session passée → landing marketing avec CTA
     await expect(page.getByText('VORCELAB').first()).toBeVisible()
@@ -30,7 +30,7 @@ test.describe('React app — smoke', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/#/login')
+    await page.goto('/login')
 
     await expect(page.getByText('LE LABORATOIRE DU COUREUR')).toBeVisible()
     await expect(page.getByPlaceholder('ton@email.com')).toBeVisible()
@@ -40,7 +40,7 @@ test.describe('React app — smoke', () => {
   })
 
   test('landing → CTA → login', async ({ page }) => {
-    await page.goto('/#/')
+    await page.goto('/')
     await page.getByRole('button', { name: 'CRÉER MON COMPTE →' }).click()
     await expect(page.getByPlaceholder('ton@email.com')).toBeVisible()
   })
@@ -49,10 +49,10 @@ test.describe('React app — smoke', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/#/legal/cgu')
+    await page.goto('/legal/cgu')
     await expect(page.getByText("Conditions générales d'utilisation et de vente")).toBeVisible()
 
-    await page.goto('/#/legal/confidentialite')
+    await page.goto('/legal/confidentialite')
     await expect(page.getByText('Politique de confidentialité')).toBeVisible()
 
     expect(pageErrors, 'aucune erreur JS non gérée').toHaveLength(0)
