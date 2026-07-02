@@ -72,10 +72,9 @@ export default function UpgradeModal() {
 
   if (!open) return null
 
-  const weeksToRace = teaser?.weeksToRace ?? 0
-  const vdotGain = estimateVdotGain(weeksToRace)
-  const currentVdot = teaser?.vdot ?? 0
+  const vdotGain = teaser ? estimateVdotGain(teaser.weeksToRace) : 0
   const distM = (teaser?.distanceKm ?? 0) * 1000
+  const currentVdot = teaser?.vdot ?? 0
   const currentTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot, distM) : null
   const coachTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot + vdotGain, distM) : null
   const savedSeconds = currentTimeS && coachTimeS ? currentTimeS - coachTimeS : 0
@@ -165,13 +164,11 @@ export default function UpgradeModal() {
               color: 'rgba(255,255,255,0.35)', letterSpacing: '.04em',
             }}>
               {teaser.raceName}
-              {teaser.distanceKm > 0 ? ` · ${teaser.distanceKm} km` : ''}
-              {weeksToRace > 0 ? ` · ${weeksToRace} sem. de plan` : ''}
             </div>
           )}
         </div>
 
-        {/* ── Perf comparison ─────────────────────────────────────────────── */}
+        {/* ── Perf comparison (si données réelles disponibles) ─────────── */}
         {currentTimeS && coachTimeS && (
           <div style={{
             padding: '24px 32px 20px',
