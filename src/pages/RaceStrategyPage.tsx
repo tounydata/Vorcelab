@@ -371,6 +371,7 @@ export default function RaceStrategyPage() {
       setUnclassifiedWaypoints(unclassified)
       surfacesDoneRef.current = false // nouveau tracé → re-détecter les surfaces
       supabase.from('race_calendar').update({ surfaces: null }).eq('id', raceId!).then(() => {})
+      track('gpx_uploaded', { race_id: raceId, points: pts.length })
       runAnalysis(pts, true)
     }
     reader.readAsText(file)

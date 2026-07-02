@@ -24,6 +24,7 @@ import BrandedLoader from './components/BrandedLoader'
 import DemoStrategyPage from './pages/DemoStrategyPage'
 import UpgradeModal from './components/UpgradeModal'
 import AdminPage from './pages/AdminPage'
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -86,7 +87,17 @@ export default function App() {
 
     // Retour OAuth Strava (?code=…) : échange le code puis recharge l'app connectée.
     handleStravaRedirect().then((res) => {
-      if (res === 'connected') window.location.reload()
+      if (res === 'connected') {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            supabase.from('user_events')
+              .insert({ user_id: session.user.id, event: 'strava_connected', meta: {} })
+              .then(() => window.location.reload())
+          } else {
+            window.location.reload()
+          }
+        })
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -100,6 +111,7 @@ export default function App() {
         <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />
         <Route path="preview/session" element={<SessionPreviewPage />} />
         <Route path="demo" element={<DemoStrategyPage />} />
+        <Route path="payment/success" element={<PaymentSuccessPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>
