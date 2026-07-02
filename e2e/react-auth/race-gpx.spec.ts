@@ -88,7 +88,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/race')
+    await page.goto('/race')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText(RACE_NAME)).toBeVisible({ timeout: 8_000 })
 
@@ -101,7 +101,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Attendre la fin du spinner de chargement de la course (requête mockée → rapide)
@@ -120,7 +120,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
@@ -152,7 +152,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
@@ -180,7 +180,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // gpx_data non nul → auto-analyse sans upload manuel → résultats directs
@@ -198,7 +198,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
@@ -227,7 +227,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
@@ -249,7 +249,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })
@@ -295,7 +295,7 @@ test.describe('Race Strategy / GPX (authentifié)', () => {
       })
     })
 
-    await page.goto(`/#/race/${RACE_ID}`)
+    await page.goto(`/race/${RACE_ID}`)
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('Chargement…', { exact: true })).not.toBeVisible({ timeout: 8_000 })
     await expect(page.locator('main').getByText('CHARGER LE GPX')).toBeVisible({ timeout: 5_000 })

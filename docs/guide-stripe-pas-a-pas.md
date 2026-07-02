@@ -7,6 +7,8 @@
 > - ✅ Lien de paiement mensuel : `https://buy.stripe.com/5kQ5kv9kS6wg35h6XC4ko00` (metadata `plan=monthly`)
 > - ✅ Lien de paiement annuel : `https://buy.stripe.com/00w9ALeFcf2McFRgyc4ko01` (metadata `plan=annual`)
 > - ✅ Redirection post-paiement vers `https://vorcelab.app/#/payment/success`
+>   (URL hash historique — toujours fonctionnelle : l'app la réécrit en
+>   `/payment/success` au chargement depuis le passage à BrowserRouter)
 > - ✅ Liens branchés dans le build de prod (`deploy-pages.yml`) — aucun secret GitHub à créer
 > - ✅ Fonction serveur `stripe-webhook` v2 déployée sur Supabase
 >

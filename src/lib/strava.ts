@@ -44,8 +44,8 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   const scope = url.searchParams.get('scope') ?? ''
   if (!code && !err) return null
 
-  // Nettoie l'URL (retire la query OAuth, conserve le hash de routage).
-  window.history.replaceState({}, '', `${url.origin}${url.pathname}${url.hash || '#/'}`)
+  // Nettoie l'URL (retire la query OAuth, conserve le chemin de routage).
+  window.history.replaceState({}, '', `${url.origin}${url.pathname}`)
 
   if (err || !code) return 'denied'
 

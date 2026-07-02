@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
+import { BrowserRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
@@ -120,7 +120,7 @@ export default function App() {
   }, [setUser, setSessionLoaded])
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <UpgradeModal />
       <Routes>
         {/* Routes publiques — sans authentification */}
@@ -154,6 +154,6 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   )
 }

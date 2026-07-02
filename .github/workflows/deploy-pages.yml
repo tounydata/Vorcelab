@@ -46,6 +46,14 @@ jobs:
           # SPA fallback : toute URL inconnue renvoie l'app
           cp .pages/index.html .pages/404.html
 
+          # Pages publiques du sitemap : GitHub Pages sert le fallback 404.html
+          # avec un statut HTTP 404 (non indexable) → on matérialise ces routes
+          # en vraies copies d'index.html pour qu'elles répondent 200.
+          for route in login demo legal/cgu legal/confidentialite; do
+            mkdir -p ".pages/$route"
+            cp .pages/index.html ".pages/$route/index.html"
+          done
+
           # Domaine custom GitHub Pages
           echo 'vorcelab.app' > .pages/CNAME
 

@@ -5,7 +5,7 @@ test.describe('Activités (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/activities')
+    await page.goto('/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('main').getByText('ACTIVITÉS', { exact: true })).toBeVisible()
 
@@ -16,7 +16,7 @@ test.describe('Activités (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/activities')
+    await page.goto('/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // L'un des trois états doit être visible, pas de page blanche
@@ -34,7 +34,7 @@ test.describe('Activités (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/activities')
+    await page.goto('/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const search = page.getByPlaceholder(/recherche|chercher/i)

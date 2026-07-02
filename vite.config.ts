@@ -14,7 +14,7 @@ export default defineConfig({
         // MapLibre (~1 Mo) : hors précache → chargé à la 1ʳᵉ ouverture d'une carte 3D,
         // puis mis en cache runtime. Garde l'install PWA légère.
         globIgnores: ['**/maplibre-gl-*.js'],
-        // HashRouter : toute navigation revient sur index.html
+        // BrowserRouter (SPA) : toute navigation revient sur index.html
         navigateFallback: '/index.html',
         // Ne pas mettre en cache les appels Supabase auth (sécurité)
         navigateFallbackDenylist: [/^\/api/],

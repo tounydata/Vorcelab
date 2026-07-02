@@ -5,7 +5,7 @@ test.describe('Profil (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/profile')
+    await page.goto('/profile')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Nom/email du compte test visible (profile?.name || email split) — ou "PROFIL" par défaut
@@ -17,7 +17,7 @@ test.describe('Profil (authentifié)', () => {
   })
 
   test('email du compte affiché dans la sidebar', async ({ page }) => {
-    await page.goto('/#/profile')
+    await page.goto('/profile')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // L'email est toujours affiché en bas de sidebar (Layout.tsx ligne 45)
@@ -34,7 +34,7 @@ test.describe('Profil (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/#/renfo')
+    await page.goto('/renfo')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // /renfo → ComingSoonPage : "Cette section est disponible dans l'application principale."

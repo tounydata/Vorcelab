@@ -10,7 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 //
 // Appelé depuis le front via supabase.functions.invoke('stripe-portal').
 
-const RETURN_URL = 'https://vorcelab.app/#/profile/settings'
+const RETURN_URL = 'https://vorcelab.app/profile/settings'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
