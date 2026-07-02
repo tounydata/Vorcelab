@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
 import { useVLStore } from '../store/vlStore'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const STRIPE_ANNUAL_URL: string = (import.meta as any).env?.VITE_STRIPE_ANNUAL_URL ?? ''
-const STRIPE_MONTHLY_URL: string = (import.meta as any).env?.VITE_STRIPE_MONTHLY_URL ?? ''
-/* eslint-enable @typescript-eslint/no-explicit-any */
+const STRIPE_ANNUAL_URL: string = import.meta.env.VITE_STRIPE_ANNUAL_URL ?? ''
+const STRIPE_MONTHLY_URL: string = import.meta.env.VITE_STRIPE_MONTHLY_URL ?? ''
 
 const IconStar = () => (
   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -58,11 +57,13 @@ const PERKS = [
 export default function UpgradeModal() {
   const { open, teaser, closeModal } = useUpgradeModal()
   const user = useVLStore((s) => s.user)
+  const track = useTrackEvent()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     if (open) {
+      track('upgrade_modal_open', { with_teaser: !!teaser })
       setTimeout(() => setMounted(true), 10)
       document.body.style.overflow = 'hidden'
     } else {
@@ -70,7 +71,7 @@ export default function UpgradeModal() {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
-  }, [open])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null
 
@@ -85,6 +86,7 @@ export default function UpgradeModal() {
 
   function handleCTA() {
     const base = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
+    track('upgrade_cta_click', { billing, has_link: !!base })
     if (base) {
       // Stripe Payment Links acceptent ?client_reference_id= pour retrouver l'user côté webhook
       const url = user?.id ? `${base}?client_reference_id=${user.id}&prefilled_email=${encodeURIComponent(user.email ?? '')}` : base

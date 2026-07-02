@@ -12,21 +12,21 @@
 
 ---
 
-## Synthèse
+## Synthèse — état au 2026-07-02 (soir)
 
-| # | Domaine | Constat clé | Sévérité |
-|---|---|---|---|
-| 1 | Paiement | Stripe Payment Links sans **webhook de fulfillment** → personne ne devient PRO automatiquement après paiement | 🔴 |
-| 2 | Paiement | `VITE_STRIPE_MONTHLY_URL` / `VITE_STRIPE_ANNUAL_URL` **absents du build prod** (`deploy-pages.yml` n'injecte que `VITE_MAPTILER_KEY`) → le CTA PRO retombe sur `mailto:` | 🔴 |
-| 3 | Infra DB | **Schema drift** : `user_events`, `update_last_seen()`, `profiles.is_admin`, `profiles.plan_expires_at` utilisés par le code mais **aucune migration** ne les crée | 🔴 |
-| 4 | Acquisition | Pas de landing publique, pas de meta description ni Open Graph, HashRouter (`#/…`) → **SEO ≈ zéro**, previews de partage vides | 🔴 |
-| 5 | Légal | CGU / politique de confidentialité manquantes (déjà tracké) — **bloquant pour encaisser** (Stripe, RGPD, Strava, App Store) | 🔴 |
-| 6 | Mobile | `mobile/` = **~20 000 lignes dupliquées à la main** (moteur coach "porté fidèle à 100%") — chaque fix devra être fait 2×, dérive garantie | 🟠 |
-| 7 | Mobile | Abonnement via liens Stripe = **refus quasi certain au review Apple** (IAP obligatoire pour du contenu digital) | 🟠 |
-| 8 | Observabilité | Aucun monitoring d'erreurs (web, mobile, Edge Functions) — en prod payante tu es aveugle sur les crashs | 🟠 |
-| 9 | Conversion | Le funnel d'upgrade n'est pas instrumenté (pas d'événements `upgrade_modal_open` / `upgrade_cta_click`) alors que `user_events` + admin stats existent | 🟠 |
-| 10 | CI | E2E Playwright jamais exécutés en CI · `mobile/` hors CI (aucun tsc/lint) · pas de Dependabot | 🟡 |
-| 11 | PWA iOS | Icône SVG uniquement — iOS exige un `apple-touch-icon` PNG → installation A2HS dégradée sur iPhone (le cœur de cible) | 🟡 |
+| # | Domaine | Constat clé | Sévérité | État |
+|---|---|---|---|---|
+| 1 | Paiement | Stripe Payment Links sans **webhook de fulfillment** → personne ne devient PRO automatiquement après paiement | 🔴 | ✅ Corrigé (webhook v2 : grant direct service-role + renouvellements `invoice.paid`) |
+| 2 | Paiement | `VITE_STRIPE_MONTHLY_URL` / `VITE_STRIPE_ANNUAL_URL` **absents du build prod** → le CTA PRO retombe sur `mailto:` | 🔴 | ✅ Corrigé (workflow) — reste à créer les 2 secrets GitHub (voir `docs/guide-stripe-pas-a-pas.md`) |
+| 3 | Infra DB | **Schema drift** : `user_events`, `update_last_seen()`, `is_admin`, `plan_expires_at`… sans migrations | 🔴 | ✅ Corrigé (migrations de rattrapage + 2 bugs prod silencieux fixés) |
+| 4 | Acquisition | Pas de landing publique, pas de meta/OG → **SEO ≈ zéro** | 🔴 | ✅ Corrigé (landing à la racine, meta description + OG/Twitter + og.png). BrowserRouter : reporté, voir §2.1 |
+| 5 | Légal | CGU / politique de confidentialité manquantes — **bloquant pour encaisser** | 🔴 | ✅ Rédigées (`/legal/cgu`, `/legal/confidentialite`, liées au signup) — **à faire valider par un pro** avant ouverture large |
+| 6 | Mobile | `mobile/` = **~20 000 lignes dupliquées** — extraire `@vorcelab/core` | 🟠 | ⏳ Restant (chantier dédié, Phase C) |
+| 7 | Mobile | Apple IAP obligatoire pour l'abonnement in-app (RevenueCat) | 🟠 | ⏳ Restant (nécessite comptes Apple/RevenueCat) |
+| 8 | Observabilité | Aucun monitoring d'erreurs (Sentry) | 🟠 | ⏳ Restant (nécessite un compte Sentry — free tier) |
+| 9 | Conversion | Funnel d'upgrade non instrumenté | 🟠 | ✅ Corrigé (`progate_view`, `upgrade_modal_open`, `upgrade_cta_click`) |
+| 10 | CI | E2E jamais en CI · mobile hors CI · pas de Dependabot | 🟡 | ✅ Corrigé (e2e réparés — ils étaient **tous cassés** depuis la migration de domaine — + job smoke, typecheck mobile, Dependabot) |
+| 11 | PWA iOS | Icône SVG uniquement — iOS exige des PNG | 🟡 | ✅ Corrigé (icônes 192/512/maskable + apple-touch-icon PNG) |
 
 ✅ **Points forts confirmés** : moteur métier profond et testé (55 fichiers de tests,
 `src/lib` pur et séparé), RLS solide + tokens Strava server-only, CI lint+tests+build

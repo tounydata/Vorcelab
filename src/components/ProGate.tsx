@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
 const PRO_PERKS = [
   { icon: '🗺', label: 'Stratégies GPX illimitées', sub: 'Toutes tes courses, chaque édition' },
@@ -13,6 +15,11 @@ interface ProGateProps {
 
 export default function ProGate({ feature = 'cette fonctionnalité' }: ProGateProps) {
   const { openModal } = useUpgradeModal()
+  const track = useTrackEvent()
+
+  useEffect(() => {
+    track('progate_view', { feature })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 0 }}>

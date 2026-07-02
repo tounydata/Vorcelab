@@ -32,6 +32,10 @@ jobs:
         run: npm run build
         env:
           VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
+          # Stripe Payment Links (modal upgrade PRO). URLs publiques par nature
+          # (livrées dans le bundle) — les secrets homonymes les surchargent si définis.
+          VITE_STRIPE_MONTHLY_URL: ${{ secrets.VITE_STRIPE_MONTHLY_URL || 'https://buy.stripe.com/5kQ5kv9kS6wg35h6XC4ko00' }}
+          VITE_STRIPE_ANNUAL_URL: ${{ secrets.VITE_STRIPE_ANNUAL_URL || 'https://buy.stripe.com/00w9ALeFcf2McFRgyc4ko01' }}
       - name: Prepare pages
         run: |
           mkdir -p .pages

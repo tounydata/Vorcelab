@@ -1,10 +1,18 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Stripe webhook — reçoit les événements Stripe et accorde le PRO en base.
 // Configurer dans Stripe Dashboard → Webhooks → Add endpoint:
 //   URL: https://<project>.supabase.co/functions/v1/stripe-webhook
-//   Événements: checkout.session.completed, customer.subscription.deleted
+//   Événements: checkout.session.completed, invoice.paid, customer.subscription.deleted
 // Secret webhook à stocker dans Supabase Secrets: STRIPE_WEBHOOK_SECRET
+//
+// Le grant s'écrit directement dans profiles avec la clé service role :
+// le RPC admin_grant_pro exige un appelant admin via auth.uid(), qui est NULL
+// pour un appel service role — il est réservé au dashboard admin.
+
+// Marge après la fin de période payée avant de repasser en free : couvre les
+// retards de webhook et les retries de paiement Stripe.
+const GRACE_DAYS = 3
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
@@ -43,42 +51,74 @@ Deno.serve(async (req: Request) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as CheckoutSession
     const userId = session.client_reference_id
-    const mode = session.mode // 'subscription' | 'payment'
 
     if (!userId) {
       console.error('No client_reference_id in session:', session.id)
       return new Response('No user ID', { status: 400 })
     }
 
-    // Durée selon le mode : abonnement mensuel = 1 mois, annuel = 12 mois
-    // Le metadata.plan indique 'monthly' ou 'annual'
+    // Durée selon le plan (metadata.plan = 'monthly' | 'annual') ; les
+    // renouvellements suivants sont couverts par invoice.paid.
     const plan = session.metadata?.plan ?? 'monthly'
     const months = plan === 'annual' ? 12 : 1
+    const expires = new Date()
+    expires.setMonth(expires.getMonth() + months)
+    expires.setDate(expires.getDate() + GRACE_DAYS)
 
-    const { error } = await supabase.rpc('admin_grant_pro', {
-      target_user_id: userId,
-      months,
-      note_text: `Stripe ${mode} — session ${session.id}`,
-    })
+    const customerId = typeof session.customer === 'string' ? session.customer : null
+    const granted = await grantPro(supabase, userId, expires, customerId,
+      `Stripe ${session.mode} — session ${session.id}`)
+    if (!granted) return new Response('DB error', { status: 500 })
 
-    if (error) {
-      console.error('admin_grant_pro failed:', error)
-      return new Response('DB error', { status: 500 })
-    }
-
-    // Log dans user_events
     await supabase.from('user_events').insert({
       user_id: userId,
       event: 'plan_upgraded',
       meta: { stripe_session: session.id, plan, months },
     })
 
-    console.log(`PRO granted to ${userId} for ${months} months`)
+    console.log(`PRO granted to ${userId} until ${expires.toISOString()}`)
+  }
+
+  if (event.type === 'invoice.paid') {
+    // Renouvellement d'abonnement : pas de client_reference_id ici — on
+    // retrouve l'utilisateur via le customer stocké au premier checkout.
+    const invoice = event.data.object as Invoice
+    const customerId = typeof invoice.customer === 'string' ? invoice.customer : null
+    if (!customerId) {
+      console.error('No customer on invoice:', invoice.id)
+      return new Response(JSON.stringify({ received: true }), { status: 200 })
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle()
+
+    if (!profile) {
+      // Premier paiement : checkout.session.completed (qui porte le user_id)
+      // gère le grant et enregistre le customer — rien à faire ici.
+      console.log(`No profile for customer ${customerId} (first invoice handled by checkout)`)
+      return new Response(JSON.stringify({ received: true }), { status: 200 })
+    }
+
+    // Fin de période payée = max des périodes des lignes de la facture.
+    const periodEndS = Math.max(0, ...(invoice.lines?.data ?? []).map((l) => l.period?.end ?? 0))
+    const expires = periodEndS > 0 ? new Date(periodEndS * 1000) : new Date()
+    if (periodEndS === 0) expires.setMonth(expires.getMonth() + 1)
+    expires.setDate(expires.getDate() + GRACE_DAYS)
+
+    const granted = await grantPro(supabase, profile.id, expires, customerId,
+      `Stripe renouvellement — facture ${invoice.id}`)
+    if (!granted) return new Response('DB error', { status: 500 })
+
+    console.log(`PRO renewed for ${profile.id} until ${expires.toISOString()}`)
   }
 
   if (event.type === 'customer.subscription.deleted') {
-    // Abonnement résilié → on ne révoque pas immédiatement (la période payée reste valide).
-    // La date d'expiration en base couvre jusqu'à la fin de période — rien à faire ici.
+    // Abonnement résilié → on ne révoque pas immédiatement (la période payée reste
+    // valide). plan_expires_at couvre jusqu'à la fin de période, puis usePlanTier
+    // repasse le compte en free automatiquement.
     console.log('Subscription deleted (expiry date already set in DB)')
   }
 
@@ -87,6 +127,40 @@ Deno.serve(async (req: Request) => {
     headers: { 'Content-Type': 'application/json' },
   })
 })
+
+// Grant PRO en direct (service role, bypass RLS) + trace dans plan_grants
+// (granted_by = l'acheteur lui-même : c'est son achat).
+async function grantPro(
+  supabase: SupabaseClient,
+  userId: string,
+  expires: Date,
+  customerId: string | null,
+  note: string,
+): Promise<boolean> {
+  const update: Record<string, unknown> = {
+    plan_tier: 'pro',
+    plan_expires_at: expires.toISOString(),
+    plan_note: note,
+  }
+  if (customerId) update.stripe_customer_id = customerId
+
+  const { error } = await supabase.from('profiles').update(update).eq('id', userId)
+  if (error) {
+    console.error('profiles update failed:', error)
+    return false
+  }
+
+  const { error: grantErr } = await supabase.from('plan_grants').insert({
+    user_id: userId,
+    granted_by: userId,
+    plan_tier: 'pro',
+    expires_at: expires.toISOString(),
+    note,
+  })
+  if (grantErr) console.error('plan_grants insert failed (non bloquant):', grantErr)
+
+  return true
+}
 
 // ── Types Stripe minimaux ─────────────────────────────────────────────────────
 
@@ -99,7 +173,14 @@ interface CheckoutSession {
   id: string
   mode: string
   client_reference_id: string | null
+  customer: string | { id: string } | null
   metadata: Record<string, string> | null
+}
+
+interface Invoice {
+  id: string
+  customer: string | { id: string } | null
+  lines?: { data: Array<{ period?: { end?: number } }> }
 }
 
 // ── Vérification signature HMAC-SHA256 (Web Crypto API) ───────────────────────
@@ -109,15 +190,16 @@ async function verifyStripeWebhook(
   signature: string,
   secret: string,
 ): Promise<StripeEvent> {
-  const parts: Record<string, string> = {}
+  let timestamp = ''
+  const sigs: string[] = []
   for (const part of signature.split(',')) {
     const [k, v] = part.split('=')
-    parts[k] = v
+    if (k === 't') timestamp = v
+    // Stripe peut envoyer plusieurs v1 (rotation de secret) — toutes candidates.
+    if (k === 'v1') sigs.push(v)
   }
 
-  const timestamp = parts['t']
-  const sig = parts['v1']
-  if (!timestamp || !sig) throw new Error('Invalid signature format')
+  if (!timestamp || sigs.length === 0) throw new Error('Invalid signature format')
 
   // Vérifie que l'event n'est pas trop vieux (5 min max)
   const age = Date.now() / 1000 - parseInt(timestamp)
@@ -136,7 +218,7 @@ async function verifyStripeWebhook(
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 
-  if (expected !== sig) throw new Error('Signature mismatch')
+  if (!sigs.includes(expected)) throw new Error('Signature mismatch')
 
   return JSON.parse(payload) as StripeEvent
 }

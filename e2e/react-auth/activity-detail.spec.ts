@@ -5,7 +5,7 @@ test.describe('Détail activité (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/activities/00000000-0000-0000-0000-000000000000')
+    await page.goto('/#/activities/00000000-0000-0000-0000-000000000000')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Soit "Activité introuvable" soit chargement
@@ -22,7 +22,7 @@ test.describe('Détail activité (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/activities')
+    await page.goto('/#/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     // Si des activités existent, cliquer sur la première et vérifier la navigation
@@ -44,7 +44,7 @@ test.describe('Détail activité (authentifié)', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/activities')
+    await page.goto('/#/activities')
     await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 10_000 })
 
     const firstCard = page.locator('.act-card').first()

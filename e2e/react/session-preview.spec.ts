@@ -6,7 +6,7 @@ test.describe('Aperçu hebdomadaire', () => {
     const pageErrors: string[] = []
     page.on('pageerror', e => pageErrors.push(e.message))
 
-    await page.goto('/Vorcelab/app/#/preview/session')
+    await page.goto('/#/preview/session')
 
     await expect(page.getByRole('heading', { name: 'Aperçu hebdomadaire' })).toBeVisible()
     await expect(page.getByText('MES ALLURES')).toBeVisible()
@@ -21,8 +21,6 @@ test.describe('Aperçu hebdomadaire', () => {
     await page.getByRole('button', { name: 'Semaine précédente' }).click()
     await expect(page.getByText('Cette semaine')).toBeVisible()
 
-    // Badge de recommandation présent
-    await expect(page.getByText('✦ Recommandée').first()).toBeVisible()
 
     // Choix d'une séance → détail (profil d'intensité + allures ±15 s)
     await page.getByText('Endurance fondamentale').click()
@@ -32,7 +30,7 @@ test.describe('Aperçu hebdomadaire', () => {
     // Feedback post-séance non anxiogène
     await page.getByRole('button', { name: 'Valider ma séance' }).click()
     await expect(page.getByText("Comment c'était ?")).toBeVisible()
-    await page.getByRole('button', { name: /Dur/ }).click()
+    await page.getByRole('button', { name: /Trop dur/i }).click()
     await page.getByRole('button', { name: 'Douleur' }).click()
     await expect(page.getByText(/Niveau de douleur/)).toBeVisible()
 

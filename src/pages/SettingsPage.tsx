@@ -403,6 +403,13 @@ export default function SettingsPage() {
       >
         Se déconnecter
       </button>
+
+      {/* Légal */}
+      <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid var(--vl-line)', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+        <Link to="/legal/cgu" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>CGU / CGV</Link>
+        <Link to="/legal/confidentialite" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Confidentialité</Link>
+        <a href="mailto:hello@vorcelab.com" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Contact</a>
+      </div>
     </>
   )
 }

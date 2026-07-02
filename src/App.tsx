@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate } from 'react-router'
+import { HashRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
@@ -25,10 +25,13 @@ import DemoStrategyPage from './pages/DemoStrategyPage'
 import UpgradeModal from './components/UpgradeModal'
 import AdminPage from './pages/AdminPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
+import LandingPage from './pages/LandingPage'
+import { CguPage, PrivacyPage } from './pages/LegalPage'
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Après une connexion depuis l'écran de login → retour au Dashboard (menu
   // principal), pas sur la dernière page restée dans l'URL (cas navigation privée).
@@ -45,9 +48,22 @@ function PrivateRoutes() {
     )
   }
 
-  if (!user) return <LoginPage />
+  if (!user) {
+    // Racine : landing marketing pour les nouveaux visiteurs, login direct pour
+    // ceux qui ont déjà eu une session ici. Liens profonds : login (retour au
+    // Dashboard après connexion).
+    const hadSession = localStorage.getItem('vl-had-session') === '1'
+    return location.pathname === '/' && !hadSession ? <LandingPage /> : <LoginPage />
+  }
 
   return <Outlet />
+}
+
+// /login public : les CTA de la landing et des pages publiques pointent ici.
+function LoginRoute() {
+  const user = useVLStore((s) => s.user)
+  if (user) return <Navigate to="/" replace />
+  return <LoginPage />
 }
 
 function trackSessionStart(userId: string) {
@@ -112,6 +128,9 @@ export default function App() {
         <Route path="preview/session" element={<SessionPreviewPage />} />
         <Route path="demo" element={<DemoStrategyPage />} />
         <Route path="payment/success" element={<PaymentSuccessPage />} />
+        <Route path="login" element={<LoginRoute />} />
+        <Route path="legal/cgu" element={<CguPage />} />
+        <Route path="legal/confidentialite" element={<PrivacyPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>

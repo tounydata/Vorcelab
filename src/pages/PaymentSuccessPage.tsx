@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTrackEvent } from '../lib/useTrackEvent'
 
 const IconCheck = () => (
@@ -10,9 +11,13 @@ const IconCheck = () => (
 
 export default function PaymentSuccessPage() {
   const track = useTrackEvent()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     track('plan_upgraded')
+    // Le webhook vient de passer le compte en PRO — on purge le cache du plan
+    // (staleTime 5 min) pour que le retour au dashboard soit déjà débloqué.
+    queryClient.invalidateQueries({ queryKey: ['plan-tier'] })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

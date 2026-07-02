@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
@@ -318,6 +319,13 @@ export default function LoginPage() {
               <div style={{ display: 'flex', gap: 16, marginTop: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button className="auth-link" onClick={() => goSecondary('magic')}>Connexion sans mot de passe</button>
                 {tab === 'login' && <button className="auth-link" onClick={() => goSecondary('reset')}>Mot de passe oublié ?</button>}
+              </div>
+
+              {/* Légal */}
+              <div style={{ fontSize: 10, color: 'var(--vl-text-3)', marginTop: '1.25rem', textAlign: 'center', lineHeight: 1.6 }}>
+                En créant un compte, tu acceptes les{' '}
+                <Link to="/legal/cgu" style={{ color: 'var(--vl-text-2)' }}>CGU</Link> et la{' '}
+                <Link to="/legal/confidentialite" style={{ color: 'var(--vl-text-2)' }}>politique de confidentialité</Link>.
               </div>
             </>
           )}
