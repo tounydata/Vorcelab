@@ -11,6 +11,7 @@ import { listSessionLog } from '../lib/coach/sessionLog'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { useAutoUpgradeModal } from '../lib/useAutoUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
 import CalibrationPopup from '../components/coach/CalibrationPopup'
@@ -235,6 +236,14 @@ export default function CoachPage() {
   // 2 premières semaines gratuites ; le reste nécessite PRO.
   const FREE_WEEKS = 2
   const isGated = tier !== 'pro' && displayWeeks.length > FREE_WEEKS
+
+  // Free qui atteint le plan verrouillé → popup PRO auto (1×/session), avec le
+  // teaser de gain de perf pour maximiser l'envie.
+  useAutoUpgradeModal(
+    isGated && !!plan,
+    'coach',
+    plan ? { vdot, weeksToRace: plan.weeksToRace, distanceKm: plan.race.distanceKm, raceName: plan.race.name } : null,
+  )
   const visibleWeeks = isGated ? displayWeeks.slice(0, FREE_WEEKS) : displayWeeks
 
   // Priorité de la course cible (A = principal, B = secondaire, C = rodage).
