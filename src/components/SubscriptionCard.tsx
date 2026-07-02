@@ -1,13 +1,18 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
+import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 
 // Carte ABONNEMENT (Réglages) :
 //   - Gratuit  → statut + CTA « Passer à PRO » (ouvre la modal).
 //   - PRO      → statut + date de fin + « Gérer mon abonnement » (portail Stripe).
-//   - Admin    → PRO permanent (pas de gestion d'abonnement).
+//   - Admin    → PRO permanent. Le bouton « Gérer » apparaît quand même s'il y a
+//               un vrai abonnement Stripe rattaché (l'admin a payé lui-même).
+// Le bouton « Gérer » s'affiche dès qu'un stripe_customer_id existe, quel que
+// soit le tier — un compte sans customer (PRO accordé manuellement) ne l'a pas.
 
 const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -18,11 +23,28 @@ const PORTAL_ERRORS: Record<string, string> = {
 }
 
 export default function SubscriptionCard() {
+  const user = useVLStore((s) => s.user)
   const { tier, isAdmin, expiresAt } = usePlanTier()
   const { openModal } = useUpgradeModal()
   const track = useTrackEvent()
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+
+  // Existence d'un abonnement Stripe (customer) → conditionne le bouton « Gérer ».
+  const { data: stripeCustomerId } = useQuery<string | null>({
+    queryKey: ['stripe-customer', user?.id],
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('stripe_customer_id')
+        .eq('id', user!.id)
+        .maybeSingle()
+      return (data?.stripe_customer_id as string | null) ?? null
+    },
+  })
+  const hasSubscription = !!stripeCustomerId
 
   async function openPortal() {
     setErr('')
@@ -40,8 +62,7 @@ export default function SubscriptionCard() {
       }
 
       // Erreur HTTP : supabase-js range la réponse dans error.context — on en
-      // extrait le code métier (no_customer, portal_not_configured…) pour un
-      // message clair.
+      // extrait le code métier (no_customer, portal_not_configured…).
       let code = ''
       const ctx = (error as { context?: Response } | null)?.context
       if (ctx) {
@@ -55,7 +76,6 @@ export default function SubscriptionCard() {
     }
   }
 
-  // ── Badge de statut ──
   const badge = (label: string, color: string) => (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -63,6 +83,19 @@ export default function SubscriptionCard() {
       color, border: `1px solid ${color}`, borderRadius: 999, padding: '3px 11px',
       background: `color-mix(in oklab, ${color} 12%, transparent)`,
     }}>{label}</span>
+  )
+
+  // Bloc « Gérer mon abonnement » (portail Stripe), réutilisé admin + PRO.
+  const manageBlock = (
+    <div style={{ marginTop: 12 }}>
+      <button className="hbtn" onClick={openPortal} disabled={loading}>
+        {loading ? 'Ouverture…' : 'Gérer mon abonnement'}
+      </button>
+      <p style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
+        Résilier, changer de carte, télécharger tes factures — via Stripe.
+      </p>
+      {err && <p style={{ fontSize: 11, color: 'var(--vl-ember)', margin: '8px 0 0', lineHeight: 1.5 }}>{err}</p>}
+    </div>
   )
 
   return (
@@ -75,24 +108,21 @@ export default function SubscriptionCard() {
           <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
             Compte administrateur — accès PRO permanent.
           </p>
+          {hasSubscription && manageBlock}
         </>
       ) : tier === 'pro' ? (
         <>
           {badge('PRO · ACTIF', 'var(--vl-growth)')}
-          <p style={{ fontSize: 12, color: 'var(--vl-text-2)', margin: '10px 0 14px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, color: 'var(--vl-text-2)', margin: '10px 0 0', lineHeight: 1.5 }}>
             Merci de ton soutien 🙏 Tu as accès à toutes les fonctionnalités.
             {expiresAt && (
               <><br /><span style={{ color: 'var(--vl-text-3)' }}>Renouvellement / fin de période le {fmtDate(expiresAt)}.</span></>
             )}
           </p>
-          <button className="hbtn" onClick={openPortal} disabled={loading}>
-            {loading ? 'Ouverture…' : 'Gérer mon abonnement'}
-          </button>
-          <p style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
-            Résilier, changer de carte, télécharger tes factures — via Stripe.
-          </p>
-          {err && (
-            <p style={{ fontSize: 11, color: 'var(--vl-ember)', margin: '8px 0 0', lineHeight: 1.5 }}>{err}</p>
+          {hasSubscription ? manageBlock : (
+            <p style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
+              Accès accordé manuellement — aucun abonnement à gérer.
+            </p>
           )}
         </>
       ) : (
