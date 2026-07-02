@@ -650,6 +650,10 @@ export default function DashboardPage() {
   const profileTriggeredRef = useRef(false)
   useEffect(() => {
     if (!user || !activities.length || profileTriggeredRef.current) return
+    // Attendre que le profil soit chargé : sinon `profileData?.fc_max` vaut
+    // undefined → le recalcul partirait sur 185 (défaut) et ÉCRASERAIT la vraie
+    // FC max de l'athlète. (Le hook se relance quand profileData arrive.)
+    if (profileData === undefined) return
     const latestActivityDate = activities[0].start_date
     const computedAt = profileData?.runner_profile?._computedAt
     const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 0
@@ -671,7 +675,7 @@ export default function DashboardPage() {
         profileTriggeredRef.current = false
       }
     })()
-  }, [user?.id, activities[0]?.start_date, profileData?.runner_profile?._computedAt])
+  }, [user?.id, activities[0]?.start_date, profileData?.runner_profile?._computedAt, profileData?.fc_max])
 
   const now = new Date()
 
