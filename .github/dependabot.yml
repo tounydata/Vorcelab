@@ -1,26 +1,31 @@
-# Mises à jour de dépendances automatiques (PRs hebdomadaires, la CI valide).
+# Mises à jour de dépendances — volontairement silencieux.
+# 1 seule PR groupée par écosystème, une fois par mois. La CI valide.
+# Objectif : rester au courant des correctifs de sécurité sans se noyer sous les mails.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
-      dev-mineures:
-        dependency-type: development
-        update-types: [minor, patch]
+      npm:
+        patterns: ['*']
 
   - package-ecosystem: npm
     directory: /mobile
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      npm:
+        patterns: ['*']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ['*']
