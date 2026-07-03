@@ -16,6 +16,7 @@
     "e2e:auth": "playwright test --project=react-auth"
   },
   "dependencies": {
+    "@sentry/react": "^10.63.0",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/react-query": "^5.75.5",
     "jszip": "^3.10.1",

@@ -36,6 +36,8 @@ jobs:
           # (livrées dans le bundle) — les secrets homonymes les surchargent si définis.
           VITE_STRIPE_MONTHLY_URL: ${{ secrets.VITE_STRIPE_MONTHLY_URL || 'https://buy.stripe.com/5kQ5kv9kS6wg35h6XC4ko00' }}
           VITE_STRIPE_ANNUAL_URL: ${{ secrets.VITE_STRIPE_ANNUAL_URL || 'https://buy.stripe.com/00w9ALeFcf2McFRgyc4ko01' }}
+          # Monitoring d'erreurs (docs/sentry-setup.md) — Sentry désactivé si absent
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
       - name: Prepare pages
         run: |
           mkdir -p .pages
