@@ -135,6 +135,14 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         // Cadre sur le tracé (en gardant l'inclinaison)
         map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 38, pitch: 54, bearing: -18, duration: 0, maxZoom: 15 })
 
+        // Entrée « survol » : caméra à plat légèrement dézoomée qui bascule en 3D
+        // en balayant vers l'angle par défaut. Coupée si prefers-reduced-motion.
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          const targetZoom = map.getZoom()
+          map.jumpTo({ pitch: 10, bearing: -95, zoom: targetZoom - 0.7 })
+          map.easeTo({ pitch: 54, bearing: -18, zoom: targetZoom, duration: 1900, essential: false })
+        }
+
         // Repères départ / ravitos / arrivée
         for (const m of markers) {
           if (m.kind === 'wall') continue

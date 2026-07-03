@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { fetchStreams, type StreamData } from '../lib/streams'
-import { reliefTileLayer } from '../lib/staticMap'
+import RouteMap3D from '../components/races/strategy/RouteMap3D'
+import { sectionHeat } from '../lib/raceStrategyView'
+import type { ProfileMarker } from '../components/races/strategy/ElevationProfile'
 import ShareStickers from '../components/ShareStickers'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
@@ -229,68 +229,41 @@ function DualChart({
   )
 }
 
-// ─── Leaflet route map ─────────────────────────────────────────────────────────
+// ─── Carte 3D (même rendu que la stratégie de course) ──────────────────────────
 
-function RouteMap({
-  latlng,
-  hoverKm,
-  distArr,
-}: {
-  latlng: [number, number][]
-  hoverKm: number | null
-  distArr: number[]
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<L.Map | null>(null)
-  const markerRef = useRef<L.CircleMarker | null>(null)
-  const polyRef = useRef<L.Polyline | null>(null)
+/** Streams → points GPX (lat/lon/ele alignés par index), sous-échantillonnés. */
+function streamsToGpxPoints(latlng: [number, number][], alt: number[]): { lat: number; lon: number; ele: number }[] {
+  const step = Math.max(1, Math.ceil(latlng.length / 900))
+  const out: { lat: number; lon: number; ele: number }[] = []
+  for (let i = 0; i < latlng.length; i += step) {
+    out.push({ lat: latlng[i][0], lon: latlng[i][1], ele: alt[i] ?? 0 })
+  }
+  const last = latlng.length - 1
+  if (last % step !== 0) out.push({ lat: latlng[last][0], lon: latlng[last][1], ele: alt[last] ?? 0 })
+  return out
+}
 
-  useEffect(() => {
-    if (!containerRef.current || latlng.length < 2) return
-    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
-
-    const map = L.map(containerRef.current, { zoomControl: true })
-    const relief = reliefTileLayer()
-    if (relief) {
-      L.tileLayer(relief.url, {
-        attribution: relief.attribution,
-        maxNativeZoom: relief.maxNativeZoom,
-        maxZoom: 19,
-        className: 'vl-relief-tiles',
-      }).addTo(map)
-    } else {
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19,
-      }).addTo(map)
-    }
-    const poly = L.polyline(latlng, { color: '#d6803e', weight: 3 }).addTo(map)
-    map.fitBounds(poly.getBounds(), { padding: [20, 20] })
-    polyRef.current = poly
-    mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
-  }, [latlng])
-
-  useEffect(() => {
-    if (!mapRef.current) return
-    if (markerRef.current) { markerRef.current.remove(); markerRef.current = null }
-    if (hoverKm == null || !distArr.length) return
-
-    const hoverM = hoverKm * 1000
-    let best = 0
-    for (let i = 1; i < distArr.length; i++) {
-      if (Math.abs(distArr[i] - hoverM) < Math.abs(distArr[best] - hoverM)) best = i
-    }
-    if (latlng[best]) {
-      markerRef.current = L.circleMarker(latlng[best], {
-        radius: 6, fillColor: '#fff', color: '#d6803e', weight: 2, fillOpacity: 1,
-      }).addTo(mapRef.current)
-    }
-  }, [hoverKm, distArr, latlng])
-
-  return (
-    <div ref={containerRef} style={{ height: 240, borderRadius: 6, overflow: 'hidden', background: 'var(--vl-bg-2)' }} />
-  )
+/** Effort par tronçon (~250 m) depuis les streams : même palette que la stratégie. */
+function streamsToHeatSegments(dist: number[], alt: number[]): { startKm: number; endKm: number; heat: number }[] {
+  if (dist.length < 2 || alt.length < 2) return []
+  const STEP_M = 250
+  const totalM = dist[dist.length - 1]
+  const segs: { startKm: number; endKm: number; heat: number }[] = []
+  let i = 0
+  for (let startM = 0; startM < totalM; startM += STEP_M) {
+    const endM = Math.min(totalM, startM + STEP_M)
+    while (i < dist.length - 1 && dist[i + 1] < startM) i++
+    let j = i
+    while (j < dist.length - 1 && dist[j] < endM) j++
+    const dM = Math.max(1, dist[j] - dist[i])
+    const grade = ((alt[j] - alt[i]) / dM) * 100
+    const type = grade > 2 ? 'up' as const : grade < -2 ? 'down' as const : 'flat' as const
+    const heat = sectionHeat({ grade, type })
+    const last = segs[segs.length - 1]
+    if (last && last.heat === heat) last.endKm = endM / 1000
+    else segs.push({ startKm: startM / 1000, endKm: endM / 1000, heat })
+  }
+  return segs
 }
 
 // ─── VAM sections table ────────────────────────────────────────────────────────
@@ -818,12 +791,23 @@ function StreamsSection({ stravaActivityId }: { activityId: string; stravaActivi
         </div>
       )}
 
-      {hasLatlng && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="clabel" style={{ marginBottom: '0.5rem' }}>TRACÉ GPS</div>
-          <RouteMap latlng={latlng} hoverKm={hoverKm} distArr={dist} />
-        </div>
-      )}
+      {hasLatlng && (() => {
+        // Même carte 3D que la stratégie de course : relief MapTiler, tracé coloré
+        // par effort (pente), curseur synchronisé avec le survol du profil altitude.
+        const gpxPts = streamsToGpxPoints(latlng, alt)
+        const heatSegments = streamsToHeatSegments(dist, alt)
+        const totalKm = (dist[dist.length - 1] ?? 0) / 1000
+        const markers: ProfileMarker[] = [
+          { kind: 'start', km: 0, alt: alt[0] ?? 0, t: '', label: 'Départ' },
+          { kind: 'finish', km: totalKm, alt: alt[alt.length - 1] ?? 0, t: '', label: 'Arrivée' },
+        ]
+        return (
+          <div style={{ marginBottom: '1rem' }}>
+            <RouteMap3D points={gpxPts} markers={markers} heatSegments={heatSegments}
+              cursorKm={hoverKm} totalKm={totalKm} heightPx={400} />
+          </div>
+        )
+      })()}
 
       {hasDist && time.length > 0 && (
         <VamSectionsCard dist={dist} alt={alt} time={time} />
