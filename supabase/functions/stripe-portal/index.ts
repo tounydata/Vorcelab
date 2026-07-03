@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { captureException } from '../_shared/sentry.ts'
 
 // Crée une session du Portail Client Stripe pour l'utilisateur connecté.
 // Le portail (hébergé par Stripe) permet de résilier, changer de carte et voir
@@ -19,6 +20,16 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req: Request) => {
+  try {
+    return await handlePortal(req)
+  } catch (err) {
+    console.error('stripe-portal uncaught:', err)
+    await captureException(err, { function: 'stripe-portal' })
+    return json({ error: 'internal_error' }, 500)
+  }
+})
+
+async function handlePortal(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -75,6 +86,8 @@ Deno.serve(async (req: Request) => {
   if (!resp.ok) {
     const detail = await resp.text()
     console.error('Stripe portal error:', resp.status, detail)
+    await captureException(new Error(`Stripe portal ${resp.status}: ${detail.slice(0, 300)}`),
+      { function: 'stripe-portal', step: 'billing-portal-session' })
     // Portail non configuré dans Stripe → message dédié pour guider l'admin.
     return json({ error: resp.status === 400 ? 'portal_not_configured' : 'stripe_error' }, 502)
   }
@@ -83,7 +96,7 @@ Deno.serve(async (req: Request) => {
   if (!session.url) return json({ error: 'stripe_error' }, 502)
 
   return json({ url: session.url }, 200)
-})
+}
 
 function json(payload: unknown, status: number): Response {
   return new Response(JSON.stringify(payload), {

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { captureException } from '../_shared/sentry.ts'
 
 // Stripe webhook — reçoit les événements Stripe et accorde le PRO en base.
 // Configurer dans Stripe Dashboard → Webhooks → Add endpoint:
@@ -15,6 +16,18 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 const GRACE_DAYS = 3
 
 Deno.serve(async (req: Request) => {
+  try {
+    return await handleWebhook(req)
+  } catch (err) {
+    // Exception imprévue = paiement potentiellement non honoré → alerte Sentry.
+    // Le 500 fait rejouer l'événement par Stripe (retries automatiques).
+    console.error('stripe-webhook uncaught:', err)
+    await captureException(err, { function: 'stripe-webhook' })
+    return new Response('Internal error', { status: 500 })
+  }
+})
+
+async function handleWebhook(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
@@ -126,7 +139,7 @@ Deno.serve(async (req: Request) => {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
-})
+}
 
 // Grant PRO en direct (service role, bypass RLS) + trace dans plan_grants
 // (granted_by = l'acheteur lui-même : c'est son achat).
@@ -146,7 +159,10 @@ async function grantPro(
 
   const { error } = await supabase.from('profiles').update(update).eq('id', userId)
   if (error) {
+    // Échec du grant PRO après paiement : l'alerte la plus importante de l'app.
     console.error('profiles update failed:', error)
+    await captureException(new Error(`grant PRO failed: ${error.message}`),
+      { function: 'stripe-webhook', step: 'profiles-update', userId, note })
     return false
   }
 
