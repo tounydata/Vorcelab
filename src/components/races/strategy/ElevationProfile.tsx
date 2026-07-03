@@ -18,6 +18,8 @@ interface Props {
   interactive?: boolean
   onHover?: (km: number | null) => void
   cursorKm?: number | null
+  /** Entrée animée : la ligne se dessine de gauche à droite, les aplats et fanions suivent. */
+  animate?: boolean
 }
 
 const VBW = 1000, VBH = 1000, Y_TOP = 90, Y_BASE = 1000
@@ -25,7 +27,14 @@ const VBW = 1000, VBH = 1000, Y_TOP = 90, Y_BASE = 1000
 export default function ElevationProfile({
   heightPx, pts, sections, markers, totalKm, passageHM,
   markerMode = 'full', grid = true, interactive = false, onHover, cursorKm = null,
+  animate = false,
 }: Props) {
+  // Chaque section se dessine sur sa fenêtre temporelle (proportionnelle à sa
+  // longueur) : la crête traverse le profil en DRAW_S secondes, les aplats
+  // « inondent » juste derrière la ligne.
+  const DRAW_S = 1.5
+  const secDelay = (sec: ProfileSection) => DRAW_S * (sec.startKm / totalKm)
+  const secDur = (sec: ProfileSection) => Math.max(0.12, DRAW_S * ((sec.endKm - sec.startKm) / totalKm))
   if (pts.length < 2) {
     return <div style={{ height: heightPx, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--vl-text-3)', fontSize: 12 }}>Profil indisponible</div>
   }
@@ -67,10 +76,17 @@ export default function ElevationProfile({
             <stop offset="100%" stopColor="var(--vl-bg)" stopOpacity={0.55} />
           </linearGradient>
         </defs>
-        {sections.map((sec, i) => <path key={i} d={sectionAreaPath(sec)} fill={HEAT_COLORS[sec.heat]} fillOpacity={0.92} />)}
+        {sections.map((sec, i) => (
+          <path key={i} d={sectionAreaPath(sec)} fill={HEAT_COLORS[sec.heat]} fillOpacity={0.92}
+            className={animate ? 'vl-fadein' : undefined}
+            style={animate ? { animationDelay: `${(secDelay(sec) + secDur(sec) * 0.5).toFixed(2)}s`, animationDuration: '.6s' } : undefined} />
+        ))}
         <rect x={0} y={0} width={VBW} height={VBH} fill="url(#vlfade)" />
         {sections.map((sec, i) => (
-          <path key={'c' + i} d={sectionLinePath(sec)} fill="none" stroke={HEAT_COLORS[sec.heat]} strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" style={{ filter: 'brightness(1.15)' }} />
+          <path key={'c' + i} d={sectionLinePath(sec)} fill="none" stroke={HEAT_COLORS[sec.heat]} strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round"
+            pathLength={animate ? 1 : undefined}
+            className={animate ? 'vl-drawline' : undefined}
+            style={{ filter: 'brightness(1.15)', ...(animate ? { animationDelay: `${secDelay(sec).toFixed(2)}s`, animationDuration: `${secDur(sec).toFixed(2)}s`, animationTimingFunction: 'linear' } : {}) }} />
         ))}
       </svg>
 
@@ -89,7 +105,7 @@ export default function ElevationProfile({
 
         {/* callout pente raide */}
         {wall && (
-          <div style={{ position: 'absolute', left: xPct(wall.km) + '%', top: yPct(wall.alt) + '%', transform: 'translate(-50%,-100%)', marginTop: -10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className={animate ? 'vl-fadein' : undefined} style={{ position: 'absolute', left: xPct(wall.km) + '%', top: yPct(wall.alt) + '%', transform: 'translate(-50%,-100%)', marginTop: -10, display: 'flex', flexDirection: 'column', alignItems: 'center', ...(animate ? { animationDelay: `${(DRAW_S + 0.35).toFixed(2)}s` } : {}) }}>
             <div style={{ padding: '3px 8px', borderRadius: 7, background: '#d1583a', color: '#fff', fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', whiteSpace: 'nowrap', boxShadow: '0 6px 18px -6px #d1583a' }}>
               ▲ PENTE RAIDE{wall.sub ? ' · ' + wall.sub.split('·')[0].trim() : ''}
             </div>
@@ -97,14 +113,16 @@ export default function ElevationProfile({
           </div>
         )}
 
-        {/* fanions */}
-        {markerMode === 'full' && markers.filter((m) => m.kind !== 'wall').map((m, i) => (
-          <MarkerPill key={i} m={m} xPct={xPct} yPct={yPct} />
-        ))}
-        {markerMode === 'mini' && markers.filter((m) => m.kind !== 'wall').map((m, i) => {
-          const c = m.kind === 'finish' ? 'var(--vl-growth-2)' : m.kind === 'start' ? 'var(--vl-ember)' : 'var(--vl-text-2)'
-          return <div key={i} style={{ position: 'absolute', left: xPct(m.km) + '%', top: yPct(m.alt) + '%', transform: 'translate(-50%,-50%)', width: 7, height: 7, borderRadius: 999, background: c, border: '2px solid var(--vl-bg)', boxShadow: '0 1px 3px rgba(0,0,0,.4)' }} />
-        })}
+        {/* fanions — apparaissent une fois la ligne dessinée */}
+        <div className={animate ? 'vl-risein' : undefined} style={{ position: 'absolute', inset: 0, ...(animate ? { animationDelay: `${(DRAW_S + 0.15).toFixed(2)}s` } : {}) }}>
+          {markerMode === 'full' && markers.filter((m) => m.kind !== 'wall').map((m, i) => (
+            <MarkerPill key={i} m={m} xPct={xPct} yPct={yPct} />
+          ))}
+          {markerMode === 'mini' && markers.filter((m) => m.kind !== 'wall').map((m, i) => {
+            const c = m.kind === 'finish' ? 'var(--vl-growth-2)' : m.kind === 'start' ? 'var(--vl-ember)' : 'var(--vl-text-2)'
+            return <div key={i} style={{ position: 'absolute', left: xPct(m.km) + '%', top: yPct(m.alt) + '%', transform: 'translate(-50%,-50%)', width: 7, height: 7, borderRadius: 999, background: c, border: '2px solid var(--vl-bg)', boxShadow: '0 1px 3px rgba(0,0,0,.4)' }} />
+          })}
+        </div>
       </div>
 
       {/* capture + curseur synchronisé */}

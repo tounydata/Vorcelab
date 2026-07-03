@@ -9,6 +9,7 @@ import {
 } from '../../../lib/raceStrategyView'
 import { surfaceInfo } from '../../../lib/terrain'
 import RouteMap3D from './RouteMap3D'
+import { useCountUp } from '../../../lib/useCountUp'
 
 interface RaceMeta {
   name: string; date: string; type?: string | null
@@ -67,6 +68,8 @@ function Confidence({ level }: { level: number }) {
 export default function StrategyView({ projection: p, race, athleteName, nutritionRows, ravitos, forecast, weather }: Props) {
   const [hoverKm, setHoverKm] = useState<number | null>(null)
   const totalKm = p.totalDistM / 1000
+  // Temps cible en count-up, synchronisé avec le dessin du profil d'élévation
+  const animatedTimeS = useCountUp(p.estTimeS, 1500)
 
   const pts = useMemo(() => profilePoints(p), [p])
   // Effort peint au MICRO-TRONÇON (~150 m) : colle au terrain réel au lieu d'une couleur
@@ -115,14 +118,14 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
   const profileLabel = mPerKm > 40 ? 'Montagneux' : mPerKm > 20 ? 'Vallonné' : 'Roulant'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="vl-cascade" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px 6px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
           <div>
             <Eyebrow>PLAN DE COURSE · {athleteName.toUpperCase()}</Eyebrow>
             <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 6, flexWrap: 'wrap' }}>
-              <span className="display tnum" style={{ fontSize: 82, color: 'var(--vl-growth-2)', lineHeight: .82 }}>{fmtRaceTimeS(p.estTimeS)}</span>
+              <span className="display tnum" style={{ fontSize: 82, color: 'var(--vl-growth-2)', lineHeight: .82 }}>{fmtRaceTimeS(animatedTimeS)}</span>
               <div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--vl-text-2)', letterSpacing: '.18em' }}>TEMPS CIBLE</div>
                 <div style={{ marginTop: 9 }}><Confidence level={confLevel} /></div>
@@ -137,7 +140,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
 
         <div className="strat-hero-grid" style={{ padding: '6px 18px 12px', display: 'flex', gap: 16, alignItems: 'stretch' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} />
+            <ElevationProfile heightPx={300} pts={pts} sections={heatSections} markers={markers} totalKm={totalKm} passageHM={passageHM} interactive onHover={setHoverKm} cursorKm={hoverKm} animate />
           </div>
         </div>
 

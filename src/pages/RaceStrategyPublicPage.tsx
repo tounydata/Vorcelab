@@ -67,6 +67,24 @@ export default function RaceStrategyPublicPage() {
     const latLngs = pts.map((p) => [p.lat, p.lon] as L.LatLngTuple)
     const poly = L.polyline(latLngs, { color: '#00d4ff', weight: 3 }).addTo(map)
     map.fitBounds(poly.getBounds(), { padding: [20, 20] })
+
+    // Le tracé se dessine à l'ouverture (départ → arrivée), puis on retire le
+    // dash : Leaflet redessine le path au zoom et le dash resterait figé.
+    const pathEl = poly.getElement() as SVGPathElement | null
+    if (pathEl && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const len = pathEl.getTotalLength()
+      pathEl.style.strokeDasharray = `${len}`
+      pathEl.style.strokeDashoffset = `${len}`
+      pathEl.getBoundingClientRect() // force le layout avant la transition
+      pathEl.style.transition = 'stroke-dashoffset 2s cubic-bezier(.4,0,.2,1)'
+      pathEl.style.strokeDashoffset = '0'
+      setTimeout(() => {
+        pathEl.style.transition = ''
+        pathEl.style.strokeDasharray = ''
+        pathEl.style.strokeDashoffset = ''
+      }, 2100)
+    }
+
     leafletMapRef.current = map
     return () => {
       leafletMapRef.current?.remove()

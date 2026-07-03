@@ -157,6 +157,37 @@ input[type="date"],input[type="time"]{color-scheme:dark;-webkit-appearance:none;
   .vl-summit{animation:none;}
 }
 
+/* ── VIVANT : les données se dessinent à l'apparition ─────────────────────────
+   Toolkit d'animations d'entrée pour les visualisations (profil alti, tracés
+   GPX, graphes). Les classes portent l'état initial + l'animation ; les délais
+   et durées se règlent en style inline. prefers-reduced-motion neutralise tout. */
+@keyframes vlDrawLine{to{stroke-dashoffset:0;}}
+@keyframes vlFadeInVar{to{opacity:var(--vl-fade-to,1);}}
+@keyframes vlRiseIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+@keyframes vlBarUp{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+/* Tracé SVG qui se dessine (poser pathLength={1} sur l'élément) */
+.vl-drawline{stroke-dasharray:1;stroke-dashoffset:1;animation:vlDrawLine 1.2s cubic-bezier(.4,0,.2,1) both;}
+/* Fondu vers --vl-fade-to (1 par défaut) */
+.vl-fadein{opacity:0;animation:vlFadeInVar .7s ease both;}
+/* Apparition douce (cartes, fanions) */
+.vl-risein{animation:vlRiseIn .55s cubic-bezier(.2,.7,.3,1) both;}
+/* Barres de graphe qui montent (SVG : origine = bas de l'élément) */
+.vl-bar-up{transform-box:fill-box;transform-origin:bottom;animation:vlBarUp .5s cubic-bezier(.2,.7,.3,1) both;}
+/* Cascade : les enfants directs apparaissent l'un après l'autre */
+.vl-cascade>*{animation:vlRiseIn .55s cubic-bezier(.2,.7,.3,1) both;}
+.vl-cascade>*:nth-child(1){animation-delay:.02s}
+.vl-cascade>*:nth-child(2){animation-delay:.10s}
+.vl-cascade>*:nth-child(3){animation-delay:.18s}
+.vl-cascade>*:nth-child(4){animation-delay:.26s}
+.vl-cascade>*:nth-child(5){animation-delay:.34s}
+.vl-cascade>*:nth-child(6){animation-delay:.42s}
+.vl-cascade>*:nth-child(n+7){animation-delay:.5s}
+@media (prefers-reduced-motion:reduce){
+  .vl-drawline{animation:none;stroke-dasharray:none;stroke-dashoffset:0;}
+  .vl-fadein{animation:none;opacity:var(--vl-fade-to,1);}
+  .vl-risein,.vl-bar-up,.vl-cascade>*{animation:none;}
+}
+
 /* ── APP LAYOUT ── */
 #appShell{display:none;}
 #appShell.show{display:flex;min-height:100vh;}

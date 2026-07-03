@@ -313,7 +313,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
             let yTop = H
             const dim = hover != null && hover !== i ? 0.35 : 1
             return (
-              <g key={`bar${i}`} opacity={dim}>
+              <g key={`bar${i}`} opacity={dim} className="vl-bar-up" style={{ animationDelay: `${i * 14}ms` }}>
                 {daySegs[i].map((seg, j) => {
                   const bh = (seg.load / maxAxis) * H
                   yTop -= bh
@@ -369,7 +369,8 @@ function GpxTrace({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet"
       style={{ width: '100%', height: '100%', display: 'block', opacity: 0.22, pointerEvents: 'none' }}>
-      <polyline points={tracePts} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={tracePts} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
+        pathLength={1} className="vl-drawline" style={{ animationDuration: '2s', animationDelay: '.25s' }} />
     </svg>
   )
 }
@@ -394,8 +395,10 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
             <stop offset="1" stopColor="var(--vl-ember)" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <path d={`${pathD} L${W},${H} L0,${H} Z`} fill="url(#altiG)" />
-        <path d={pathD} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.75} />
+        <path d={`${pathD} L${W},${H} L0,${H} Z`} fill="url(#altiG)"
+          className="vl-fadein" style={{ animationDelay: '.75s' }} />
+        <path d={pathD} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.75}
+          pathLength={1} className="vl-drawline" style={{ animationDuration: '1.3s' }} />
       </svg>
     </div>
   )
