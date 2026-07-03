@@ -41,29 +41,13 @@ jobs:
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || 'https://8e067677f4224eb5934b729fccb2d46f@o4511670068314112.ingest.de.sentry.io/4511670074277968' }}
       - name: Prepare pages
         run: |
-          mkdir -p .pages
+          # Routes publiques + 404.html + CNAME — logique partagée avec
+          # Cloudflare Pages (voir docs/cloudflare-migration.md)
+          node scripts/pages-postbuild.mjs --github
 
+          mkdir -p .pages
           # App React servie à la RACINE du domaine custom (vorcelab.app)
           cp -r dist/. .pages/
-
-          # SPA fallback : toute URL inconnue renvoie l'app
-          cp .pages/index.html .pages/404.html
-
-          # Pages publiques du sitemap : GitHub Pages sert le fallback 404.html
-          # avec un statut HTTP 404 (non indexable) → on matérialise ces routes
-          # en vraies copies d'index.html pour qu'elles répondent 200.
-          # Canonical + og:url réécrits par page : sinon chaque copie garde le
-          # canonical de la home et Google replie tout sur vorcelab.app/.
-          for route in login demo legal/cgu legal/confidentialite; do
-            mkdir -p ".pages/$route"
-            sed -e "s|href=\"https://vorcelab.app/\"|href=\"https://vorcelab.app/$route/\"|" \
-                -e "s|content=\"https://vorcelab.app/\"|content=\"https://vorcelab.app/$route/\"|" \
-                .pages/index.html > ".pages/$route/index.html"
-          done
-
-          # Domaine custom GitHub Pages
-          echo 'vorcelab.app' > .pages/CNAME
-
           touch .pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
