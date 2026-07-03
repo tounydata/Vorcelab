@@ -1,8 +1,14 @@
 # Sentry — monitoring d'erreurs (web + Edge Functions)
 
-L'intégration code est en place et **désactivée par défaut** : sans clé DSN,
-elle ne fait strictement rien (zéro requête, zéro impact). Pour l'activer il
-reste ~10 minutes de clics, aucune ligne de code.
+> **État au 2026-07-03 : ACTIF.** Compte créé (projet `vorcelab-web`,
+> plan Developer gratuit), DSN intégrée en dur comme fallback — la DSN est
+> publique par conception (livrée dans le bundle navigateur). Les secrets
+> `VITE_SENTRY_DSN` (GitHub) et `SENTRY_DSN` (Supabase) restent prioritaires
+> s'ils sont définis un jour (rotation de clé sans commit). Ingestion validée
+> par un événement de test accepté (HTTP 200).
+>
+> Le reste de ce document décrit la mise en place initiale — conservé pour
+> référence (rotation de DSN, nouveau projet…).
 
 ## Ce que ça apporte
 

@@ -1,8 +1,10 @@
 // Capture d'erreurs vers Sentry depuis les Edge Functions — sans SDK, via
-// l'API envelope (un simple POST). No-op tant que le secret SENTRY_DSN n'est
-// pas configuré (voir docs/sentry-setup.md). Ne jette jamais : le monitoring
-// ne doit pas faire échouer la fonction qu'il surveille.
-const SENTRY_DSN = Deno.env.get('SENTRY_DSN')
+// l'API envelope (un simple POST). Ne jette jamais : le monitoring ne doit
+// pas faire échouer la fonction qu'il surveille.
+// La DSN est publique par conception (même clé que le front, livrée dans le
+// bundle navigateur) — le secret Supabase SENTRY_DSN la surcharge si défini.
+const SENTRY_DSN = Deno.env.get('SENTRY_DSN') ??
+  'https://8e067677f4224eb5934b729fccb2d46f@o4511670068314112.ingest.de.sentry.io/4511670074277968'
 
 export async function captureException(
   err: unknown,

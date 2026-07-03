@@ -36,8 +36,9 @@ jobs:
           # (livrées dans le bundle) — les secrets homonymes les surchargent si définis.
           VITE_STRIPE_MONTHLY_URL: ${{ secrets.VITE_STRIPE_MONTHLY_URL || 'https://buy.stripe.com/5kQ5kv9kS6wg35h6XC4ko00' }}
           VITE_STRIPE_ANNUAL_URL: ${{ secrets.VITE_STRIPE_ANNUAL_URL || 'https://buy.stripe.com/00w9ALeFcf2McFRgyc4ko01' }}
-          # Monitoring d'erreurs (docs/sentry-setup.md) — Sentry désactivé si absent
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          # Monitoring d'erreurs (docs/sentry-setup.md). La DSN est publique par
+          # conception (livrée dans le bundle) — le secret homonyme la surcharge.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || 'https://8e067677f4224eb5934b729fccb2d46f@o4511670068314112.ingest.de.sentry.io/4511670074277968' }}
       - name: Prepare pages
         run: |
           mkdir -p .pages
