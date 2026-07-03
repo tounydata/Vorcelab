@@ -32,7 +32,8 @@ test.describe('React app — smoke', () => {
 
     await page.goto('/login')
 
-    await expect(page.getByText('LE LABORATOIRE DU COUREUR')).toBeVisible()
+    // Deux occurrences dans le DOM (panneau pitch desktop + bandeau marque mobile)
+    await expect(page.getByText('LE LABORATOIRE DU COUREUR').first()).toBeVisible()
     await expect(page.getByPlaceholder('ton@email.com')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Connexion sans mot de passe' })).toBeVisible()
 

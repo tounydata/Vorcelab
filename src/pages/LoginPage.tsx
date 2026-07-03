@@ -118,7 +118,7 @@ export default function LoginPage() {
   return (
     <div id="authScreen" className="show">
       {/* ── Outer wrapper : split layout on wide screens ── */}
-      <div style={{
+      <div className="auth-card" style={{
         display: 'flex', width: '100%', maxWidth: 860,
         background: 'var(--vl-surf)', border: '1px solid var(--vl-line-2)',
         borderRadius: 'var(--vl-r-xl)', overflow: 'hidden',
@@ -205,6 +205,20 @@ export default function LoginPage() {
         {/* ════ RIGHT — form ════ */}
         <div style={{ flex: 1, padding: '2.5rem', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
+          {/* Marque compacte — visible uniquement quand le panneau pitch est masqué (mobile) */}
+          <div className="auth-mobile-brand">
+            <svg width="54" height="54" viewBox="0 0 60 60" fill="none" aria-hidden="true">
+              <line x1="3" y1="50" x2="57" y2="50" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+              <path className="vl-ridge-draw" pathLength={220} d="M3 44 L14 36 L22 40 L30 12 L38 30 L46 24 L57 32" stroke="currentColor" strokeWidth="3.2" strokeLinejoin="miter" strokeLinecap="square" fill="none" />
+              <circle className="vl-summit" cx="30" cy="12" r="3.5" fill="#E5562A" />
+              <line x1="30" y1="50" x2="30" y2="55" stroke="#E5562A" strokeWidth="1.8" />
+            </svg>
+            <div>
+              <div className="auth-brand-title">VORCELAB</div>
+              <div className="auth-brand-sub">Le laboratoire du coureur</div>
+            </div>
+          </div>
+
           {sessionExpired && !secondary && (
             <div style={{
               background: 'color-mix(in oklab, var(--vl-amber) 10%, transparent)',
@@ -257,33 +271,6 @@ export default function LoginPage() {
           {/* ── Main form (login / signup) ── */}
           {!secondary && (
             <>
-              {/* Strava CTA — première option suggérée */}
-              {stravaConfigured() && (
-                <button
-                  onClick={() => startStravaOAuth()}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    background: '#FC4C02', color: '#fff', border: 'none', borderRadius: 'var(--vl-r-sm)',
-                    padding: '12px 16px', fontFamily: 'var(--vl-body)', fontWeight: 700, fontSize: 14,
-                    cursor: 'pointer', marginBottom: '1rem', transition: 'opacity .2s',
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.opacity = '.88')}
-                  onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-                  </svg>
-                  Continuer avec Strava
-                </button>
-              )}
-
-              {/* Divider */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--vl-line)' }} />
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.1em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>ou par email</span>
-                <div style={{ flex: 1, height: 1, background: 'var(--vl-line)' }} />
-              </div>
-
               {/* Tabs */}
               <div className="auth-tabs" style={{ marginBottom: '1.25rem' }}>
                 <button className={`auth-tab${tab === 'login' ? ' active' : ''}`} onClick={() => goTab('login')}>Connexion</button>
@@ -314,6 +301,33 @@ export default function LoginPage() {
               )}
 
               {status && <div className="auth-msg" style={{ color: status.ok ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>{status.msg}</div>}
+
+              {/* Strava — sous le formulaire email */}
+              {stravaConfigured() && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '1.1rem 0' }}>
+                    <div style={{ flex: 1, height: 1, background: 'var(--vl-line)' }} />
+                    <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.1em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>ou</span>
+                    <div style={{ flex: 1, height: 1, background: 'var(--vl-line)' }} />
+                  </div>
+                  <button
+                    onClick={() => startStravaOAuth()}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                      background: '#FC4C02', color: '#fff', border: 'none', borderRadius: 'var(--vl-r-sm)',
+                      padding: '12px 16px', fontFamily: 'var(--vl-body)', fontWeight: 700, fontSize: 14,
+                      cursor: 'pointer', transition: 'opacity .2s',
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.opacity = '.88')}
+                    onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                    </svg>
+                    Continuer avec Strava
+                  </button>
+                </>
+              )}
 
               {/* Secondary links */}
               <div style={{ display: 'flex', gap: 16, marginTop: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
