@@ -1,0 +1,45 @@
+name: Deploy Edge Functions
+
+# Déploie les edge functions Supabase à chaque merge qui les touche.
+# Évite la dérive code repo ↔ fonctions déployées (cause du bug CORS du
+# 2026-07-05 : le fix #443 était mergé mais 5 fonctions jamais redéployées).
+#
+# Prérequis : secret GitHub SUPABASE_ACCESS_TOKEN (Personal Access Token
+# `sbp_…` créé sur https://supabase.com/dashboard/account/tokens — PAS une
+# clé API sb_secret_…). Les réglages verify_jwt par fonction sont dans
+# supabase/config.toml.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vérifier le secret
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "::error::Secret SUPABASE_ACCESS_TOKEN manquant — créer un Personal Access Token (sbp_…) sur https://supabase.com/dashboard/account/tokens puis l'ajouter dans Settings → Secrets → Actions."
+            exit 1
+          fi
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy functions
+        run: supabase functions deploy --project-ref wanzrkdgqmcctwvnbmuv
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

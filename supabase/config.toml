@@ -1,0 +1,43 @@
+# Config Supabase CLI — utilisée par le déploiement CI des edge functions
+# (.github/workflows/deploy-functions.yml).
+#
+# verify_jwt par fonction = EXACTEMENT les réglages de prod. Ne pas changer à la
+# légère : stripe-webhook et strava-webhook reçoivent des appels externes SANS
+# JWT Supabase (signature Stripe / challenge Strava) — verify_jwt=true les
+# casserait. Les autres fonctions font leur propre auth (requireAuth) et
+# répondent au préflight CORS OPTIONS.
+
+project_id = "wanzrkdgqmcctwvnbmuv"
+
+[functions.strava-activity]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.stripe-portal]
+verify_jwt = false
+
+[functions.strava-oauth]
+verify_jwt = false
+
+[functions.strava-refresh]
+verify_jwt = false
+
+[functions.strava-status]
+verify_jwt = false
+
+[functions.strava-disconnect]
+verify_jwt = false
+
+[functions.strava-webhook]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.ai-analysis]
+verify_jwt = false
+
+[functions.compute-runner-profile]
+verify_jwt = false
