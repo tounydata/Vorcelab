@@ -366,7 +366,7 @@ export default function RenfoSessionScreen() {
             const repsLabel = isHold ? `${exo.sets} × ${exo.reps}s tenir` : `${exo.sets}×${exo.reps} · RPE ${exo.target_rpe}`
             return (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
-                <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="thumb" />
+                <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="thumb" location={location} />
                 <Text style={{ fontSize: 10.5, color: colors.text3, flex: 1 }} numberOfLines={2}>{ex?.name_fr ?? exo.exercise_id}</Text>
                 <Text style={{ fontSize: 10.5, color: colors.text3 }}>{repsLabel}</Text>
               </View>
@@ -404,7 +404,7 @@ export default function RenfoSessionScreen() {
         </View>
 
         <View style={{ marginBottom: 16 }}>
-          <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="full" />
+          <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="full" location={location} />
         </View>
 
         <Card style={{ borderLeftWidth: 3, borderLeftColor: color, marginBottom: 16 }}>

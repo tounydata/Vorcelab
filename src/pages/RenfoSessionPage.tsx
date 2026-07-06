@@ -437,7 +437,7 @@ export default function RenfoSessionPage() {
             const repsLabel = isHold ? `${exo.sets} × ${exo.reps}s tenir` : `${exo.sets}×${exo.reps} · RPE ${exo.target_rpe}`
             return (
               <div key={i} className="fg" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.35rem 0' }}>
-                <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="thumb" />
+                <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="thumb" location={location} />
                 <span className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, flex: 1, minWidth: 0 }}>{ex?.name_fr ?? exo.exercise_id}</span>
                 <span className="mlabel" style={{ color: 'var(--vl-text-3)', flexShrink: 0 }}>{repsLabel}</span>
               </div>
@@ -480,7 +480,7 @@ export default function RenfoSessionPage() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="full" />
+          <ExerciseMedia exerciseId={exo.exercise_id} category={ex?.category ?? focusKey} variant="full" location={location} />
         </div>
 
         <div className="card" style={{ borderLeft: `3px solid ${color}`, marginBottom: '1rem' }}>
