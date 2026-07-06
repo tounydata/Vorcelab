@@ -3,17 +3,11 @@
 // VORCELAB — RENFO DATA (static data only)
 // ============================================================
 
-export const _SUPA_EXO: string = 'https://wanzrkdgqmcctwvnbmuv.supabase.co/storage/v1/object/public/exercise-media';
-export const _GIF_REMOVED = new Set(['bulgare','hip_thrust','step_down','reverse_nordic','side_plank_hipdrop','core_rotation','face_pull','hip_9090','knee_to_wall','open_book',
-  'step_up','lateral_lunge','single_leg_squat',
-  'low_lunge','downward_dog','child_pose','reclined_twist','butterfly',
-  'ischio_debout','gastrocnemien_stretch','solaire_stretch','figure_4_piriforme','it_band_stretch']);
-export function getExerciseGifUrl(id: string) { return _GIF_REMOVED.has(id) ? null : `${_SUPA_EXO}/${id}/demo.gif`; }
 
 export const RENFO_FOCUS_COLORS: Record<string, string> = {
   force_lourde:'#E5562A', pliometrie:'#f39c12', excentrique:'#3498db',
   excentrique_pliometrie:'#e67e22', tronc:'#9b59b6', haut_corps:'#1abc9c', mobilite:'#2ecc71',
-  yoga_coureur:'#4ade80', stretching:'#2dd4bf', pilates_coureur:'#a78bfa',
+  yoga_coureur:'#4ade80', stretching:'#2dd4bf',
 };
 
 export function gifPlaceholder(category: string, variant: string) {
@@ -391,40 +385,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
 
   // ── EXCENTRIQUE TRAIL ─────────────────────────────────────
 
-  step_down: {
-    id: 'step_down',
-    name_fr: 'Descente de marche excentrique',
-    name_tech: 'Eccentric step down',
-    category: 'excentrique',
-    primary_muscles: ['quadriceps', 'genou'],
-    benefits: ['resilience', 'descente_trail', 'stabilite'],
-    variants: [
-      {
-        id: 'step_down_step',
-        name: 'Step down sur marche',
-        required_equipment: { step: true },
-        priority: 1,
-        load_type: 'bodyweight_variant',
-        load_variant_options: ['20cm', '30cm', '40cm'],
-        default_sets: 3, default_reps: 10, target_rpe: 8,
-        rest_seconds: 90
-      },
-      {
-        id: 'step_down_book',
-        name: 'Step down sur livre épais',
-        required_equipment: {},
-        priority: 2,
-        load_type: 'bodyweight_variant',
-        load_variant_options: ['10cm', '15cm'],
-        default_sets: 3, default_reps: 12, target_rpe: 8,
-        rest_seconds: 60
-      }
-    ],
-    position: 'Debout sur un step ou une marche, sur une seule jambe, au bord.',
-    movement: 'Descendre lentement (4s) avec la jambe d\'appui jusqu\'à ce que le talon de la jambe libre effleure le sol. Genou dans l\'axe du pied. Remonter activement. La phase excentrique (descente) est le cœur de l\'exercice.',
-    common_errors: 'Descente trop rapide (perdre le bénéfice excentrique). Genou qui part vers l\'intérieur. Tronc qui compense en penchant.',
-    youtube_search: 'step down excentrique genou trail runner'
-  },
 
   nordic: {
     id: 'nordic',
@@ -505,48 +465,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'protocole alfredson tendon achille mollet excentrique'
   },
 
-  single_leg_rdl: {
-    id: 'single_leg_rdl',
-    name_fr: 'Soulevé roumain unilatéral',
-    name_tech: 'Single-leg RDL',
-    category: 'excentrique',
-    primary_muscles: ['ischio-jambiers', 'fessiers', 'stabilisateurs cheville'],
-    benefits: ['resilience', 'stabilite', 'descente_trail'],
-    variants: [
-      {
-        id: 'slrdl_haltere',
-        name: 'SL-RDL avec haltère',
-        required_equipment_any: [{ dumbbells_max_kg: 12 }],
-        priority: 1,
-        load_type: 'external_kg',
-        default_sets: 3, default_reps: 8, target_rpe: 8,
-        rest_seconds: 90
-      },
-      {
-        id: 'slrdl_kettlebell',
-        name: 'SL-RDL au kettlebell',
-        required_equipment_any: [{ kettlebell_max_kg: 12 }],
-        priority: 2,
-        load_type: 'external_kg',
-        default_sets: 3, default_reps: 8, target_rpe: 8,
-        rest_seconds: 90
-      },
-      {
-        id: 'slrdl_bw',
-        name: 'SL-RDL poids de corps',
-        required_equipment: {},
-        priority: 3,
-        load_type: 'bodyweight_variant',
-        load_variant_options: ['standard', 'tempo 4s'],
-        default_sets: 3, default_reps: 10, target_rpe: 8,
-        rest_seconds: 60
-      }
-    ],
-    position: 'Debout sur une jambe, légère flexion du genou d\'appui. Haltère ou kettlebell dans la main opposée.',
-    movement: 'Pencher le buste en avant en levant la jambe libre derrière (corps forme un T). Descendre jusqu\'à sentir l\'étirement ischio. Dos droit. Remonter en contractant le fessier d\'appui.',
-    common_errors: 'Rotation du bassin (hanche qui s\'ouvre). Genou d\'appui verrouillé (doit rester légèrement fléchi). Perte d\'équilibre par manque de gainage.',
-    youtube_search: 'single leg rdl équilibre trail ischio'
-  },
 
   // ── TRONC ANTI-ROTATION ───────────────────────────────────
 
@@ -580,7 +498,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
     ],
     position: 'Debout de côté par rapport au point d\'ancrage (poulie ou élastique). Pieds écartés largeur d\'épaules, genoux légèrement fléchis. Tenir la poignée à hauteur de sternum, les deux mains.',
     movement: 'Pousser les mains devant soi (extension des coudes) tout en résistant à la rotation. Tenir 1-2s bras tendus. Revenir lentement. Le but est de NE PAS bouger les hanches et les épaules.',
-    common_errors: 'Rotation du bassin pour aider (invalide l\'exercice). Bras pas complètement tendus. S\'éloigner trop du point d\'ancrage.',
+    common_errors: 'Rotation du bassin pour aider (invalide l\'exercice). Bras pas complètement tendus. S\'éloigner trop du point d\'ancrage. À la maison : bande élastique ancrée à hauteur de taille (même mouvement anti-rotation).',
     youtube_search: 'pallof press anti rotation tronc'
   },
 
@@ -763,7 +681,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
     ],
     position: 'Suspendu à une barre (tractions) ou penché en avant à 45° (rowing). Corps gaîné.',
     movement: 'Tirer les coudes vers le bas et vers l\'arrière en contractant les omoplates. Poitrine vers la barre (traction) ou coudes au-delà du torse (rowing). Descente contrôlée 2s.',
-    common_errors: 'Balancement du corps. Hausser les épaules. Chin trop en avant.',
+    common_errors: 'Balancement du corps. Hausser les épaules. Chin trop en avant. À la maison sans barre : tirage inversé sous une table solide, ou tirage à la bande élastique.',
     youtube_search: 'tractions dos technique débutant'
   },
 
@@ -831,7 +749,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
     ],
     position: 'Face au point d\'ancrage (poulie ou élastique à hauteur des yeux). Bras tendus en avant.',
     movement: 'Tirer vers le visage en écartant les coudes vers l\'extérieur et le haut (coudes au-dessus des poignets). Finir avec les mains de chaque côté de la tête, paumes vers l\'avant. Contraction des omoplates en fin de mouvement.',
-    common_errors: 'Coudes qui descendent (devient un tirage basse). Corps qui bascule en arrière. Pas de rotation externe de l\'épaule.',
+    common_errors: 'Coudes qui descendent (devient un tirage basse). Corps qui bascule en arrière. Pas de rotation externe de l\'épaule. À la maison : bande élastique passée autour d\'un point d\'ancrage haut (poignée, porte).',
     youtube_search: 'face pull épaule rotateur externe posture'
   },
 
@@ -871,30 +789,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
 
   // ── MOBILITÉ ACTIVE ───────────────────────────────────────
 
-  hip_9090: {
-    id: 'hip_9090',
-    name_fr: 'Rotation de hanche 90/90',
-    name_tech: 'Hip 90/90 stretch',
-    category: 'mobilite',
-    primary_muscles: ['rotateurs de hanche', 'fléchisseurs de hanche'],
-    benefits: ['stabilite', 'resilience'],
-    variants: [
-      {
-        id: 'hip_9090_statique',
-        name: 'Hip 90/90 statique',
-        required_equipment: {},
-        priority: 1,
-        load_type: 'bodyweight_variant',
-        load_variant_options: ['statique 60s', 'avec rotation active', 'avec inclinaison avant'],
-        default_sets: 2, default_reps: 5, target_rpe: 6,
-        rest_seconds: 30
-      }
-    ],
-    position: 'Assis au sol. Jambe avant à 90° (genou et cheville au sol). Jambe arrière à 90° derrière toi (cuisse perpendiculaire au corps).',
-    movement: 'S\'asseoir droit, chercher à poser les deux fesses au sol. Inclinaison vers l\'avant (jambe avant) pour augmenter l\'intensité. Rotation active d\'une hanche à l\'autre.',
-    common_errors: 'Se pencher sur le côté pour simuler la position. Mauvaise position des 90° (angles pas respectés).',
-    youtube_search: 'hip 90 90 mobilité hanche coureur'
-  },
 
   pigeon_actif: {
     id: 'pigeon_actif',
@@ -921,30 +815,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'pigeon actif mobilité hanche trail'
   },
 
-  knee_to_wall: {
-    id: 'knee_to_wall',
-    name_fr: 'Mobilité cheville au mur',
-    name_tech: 'Knee to wall',
-    category: 'mobilite',
-    primary_muscles: ['cheville', 'mollet', 'tendon Achille'],
-    benefits: ['resilience', 'economie_course'],
-    variants: [
-      {
-        id: 'ktw_mur',
-        name: 'Knee to wall au mur',
-        required_equipment: {},
-        priority: 1,
-        load_type: 'bodyweight_variant',
-        load_variant_options: ['distance 5cm', 'distance 8cm', 'distance 12cm'],
-        default_sets: 2, default_reps: 15, target_rpe: 5,
-        rest_seconds: 30
-      }
-    ],
-    position: 'Debout face à un mur. Pied en fente avant, orteils à Xcm du mur.',
-    movement: 'Plier le genou avant en cherchant à toucher le mur avec le genou, sans lever le talon. Mesurer la distance maximale à laquelle le genou touche encore le mur. Objectif : ≥ 10cm.',
-    common_errors: 'Lever le talon (invalide le test). Pied tourné vers l\'extérieur. Aller trop vite sans sentir l\'étirement.',
-    youtube_search: 'knee to wall mobilité cheville dorsifléxion'
-  },
 
   open_book: {
     id: 'open_book',
@@ -1160,40 +1030,7 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'trap bar deadlift soulevé de terre force coureur économie de course'
   },
 
-  soleus_raise: {
-    id: 'soleus_raise',
-    name_fr: 'Mollet assis lourd (soléaire)',
-    name_tech: 'Seated / bent-knee calf raise',
-    category: 'force_lourde',
-    primary_muscles: ['soléaire', 'tendon d\'Achille'],
-    benefits: ['force_max', 'resilience', 'economie_course'],
-    variants: [
-      { id: 'soleus_assis_charge', name: 'Mollet assis lesté', required_equipment_any: [{ dumbbells_max_kg: 30 }, { barbell: true }], priority: 1, load_type: 'external_kg', default_sets: 4, default_reps: 12, target_rpe: 8, rest_seconds: 90 },
-      { id: 'soleus_unipodal_bw', name: 'Mollet genou fléchi unipodal', required_equipment: {}, priority: 2, load_type: 'bodyweight_variant', load_variant_options: ['au sol', 'sur step'], default_sets: 3, default_reps: 20, target_rpe: 7, rest_seconds: 60 }
-    ],
-    position: 'Assis, genoux fléchis ~90°, avant-pieds sur un step ou au sol, charge posée sur les cuisses (haltères/barre). Talons libres de descendre.',
-    movement: 'Monter sur la pointe des pieds en poussant fort, contracter le mollet 1s en haut. Descendre lentement (2-3s) jusqu\'à l\'étirement complet. Genou fléchi = cible le SOLÉAIRE (sollicité ~6-8× le poids de corps en course, souvent sous-entraîné).',
-    common_errors: 'Amplitude partielle (ne pas descendre assez). Rebondir en bas. Charge trop légère — le soléaire est puissant, il faut charger lourd.',
-    youtube_search: 'seated calf raise soléaire genou fléchi course à pied'
-  },
 
-  overhead_press: {
-    id: 'overhead_press',
-    name_fr: 'Développé épaules',
-    name_tech: 'Overhead / landmine press',
-    category: 'haut_corps',
-    primary_muscles: ['épaules', 'triceps', 'gainage'],
-    benefits: ['resilience', 'stabilite'],
-    variants: [
-      { id: 'ohp_haltere', name: 'Développé haltères debout', required_equipment_any: [{ dumbbells_max_kg: 20 }], priority: 1, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 7.5, rest_seconds: 90 },
-      { id: 'ohp_landmine', name: 'Landmine press', required_equipment: { barbell: true }, priority: 2, load_type: 'external_kg', default_sets: 3, default_reps: 10, target_rpe: 7.5, rest_seconds: 90 },
-      { id: 'ohp_pike', name: 'Pompes piquées (poids de corps)', required_equipment: {}, priority: 3, load_type: 'bodyweight_variant', load_variant_options: ['pike au sol', 'pieds surélevés'], default_sets: 3, default_reps: 8, target_rpe: 7, rest_seconds: 60 }
-    ],
-    position: 'Debout, gainage serré (fessiers/abdos), charge au niveau des épaules, coudes sous les poignets.',
-    movement: 'Pousser la charge au-dessus de la tête SANS cambrer le bas du dos. Verrouiller en haut, bras près des oreilles. Descendre contrôlé. Renforce le portage de sac / bâtons et la posture de fin de course.',
-    common_errors: 'Cambrer le bas du dos (compenser avec les lombaires). Pousser vers l\'avant au lieu de vertical. Hausser les épaules vers les oreilles.',
-    youtube_search: 'développé épaules debout haltères course trail portage sac posture'
-  },
 
   hip_thrust: {
     id: 'hip_thrust',
@@ -1247,21 +1084,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'tibialis raise prévention fracture de stress running shin splints'
   },
 
-  reverse_nordic: {
-    id: 'reverse_nordic',
-    name_fr: 'Reverse nordic',
-    name_tech: 'Reverse Nordic Curl',
-    category: 'excentrique',
-    primary_muscles: ['quadriceps', 'tendon rotulien'],
-    benefits: ['resilience', 'prevention_blessure', 'descente_trail'],
-    variants: [
-      { id: 'reverse_nordic_bw', name: 'Reverse nordic poids de corps', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['amplitude partielle', 'amplitude complète', 'avec élastique assisté'], default_sets: 3, default_reps: 8, target_rpe: 8, rest_seconds: 90 }
-    ],
-    position: 'À genoux sur tapis. Corps droit de genoux à tête. Pieds fixés sous un objet lourd ou par un partenaire.',
-    movement: 'Maintenir le gainage du corps. S\'incliner vers l\'arrière lentement en 3-4s (quadriceps excentriques). Arrêter juste avant de toucher le sol. Pousser avec les talons pour remonter.',
-    common_errors: 'Plier les hanches (doit rester droit). Aller trop vite. Ne pas aller assez loin par peur.',
-    youtube_search: 'reverse nordic curl prévention tendinopathie rotule coureur'
-  },
 
   lateral_bound: {
     id: 'lateral_bound',
@@ -1348,22 +1170,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'coquillage fessier moyen running prévention valgus genou'
   },
 
-  core_rotation: {
-    id: 'core_rotation',
-    name_fr: 'Rotation de tronc',
-    name_tech: 'Rotational Chop / Anti-rotation',
-    category: 'tronc',
-    primary_muscles: ['obliques', 'transverse', 'grand dorsal'],
-    benefits: ['stabilite', 'economie_course', 'trail_technique'],
-    variants: [
-      { id: 'chop_bande', name: 'Rotation avec élastique', required_equipment: { bands: true, anchor_point: true }, priority: 1, load_type: 'band', load_variant_options: ['light', 'medium', 'heavy'], default_sets: 3, default_reps: 12, target_rpe: 7, rest_seconds: 60 },
-      { id: 'chop_bw', name: 'Rotation poids de corps', required_equipment: {}, priority: 2, load_type: 'bodyweight_variant', load_variant_options: ['mains jointes', 'bras tendu devant'], default_sets: 3, default_reps: 15, target_rpe: 6, rest_seconds: 45 }
-    ],
-    position: 'Debout, pieds écartés largeur épaules. Élastique ancré à hauteur épaule sur le côté. Bras légèrement fléchis.',
-    movement: 'Tirer l\'élastique en diagonale (épaule haute → hanche opposée) en faisant pivoter le buste. Hanches restent face devant. Contrôler le retour en 2s. 12 répétitions d\'un côté puis de l\'autre.',
-    common_errors: 'Faire pivoter les hanches (le travail vient des obliques). Aller trop vite. Bras verrouillés.',
-    youtube_search: 'rotation tronc élastique obliques running gainage'
-  },
 
   cossack_squat: {
     id: 'cossack_squat',
@@ -1567,21 +1373,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'gastrocnemius stretch mollet coureur mur',
   },
 
-  solaire_stretch: {
-    id: 'solaire_stretch',
-    name_fr: 'Étirement soléaire',
-    name_tech: 'Soleus stretch',
-    category: 'stretching',
-    primary_muscles: ['soléaire', 'tendon d\'Achille'],
-    benefits: ['resilience', 'prevention_blessure'],
-    variants: [
-      { id: 'solaire_mur', name: 'Soléaire genou fléchi', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['mur', 'step'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
-    ],
-    position: 'Debout face au mur. Pied arrière en fente courte, genou arrière FLÉCHI, talon au sol.',
-    movement: 'Enfoncer le genou arrière vers l\'avant en gardant le talon au sol. Sentir l\'étirement dans le bas du mollet (soléaire). Tenir 45s par côté. Complémentaire du gastroc — toujours faire les deux.',
-    common_errors: 'Talon qui décolle. Jambe trop tendue (c\'est le gastroc dans ce cas). Étirement trop agressif.',
-    youtube_search: 'soleus stretch soléaire achille running coureur',
-  },
 
   figure_4_piriforme: {
     id: 'figure_4_piriforme',
@@ -1599,112 +1390,19 @@ export const RENFO_EXERCISES: Record<string, any> = {
     youtube_search: 'figure 4 piriformis stretch fessier running',
   },
 
-  it_band_stretch: {
-    id: 'it_band_stretch',
-    name_fr: 'Étirement bandelette IT',
-    name_tech: 'IT band stretch / TFL stretch',
-    category: 'stretching',
-    primary_muscles: ['TFL', 'bandelette ilio-tibiale', 'fessier moyen'],
-    benefits: ['resilience', 'prevention_blessure'],
-    variants: [
-      { id: 'itband_debout', name: 'IT band debout croisé', required_equipment: {}, priority: 1, load_type: 'bodyweight_variant', load_variant_options: ['jambe droite croisée', 'avec inclinaison latérale'], unit: 's', default_sets: 2, default_reps: 45, target_rpe: 4, rest_seconds: 10 },
-    ],
-    position: 'Debout. Croiser la jambe à étirer derrière l\'autre jambe. S\'appuyer éventuellement sur un mur.',
-    movement: 'Incliner le buste vers le côté opposé à la jambe croisée. Sentir l\'étirement sur le côté externe de la hanche/cuisse. Tenir 45s par côté. Important après descentes techniques.',
-    common_errors: 'Rotation du bassin (invalide l\'étirement). Forcer trop fort (tissu fragile). Ne pas confondre avec étirement des adducteurs.',
-    youtube_search: 'IT band stretch bandelette ilio-tibiale trail running',
-  },
 
   // ── PILATES COUREUR ───────────────────────────────────────────────────────────
 
-  pilates_hundred: {
-    id: 'pilates_hundred', name_fr: 'The Hundred', name_tech: 'Pilates Hundred',
-    category: 'pilates_coureur',
-    primary_muscles: ['transverse_abdominal', 'obliques', 'hip_flexors'],
-    benefits: ['core_activation', 'breathing_control', 'endurance'],
-    position: 'Allongé sur le dos, jambes à 45° ou table-top, bras le long du corps.',
-    movement: 'Lever la tête et les épaules. Pomper les bras 5× en inspirant, 5× en expirant. 10 cycles = 100 pompes.',
-    common_errors: 'Tension dans le cou. Dos lombaire décollé. Respiration inversée.',
-    youtube_search: 'pilates hundred coureur core',
-    variants: [{ id:'hundred_standard', name:'Hundred classique', required_equipment:{}, priority:1,
-      load_type:'bodyweight_variant', default_sets:3, default_reps:100, target_rpe:6, rest_seconds:45,
-      load_variant_options:['jambes table-top','jambes 45°','jambes tendues'] }],
-  },
 
-  pilates_single_leg_stretch: {
-    id: 'pilates_single_leg_stretch', name_fr: 'Single Leg Stretch', name_tech: 'Single Leg Stretch',
-    category: 'pilates_coureur',
-    primary_muscles: ['obliques', 'hip_flexors', 'transverse_abdominal'],
-    benefits: ['coordination', 'core_stability', 'hip_mobility'],
-    position: 'Allongé sur le dos. Tête et épaules soulevées.',
-    movement: 'Alterner : genou droit vers poitrine (main gauche sur genou, main droite sur cheville) et jambe gauche tendue. Rythme respiratoire contrôlé.',
-    common_errors: 'Bassin qui bascule. Cou tendu. Jambe tendue trop basse.',
-    youtube_search: 'single leg stretch pilates coureur',
-    variants: [{ id:'sls_standard', name:'Single Leg Stretch', required_equipment:{}, priority:1,
-      load_type:'bodyweight_variant', default_sets:3, default_reps:20, target_rpe:6, rest_seconds:45 }],
-  },
 
-  pilates_roll_up: {
-    id: 'pilates_roll_up', name_fr: 'Roll Up', name_tech: 'Roll Up',
-    category: 'pilates_coureur',
-    primary_muscles: ['rectus_abdominal', 'hip_flexors', 'spine_extensors'],
-    benefits: ['spine_mobility', 'hamstring_flexibility', 'core_control'],
-    position: 'Allongé sur le dos, bras tendus au-dessus de la tête, jambes tendues.',
-    movement: 'Inspiration : préparer. Expiration : dérouler vertèbre par vertèbre jusqu\'à toucher les pieds. Contrôler la descente.',
-    common_errors: 'Élan des bras. Blocage de la respiration. Jambes qui décollent.',
-    youtube_search: 'pilates roll up mobilité colonne coureur',
-    variants: [{ id:'rollup_standard', name:'Roll Up', required_equipment:{}, priority:1,
-      load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:6, rest_seconds:45,
-      load_variant_options:['standard','avec serviette sous genoux (facilité)'] }],
-  },
 
-  pilates_side_kick: {
-    id: 'pilates_side_kick', name_fr: 'Side Kick Series', name_tech: 'Side Kick',
-    category: 'pilates_coureur',
-    primary_muscles: ['gluteus_medius', 'hip_abductors', 'obliques'],
-    benefits: ['hip_stability', 'lateral_strength', 'trail_balance'],
-    position: 'Allongé sur le côté, corps aligné, tête posée sur le bras tendu.',
-    movement: 'Jambe supérieure : kick avant (2 pulses) puis retour arrière (1 temps). Garder le bassin stable.',
-    common_errors: 'Bassin qui roule. Jambe trop haute. Cou tendu.',
-    youtube_search: 'pilates side kick hanche stabilisation trail',
-    variants: [{ id:'sidekick_standard', name:'Side Kick', required_equipment:{}, priority:1,
-      load_type:'bodyweight_variant', default_sets:3, default_reps:12, target_rpe:6, rest_seconds:45 }],
-  },
 
-  pilates_swimming: {
-    id: 'pilates_swimming', name_fr: 'Swimming', name_tech: 'Pilates Swimming',
-    category: 'pilates_coureur',
-    primary_muscles: ['erector_spinae', 'gluteus', 'hamstrings', 'upper_back'],
-    benefits: ['posterior_chain_endurance', 'spine_extension', 'running_posture'],
-    position: 'À plat ventre, bras tendus devant, jambes tendues.',
-    movement: 'Lever bras et jambes opposés en alternant rapidement. Inspirer 5× sur 5 battements, expirer 5× sur 5.',
-    common_errors: 'Nuque écrasée. Épaules qui montent. Mouvement trop ample (qualité > amplitude).',
-    youtube_search: 'pilates swimming chaîne postérieure coureur',
-    variants: [{ id:'swimming_standard', name:'Swimming', required_equipment:{}, priority:1,
-      load_type:'bodyweight_variant', default_sets:3, default_reps:50, target_rpe:6, rest_seconds:45 }],
-  },
 
-  pilates_teaser_prep: {
-    id: 'pilates_teaser_prep', name_fr: 'Teaser Prep', name_tech: 'Teaser Preparation',
-    category: 'pilates_coureur',
-    primary_muscles: ['rectus_abdominal', 'transverse_abdominal', 'hip_flexors'],
-    benefits: ['core_strength', 'balance', 'hip_flexor_strength'],
-    position: 'Assis, mains derrière les cuisses. Pieds soulevés, jambes fléchies.',
-    movement: 'Contrôler l\'équilibre sur les ischions. Option progressif : relâcher les mains et tendre les jambes.',
-    common_errors: 'Dos arrondi excessif. Apnée. Remonter les épaules.',
-    youtube_search: 'pilates teaser prep V-sit gainage coureur',
-    variants: [
-      { id:'teaser_prep_mains', name:'Teaser prep (mains au soutien)', required_equipment:{}, priority:1,
-        load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:7, rest_seconds:60 },
-      { id:'teaser_sans_mains', name:'Teaser sans appui', required_equipment:{}, priority:2,
-        load_type:'bodyweight_variant', default_sets:3, default_reps:6, target_rpe:8, rest_seconds:60 },
-    ],
-  },
 
   // ── NOUVEAUX EXERCICES YOGA — récupération & amplitude ────────────────────
 
   warrior_3: {
-    id: 'warrior_3', name_fr: 'Guerrier III', name_tech: 'Warrior III / Virabhadrasana III',
+    id: 'warrior_3', name_fr: 'Guerrier II', name_tech: 'Warrior II / Virabhadrasana II',
     category: 'yoga_coureur',
     primary_muscles: ['grand fessier', 'stabilisateurs cheville', 'chaîne postérieure'],
     benefits: ['stabilite', 'proprioception', 'equilibre_unipodal'],
@@ -1713,8 +1411,8 @@ export const RENFO_EXERCISES: Record<string, any> = {
     common_errors: 'Bassin qui s\'ouvre (hanche levée plus haute que l\'autre). Genou de support en hyperextension. Dos arrondi.',
     youtube_search: 'warrior 3 yoga coureur équilibre proprioception trail',
     variants: [
-      { id:'warrior3_sol', name:'Guerrier III libre', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['bras le long du corps','bras tendus devant'], unit:'s', default_sets:2, default_reps:40, target_rpe:5, rest_seconds:15 },
-      { id:'warrior3_mur', name:'Guerrier III mur (apprentissage)', required_equipment:{}, priority:2, load_type:'bodyweight_variant', load_variant_options:['pied au mur'], unit:'s', default_sets:2, default_reps:30, target_rpe:4, rest_seconds:10 },
+      { id:'warrior3_sol', name:'Guerrier II libre', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['bras le long du corps','bras tendus devant'], unit:'s', default_sets:2, default_reps:40, target_rpe:5, rest_seconds:15 },
+      { id:'warrior3_mur', name:'Guerrier II mur (apprentissage)', required_equipment:{}, priority:2, load_type:'bodyweight_variant', load_variant_options:['pied au mur'], unit:'s', default_sets:2, default_reps:30, target_rpe:4, rest_seconds:10 },
     ],
   },
 
@@ -1763,66 +1461,11 @@ export const RENFO_EXERCISES: Record<string, any> = {
 
   // ── NOUVEAUX EXERCICES PILATES — core, bassin, contrôle unilatéral ─────────
 
-  pilates_clam: {
-    id: 'pilates_clam', name_fr: 'Clam', name_tech: 'Pilates Clam',
-    category: 'pilates_coureur',
-    primary_muscles: ['fessier moyen', 'rotateurs externes de hanche'],
-    benefits: ['stabilite', 'prevention_blessure', 'trail_technique'],
-    position: 'Allongé sur le côté. Hanches empilées, genoux fléchis à 45°, pieds joints.',
-    movement: 'Ouvrir le genou supérieur vers le plafond comme un coquillage, sans rouler les hanches en arrière. Tenir 1s en haut. Redescendre lentement. Contrôle strict du bassin.',
-    common_errors: 'Bassin qui bascule en arrière pour compenser. Amplitude insuffisante (sortir des fessiers). Ne pas tenir assez longtemps au sommet.',
-    youtube_search: 'pilates clam fessier moyen stabilité latérale trail',
-    variants: [
-      { id:'clam_bw', name:'Clam poids de corps', required_equipment:{}, priority:1, load_type:'bodyweight_variant', default_sets:3, default_reps:15, target_rpe:5, rest_seconds:30 },
-      { id:'clam_bande', name:'Clam avec élastique', required_equipment:{ bands:true }, priority:2, load_type:'band', load_variant_options:['light','medium'], default_sets:3, default_reps:12, target_rpe:6, rest_seconds:45 },
-    ],
-  },
 
-  pilates_dead_bug: {
-    id: 'pilates_dead_bug', name_fr: 'Dead Bug', name_tech: 'Dead Bug',
-    category: 'pilates_coureur',
-    primary_muscles: ['transverse', 'obliques', 'stabilisateurs lombaires'],
-    benefits: ['core_activation', 'stabilite', 'prevention_blessure'],
-    position: 'Allongé sur le dos. Bras tendus vers le plafond. Jambes en table-top (hanches et genoux à 90°). Dos lombaire plaqué au sol.',
-    movement: 'Expirer, rentrer le nombril. Abaisser bras droit et jambe gauche sans décoller le bas du dos. Revenir. Alterner. Le bas du dos NE doit JAMAIS décoller.',
-    common_errors: 'Bas du dos qui se creuse (arche lombaire). Apnée. Aller trop vite. Tête qui se soulève.',
-    youtube_search: 'dead bug pilates gainage anti-rotation trail runner',
-    variants: [
-      { id:'dead_bug_jambe', name:'Dead bug jambe seule', required_equipment:{}, priority:1, load_type:'bodyweight_variant', default_sets:3, default_reps:8, target_rpe:6, rest_seconds:45 },
-      { id:'dead_bug_complet', name:'Dead bug bras+jambe opposés', required_equipment:{}, priority:2, load_type:'bodyweight_variant', default_sets:3, default_reps:10, target_rpe:7, rest_seconds:45 },
-    ],
-  },
 
-  pilates_bridge_series: {
-    id: 'pilates_bridge_series', name_fr: 'Pont série', name_tech: 'Bridge Series',
-    category: 'pilates_coureur',
-    primary_muscles: ['grand fessier', 'ischio-jambiers', 'stabilisateurs pelviens'],
-    benefits: ['core_activation', 'stabilite', 'resilience'],
-    position: 'Allongé sur le dos, genoux fléchis, pieds à plat largeur de hanches. Bras le long du corps.',
-    movement: 'Expirer, basculer le bassin, soulever les hanches vertèbre par vertèbre. Tenir 2s en haut. Redescendre lentement. Contracter consciemment les fessiers au sommet. Variante : un pied levé (unilatéral).',
-    common_errors: 'Monter en bloc sans articulation vertèbre par vertèbre. Genoux qui s\'écartent. Descente trop rapide.',
-    youtube_search: 'pilates bridge series pont fessier running stabilité pelvienne',
-    variants: [
-      { id:'bridge_bilateral', name:'Pont bilatéral contrôlé', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['standard','avec pause 3s en haut'], default_sets:3, default_reps:12, target_rpe:5, rest_seconds:30 },
-      { id:'bridge_unilateral', name:'Pont unilatéral', required_equipment:{}, priority:2, load_type:'bodyweight_variant', default_sets:3, default_reps:10, target_rpe:7, rest_seconds:45 },
-    ],
-  },
 
   // ── NOUVEAUX ÉTIREMENTS STRETCHING — récupération post-trail ─────────────
 
-  tibialis_anterior_stretch: {
-    id: 'tibialis_anterior_stretch', name_fr: 'Étirement tibial antérieur', name_tech: 'Tibialis Anterior Stretch',
-    category: 'stretching',
-    primary_muscles: ['tibial antérieur'],
-    benefits: ['resilience', 'prevention_blessure'],
-    position: 'Debout ou assis. Pied en extension plantaire (orteils vers le sol). Déposer le cou-de-pied sur le sol ou tenir le pied à la main.',
-    movement: 'Presser doucement le pied vers le sol ou tirer les orteils vers le tibia en sens inverse. Tenir 30–45s par côté. Prévention des shin splints après descentes prolongées.',
-    common_errors: 'Forcer sur l\'articulation de la cheville (doit sentir l\'étirement dans le shin, pas dans le tendon). Retenir sa respiration.',
-    youtube_search: 'tibialis anterior stretch shin splints trail running récupération descente',
-    variants: [
-      { id:'tibialis_sol', name:'Tibial antérieur au sol', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['assis','debout appui'], unit:'s', default_sets:2, default_reps:40, target_rpe:3, rest_seconds:10 },
-    ],
-  },
 
   hip_flexor_couch: {
     id: 'hip_flexor_couch', name_fr: 'Couch stretch', name_tech: 'Couch Stretch / Rectus Femoris Stretch',
@@ -1838,19 +1481,6 @@ export const RENFO_EXERCISES: Record<string, any> = {
     ],
   },
 
-  adductor_squat_stretch: {
-    id: 'adductor_squat_stretch', name_fr: 'Sumo squat stretch', name_tech: 'Adductor Squat Stretch',
-    category: 'stretching',
-    primary_muscles: ['adducteurs', 'aine', 'fléchisseurs de hanche'],
-    benefits: ['mobilite_hanche', 'resilience'],
-    position: 'Debout, pieds très écartés (2× largeur épaules), orteils vers l\'extérieur (30–45°). Mains jointes devant soi ou sur les cuisses.',
-    movement: 'Descendre en squat profond (sumo). Utiliser les coudes pour pousser doucement les genoux vers l\'extérieur. Dos droit. Tenir 60s. Excellent après terrain varié avec dévers.',
-    common_errors: 'Talons qui décollent (raccourcissement des mollets). Dos arrondi. Pousser trop fort sur les genoux.',
-    youtube_search: 'sumo squat stretch adducteurs aine récupération trail running',
-    variants: [
-      { id:'sumo_squat_hold', name:'Sumo squat tenu', required_equipment:{}, priority:1, load_type:'bodyweight_variant', load_variant_options:['mains libres','contre-poids pour équilibre'], unit:'s', default_sets:2, default_reps:60, target_rpe:4, rest_seconds:10 },
-    ],
-  },
 
 };
 
@@ -1863,15 +1493,14 @@ export const INTER_SET_REST: Record<string, any> = {
   mollets_lourds: 90,      hip_thrust: 120,        lunge_marcheur: 90,
   pogo_jumps: 90,          bondissements: 120,     drop_jumps: 150,
   skips: 60,               lateral_bound: 90,      box_jump: 150,
-  step_down: 120,          nordic: 150,            mollet_excentrique: 90,
-  single_leg_rdl: 90,      tibialis_raise: 60,     reverse_nordic: 120,
+            nordic: 150,            mollet_excentrique: 90,
+        tibialis_raise: 60,
   single_leg_glute_bridge: 60, wall_sit: 120,
   pallof_press: 60,        side_plank_hipdrop: 60, dead_bug: 45,
   bird_dog: 45,            suitcase_carry: 60,     copenhagen_plank: 90,
-  core_rotation: 60,
   tractions_or_row: 120,   pompes: 90,             face_pull: 60,
   ytw_prone: 60,
-  hip_9090: 30,            pigeon_actif: 30,       knee_to_wall: 30,
+              pigeon_actif: 30,
   open_book: 30,           monster_walk: 45,       hip_abduction: 30,
   cossack_squat: 45,
   step_up: 90,             lateral_lunge: 90,      single_leg_squat: 90,
@@ -1879,24 +1508,22 @@ export const INTER_SET_REST: Record<string, any> = {
   reclined_twist: 10,      butterfly: 10,
   warrior_3: 15,           lizard_pose: 15,        cat_cow: 10,
   supine_twist: 10,
-  ischio_debout: 10,       gastrocnemien_stretch: 10, solaire_stretch: 10,
-  figure_4_piriforme: 10,  it_band_stretch: 10,
-  tibialis_anterior_stretch: 10, hip_flexor_couch: 15, adductor_squat_stretch: 10,
-  pilates_clam: 30,        pilates_dead_bug: 45,   pilates_bridge_series: 30,
+  ischio_debout: 10,       gastrocnemien_stretch: 10,
+  figure_4_piriforme: 10,
+   hip_flexor_couch: 15,
 };
 
 
 export const SESSION_EXERCISES: Record<string, string[]> = {
-  force_lourde:           ['squat_lourd','deadlift','rdl','hip_thrust','bulgare','lunge_marcheur','step_up','lateral_lunge','soleus_raise'],
+  force_lourde:           ['squat_lourd','deadlift','rdl','hip_thrust','bulgare','lunge_marcheur','step_up','lateral_lunge'],
   pliometrie:             ['pogo_jumps','ankle_hops','sl_pogo','bondissements','drop_jumps','lateral_bound','box_jump','hop_and_stick'],
-  excentrique:            ['step_down','nordic','mollet_excentrique','single_leg_rdl','tibialis_raise','reverse_nordic','single_leg_squat'],
-  excentrique_pliometrie: ['step_down','nordic','pogo_jumps','bondissements','tibialis_raise'],
-  tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank','core_rotation'],
-  pilates_coureur:        ['pilates_hundred','pilates_single_leg_stretch','pilates_roll_up','pilates_side_kick','pilates_swimming','pilates_teaser_prep','pilates_clam','pilates_dead_bug','pilates_bridge_series'],
-  haut_corps:             ['tractions_or_row','overhead_press','pompes','face_pull','ytw_prone'],
-  mobilite:               ['balance_unipodal','y_balance','hip_9090','pigeon_actif','knee_to_wall','open_book','monster_walk','hip_abduction','single_leg_glute_bridge','cossack_squat'],
-  yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','hip_9090','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
-  stretching:             ['gastrocnemien_stretch','solaire_stretch','ischio_debout','figure_4_piriforme','it_band_stretch','open_book','tibialis_anterior_stretch','hip_flexor_couch','adductor_squat_stretch'],
+  excentrique:            ['nordic','mollet_excentrique','tibialis_raise','single_leg_squat'],
+  excentrique_pliometrie: ['nordic','pogo_jumps','bondissements','tibialis_raise'],
+  tronc:                  ['pallof_press','side_plank_hipdrop','dead_bug','bird_dog','suitcase_carry','copenhagen_plank'],
+  haut_corps:             ['tractions_or_row','pompes','face_pull','ytw_prone'],
+  mobilite:               ['balance_unipodal','y_balance','pigeon_actif','open_book','monster_walk','hip_abduction','single_leg_glute_bridge','cossack_squat'],
+  yoga_coureur:           ['pigeon_actif','low_lunge','reclined_twist','downward_dog','butterfly','child_pose','warrior_3','lizard_pose','cat_cow','supine_twist'],
+  stretching:             ['gastrocnemien_stretch','ischio_debout','figure_4_piriforme','open_book','hip_flexor_couch'],
 };
 
 export const FOCUS_META: Record<string, any> = {
@@ -1947,18 +1574,12 @@ export const FOCUS_META: Record<string, any> = {
     timing_notes: ['✅ Dans les 30min après la course', '✅ Le soir après n\'importe quelle sortie', '❌ Jamais avant une séance (réduit la raideur tendineuse)'],
     warmup_text: 'À pratiquer muscles encore chauds, après l\'effort. Pas d\'échauffement spécifique nécessaire — entrez directement dans les postures.',
   },
-  pilates_coureur: {
-    label: 'Pilates coureur', duration_min: 20, duration_short: 15, location: 'maison',
-    timing_after_easy: true, timing_before_long: false, timing_same_quality: true,
-    timing_notes: ['✅ Récupération active après sortie facile', '✅ Le soir d\'un jour de qualité', '✅ Complément idéal yoga ou stretching'],
-    warmup_text: 'Activation posturale 2 min : pelvic tilts ×10 → genoux contre poitrine alternés ×5 → respirations latérales conscientes.',
-  },
 };
 
 export const RENFO_LOAD_WEIGHTS: Record<string, number> = {
   force_lourde: 1.5, pliometrie: 1.3, excentrique: 1.2,
   haut_corps: 1.0, tronc: 0.8, mobilite: 0.5,
-  yoga_coureur: 0.3, stretching: 0.2, pilates_coureur: 0.3,
+  yoga_coureur: 0.3, stretching: 0.2,
   excentrique_pliometrie: 1.25,
 };
 

@@ -40,7 +40,7 @@ export function isRenfo(type?: string | null, sportType?: string | null): boolea
 export function inferRenfoFocus(type: string, sportType: string, sets?: ExerciseSet[]): string | null {
   const t = (type + ' ' + sportType).toLowerCase()
   if (t.includes('yoga')) return 'yoga_coureur'
-  if (t.includes('pilates')) return 'pilates_coureur'
+  if (t.includes('pilates')) return 'mobilite'
   if (!sets?.length) return null
   const counts: Record<string, number> = {}
   for (const s of sets) {

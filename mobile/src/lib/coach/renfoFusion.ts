@@ -60,8 +60,8 @@ const HEAVY_FOCUS: Record<'force' | 'volume' | 'puissance', string> = {
 // Focus légers (faible fatigue jambes) rotés sur les jours calmes. Inclut Pilates
 // (core) et haut du corps : ils existent dans la bibliothèque et doivent être
 // SUGGÉRÉS, pas seulement choisissables à la main.
-const LIGHT_FILLERS = ['tronc', 'mobilite', 'yoga_coureur', 'pilates_coureur', 'haut_corps']
-const DELOAD_FOCUSES = ['mobilite', 'yoga_coureur', 'stretching', 'pilates_coureur']
+const LIGHT_FILLERS = ['tronc', 'mobilite', 'yoga_coureur', 'haut_corps']
+const DELOAD_FOCUSES = ['mobilite', 'yoga_coureur', 'stretching']
 const HEAVY_FOCUSES = new Set(['force_lourde', 'pliometrie', 'excentrique'])
 
 /**
@@ -210,5 +210,4 @@ export const RENFO_FOCUS_SHORT: Record<string, string> = {
   mobilite: 'Mobilité',
   yoga_coureur: 'Yoga coureur',
   stretching: 'Stretching',
-  pilates_coureur: 'Pilates',
 }

@@ -15,7 +15,7 @@ import { HButton } from './ui'
 
 const RENFO_COLOR = colors.violet // --color-renfo
 const FORCE_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc'] as const
-const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'stretching'] as const
 
 function fmtLastDate(iso: string) {
   const diff = Math.round((Date.now() - new Date(iso).getTime()) / 86400000)

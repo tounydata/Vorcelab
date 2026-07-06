@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, Easing, View } from 'react-native'
 import { Image } from 'expo-image'
 import Svg, { Circle, G, Path } from 'react-native-svg'
-import { getExerciseGifUrl, RENFO_FOCUS_COLORS as _COLORS } from '@/lib/renfoData'
-import { getExerciseMediaFrames } from '@/lib/renfoMedia'
+import { RENFO_FOCUS_COLORS as _COLORS } from '@/lib/renfoData'
+import { getExerciseMediaUrl, type ExoLocation } from '@/lib/renfoMedia'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 const AnimatedG = Animated.createAnimatedComponent(G)
@@ -80,23 +80,11 @@ function Glyph({ category, size = 48, color }: { category?: string; size?: numbe
  * présents, sinon placeholder SVG élégant teinté par la couleur du focus.
  */
 export default function ExerciseMedia({
-  exerciseId, category, variant = 'full',
-}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full' }) {
+  exerciseId, category, variant = 'full', location,
+}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full'; location?: ExoLocation }) {
   const [errored, setErrored] = useState(false)
-  const [frame, setFrame] = useState(0)
-  const fedFrames = getExerciseMediaFrames(exerciseId)
-  const gifUrl = fedFrames ? null : (getExerciseGifUrl(exerciseId) as string | null)
-
-  useEffect(() => {
-    setErrored(false)
-    setFrame(0)
-    if (!fedFrames || fedFrames.length < 2) return
-    const id = setInterval(() => setFrame((f) => (f + 1) % fedFrames.length), 750)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exerciseId])
-
-  const url = fedFrames ? fedFrames[frame] : gifUrl
+  // Démo WebP animée (GymVisual) servie depuis le CDN web ; version « maison » si dispo.
+  const url = getExerciseMediaUrl(exerciseId, location)
   const color = RENFO_FOCUS_COLORS[category ?? ''] ?? '#7c3aed'
   const showImg = !!url && !errored
 

@@ -210,7 +210,7 @@ export function computeImpactZone(sessions: SessionLog[]): {
   const WEIGHTS: Record<string, number> = {
     force_lourde: 1.5, pliometrie: 1.3, excentrique: 1.2,
     haut_corps: 1.0, tronc: 0.8, mobilite: 0.5,
-    yoga_coureur: 0.3, stretching: 0.2, pilates_coureur: 0.3,
+    yoga_coureur: 0.3, stretching: 0.2,
     excentrique_pliometrie: 1.25,
   }
   const score = sessions.reduce((sum, s) => sum + (s.duration_min ?? 30) * (WEIGHTS[s.focus ?? ''] ?? 1.0), 0)
