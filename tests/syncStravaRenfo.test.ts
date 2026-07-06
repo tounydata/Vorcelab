@@ -21,7 +21,8 @@ describe('buildRenfoRows — déduplication par (date + focus)', () => {
     const existing = [{ session_date: '2026-06-03', focus: 'haut_corps' }]
     const rows = buildRenfoRows(U, acts, existing)
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ session_date: '2026-06-03', focus: 'pilates_coureur', source: 'strava' })
+    // Pilates retiré du catalogue → une activité Pilates Strava est classée « mobilité ».
+    expect(rows[0]).toMatchObject({ session_date: '2026-06-03', focus: 'mobilite', source: 'strava' })
     expect(rows[0].duration_min).toBe(26)
   })
 
@@ -29,7 +30,7 @@ describe('buildRenfoRows — déduplication par (date + focus)', () => {
     const acts: StravaActLite[] = [
       { type: 'Workout', sport_type: 'Pilates', start_date_local: '2026-06-03 19:41:45', moving_time: 1500 },
     ]
-    const existing = [{ session_date: '2026-06-03', focus: 'pilates_coureur' }]
+    const existing = [{ session_date: '2026-06-03', focus: 'mobilite' }]
     expect(buildRenfoRows(U, acts, existing)).toHaveLength(0)
   })
 

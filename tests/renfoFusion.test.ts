@@ -75,13 +75,16 @@ describe('fuseRenfoIntoWeek', () => {
     expect(new Set(days).size).toBe(days.length)
   })
 
-  it('suggère Pilates et haut du corps au fil des semaines (rotation)', () => {
+  it('fait tourner plusieurs fillers légers au fil des semaines (rotation)', () => {
     const seen = new Set<string>()
     for (let wk = 0; wk < 8; wk++) {
       const week: PlanWeek = { ...buildWeek, weekIndex: wk }
       for (const sl of fuseRenfoIntoWeek(week, 4)!.slots) seen.add(sl.focus)
     }
-    expect(seen.has('pilates_coureur')).toBe(true)
+    // Pilates a été retiré du catalogue : les fillers légers restants doivent
+    // tourner (au moins deux focus distincts apparaissent sur 8 semaines).
+    const fillers = ['tronc', 'mobilite', 'yoga_coureur', 'haut_corps'].filter((f) => seen.has(f))
+    expect(fillers.length).toBeGreaterThanOrEqual(2)
     expect(seen.has('haut_corps')).toBe(true)
   })
 
