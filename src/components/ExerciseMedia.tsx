@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 // @ts-ignore — renfoData est en JS sans types
-import { getExerciseGifUrl, RENFO_FOCUS_COLORS as _COLORS } from '../lib/renfoData'
-import { getExerciseMediaFrames } from '../lib/renfoMedia'
+import { RENFO_FOCUS_COLORS as _COLORS } from '../lib/renfoData'
+import { getExerciseMediaUrl, type ExoLocation } from '../lib/renfoMedia'
 
 const RENFO_FOCUS_COLORS = _COLORS as Record<string, string>
 
@@ -69,7 +69,6 @@ function Glyph({ category, size = 48 }: { category?: string; size?: number }) {
         </svg>
       )
     case 'yoga_coureur':
-    case 'pilates_coureur':
     case 'stretching':
     default:
       // silhouette qui s'étire (balancement doux)
@@ -90,23 +89,12 @@ function Glyph({ category, size = 48 }: { category?: string; size?: number }) {
  * élégant teinté par la couleur du focus. `exerciseId` = id PARENT de l'exercice.
  */
 export default function ExerciseMedia({
-  exerciseId, category, variant = 'full',
-}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full' }) {
+  exerciseId, category, variant = 'full', location,
+}: { exerciseId: string; category?: string; variant?: 'thumb' | 'full'; location?: ExoLocation }) {
   const [errored, setErrored] = useState(false)
-  const [frame, setFrame] = useState(0)
-  // Démo : free-exercise-db (domaine public) — 2 images départ↔arrivée qu'on BOUCLE
-  // pour animer le mouvement. Repli : gif du storage existant. Sinon placeholder.
-  const fedFrames = getExerciseMediaFrames(exerciseId)
-  const gifUrl = fedFrames ? null : (getExerciseGifUrl(exerciseId) as string | null)
-  useEffect(() => {
-    setErrored(false)
-    setFrame(0)
-    if (!fedFrames || fedFrames.length < 2) return
-    const t = setInterval(() => setFrame((f) => (f + 1) % fedFrames.length), 750)
-    return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exerciseId])
-  const url = fedFrames ? fedFrames[frame] : gifUrl
+  // Démo WebP animée (GymVisual, licence commerciale) servie en local. La version
+  // « maison » est utilisée si le lieu sélectionné l'est et qu'elle existe.
+  const url = getExerciseMediaUrl(exerciseId, location)
   const color = RENFO_FOCUS_COLORS[category ?? ''] ?? '#7c3aed'
   const showImg = !!url && !errored
 

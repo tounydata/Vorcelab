@@ -11,7 +11,7 @@ import { FOCUS_META, RENFO_FOCUS_COLORS } from '../../lib/renfoData'
 // L'athlète choisit librement, puis LANCE la séance (page renfo dédiée).
 
 const FORCE_FOCUSES = ['force_lourde', 'pliometrie', 'excentrique', 'tronc'] as const
-const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'pilates_coureur', 'stretching'] as const
+const MOBILITE_FOCUSES = ['haut_corps', 'yoga_coureur', 'stretching'] as const
 
 function fmtLastDate(iso: string) {
   const diff = Math.round((Date.now() - new Date(iso).getTime()) / 86400000)

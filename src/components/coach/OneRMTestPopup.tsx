@@ -14,7 +14,6 @@ const KEY_LIFTS: { id: string; label: string }[] = [
   { id: 'deadlift', label: 'Soulevé de terre' },
   { id: 'hip_thrust', label: 'Hip thrust' },
   { id: 'rdl', label: 'Soulevé roumain' },
-  { id: 'soleus_raise', label: 'Mollet (soléaire)' },
 ]
 
 // Échauffement en rampe (charges RELATIVES : le 1RM est encore inconnu).
