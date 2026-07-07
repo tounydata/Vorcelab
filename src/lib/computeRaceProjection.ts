@@ -702,6 +702,95 @@ export function computeRaceProjection(
     })
   }
 
+  // ── 9.5 Ancrage sur tes courses réelles + fade d'endurance ────────────────────
+  // Deux corrections, ACTIVES uniquement quand la donnée existe (sinon comportement
+  // strictement inchangé — la fiabilité grandit avec l'historique) :
+  //  (a) ANCRAGE : la projection additionne des allures par pente apprises surtout à
+  //      l'ENTRAÎNEMENT → elle peut sortir plus rapide que ta perf réelle. On réaligne
+  //      son allure PLAT-ÉQUIVALENTE (Minetti neutralise le D+) sur celle de TES courses
+  //      étiquetées, pondérées par récence + proximité de distance. L'ancrage ne fait que
+  //      RALENTIR (calib ≥ 1) : l'accélération (coureur qui performe > entraînement) est
+  //      déjà gérée par le FIC (plafonné), non doublonnée ici ; le trou que le FIC ne sait
+  //      pas combler — son plancher ≥1 — est le cas « 30 km projeté plus vite au km que ton
+  //      vrai 22 km », que l'ancrage corrige. FIC (accélère) + ancrage (ralentit) = bidir.
+  //  (b) FADE D'ENDURANCE (Riegel) : au-delà de la plus longue sortie que tu as
+  //      couverte, le temps s'allonge un peu plus que proportionnellement (fatigue).
+  const raceDpKm2 = totalDistM > 0 ? dplus / (totalDistM / 1000) : 0
+
+  function labeledRacePool(): Record<string, unknown>[] {
+    const races = activities.filter((a) => {
+      const t = a.type as string, st = a.sport_type as string
+      const run = ['Run', 'TrailRun', 'Trail Run'].includes(t) || ['Run', 'TrailRun', 'Trail Run'].includes(st)
+      return isRaceEffort(a) && run && (a.distance as number) > 3000 && (a.average_speed as number) > 0
+    })
+    // Un trail se cale sur tes trails uniquement (route ≠ trail, musculairement).
+    return isTrail
+      ? races.filter((a) => TRAIL_TYPES.includes(a.type as string) || (a.sport_type as string) === 'TrailRun')
+      : races
+  }
+
+  // (a) Allure plat-équivalente démontrée (s/km) sur tes courses réelles.
+  const anchorPool = labeledRacePool()
+  if (anchorPool.length && totalDistM > 0) {
+    const now = dayAnchoredNow()
+    let num = 0, den = 0
+    for (const a of anchorPool) {
+      const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
+      const flatPaceS = (1000 / (a.average_speed as number)) / meanGradeFactor(dpkm)
+      const ageDays = Math.max(0, (now - new Date(a.start_date as string).getTime()) / 86_400_000)
+      const wRec = 1 / (1 + ageDays / 180)                            // récence (demi-vie ~6 mois)
+      const dist = a.distance as number
+      const sim = 1 - Math.min(1, Math.abs(dist - totalDistM) / Math.max(totalDistM, dist)) // 1 = même distance
+      const w = wRec * (0.4 + 0.6 * sim)
+      num += flatPaceS * w; den += w
+    }
+    if (den > 0) {
+      const demoFlatPaceS = num / den
+      // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
+      const n = anchorPool.length
+      const trust = n >= 3 ? 0.9 : n === 2 ? 0.7 : 0.45
+      const projFlatPaceS = (estTimeS / (totalDistM / 1000)) / meanGradeFactor(raceDpKm2)
+      if (projFlatPaceS > 0) {
+        const targetFlat = projFlatPaceS * (1 - trust) + demoFlatPaceS * trust
+        // Ralentissement seul (≥1) : ne double pas l'accélération du FIC. Plafonné +50 %.
+        const calib = Math.min(1.5, Math.max(1.0, targetFlat / projFlatPaceS))
+        estTimeS *= calib
+        const pct = Math.round((calib - 1) * 100)
+        if (pct >= 1) personalAdjustments.push({
+          label: `Calé sur tes courses : +${pct}%`,
+          detail: 'Projection ramenée à l\'allure plat-équivalente de tes courses réelles (Minetti neutralise le D+ de chacune) — corrige un excès d\'optimisme.',
+          color: 'var(--vl-ember)',
+        })
+      }
+    }
+  }
+
+  // (b) Fade d'endurance au-delà de ta plus longue sortie (même famille trail/route).
+  let demoDurationS = 0
+  for (const a of activities) {
+    const t = a.type as string, st = a.sport_type as string
+    const run = ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t) || ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(st)
+    if (!run) continue
+    if (isTrail && !(TRAIL_TYPES.includes(t) || st === 'TrailRun')) continue
+    const mt = (a.moving_time as number) || 0
+    if ((a.distance as number) > 3000 && mt > 1800) demoDurationS = Math.max(demoDurationS, mt)
+  }
+  let extrapolationRatio = 1
+  if (demoDurationS > 0 && estTimeS > demoDurationS) {
+    extrapolationRatio = estTimeS / demoDurationS
+    // Exposant Riegel : 1.06 sur le domaine « classique », plus raide quand on extrapole
+    // très au-delà du vécu (Riegel sous-estime les ultras) → k monte jusqu'à 0.12.
+    const k = 0.06 + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))
+    const fade = Math.min(1.35, Math.pow(extrapolationRatio, k))
+    estTimeS *= fade
+    const pct = Math.round((fade - 1) * 100)
+    if (pct >= 1) personalAdjustments.push({
+      label: `Endurance longue distance : +${pct}%`,
+      detail: `Course plus longue que ta plus grande sortie (×${extrapolationRatio.toFixed(1)}) — allongement d'allure attendu.`,
+      color: 'var(--vl-amber)',
+    })
+  }
+
   // Scale section times to match final estTimeS
   const rawSum = sectionTimes.reduce((s, t) => s + t, 0)
   const sf = rawSum > 0 ? estTimeS / rawSum : 1
@@ -731,7 +820,11 @@ export function computeRaceProjection(
   if (streamCoverage >= 0.6) confScore += 2
   else if (streamCoverage >= 0.3) confScore += 1
   confScore = Math.max(0, confScore)
-  const confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 3 ? 'medium' : 'low'
+  let confidence: 'good' | 'medium' | 'low' = confScore >= 7 ? 'good' : confScore >= 3 ? 'medium' : 'low'
+  // Extrapolation : une distance très au-delà de ton vécu ne peut pas être « good ».
+  // La fourchette s'élargit d'elle-même (elle est indexée sur la confiance).
+  if (extrapolationRatio > 1.6) confidence = 'low'
+  else if (extrapolationRatio > 1.25 && confidence === 'good') confidence = 'medium'
 
   // ── 11. Range — tighter when good stream coverage + controlled cardio ──────
   const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
