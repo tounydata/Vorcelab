@@ -775,18 +775,30 @@ export function computeRaceProjection(
     const mt = (a.moving_time as number) || 0
     if ((a.distance as number) > 3000 && mt > 1800) demoDurationS = Math.max(demoDurationS, mt)
   }
+  // Durabilité individuelle : ta dérive cardiaque apprise (hrDrift, H1→H2) EST un signal
+  // de durabilité. Une dérive marquée = tu décroches sur la durée → le fade doit être plus
+  // raide ; une dérive stable = tu tiens l'allure → fade plus doux. Modulateur borné,
+  // appliqué uniquement quand le signal est fiable (sinon neutre → pas de régression).
+  let durabilityMult = 1
+  let durabilityNote: string | null = null
+  if (hrDriftConf === 'high' || hrDriftConf === 'medium') {
+    if (hrDriftStatus === 'marked' && hrDriftPct > 8) { durabilityMult = 1.30; durabilityNote = 'faible' }
+    else if (hrDriftStatus === 'stable') { durabilityMult = 0.80; durabilityNote = 'solide' }
+    else if (hrDriftStatus === 'moderate') { durabilityMult = 1.10 }
+  }
   let extrapolationRatio = 1
   if (demoDurationS > 0 && estTimeS > demoDurationS) {
     extrapolationRatio = estTimeS / demoDurationS
     // Exposant Riegel : 1.06 sur le domaine « classique », plus raide quand on extrapole
-    // très au-delà du vécu (Riegel sous-estime les ultras) → k monte jusqu'à 0.12.
-    const k = 0.06 + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))
-    const fade = Math.min(1.35, Math.pow(extrapolationRatio, k))
+    // très au-delà du vécu (Riegel sous-estime les ultras) → k monte jusqu'à 0.12 ; puis
+    // modulé par TA durabilité (dérive cardiaque apprise).
+    const k = (0.06 + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
+    const fade = Math.min(1.40, Math.pow(extrapolationRatio, k))
     estTimeS *= fade
     const pct = Math.round((fade - 1) * 100)
     if (pct >= 1) personalAdjustments.push({
       label: `Endurance longue distance : +${pct}%`,
-      detail: `Course plus longue que ta plus grande sortie (×${extrapolationRatio.toFixed(1)}) — allongement d'allure attendu.`,
+      detail: `Course plus longue que ta plus grande sortie (×${extrapolationRatio.toFixed(1)}) — allongement d'allure attendu${durabilityNote ? `, ajusté à ta durabilité ${durabilityNote} (dérive cardiaque)` : ''}.`,
       color: 'var(--vl-amber)',
     })
   }

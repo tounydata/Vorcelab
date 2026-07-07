@@ -264,7 +264,8 @@ function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; 
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {forecast.tempC != null ? <Chip><Ico name="temp" c={colors.ember} s={13} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>{Math.round(forecast.tempC)}°C</Text></Chip> : null}
+          {forecast.tempC != null ? <Chip><Ico name="temp" c={colors.ember} s={13} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>{Math.round(forecast.tempC)}°C{forecast.feelsLikeC != null && Math.abs(forecast.feelsLikeC - forecast.tempC) >= 2 ? ` · RESSENTI ${Math.round(forecast.feelsLikeC)}°C` : ''}</Text></Chip> : null}
+          {forecast.humidityPct != null && forecast.humidityPct >= 70 ? <Chip><View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#8aa0c8' }} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>HUMIDITÉ {Math.round(forecast.humidityPct)}%</Text></Chip> : null}
           {forecast.windKmh != null ? <Chip><Ico name="wind" c={colors.text2} s={13} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>VENT {Math.round(forecast.windKmh)} KM/H</Text></Chip> : null}
           {forecast.isNight ? <Chip><Ico name="moon" c="#8aa0c8" s={13} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>NUIT</Text></Chip> : null}
           {forecast.precipMm != null ? <Chip><View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: forecast.precipMm > 0.5 ? '#8aa0c8' : colors.growth }} /><Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.66 }}>{forecast.precipMm > 0.5 ? 'PLUIE' : 'SEC'}</Text></Chip> : null}

@@ -3,7 +3,8 @@ import { computeWeatherImpact, type RaceConditions } from '../src/lib/raceWeathe
 import type { ConditionPenalties } from '../src/lib/runnerProfile'
 
 const baseCond: RaceConditions = {
-  available: true, daysToRace: 5, tempC: 15, windKmh: 8, precipMm: 0, isNight: false, startHour: 9,
+  available: true, daysToRace: 5, tempC: 15, humidityPct: null, feelsLikeC: null,
+  windKmh: 8, precipMm: 0, isNight: false, startHour: 9,
 }
 
 describe('computeWeatherImpact', () => {
@@ -54,6 +55,21 @@ describe('computeWeatherImpact', () => {
     const r = computeWeatherImpact({ ...baseCond, tempC: 30, isNight: true, windKmh: 40 }, pen)
     expect(r.totalPct).toBeLessThanOrEqual(20)
     expect(r.factor).toBeCloseTo(1.2, 5)
+  })
+
+  it('l\'humidité aggrave la pénalité chaleur (ressenti > air)', () => {
+    // Même 30 °C d'air : humide vs sec → le ressenti (et donc la pénalité) plus élevé.
+    const dry = computeWeatherImpact({ ...baseCond, tempC: 30, humidityPct: 25, windKmh: 5 }, undefined)
+    const humid = computeWeatherImpact({ ...baseCond, tempC: 30, humidityPct: 85, windKmh: 5 }, undefined)
+    const dryPct = dry.items.find((i) => i.key === 'heat')?.pct ?? 0
+    const humidPct = humid.items.find((i) => i.key === 'heat')?.pct ?? 0
+    expect(humidPct).toBeGreaterThan(dryPct)
+  })
+
+  it('déclenche la chaleur via le RESSENTI même si l\'air est sous le seuil', () => {
+    // Air 21 °C (< 22) mais très humide → ressenti > 22 → chaleur active.
+    const r = computeWeatherImpact({ ...baseCond, tempC: 21, humidityPct: 95, windKmh: 0 }, undefined)
+    expect(r.items.find((i) => i.key === 'heat')).toBeDefined()
   })
 
   it('déclenche le vent via le facteur isotrope (×0.6 > 15 km/h)', () => {

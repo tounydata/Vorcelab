@@ -85,6 +85,25 @@ describe('Fade d\'endurance — au-delà de la plus longue sortie couverte', () 
   })
 })
 
+describe('Fade d\'endurance modulé par la durabilité (dérive cardiaque du profil)', () => {
+  const shortHist = [
+    trailRun(360, 10000, 400, 6), trailRun(365, 12000, 450, 14), trailRun(358, 11000, 420, 25),
+  ]
+  const prof = (status: string, pct: number) => ({ runner_profile: { hrDriftStatus: status, hrDriftPct: pct, hrDriftConfidence: 'high' } })
+
+  it('une durabilité FAIBLE (dérive marquée) durcit le fade vs une durabilité SOLIDE (stable)', () => {
+    const weak = computeRaceProjection(course30, shortHist, prof('marked', 15), race)
+    const solid = computeRaceProjection(course30, shortHist, prof('stable', 2), race)
+    expect(weak.estTimeS).toBeGreaterThan(solid.estTimeS)
+  })
+
+  it('sans signal de durabilité fiable, le fade est inchangé (pas de régression)', () => {
+    const none = computeRaceProjection(course30, shortHist, {}, race)
+    const lowConf = computeRaceProjection(course30, shortHist, { runner_profile: { hrDriftStatus: 'marked', hrDriftPct: 15, hrDriftConfidence: 'low' } }, race)
+    expect(lowConf.estTimeS).toBe(none.estTimeS)
+  })
+})
+
 describe('Non-régression — gating strict quand la donnée manque', () => {
   it('aucune course étiquetée + distance dans le vécu ⇒ aucun ajustement d\'ancrage ni de fade', () => {
     const runs = [
