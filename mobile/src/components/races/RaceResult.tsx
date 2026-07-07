@@ -118,7 +118,7 @@ function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnota
     fetchStreams(streamId).then((s) => setStream(s)).catch(() => setStream(undefined)).finally(() => setLoading(false))
   }, [streamId])
   const ravitoKms = useMemo(() => ravitos.map((r) => r.km), [ravitos])
-  const d = useMemo(() => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations }) : null), [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, ravitoKms, annotations])
+  const d = useMemo(() => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations, tempC: activity.tempC }) : null), [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, activity.tempC, ravitoKms, annotations])
 
   return (
     <View style={{ gap: 14 }}>
@@ -355,8 +355,12 @@ function PacingBlock({ d }: { d: RaceDebrief }) {
 function CardiacBlock({ d }: { d: RaceDebrief }) {
   const ZONE_COLORS = ['#5da084', '#7bb37a', '#d4a843', '#d6803e', '#d1583a']
   const drift = d.decouplingPct
-  const driftColor = drift == null ? colors.text2 : drift < 5 ? FASTER : drift < 10 ? colors.amber : SLOWER
-  const driftWord = drift == null ? '—' : drift < 5 ? 'maîtrisé' : drift < 10 ? 'modéré' : 'élevé'
+  // Le mot/couleur reflètent la dérive NETTE (hors chaleur / départ rapide) : c'est elle
+  // qui juge l'endurance. La valeur affichée reste la dérive MESURÉE.
+  const netDrift = d.adjustedDecouplingPct ?? drift
+  const driftColor = netDrift == null ? colors.text2 : netDrift < 5 ? FASTER : netDrift < 10 ? colors.amber : SLOWER
+  const driftWord = netDrift == null ? '—' : netDrift < 5 ? 'maîtrisé' : netDrift < 10 ? 'modéré' : 'élevé'
+  const confBits = d.driftConfounders.map((c) => c === 'heat' ? `chaleur ${d.tempC != null ? `${d.tempC.toFixed(0)} °C` : ''}`.trim() : 'départ rapide')
   const fade = d.durabilityFadePct
   const fadeColor = d.durabilityBand === 'solid' ? FASTER : d.durabilityBand === 'moderate' ? colors.amber : SLOWER
   const fadeWord = d.durabilityBand === 'solid' ? 'solide' : d.durabilityBand === 'moderate' ? 'modérée' : 'à renforcer'
@@ -368,10 +372,12 @@ function CardiacBlock({ d }: { d: RaceDebrief }) {
         <Stat label="FC MAX" value={d.maxHR != null ? `${d.maxHR}` : '—'} unit="bpm" />
         <Stat label={d.decouplingGapAdjusted ? 'DÉRIVE GAP:FC' : 'DÉRIVE H1→H2'} value={drift != null ? `${drift >= 0 ? '+' : ''}${drift.toFixed(0)}%` : '—'} unit={driftWord} color={driftColor} />
         {fade != null ? <Stat label="DURABILITÉ" value={`${fade > 0 ? '−' : '+'}${Math.abs(fade).toFixed(0)}%`} unit={fadeWord} color={fadeColor} /> : null}
+        {d.tempC != null ? <Stat label="TEMPÉRATURE" value={`${d.tempC.toFixed(0)}°`} unit={d.tempC >= 28 ? 'forte chaleur' : d.tempC >= 22 ? 'chaud' : d.tempC < 5 ? 'froid' : 'tempéré'} color={d.tempC >= 22 ? colors.ember : colors.text2} /> : null}
       </View>
       {drift != null ? (
         <Text style={{ fontSize: 12.5, color: colors.text2, lineHeight: 18, marginBottom: d.zones ? 14 : 0 }}>
-          {drift < 5 ? 'Allure et fréquence cardiaque restées couplées : endurance solide sur la durée.' : drift < 10 ? "Légère dérive en 2ᵉ moitié — l'effort a coûté un peu plus cher sur la fin." : 'Forte dérive : à allure égale, ta FC a grimpé — signe de fatigue, chaleur ou nutrition à revoir.'}
+          {netDrift! < 5 ? 'Allure et fréquence cardiaque restées couplées : endurance solide sur la durée.' : netDrift! < 10 ? "Légère dérive en 2ᵉ moitié — l'effort a coûté un peu plus cher sur la fin." : 'Forte dérive : à allure égale, ta FC a grimpé — signe de fatigue ou de nutrition à revoir.'}
+          {confBits.length > 0 ? `  Dérive mesurée +${drift.toFixed(0)} %, dont une part attribuée à ${confBits.join(' et ')} — sans ça, ~+${(netDrift ?? 0).toFixed(0)} % : ton endurance n'est pas en cause.` : ''}
           {d.decouplingGapAdjusted ? ' Dérive ajustée à la pente (GAP:FC), donc interprétable malgré le dénivelé.' : ''}
           {d.hrDriftPredicted ? " La projection l'avait anticipé." : ''}
         </Text>
@@ -468,7 +474,7 @@ function ProfileLoopBlock({ d }: { d: RaceDebrief }) {
       <Text style={{ fontSize: 12.5, color: colors.text2, lineHeight: 18, marginBottom: 12 }}>Ces mesures réelles affinent ton profil — ta prochaine projection sera plus juste.</Text>
       <View style={{ flexDirection: 'row', gap: 18, flexWrap: 'wrap' }}>
         {d.raceVamMH != null ? <Stat label="VAM DE COURSE" value={`${d.raceVamMH}`} unit="m/h" /> : null}
-        {d.decouplingPct != null ? <Stat label="ENDURANCE" value={d.decouplingPct < 8 ? 'Solide' : 'À renforcer'} unit={`dérive ${d.decouplingPct >= 0 ? '+' : ''}${d.decouplingPct.toFixed(0)}%`} /> : null}
+        {d.decouplingPct != null ? <Stat label="ENDURANCE" value={(d.adjustedDecouplingPct ?? d.decouplingPct) < 8 ? 'Solide' : 'À renforcer'} unit={`dérive nette ${(d.adjustedDecouplingPct ?? d.decouplingPct) >= 0 ? '+' : ''}${(d.adjustedDecouplingPct ?? d.decouplingPct).toFixed(0)}%`} /> : null}
         <Stat label="PACING" value={d.splitPct <= 2 ? 'Régulier' : 'Positif'} unit={`split ${d.splitPct >= 0 ? '+' : ''}${d.splitPct.toFixed(0)}%`} />
       </View>
     </Card>

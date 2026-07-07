@@ -259,3 +259,37 @@ describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
     expect(d.verdict).toMatch(/arrêt/i)
   })
 })
+
+describe('computeRaceDebrief — dérive cardiaque : chaleur & départ rapide', () => {
+  it('un départ trop rapide est identifié comme facteur de la dérive (pas un déficit d\'endurance)', () => {
+    const d = computeRaceDebrief(projection(), positiveSplitStreams())!
+    expect(d.decouplingPct!).toBeGreaterThan(10)
+    expect(d.driftConfounders).toContain('fast_start')
+    expect(d.adjustedDecouplingPct!).toBeLessThan(d.decouplingPct!)
+    // Le conseil sur la dérive mentionne le départ, pas uniquement l'endurance/nutrition.
+    expect(d.takeaways.some((t) => /départ|prudent/i.test(t.text))).toBe(true)
+  })
+
+  it('la chaleur (Strava average_temp) est prise en compte et créditée', () => {
+    const hot = computeRaceDebrief(projection(), positiveSplitStreams(), null, { tempC: 30 })!
+    const cool = computeRaceDebrief(projection(), positiveSplitStreams(), null, { tempC: 12 })!
+    expect(hot.tempC).toBe(30)
+    expect(hot.driftConfounders).toContain('heat')
+    expect(cool.driftConfounders).not.toContain('heat')
+    // À dérive MESURÉE égale, la chaleur abaisse la dérive NETTE …
+    expect(hot.adjustedDecouplingPct!).toBeLessThan(cool.adjustedDecouplingPct!)
+    // … et ne pénalise donc pas l'endurance : note d'exécution au moins aussi bonne.
+    expect(hot.executionScore).toBeGreaterThanOrEqual(cool.executionScore)
+    expect(hot.takeaways.some((t) => /chaleur|30/.test(t.text))).toBe(true)
+  })
+
+  it('sans chaleur ni départ rapide, la dérive nette = la dérive mesurée (pas de régression)', () => {
+    const distance: number[] = [], time: number[] = [], heartrate: number[] = []
+    for (let i = 0; i <= 100; i++) { const dd = i * 100; distance.push(dd); time.push(dd * 0.25); heartrate.push(150 + Math.round(dd / 1000)) }
+    const s: StreamData = { distance: { data: distance }, time: { data: time }, heartrate: { data: heartrate } }
+    const d = computeRaceDebrief(projection(), s, null, { tempC: 12 })!
+    expect(Math.abs(d.splitPct)).toBeLessThan(3)         // allure régulière → pas de départ rapide
+    expect(d.driftConfounders).toEqual([])
+    expect(d.adjustedDecouplingPct).toBe(d.decouplingPct)
+  })
+})

@@ -40,6 +40,7 @@ export interface ActivityLite {
   moving_time?: number | null       // s
   elapsed_time?: number | null      // s
   total_elevation_gain?: number | null
+  tempC?: number | null             // °C moyen (Strava average_temp) — contexte chaleur du débrief
 }
 
 const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun'])
@@ -51,6 +52,9 @@ function num(v: unknown): number | null {
 
 /** Normalise une ligne strava_activities en ActivityLite. */
 export function toActivityLite(row: Record<string, unknown>): ActivityLite {
+  // Température : soit la colonne aliasée (average_temp), soit dans raw_data (select *).
+  const raw = row.raw_data as Record<string, unknown> | null | undefined
+  const tempC = num(row.average_temp) ?? (raw ? num(raw.average_temp) : null)
   return {
     id: String(row.id),
     stravaActivityId: row.strava_activity_id != null ? String(row.strava_activity_id) : null,
@@ -62,6 +66,7 @@ export function toActivityLite(row: Record<string, unknown>): ActivityLite {
     moving_time: num(row.moving_time),
     elapsed_time: num(row.elapsed_time),
     total_elevation_gain: num(row.total_elevation_gain),
+    tempC,
   }
 }
 
