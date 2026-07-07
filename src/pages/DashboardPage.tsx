@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Link } from 'react-router'
+import { NavLink, Link, useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { syncStravaRenfo } from '../lib/syncStravaRenfo'
@@ -16,6 +16,9 @@ import { useRaceProjection } from '../lib/useRaceProjection'
 import { fmtRaceTimeS } from '../lib/raceStrategyView'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import BrandedLoader from '../components/BrandedLoader'
+import PostRaceModal from '../components/races/PostRaceModal'
+import { pickRacePrompt, type RaceCalendarRow } from '../lib/racePrompt'
+import { linkRaceResult } from '../lib/linkRaceResult'
 
 interface SessionLog2 extends SessionLog {
   source?: string | null
@@ -559,6 +562,7 @@ function loadSectionOrder(): string[] {
 
 export default function DashboardPage() {
   const { user } = useVLStore()
+  const navigate = useNavigate()
 
   const { data: activities = [], isLoading } = useQuery<Activity2[]>({
     queryKey: ['activities'],
@@ -634,6 +638,34 @@ export default function DashboardPage() {
       return data as NextRace | null
     },
   })
+
+  // ── Pop-up post-course : courses récentes non encore liées à une activité ──────
+  const { data: recentRaces = [] } = useQuery<RaceCalendarRow[]>({
+    queryKey: ['recent-unlinked-races', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 12 * 86_400_000).toISOString().slice(0, 10)
+      const today = new Date().toISOString().slice(0, 10)
+      const { data } = await supabase
+        .from('race_calendar')
+        .select('id,name,date,distance,start_time,result_activity_id')
+        .gte('date', since).lte('date', today)
+        .is('result_activity_id', null)
+        .order('date', { ascending: false })
+      return (data ?? []) as RaceCalendarRow[]
+    },
+  })
+  const [dismissedRaces, setDismissedRaces] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('vl-race-prompt-dismissed') ?? '[]') as string[] } catch { return [] }
+  })
+  const racePrompt = pickRacePrompt(recentRaces, activities as unknown as Record<string, unknown>[], dismissedRaces)
+  const dismissRacePrompt = (id: string) => {
+    setDismissedRaces((prev) => {
+      const next = [...new Set([...prev, id])]
+      localStorage.setItem('vl-race-prompt-dismissed', JSON.stringify(next))
+      return next
+    })
+  }
 
   const { data: profileData, refetch: refetchProfile } = useQuery<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number; dashboard_layout?: string[] | null } | null>({
     queryKey: ['profile-fcmax-dash', user?.id],
@@ -771,6 +803,18 @@ export default function DashboardPage() {
 
   return (
     <>
+      {racePrompt && (
+        <PostRaceModal
+          prompt={racePrompt}
+          onLink={async (activityId) => {
+            await linkRaceResult(racePrompt.race.id, activityId)
+            queryClient.invalidateQueries({ queryKey: ['recent-unlinked-races'] })
+            navigate(`/race/${racePrompt.race.id}`)
+          }}
+          onOpenRace={() => { dismissRacePrompt(racePrompt.race.id); navigate(`/race/${racePrompt.race.id}`) }}
+          onDismiss={() => dismissRacePrompt(racePrompt.race.id)}
+        />
+      )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: '1.25rem' }}>
         <div className="clabel" style={{ margin: 0, fontSize: '1.4rem', fontFamily: 'var(--vl-display)', letterSpacing: '0.04em' }}>
           DASHBOARD

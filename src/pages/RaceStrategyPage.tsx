@@ -9,6 +9,7 @@ import { computeNutritionPlan } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
 import type { RaceAnnotation } from '../lib/raceDebrief'
+import { linkRaceResult } from '../lib/linkRaceResult'
 import { getAthleteLabel } from '../lib/athleteLabel'
 import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
@@ -95,14 +96,9 @@ export default function RaceStrategyPage() {
   })
 
   // Lie (ou délie) l'activité Strava réelle de la course pour la comparaison projeté/réel.
+  // La liaison marque aussi l'activité « course » (is_race) — cf. linkRaceResult.
   const resultMutation = useMutation({
-    mutationFn: async (activityId: string | null) => {
-      const { error } = await supabase
-        .from('race_calendar')
-        .update({ result_activity_id: activityId })
-        .eq('id', raceId!)
-      if (error) throw error
-    },
+    mutationFn: (activityId: string | null) => linkRaceResult(raceId!, activityId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['race', raceId] }),
   })
 

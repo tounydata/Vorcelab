@@ -18,6 +18,9 @@ import { useRaceProjection } from '@/lib/useRaceProjection'
 import { fmtRaceTimeS } from '@/lib/raceStrategyView'
 import CoachCard from '@/components/CoachCard'
 import BrandedLoader from '@/components/BrandedLoader'
+import PostRaceModal from '@/components/races/PostRaceModal'
+import { pickRacePrompt, type RaceCalendarRow } from '@/lib/racePrompt'
+import { linkRaceResult } from '@/lib/linkRaceResult'
 import { colors, radius, space } from '@/lib/theme'
 
 interface SessionLog2 extends SessionLog { source?: string | null }
@@ -285,20 +288,24 @@ export default function Dashboard() {
   const [renfoLogs, setRenfoLogs] = useState<SessionLog2[]>([])
   const [pmcActs, setPmcActs] = useState<Activity2[]>([])
   const [nextRace, setNextRace] = useState<NextRace | null>(null)
+  const [recentRaces, setRecentRaces] = useState<RaceCalendarRow[]>([])
+  const [dismissedRaces, setDismissedRaces] = useState<string[]>([])
   const [profileData, setProfileData] = useState<{ fc_max?: number; runner_profile?: RunnerProfileComputed | null; renfo_weekly_target?: number; dashboard_layout?: string[] | null } | null>(null)
   const [sectionOrder, setSectionOrder] = useState<string[]>([...DASH_SECTIONS])
   const [arranging, setArranging] = useState(false)
   const profileTriggeredRef = useRef(false)
 
   const load = useCallback(async () => {
-    const [{ data: acts }, { data: pmc }, { data: race }] = await Promise.all([
+    const [{ data: acts }, { data: pmc }, { data: race }, { data: recent }] = await Promise.all([
       supabase.from('strava_activities').select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate,average_speed').order('start_date', { ascending: false }).limit(100),
       supabase.from('strava_activities').select('id,name,distance,total_elevation_gain,moving_time,start_date,start_date_local,type,sport_type,average_heartrate,average_speed').gte('start_date', new Date(Date.now() - 100 * 86_400_000).toISOString().slice(0, 10)).order('start_date', { ascending: false }),
       supabase.from('race_calendar').select('id,name,date,distance,elevation,type,goal_time,start_time,gpx_data,last_projection,surfaces').gte('date', new Date().toISOString().slice(0, 10)).order('date', { ascending: true }).limit(1).maybeSingle(),
+      supabase.from('race_calendar').select('id,name,date,distance,start_time,result_activity_id').gte('date', new Date(Date.now() - 12 * 86_400_000).toISOString().slice(0, 10)).lte('date', new Date().toISOString().slice(0, 10)).is('result_activity_id', null).order('date', { ascending: false }),
     ])
     setActivities((acts ?? []) as Activity2[])
     setPmcActs((pmc ?? []) as Activity2[])
     setNextRace((race ?? null) as NextRace | null)
+    setRecentRaces((recent ?? []) as RaceCalendarRow[])
     if (userId) {
       const cutoff = new Date(Date.now() - 95 * 86_400_000).toISOString().slice(0, 10)
       const [{ data: renfo }, { data: prof }] = await Promise.all([
@@ -314,6 +321,17 @@ export default function Dashboard() {
 
   // Ordre des sections : AsyncStorage (cache) puis serveur (fait foi).
   useEffect(() => { AsyncStorage.getItem('vl-dash-order').then((v) => { if (v) try { setSectionOrder(sanitizeOrder(JSON.parse(v))) } catch { /* ignore */ } }) }, [])
+
+  // Pop-up post-course : courses récemment écartées (mémorisées).
+  useEffect(() => { AsyncStorage.getItem('vl-race-prompt-dismissed').then((v) => { if (v) try { setDismissedRaces(JSON.parse(v)) } catch { /* ignore */ } }) }, [])
+  const racePrompt = pickRacePrompt(recentRaces, activities as unknown as Record<string, unknown>[], dismissedRaces)
+  const dismissRacePrompt = (id: string) => {
+    setDismissedRaces((prev) => {
+      const next = [...new Set([...prev, id])]
+      AsyncStorage.setItem('vl-race-prompt-dismissed', JSON.stringify(next))
+      return next
+    })
+  }
   useEffect(() => {
     const sl = profileData?.dashboard_layout
     if (!sl?.length) return
@@ -417,6 +435,14 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+      {racePrompt ? (
+        <PostRaceModal
+          prompt={racePrompt}
+          onLink={async (activityId) => { await linkRaceResult(racePrompt.race.id, activityId); load(); router.push(`/race/${racePrompt.race.id}` as never) }}
+          onOpenRace={() => { dismissRacePrompt(racePrompt.race.id); router.push(`/race/${racePrompt.race.id}` as never) }}
+          onDismiss={() => dismissRacePrompt(racePrompt.race.id)}
+        />
+      ) : null}
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load().finally(() => setRefreshing(false)) }} tintColor={colors.ember} />}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
           <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: 1, color: colors.text }}>DASHBOARD</Text>
