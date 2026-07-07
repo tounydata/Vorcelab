@@ -319,7 +319,8 @@ function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; 
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {forecast.tempC != null && <Chip><Ico name="temp" c="var(--vl-ember)" s={13} /><span>{Math.round(forecast.tempC)}°C</span></Chip>}
+          {forecast.tempC != null && <Chip><Ico name="temp" c="var(--vl-ember)" s={13} /><span>{Math.round(forecast.tempC)}°C{forecast.feelsLikeC != null && Math.abs(forecast.feelsLikeC - forecast.tempC) >= 2 ? ` · RESSENTI ${Math.round(forecast.feelsLikeC)}°C` : ''}</span></Chip>}
+          {forecast.humidityPct != null && forecast.humidityPct >= 70 && <Chip><span style={{ width: 7, height: 7, borderRadius: 999, background: '#8aa0c8' }} /><span>HUMIDITÉ {Math.round(forecast.humidityPct)}%</span></Chip>}
           {forecast.windKmh != null && <Chip><Ico name="wind" c="var(--vl-text-2)" s={13} /><span>VENT {Math.round(forecast.windKmh)} KM/H</span></Chip>}
           {forecast.isNight && <Chip><Ico name="moon" c="#8aa0c8" s={13} /><span>NUIT</span></Chip>}
           {forecast.precipMm != null && <Chip><span style={{ width: 7, height: 7, borderRadius: 999, background: forecast.precipMm > 0.5 ? '#8aa0c8' : 'var(--vl-growth)' }} /><span>{forecast.precipMm > 0.5 ? 'PLUIE' : 'SEC'}</span></Chip>}

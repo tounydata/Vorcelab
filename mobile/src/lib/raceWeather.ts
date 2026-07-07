@@ -5,6 +5,7 @@
 // avec garde-fous physiologiques, et un repli générique quand la confiance manque.
 
 import type { ConditionPenalties } from './runnerProfile'
+import { apparentTempC, heatPenaltyPct } from './heatStress'
 
 export interface RaceConditions {
   available: boolean
@@ -13,6 +14,10 @@ export interface RaceConditions {
   daysToRace: number
   /** Température représentative de la fenêtre de course (°C). */
   tempC: number | null
+  /** Humidité relative représentative sur la fenêtre (%). */
+  humidityPct: number | null
+  /** Ressenti (°C) : température + humidité + vent (indice de stress thermique). */
+  feelsLikeC: number | null
   /** Vent max sur la fenêtre (km/h). */
   windKmh: number | null
   /** Précipitations cumulées sur la fenêtre (mm). */
@@ -73,8 +78,8 @@ export async function fetchRaceForecast(opts: {
   const daysToRace = Math.round((raceDay.getTime() - today.getTime()) / 86400000)
 
   const base: RaceConditions = {
-    available: false, daysToRace, tempC: null, windKmh: null, precipMm: null,
-    isNight: false, startHour: startTime ? startHour : null,
+    available: false, daysToRace, tempC: null, humidityPct: null, feelsLikeC: null,
+    windKmh: null, precipMm: null, isNight: false, startHour: startTime ? startHour : null,
   }
 
   if (daysToRace < 0) return { ...base, reason: 'Course passée' }
@@ -87,33 +92,37 @@ export async function fetchRaceForecast(opts: {
   try {
     const forecastDays = Math.min(16, daysToRace + 1)
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}` +
-      `&hourly=temperature_2m,precipitation,windspeed_10m&timezone=auto&forecast_days=${forecastDays}`
+      `&hourly=temperature_2m,relativehumidity_2m,precipitation,windspeed_10m&timezone=auto&forecast_days=${forecastDays}`
     const r = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (!r.ok) return { ...base, reason: 'Prévision indisponible' }
     const d = await r.json()
     const times: string[] = d.hourly?.time ?? []
     const temps: number[] = d.hourly?.temperature_2m ?? []
+    const hums: number[] = d.hourly?.relativehumidity_2m ?? []
     const winds: number[] = d.hourly?.windspeed_10m ?? []
     const precips: number[] = d.hourly?.precipitation ?? []
     if (!times.length) return { ...base, reason: 'Prévision indisponible' }
 
     let maxTemp: number | null = null, maxWind: number | null = null, sumPrecip = 0, night = false
+    let humAtMax: number | null = null
     let any = false
     for (let i = 0; i < times.length; i++) {
       if (!times[i].startsWith(dateISO)) continue
       const h = parseInt(times[i].slice(11, 13), 10)
       if (h < startHour || h > endHour) continue
       any = true
-      if (temps[i] != null) maxTemp = maxTemp == null ? temps[i] : Math.max(maxTemp, temps[i])
+      // Humidité prise à l'heure la plus CHAUDE (celle qui pilote le stress thermique).
+      if (temps[i] != null && (maxTemp == null || temps[i] > maxTemp)) { maxTemp = temps[i]; humAtMax = hums[i] ?? humAtMax }
       if (winds[i] != null) maxWind = maxWind == null ? winds[i] : Math.max(maxWind, winds[i])
       if (precips[i] != null) sumPrecip += precips[i]
       if (h >= 20 || h < 5) night = true
     }
     if (!any) return { ...base, reason: 'Prévision indisponible' }
 
+    const feelsLikeC = maxTemp != null ? +apparentTempC(maxTemp, humAtMax, maxWind).toFixed(1) : null
     return {
-      available: true, daysToRace, tempC: maxTemp, windKmh: maxWind,
-      precipMm: +sumPrecip.toFixed(1), isNight: night, startHour,
+      available: true, daysToRace, tempC: maxTemp, humidityPct: humAtMax, feelsLikeC,
+      windKmh: maxWind, precipMm: +sumPrecip.toFixed(1), isNight: night, startHour,
     }
   } catch {
     return { ...base, reason: 'Prévision indisponible' }
@@ -131,8 +140,11 @@ export function computeWeatherImpact(
   const items: WeatherImpactItem[] = []
   if (!cond.available) return { factor: 1, totalPct: 0, items }
 
+  // Chaleur : on juge sur le RESSENTI (température + humidité + vent), pas l'air seul —
+  // 30 °C humides coûtent bien plus que 30 °C secs.
+  const feelsLikeC = cond.feelsLikeC ?? (cond.tempC != null ? apparentTempC(cond.tempC, cond.humidityPct, cond.windKmh) : null)
   const active: ConditionKey[] = []
-  if (cond.tempC != null && cond.tempC > 22) active.push('heat')
+  if (feelsLikeC != null && feelsLikeC > 22) active.push('heat')
   if (cond.tempC != null && cond.tempC < 5) active.push('cold')
   if (cond.isNight) active.push('night')
   if (cond.windKmh != null && cond.windKmh * 0.6 > 15) active.push('wind')
@@ -140,7 +152,7 @@ export function computeWeatherImpact(
   // Repli générique (littérature) quand pas de pénalité perso fiable.
   const generic = (key: ConditionKey): number => {
     switch (key) {
-      case 'heat': return clampPct('heat', cond.tempC != null ? (cond.tempC - 22) * 1.2 : 4) // ~Ely 2007
+      case 'heat': return clampPct('heat', feelsLikeC != null ? heatPenaltyPct(feelsLikeC) : 4) // ressenti, ~Ely 2007
       case 'cold': return 3
       case 'night': return 4
       case 'wind': return clampPct('wind', cond.windKmh != null ? (cond.windKmh * 0.6 - 15) * 0.3 : 4)
