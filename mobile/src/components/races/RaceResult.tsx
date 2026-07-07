@@ -5,6 +5,9 @@ import type { ProjectionResult } from '@/lib/computeRaceProjection'
 import { findRaceActivity, toActivityLite, type ActivityLite } from '@/lib/raceComparison'
 import { computeRaceDebrief, INCIDENTS, VAM_BAND_LABEL, type RaceDebrief, type DebriefPoint, type RaceAnnotation, type IncidentLabel } from '@/lib/raceDebrief'
 import { fetchStreams, type StreamData } from '@/lib/streams'
+import { fetchRaceHeat, type RaceHeat } from '@/lib/weather'
+import { assessRacePreparation } from '@/lib/racePreparation'
+import type { ActivityForLoad } from '@/lib/trainingLoad'
 import { fmtHM } from '@/lib/raceStrategyView'
 import { Card, CLabel, MLabel, HButton, colors, radius } from '@/components/coach/ui'
 
@@ -91,7 +94,7 @@ export default function RaceResult({ projection, activities, resultActivityId, r
       </Card>
     )
   }
-  return <Debrief projection={projection} activity={linked} fcMax={fcMax} annotations={annotations} onChangeAnnotations={onChangeAnnotations} ravitos={ravitos} onUnlink={onUnlink} />
+  return <Debrief projection={projection} activity={linked} activities={activities} raceDateISO={raceDateISO} fcMax={fcMax} annotations={annotations} onChangeAnnotations={onChangeAnnotations} ravitos={ravitos} onUnlink={onUnlink} />
 }
 
 function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
@@ -108,17 +111,39 @@ function ActivityRow({ a, compact }: { a: ActivityLite; compact?: boolean }) {
   )
 }
 
-function Debrief({ projection, activity, fcMax, annotations = [], onChangeAnnotations, ravitos = [], onUnlink }: { projection: ProjectionResult; activity: ActivityLite; fcMax?: number | null; annotations?: RaceAnnotation[]; onChangeAnnotations?: (next: RaceAnnotation[]) => void; ravitos?: { km: number; label?: string }[]; onUnlink: () => void }) {
+function Debrief({ projection, activity, activities, raceDateISO, fcMax, annotations = [], onChangeAnnotations, ravitos = [], onUnlink }: { projection: ProjectionResult; activity: ActivityLite; activities: Record<string, unknown>[]; raceDateISO: string; fcMax?: number | null; annotations?: RaceAnnotation[]; onChangeAnnotations?: (next: RaceAnnotation[]) => void; ravitos?: { km: number; label?: string }[]; onUnlink: () => void }) {
   const streamId = activity.stravaActivityId
   const [stream, setStream] = useState<StreamData | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const [heat, setHeat] = useState<RaceHeat | null>(null)
   useEffect(() => {
     if (!streamId) { setLoading(false); return }
     setLoading(true)
     fetchStreams(streamId).then((s) => setStream(s)).catch(() => setStream(undefined)).finally(() => setLoading(false))
   }, [streamId])
   const ravitoKms = useMemo(() => ravitos.map((r) => r.km), [ravitos])
-  const d = useMemo(() => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations, tempC: activity.tempC }) : null), [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, activity.tempC, ravitoKms, annotations])
+
+  // Préparation : charge d'entraînement AVANT la course (sous-préparé vs vraie faiblesse).
+  const preparation = useMemo(
+    () => assessRacePreparation(activities as unknown as ActivityForLoad[], activity.start_date ?? raceDateISO, fcMax),
+    [activities, activity.start_date, raceDateISO, fcMax],
+  )
+
+  // Chaleur ressentie en course (Open-Meteo historique le long du GPX, garde-fou Strava).
+  const latlng = stream?.latlng?.data
+  const startLat = latlng?.[0]?.[0] ?? null
+  const startLon = latlng?.[0]?.[1] ?? null
+  useEffect(() => {
+    if (startLat == null || startLon == null || !activity.start_date) { setHeat(null); return }
+    const durationS = activity.elapsed_time ?? activity.moving_time ?? 3600
+    let alive = true
+    fetchRaceHeat(startLat, startLon, activity.start_date, durationS, activity.tempC ?? null)
+      .then((h) => { if (alive) setHeat(h) })
+      .catch(() => { if (alive) setHeat(null) })
+    return () => { alive = false }
+  }, [startLat, startLon, activity.start_date, activity.elapsed_time, activity.moving_time, activity.tempC])
+
+  const d = useMemo(() => (stream ? computeRaceDebrief(projection, stream, fcMax, { movingTimeS: activity.moving_time, elapsedTimeS: activity.elapsed_time, ravitoKms, annotations, tempC: activity.tempC, heat, preparation }) : null), [projection, stream, fcMax, activity.moving_time, activity.elapsed_time, activity.tempC, ravitoKms, annotations, heat, preparation])
 
   return (
     <View style={{ gap: 14 }}>
@@ -372,7 +397,7 @@ function CardiacBlock({ d }: { d: RaceDebrief }) {
         <Stat label="FC MAX" value={d.maxHR != null ? `${d.maxHR}` : '—'} unit="bpm" />
         <Stat label={d.decouplingGapAdjusted ? 'DÉRIVE GAP:FC' : 'DÉRIVE H1→H2'} value={drift != null ? `${drift >= 0 ? '+' : ''}${drift.toFixed(0)}%` : '—'} unit={driftWord} color={driftColor} />
         {fade != null ? <Stat label="DURABILITÉ" value={`${fade > 0 ? '−' : '+'}${Math.abs(fade).toFixed(0)}%`} unit={fadeWord} color={fadeColor} /> : null}
-        {d.tempC != null ? <Stat label="TEMPÉRATURE" value={`${d.tempC.toFixed(0)}°`} unit={d.tempC >= 28 ? 'forte chaleur' : d.tempC >= 22 ? 'chaud' : d.tempC < 5 ? 'froid' : 'tempéré'} color={d.tempC >= 22 ? colors.ember : colors.text2} /> : null}
+        {d.tempC != null ? <Stat label="TEMPÉRATURE" value={`${d.tempC.toFixed(0)}°`} unit={d.feelsLikeC != null && Math.abs(d.feelsLikeC - d.tempC) >= 2 ? `ressenti ${d.feelsLikeC.toFixed(0)}°` : d.tempC >= 28 ? 'forte chaleur' : d.tempC >= 22 ? 'chaud' : d.tempC < 5 ? 'froid' : 'tempéré'} color={Math.max(d.tempC, d.feelsLikeC ?? d.tempC) >= 22 ? colors.ember : colors.text2} /> : null}
       </View>
       {drift != null ? (
         <Text style={{ fontSize: 12.5, color: colors.text2, lineHeight: 18, marginBottom: d.zones ? 14 : 0 }}>
@@ -475,6 +500,7 @@ function ProfileLoopBlock({ d }: { d: RaceDebrief }) {
       <View style={{ flexDirection: 'row', gap: 18, flexWrap: 'wrap' }}>
         {d.raceVamMH != null ? <Stat label="VAM DE COURSE" value={`${d.raceVamMH}`} unit="m/h" /> : null}
         {d.decouplingPct != null ? <Stat label="ENDURANCE" value={(d.adjustedDecouplingPct ?? d.decouplingPct) < 8 ? 'Solide' : 'À renforcer'} unit={`dérive nette ${(d.adjustedDecouplingPct ?? d.decouplingPct) >= 0 ? '+' : ''}${(d.adjustedDecouplingPct ?? d.decouplingPct).toFixed(0)}%`} /> : null}
+        {d.preparation && d.preparation.status !== 'unknown' ? <Stat label="PRÉPARATION" value={d.preparation.status === 'undertrained' ? 'Légère' : d.preparation.status === 'high' ? 'Chargée' : 'Correcte'} unit={d.preparation.loadRatioPct != null ? `charge ${d.preparation.loadRatioPct}%` : ''} color={d.preparation.status === 'undertrained' ? colors.amber : colors.text2} /> : null}
         <Stat label="PACING" value={d.splitPct <= 2 ? 'Régulier' : 'Positif'} unit={`split ${d.splitPct >= 0 ? '+' : ''}${d.splitPct.toFixed(0)}%`} />
       </View>
     </Card>

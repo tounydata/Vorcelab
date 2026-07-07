@@ -292,4 +292,35 @@ describe('computeRaceDebrief — dérive cardiaque : chaleur & départ rapide', 
     expect(d.driftConfounders).toEqual([])
     expect(d.adjustedDecouplingPct).toBe(d.decouplingPct)
   })
+
+  it('utilise le RESSENTI (apparent_temperature) 2ᵉ moitié plutôt que l\'air pour la chaleur', () => {
+    // Air 20 °C (sous le seuil) mais ressenti 32 °C en 2ᵉ moitié (humide) → confondant chaleur.
+    const heat = { avgTempC: 20, avgApparentC: 28, secondHalfApparentC: 32, source: 'api' as const }
+    const d = computeRaceDebrief(projection(), positiveSplitStreams(), null, { tempC: 20, heat })!
+    expect(d.driftConfounders).toContain('heat')
+    expect(d.feelsLikeC).toBe(32)
+    expect(d.adjustedDecouplingPct!).toBeLessThan(d.decouplingPct!)
+  })
+})
+
+describe('computeRaceDebrief — préparation (charge d\'entraînement)', () => {
+  const undertrained = { status: 'undertrained' as const, loadRatioPct: 40, runCount42: 2, longestRunKm: 8, weeksLow: true }
+
+  it('recadre une forte dérive comme un manque de fond récent, pas une faiblesse à travailler', () => {
+    const d = computeRaceDebrief(projection(), positiveSplitStreams(), null, { preparation: undertrained })!
+    expect(d.decouplingPct!).toBeGreaterThan(10)
+    expect(d.preparation?.status).toBe('undertrained')
+    // Un enseignement parle de préparation légère…
+    expect(d.takeaways.some((t) => /pr[ée]paration l[ée]g[èe]re|fond r[ée]cent/i.test(t.text))).toBe(true)
+    // … et on n'assène PAS « travaille l'endurance fondamentale ».
+    expect(d.takeaways.some((t) => /travaille l'endurance fondamentale/i.test(t.text))).toBe(false)
+    expect(d.verdict).toMatch(/pr[ée]paration l[ée]g[èe]re/i)
+  })
+
+  it('sans info de préparation, comportement inchangé (endurance à travailler si dérive élevée)', () => {
+    const d = computeRaceDebrief(projection(), positiveSplitStreams())!
+    expect(d.preparation).toBeNull()
+    // départ rapide crédité → message confondant, pas de faux « endurance » ; mais pas de recadrage préparation.
+    expect(d.takeaways.some((t) => /pr[ée]paration l[ée]g[èe]re/i.test(t.text))).toBe(false)
+  })
 })

@@ -7,6 +7,8 @@ import type { StreamData } from './streams'
 import { compareProjectionToActual, type SectionCompare } from './raceComparison'
 import { minettiGradePenalty } from './gpxCore'
 import { vamBand, VAM_BAND_LABEL } from './coach/sessionAnalysis'
+import type { RacePreparation } from './racePreparation'
+import type { RaceHeat } from './weather'
 
 // Ré-export pour les consommateurs historiques (RaceResult) — source de vérité = sessionAnalysis.
 export { VAM_BAND_LABEL }
@@ -101,8 +103,12 @@ export interface RaceDebrief {
   adjustedDecouplingPct: number | null
   // Facteurs qui gonflent la dérive sans qu'elle traduise un déficit d'endurance.
   driftConfounders: ('heat' | 'fast_start')[]
-  // Température moyenne de la course (°C, Strava average_temp) si connue.
+  // Température de l'air de la course (°C) si connue.
   tempC: number | null
+  // Ressenti (apparent_temperature : humidité + vent + soleil) sur la 2ᵉ moitié (°C).
+  feelsLikeC: number | null
+  // État de préparation (charge d'entraînement AVANT la course) si évaluable.
+  preparation: RacePreparation | null
   // Durabilité (knowledge T16) : chute d'efficacité GAP:FC entre 1er et dernier tiers (%).
   durabilityFadePct: number | null
   durabilityBand: 'solid' | 'moderate' | 'weak' | null
@@ -239,7 +245,7 @@ export function computeRaceDebrief(
   proj: ProjectionResult,
   stream: StreamData,
   fcMax?: number | null,
-  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null; ravitoKms?: number[]; annotations?: RaceAnnotation[]; tempC?: number | null },
+  meta?: { movingTimeS?: number | null; elapsedTimeS?: number | null; ravitoKms?: number[]; annotations?: RaceAnnotation[]; tempC?: number | null; heat?: RaceHeat | null; preparation?: RacePreparation | null },
 ): RaceDebrief | null {
   const dist = stream.distance?.data
   const time = stream.time?.data
@@ -436,9 +442,15 @@ export function computeRaceDebrief(
   // DÉPART TROP RAPIDE (partir au-dessus du soutenable fait grimper la FC en 2ᵉ moitié).
   // On retire leur part estimée pour obtenir la dérive « nette » — celle qui compte pour
   // juger l'endurance — et on la signale au coureur au lieu de l'accabler à tort.
-  const tempC = meta?.tempC != null && Number.isFinite(meta.tempC) ? meta.tempC : null
+  const heat = meta?.heat ?? null
+  const tempC = meta?.tempC != null && Number.isFinite(meta.tempC) ? meta.tempC : (heat?.avgTempC ?? null)
+  // Ressenti (humidité + vent + soleil) de la 2ᵉ moitié : plus fidèle au stress
+  // thermique que l'air seul, et calé sur le moment où la dérive apparaît.
+  const feelsLikeC = heat?.secondHalfApparentC ?? heat?.avgApparentC ?? null
   const HEAT_T0 = 22
-  const heatAllowancePct = tempC != null && tempC > HEAT_T0 ? Math.min(7, (tempC - HEAT_T0) * 0.6) : 0
+  // On alloue la part « chaleur » sur le RESSENTI quand on l'a (sinon l'air).
+  const heatC = feelsLikeC ?? tempC
+  const heatAllowancePct = heatC != null && heatC > HEAT_T0 ? Math.min(8, (heatC - HEAT_T0) * 0.7) : 0
   const fastStartAllowancePct = splitPct > 4 ? Math.min(5, (splitPct - 4) * 0.5) : 0
   let adjustedDecouplingPct: number | null = decouplingPct
   const driftConfounders: ('heat' | 'fast_start')[] = []
@@ -453,6 +465,11 @@ export function computeRaceDebrief(
   }
   // Dérive de référence pour NOTER l'effort/endurance : la dérive nette (hors confondants).
   const effortDriftPct = adjustedDecouplingPct
+
+  // Préparation : une dérive/fade de fin de course chez un coureur arrivé SOUS-PRÉPARÉ
+  // (mois creux) reflète un manque de fond récent, pas une faiblesse à cibler.
+  const preparation = meta?.preparation ?? null
+  const underprepared = preparation?.status === 'undertrained'
 
   // ── Terrain : montées & descentes clés, réel vs projeté ──
   const terrain: TerrainVerdict[] = []
@@ -569,14 +586,20 @@ export function computeRaceDebrief(
     const ravBit = ravitoStoppedS >= 30 ? `, dont ${fmtDur(ravitoStoppedS)} au ravito` : ''
     const cause = unplannedStoppedS >= 45 ? 'ravito, hydratation ou douleurs' : 'surtout du ravito prévu'
     verdict = `${head} (${fmtDur(stoppedS)}${ravBit}) — ${cause}. Hors arrêts, ${accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`}. L'analyse ci-dessous les exclut.`
+  } else if (underprepared && ((decouplingPct != null && decouplingPct >= 10) || durabilityBand === 'weak' || descentFade === 'marked')) {
+    // Symptôme de fatigue de fin + arrivé sous-préparé → c'est le fond récent, pas une faiblesse.
+    verdict = `Ta fin de course a lâché, mais tu l'abordais avec une préparation légère (charge ~${preparation!.loadRatioPct} % de ton habitude) — c'est le fond récent qui manquait, pas ta capacité d'endurance.`
   } else if (executionScore >= 80 && Math.abs(splitPct) < 5) {
     verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(cmp.deltaS)} (${fasterSlower}) que la projection.`
   } else if (splitPct >= 9) {
     verdict = `Départ trop ambitieux : tu as payé la facture en 2ᵉ moitié (+${splitPct.toFixed(0)} % d'allure).`
   } else if (decouplingPct != null && decouplingPct >= 10) {
-    verdict = driftConfounders.length && (adjustedDecouplingPct ?? decouplingPct) < 8
-      ? `Ta FC a grimpé en fin de course, mais surtout à cause de ${driftConfounders.includes('heat') ? `la chaleur (${tempC!.toFixed(0)} °C)` : ''}${driftConfounders.length === 2 ? ' et ' : ''}${driftConfounders.includes('fast_start') ? 'un départ rapide' : ''} — hors ce contexte, ton endurance a tenu.`
-      : `L'effort a dérivé en fin de course (FC qui grimpe à allure égale) — endurance ou nutrition à renforcer.`
+    const dispHeatC = feelsLikeC ?? tempC
+    if (driftConfounders.length && (adjustedDecouplingPct ?? decouplingPct) < 8) {
+      verdict = `Ta FC a grimpé en fin de course, mais surtout à cause de ${driftConfounders.includes('heat') ? `la chaleur (${dispHeatC != null ? `${dispHeatC.toFixed(0)} °C` : 'conditions chaudes'})` : ''}${driftConfounders.length === 2 ? ' et ' : ''}${driftConfounders.includes('fast_start') ? 'un départ rapide' : ''} — hors ce contexte, ton endurance a tenu.`
+    } else {
+      verdict = `L'effort a dérivé en fin de course (FC qui grimpe à allure égale) — endurance ou nutrition à renforcer.`
+    }
   } else {
     verdict = `Course ${fasterSlower === 'plus lent' ? 'en deçà' : 'au-dessus'} de la projection (${fmtDelta(cmp.deltaS)}), exécution ${executionLabel.toLowerCase()}.`
   }
@@ -594,23 +617,34 @@ export function computeRaceDebrief(
       ? { tone: 'work', text: `Arrêts subis en fin de course / descente (${fmtDur(unplannedStoppedS)}, hors ravito) — souvent des crampes : renfo excentrique (mollets, descente) + hydratation et sodium.` }
       : { tone: 'work', text: `${fmtDur(unplannedStoppedS)} d'arrêts subis (hors ravito prévu) — soigne hydratation/sodium et anticipe pour limiter les pauses.` })
   }
+  // Contexte préparation (prioritaire) : recadre la dérive/durabilité comme un manque
+  // de fond récent plutôt qu'une faiblesse à cibler.
+  if (underprepared) candidates.push({ tone: 'info', text: `Tu abordais cette course avec une préparation légère : charge des 6 dernières semaines ~${preparation!.loadRatioPct} % de ton habitude${preparation!.runCount42 ? `, ${preparation!.runCount42} sortie${preparation!.runCount42 > 1 ? 's' : ''}` : ''}. La dérive et la fatigue de fin reflètent surtout ce manque de fond récent, pas une faiblesse structurelle — priorité : retrouver de la régularité (volume aérobie) avant de cibler une qualité.` })
   if (splitPct >= 8) candidates.push({ tone: 'work', text: `Pars plus prudent : ralentissement de ${splitPct.toFixed(0)} % en 2ᵉ moitié. Vise un négatif split.` })
+  const heatLabel = () => {
+    if (heatC == null) return 'la chaleur'
+    const felt = heat?.source === 'api' && feelsLikeC != null
+    return `la chaleur (${felt ? 'ressenti ' : ''}${heatC.toFixed(0)} °C)`
+  }
   const confounderPhrase = () => {
     const bits: string[] = []
-    if (driftConfounders.includes('heat')) bits.push(`la chaleur (${tempC!.toFixed(0)} °C)`)
+    if (driftConfounders.includes('heat')) bits.push(heatLabel())
     if (driftConfounders.includes('fast_start')) bits.push('un départ trop rapide')
     return bits.join(' et ')
   }
   if (decouplingPct != null && decouplingPct >= 10) {
-    // Grande partie expliquée par un facteur externe → on ne l'impute pas à l'endurance.
-    if (driftConfounders.length && (adjustedDecouplingPct ?? decouplingPct) < 8) {
+    // Sous-préparation → couverte par le message de préparation (pas de « travailler
+    // l'endurance » redondant). Sinon, on regarde les facteurs externes.
+    if (underprepared) {
+      /* déjà expliqué par la préparation légère */
+    } else if (driftConfounders.length && (adjustedDecouplingPct ?? decouplingPct) < 8) {
       candidates.push({ tone: 'info', text: `Dérive cardiaque +${decouplingPct.toFixed(0)} %, mais en grande partie due à ${confounderPhrase()} — hors ce contexte elle retombe à ~+${(adjustedDecouplingPct ?? 0).toFixed(0)} %. Ton endurance n'est pas en cause.${driftConfounders.includes('fast_start') ? ' Un départ plus prudent la réduirait nettement.' : ''}${driftConfounders.includes('heat') ? ' Par forte chaleur, revois à la baisse tes attentes d\'allure et anticipe l\'hydratation.' : ''}` })
     } else {
       const nuance = driftConfounders.length ? ` (dont une part liée à ${confounderPhrase()})` : ''
       candidates.push({ tone: 'work', text: `Dérive cardiaque élevée (+${decouplingPct.toFixed(0)} %)${nuance} — travaille l'endurance fondamentale et la nutrition en course.` })
     }
-  } else if (decouplingPct != null && decouplingPct >= 5) candidates.push({ tone: 'info', text: `Légère dérive cardiaque (+${decouplingPct.toFixed(0)} %)${driftConfounders.length ? `, en partie liée à ${confounderPhrase()}` : ''} — entretiens l'endurance fondamentale ; vise un découplage < 5 % avant d'ajouter de l'intensité.` })
-  if (durabilityBand === 'weak') candidates.push({ tone: 'work', text: `Durabilité en baisse en fin de course (efficacité GAP:FC −${durabilityFadePct!.toFixed(0)} % au dernier tiers) — volume aérobie long + résistance à la fatigue (intensité/renfo en fin de longue).` })
+  } else if (decouplingPct != null && decouplingPct >= 5 && !underprepared) candidates.push({ tone: 'info', text: `Légère dérive cardiaque (+${decouplingPct.toFixed(0)} %)${driftConfounders.length ? `, en partie liée à ${confounderPhrase()}` : ''} — entretiens l'endurance fondamentale ; vise un découplage < 5 % avant d'ajouter de l'intensité.` })
+  if (durabilityBand === 'weak' && !underprepared) candidates.push({ tone: 'work', text: `Durabilité en baisse en fin de course (efficacité GAP:FC −${durabilityFadePct!.toFixed(0)} % au dernier tiers) — volume aérobie long + résistance à la fatigue (intensité/renfo en fin de longue).` })
   if (descentFade === 'marked') candidates.push({ tone: 'work', text: `Tes descentes se sont effondrées en fin de course${eccLoadEq ? ` (charge excentrique ~${eccLoadEq} m éq.)` : ''} — renfo excentrique + habituation à la descente ≥ 6-8 sem avant la prochaine.` })
   const worstUp = terrain.find((t) => t.kind === 'climb' && t.outcome === 'worse')
   if (worstUp) candidates.push({ tone: 'work', text: `Les montées t'ont coûté du temps — intègre des séances de côtes / renforcement.` })
@@ -649,6 +683,8 @@ export function computeRaceDebrief(
     adjustedDecouplingPct,
     driftConfounders,
     tempC,
+    feelsLikeC,
+    preparation,
     durabilityFadePct,
     durabilityBand,
     hrDriftPredicted,
