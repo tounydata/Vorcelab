@@ -53,6 +53,14 @@ export default function LoginPage() {
 
   useEffect(() => { setLoginRedirect(true) }, [setLoginRedirect])
 
+  // Retour d'un échec OAuth Strava (posé par App.tsx) → message clair, une seule fois.
+  useEffect(() => {
+    let r: string | null = null
+    try { r = sessionStorage.getItem('vl-strava-auth-result'); if (r) sessionStorage.removeItem('vl-strava-auth-result') } catch { /* ignore */ }
+    if (r === 'error') setStatus({ msg: 'La connexion avec Strava a échoué. Réessaie, ou crée un compte par email.', ok: false })
+    else if (r === 'denied') setStatus({ msg: 'Autorisation Strava refusée. Réessaie pour continuer.', ok: false })
+  }, [])
+
   function clearStatus() { setStatus(null) }
   function goTab(t: Tab) { setTab(t); setSecondary(null); clearStatus() }
   function goSecondary(m: SecondaryMode) { setSecondary(m); clearStatus() }

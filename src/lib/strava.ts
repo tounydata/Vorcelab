@@ -1,7 +1,7 @@
 // Connexion Strava (OAuth) côté front. Le client_id est PUBLIC (il apparaît dans
 // l'URL d'autorisation) ; le secret reste dans l'edge function strava-oauth.
 // Configurer VITE_STRAVA_CLIENT_ID dans l'environnement de build.
-import { supabase, SUPA_URL } from './supabase'
+import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
 
 
 // client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
@@ -50,15 +50,35 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   if (err || !code) return 'denied'
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return 'error'
 
+  // ── Cas 1 — DÉJÀ connecté : on LIE Strava au compte existant (strava-oauth). ──
+  if (session) {
+    try {
+      const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ code, scope }),
+      })
+      return r.ok ? 'connected' : 'error'
+    } catch {
+      return 'error'
+    }
+  }
+
+  // ── Cas 2 — PAS de session : inscription / connexion AVEC Strava (strava-auth). ──
+  // La fonction publique retrouve/crée le compte lié à l'athlète et renvoie un
+  // token_hash de magic-link ; on l'échange contre une session côté client.
   try {
-    const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+    const r = await fetch(`${SUPA_URL}/functions/v1/strava-auth`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` },
       body: JSON.stringify({ code, scope }),
     })
-    return r.ok ? 'connected' : 'error'
+    if (!r.ok) return 'error'
+    const { token_hash } = (await r.json()) as { token_hash?: string }
+    if (!token_hash) return 'error'
+    const { error: otpErr } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash })
+    return otpErr ? 'error' : 'connected'
   } catch {
     return 'error'
   }

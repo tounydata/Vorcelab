@@ -21,6 +21,11 @@ verify_jwt = false
 [functions.strava-oauth]
 verify_jwt = false
 
+# Sign in / sign up WITH Strava (utilisateur non authentifié) : échange le code et
+# forge une session. Public par conception — l'auth repose sur un code Strava valide.
+[functions.strava-auth]
+verify_jwt = false
+
 [functions.strava-refresh]
 verify_jwt = false
 
