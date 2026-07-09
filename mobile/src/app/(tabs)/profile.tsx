@@ -6,6 +6,11 @@ import { supabase } from '@/lib/supabase'
 import { colors, radius, space } from '@/lib/theme'
 import CoachEngine from '@/components/profile/CoachEngine'
 import CalibrationCard from '@/components/profile/CalibrationCard'
+import Constants from 'expo-constants'
+import DeleteAccount from '@/components/profile/DeleteAccount'
+import { LEGAL, openLegal, openSupport } from '@/lib/legal'
+
+const appVersion = Constants.expoConfig?.version ?? '1.0.0'
 import PaceZonesCard from '@/components/PaceZonesCard'
 import HrZonesCard from '@/components/HrZonesCard'
 import type { HrZoneConfig } from '@/lib/hrZones'
@@ -496,6 +501,24 @@ export default function ProfileScreen() {
             <Pressable onPress={() => supabase.auth.signOut()} style={({ pressed }) => ({ marginTop: space.sm, borderWidth: 1, borderColor: colors.ember, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center', opacity: pressed ? 0.6 : 1 })}>
               <Text style={{ color: colors.ember, fontWeight: '700', letterSpacing: 0.5 }}>Déconnexion</Text>
             </Pressable>
+
+            <DeleteAccount />
+
+            {/* Pied de page légal & support — requis pour la publication. */}
+            <View style={{ marginTop: space.xl, alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', gap: space.lg }}>
+                <Pressable onPress={() => openLegal(LEGAL.privacy)} hitSlop={8}>
+                  <Text style={{ color: colors.text3, fontSize: 12, textDecorationLine: 'underline' }}>Confidentialité</Text>
+                </Pressable>
+                <Pressable onPress={() => openLegal(LEGAL.terms)} hitSlop={8}>
+                  <Text style={{ color: colors.text3, fontSize: 12, textDecorationLine: 'underline' }}>CGU / CGV</Text>
+                </Pressable>
+                <Pressable onPress={() => openSupport()} hitSlop={8}>
+                  <Text style={{ color: colors.text3, fontSize: 12, textDecorationLine: 'underline' }}>Support</Text>
+                </Pressable>
+              </View>
+              <Text style={{ color: colors.text3, fontSize: 11 }}>Vorcelab v{appVersion}</Text>
+            </View>
           </>
         ) : activeTab === 'records' ? (
           <View style={cardS}>
