@@ -5,7 +5,7 @@
 // (cf. README / ADR-001). On compose des fonctions d'analyse existantes + des stats.
 
 import { classifySport, computeActivityLoad, type ActivityForLoad, type FamilyKey } from './trainingLoad'
-import { classifySession } from './sessionQuality'
+import { classifySession, type WorkoutStructure } from './sessionQuality'
 
 export interface DebriefActivity {
   id?: string
@@ -65,6 +65,7 @@ export function buildSessionDebrief(
   history: DebriefActivity[],
   fcMax?: number | null,
   windowDays = 90,
+  structure?: WorkoutStructure | null,
 ): SessionDebrief {
   const family = classifySport(current.type, current.sport_type).family
   const noun = FAMILY_NOUN[family]
@@ -88,12 +89,20 @@ export function buildSessionDebrief(
   })
 
   const curLoad = computeActivityLoad(toLoad(current), fcMax)
-  const sessionType = classifySession(current, fcMax)
+  const sessionType = classifySession(current, fcMax, structure)
+  const isInterval = !!structure?.isInterval
   const distKm = current.distance / 1000
   const dplus = Math.round(current.total_elevation_gain ?? 0)
 
   const comparisons: string[] = []
   let headlineFact = ''
+
+  // Structure détectée : on l'annonce en tête (le fait le plus saillant d'une séance qualité).
+  if (isInterval) {
+    const wPct = structure!.workAvgHrPct != null ? ` à ${Math.round(structure!.workAvgHrPct * 100)}% FCmax` : ''
+    comparisons.push(`Structure : ${structure!.reps} intervalles détectés${wPct} — récup ~${Math.round(structure!.avgRestS)}s.`)
+    headlineFact = structure!.hill ? 'séance de côtes' : `${structure!.reps} × fractionné`
+  }
 
   if (peers.length >= 3) {
     const dRank = rankDesc(current.distance, peers.map((p) => p.distance))
@@ -150,14 +159,22 @@ export function buildSessionDebrief(
   } else {
     impact = `Charge ${curLoad} (durée × intensité × dénivelé) — ${sessionType}.`
   }
+  // Séance à intervalles : le stimulus vient de l'INTENSITÉ, pas du volume — on ne la
+  // décrit pas comme du fond (c'était le bug : « brique de fond » sur un fractionné).
+  if (isInterval) {
+    const w = structure!.workAvgHrPct != null ? ` (efforts ~${Math.round(structure!.workAvgHrPct * 100)}% FCmax)` : ''
+    impact = `Charge ${curLoad} — séance de QUALITÉ : ${structure!.reps} intervalles${w}, stimulus d'intensité (VO2/seuil), pas du volume.`
+  }
 
   // ── Mini conseil / débrief selon le type et l'effort ──
   let tip: string | null
   const isHard = peers.length >= 3
     ? rankDesc(curLoad, peers.map((p) => computeActivityLoad(toLoad(p), fcMax))).rank <= 2
     : curLoad > 250
-  if (sessionType === 'effort maximal' || sessionType === 'fractionné probable')
-    tip = 'Séance qualitative : 1 à 2 jours faciles avant la prochaine intensité.'
+  if (isInterval || sessionType === 'effort maximal' || sessionType === 'fractionné probable')
+    tip = structure?.hill
+      ? 'Séance de côtes (force + VO2) : 1 à 2 jours faciles avant la prochaine intensité.'
+      : 'Séance qualitative : 1 à 2 jours faciles avant la prochaine intensité.'
   else if (sessionType === 'tempo / seuil')
     tip = 'Bon stimulus au seuil — laisse la récup faire son travail avant de réenchaîner du dur.'
   else if (isHard)

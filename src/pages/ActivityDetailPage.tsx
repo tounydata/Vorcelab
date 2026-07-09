@@ -11,6 +11,7 @@ import ShareStickers from '../components/ShareStickers'
 import { computeActivityLoad } from '../lib/trainingLoad'
 import { buildSessionInsights } from '../lib/sessionQuality'
 import { buildSessionDebrief } from '../lib/sessionDebrief'
+import { detectWorkoutStructure, type WorkoutStructure } from '../lib/sessionQuality'
 import { computeDecoupling, computeDurabilityThirds, type DurabilityStatus } from '../lib/durability'
 import { vamBand, VAM_BAND_LABEL, VAM_BAND_COLOR } from '../lib/coach/sessionAnalysis'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
@@ -384,30 +385,43 @@ function computeFcZones(hrData: number[], fcMax: number): number[] {
   return counts.map(c => Math.round(c / tot * 100))
 }
 
+const FC_ZONE_SHORT = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5']
+const FC_ZONE_RANGE = ['<60%', '60–70%', '70–80%', '80–90%', '>90%']
+
 function FcZonesCard({ hrData, fcMax }: { hrData: number[]; fcMax: number }) {
   if (!hrData.length) return null
   const pcts = computeFcZones(hrData, fcMax)
   const highPct = pcts[3] + pcts[4]
+  const maxPct = Math.max(1, ...pcts)
+  const CHART_H = 96 // px
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div className="clabel" style={{ margin: 0 }}>RÉPARTITION FC</div>
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, color: highPct > 50 ? 'var(--vl-ember)' : highPct > 25 ? 'var(--vl-amber)' : 'var(--vl-growth)' }}>
           Z4-Z5 : {highPct}%
         </div>
       </div>
-      <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-        {pcts.map((p, i) => p > 0 ? (
-          <div key={i} style={{ flex: p, background: FC_ZONE_COLORS[i], minWidth: 2 }} title={`${FC_ZONE_LABELS[i]} : ${p}%`} />
-        ) : null)}
+      {/* Graphe bâtons : une barre par zone, hauteur ∝ % du temps passé. */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: CHART_H }}>
+        {pcts.map((p, i) => (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }} title={`${FC_ZONE_LABELS[i]} : ${p}%`}>
+            <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 700, color: p > 0 ? 'var(--vl-text)' : 'var(--vl-text-3)', marginBottom: 3 }}>{p}%</span>
+            <div style={{
+              width: '100%', maxWidth: 46, height: `${Math.max(p > 0 ? 3 : 0, (p / maxPct) * (CHART_H - 22))}px`,
+              background: FC_ZONE_COLORS[i], borderRadius: '4px 4px 0 0', opacity: p > 0 ? 1 : 0.25,
+            }} />
+          </div>
+        ))}
       </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
-        {FC_ZONE_LABELS.map((l, i) => (
-          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 3, fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)' }}>
-            <span style={{ width: 6, height: 6, borderRadius: 2, background: FC_ZONE_COLORS[i], display: 'inline-block', flexShrink: 0 }} />
-            {l} <span style={{ color: pcts[i] > 0 ? 'var(--vl-text)' : 'var(--vl-text-3)', fontWeight: pcts[i] > 0 ? 700 : 400 }}>{pcts[i]}%</span>
-          </span>
+      {/* Axe : libellés de zone */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 6, borderTop: '1px solid var(--vl-line)', paddingTop: 6 }}>
+        {FC_ZONE_SHORT.map((z, i) => (
+          <div key={i} style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--vl-mono)', fontSize: 9 }}>
+            <span style={{ color: FC_ZONE_COLORS[i], fontWeight: 700 }}>{z}</span>
+            <div style={{ fontSize: 7.5, color: 'var(--vl-text-3)' }}>{FC_ZONE_RANGE[i]}</div>
+          </div>
         ))}
       </div>
     </div>
@@ -418,11 +432,12 @@ function FcZonesCard({ hrData, fcMax }: { hrData: number[]; fcMax: number }) {
 
 const RUN_TYPES_DETAIL = ['Run', 'TrailRun', 'Trail Run', 'Running', 'VirtualRun']
 
-function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
+function SessionSummaryCard({ activity, hrData, fcMax, recentRuns, structure }: {
   activity: ActivityDetail
   hrData: number[]
   fcMax: number
   recentRuns: RecentActivity[]
+  structure?: WorkoutStructure | null
 }) {
   const distKm = activity.distance / 1000
   const fcPct = activity.average_heartrate ? Math.round(activity.average_heartrate / fcMax * 100) : null
@@ -451,6 +466,13 @@ function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
     intensityLabel = 'FC non disponible'
     effortComment = 'Fréquence cardiaque absente — dosage cardio non évaluable.'
   }
+  // Intervalles détectés → on décrit la STRUCTURE (la FC moyenne est trompeuse ici).
+  if (structure?.isInterval) {
+    const w = structure.workAvgHrPct != null ? ` à ${Math.round(structure.workAvgHrPct * 100)}% FCmax` : ''
+    const r = structure.restAvgHrPct != null ? `, récup ${Math.round(structure.restAvgHrPct * 100)}%` : ''
+    intensityLabel = `${structure.hill ? 'fractionné en côte' : 'fractionné'} · ${structure.reps} répétitions`
+    effortComment = `Séance structurée : ${structure.reps} efforts${w}${r} — travail de qualité (VO2/seuil), pas de l'endurance continue.`
+  }
 
   const zones = hrData.length ? computeFcZones(hrData, fcMax) : null
   const z45 = zones ? zones[3] + zones[4] : null
@@ -477,12 +499,13 @@ function SessionSummaryCard({ activity, hrData, fcMax, recentRuns }: {
 
 // ─── Débrief de séance (récap vs autres sorties + impact + conseil) ────────────
 
-function SessionDebriefCard({ activity, fcMax, recentRuns }: {
+function SessionDebriefCard({ activity, fcMax, recentRuns, structure }: {
   activity: ActivityDetail
   fcMax: number
   recentRuns: RecentActivity[]
+  structure?: WorkoutStructure | null
 }) {
-  const debrief = buildSessionDebrief(activity, recentRuns, fcMax)
+  const debrief = buildSessionDebrief(activity, recentRuns, fcMax, 90, structure)
 
   return (
     <div className="card" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--vl-ember)' }}>
@@ -1003,6 +1026,10 @@ export default function ActivityDetailPage() {
   const paceStr = fmtPace(activity.distance, activity.moving_time)
   const dpKm = activity.distance > 0 ? (activity.total_elevation_gain ?? 0) / (activity.distance / 1000) : 0
   const hrData = streams?.heartrate?.data ?? []
+  // Structure d'intervalles (fractionné / côtes) depuis le flux FC + altitude.
+  const workoutStructure = detectWorkoutStructure(hrData, fcMax, {
+    timeS: streams?.time?.data, altitude: streams?.altitude?.data,
+  })
 
   return (
     <>
@@ -1093,9 +1120,9 @@ export default function ActivityDetailPage() {
       </div>
 
       {/* Analyse de séance */}
-      <SessionDebriefCard activity={activity} fcMax={fcMax} recentRuns={recentActivities} />
+      <SessionDebriefCard activity={activity} fcMax={fcMax} recentRuns={recentActivities} structure={workoutStructure} />
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
-      <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} />
+      <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} structure={workoutStructure} />
       <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather ?? null)} />
 
       {/* Altitude profile + map + VAM sections */}
