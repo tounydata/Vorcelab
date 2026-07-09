@@ -223,9 +223,14 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
           <div className="mlabel" style={{ marginBottom: 6 }}>RÉSULTAT</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <span className="display tnum" style={{ fontSize: '2rem', lineHeight: .9, color: 'var(--vl-text)' }}>{fmtHM(d.actualTotalS / 60)}</span>
-            <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: deltaColor }}>{fmtDelta(d.deltaS)}</span>
+            <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: deltaColor }} title={d.distanceMismatch ? 'Écart calculé à distance égale (en mouvement)' : undefined}>{fmtDelta(d.deltaS)}{d.distanceMismatch ? '*' : ''}</span>
           </div>
           <div className="mono" style={{ fontSize: 10.5, color: 'var(--vl-text-3)', marginTop: 4 }}>projeté {fmtHM(d.projTotalS / 60)}</div>
+          {d.distanceMismatch && (
+            <div className="mono" style={{ fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>
+              *activité {d.actualDistKm.toFixed(1)} km · tracé {d.projDistKm.toFixed(1)} km — écart comparé sur {Math.min(d.actualDistKm, d.projDistKm).toFixed(1)} km
+            </div>
+          )}
         </div>
         {/* Exécution */}
         <div style={{ flex: '1 1 150px', background: 'var(--vl-surf-2)', borderRadius: 'var(--vl-r-sm)', padding: '14px 16px' }}>

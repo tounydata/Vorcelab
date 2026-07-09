@@ -74,6 +74,12 @@ export interface RaceDebrief {
   executionScore: number       // 0..100 — qualité d'exécution (≠ chrono)
   executionLabel: string
   verdict: string
+  // Distance réellement courue vs distance du tracé projeté (km) — l'écart de temps
+  // (deltaS) est calculé à la distance COMMUNE pour rester cohérent (pas de « +6 min »
+  // qui ne serait que de la distance en plus).
+  actualDistKm: number
+  projDistKm: number
+  distanceMismatch: boolean     // true = écart de distance > 5 % → comparaison à distance égale
 
   // ── Courbe allure vs profil ──
   points: DebriefPoint[]
@@ -268,6 +274,26 @@ export function computeRaceDebrief(
   }
   const totalKm = Math.min(cmp.projDistKm, cmp.actualDistKm)
 
+  // ── Comparaison À DISTANCE ÉGALE ──────────────────────────────────────────────
+  // La projection couvre le tracé GPX (projDistKm) ; l'activité réelle peut faire une
+  // distance différente (GPS, tracé incomplet, tour en trop). Comparer les temps TOTAUX
+  // de deux distances différentes est trompeur (« +6 min » qui n'est que la distance en
+  // plus, alors que l'athlète est en avance au km). On compare donc au bout de la distance
+  // COMMUNE, en temps EN MOUVEMENT (la projection ignore les arrêts) — cohérent avec les
+  // tiers/sections. Le chrono d'arrivée reste affiché à part.
+  const projTimeToKm = (km: number): number => {
+    let s = 0
+    for (let i = 0; i < proj.sections.length; i++) {
+      const sec = proj.sections[i]
+      const t = proj.sectionTimes[i] ?? 0
+      if (sec.endKm <= km) s += t
+      else if (sec.startKm < km) s += t * ((km - sec.startKm) / Math.max(0.01, sec.endKm - sec.startKm))
+    }
+    return s
+  }
+  const projAtCommonS = totalKm >= cmp.projDistKm - 0.05 ? cmp.projTotalS : projTimeToKm(totalKm)
+  const distanceMismatch = Math.abs(cmp.actualDistKm - cmp.projDistKm) / Math.max(0.1, cmp.projDistKm) > 0.05
+
   // ── Arrêts → temps en mouvement. Toute l'analyse d'allure/pacing/exécution se base
   // sur le MOUVEMENT pour que les pauses (crampes, ravitos) ne plombent pas le verdict.
   // Le chrono « Résultat » reste, lui, le temps réel (arrêts inclus).
@@ -295,8 +321,13 @@ export function computeRaceDebrief(
   const effLabel = (s: { startKm: number; isRavito: boolean }): IncidentLabel | undefined =>
     annNear(s.startKm)?.label ?? (s.isRavito ? 'ravito' : undefined)
   // Part « prévue » (ravito/hydratation) vs « subie » (crampes, chute, douleur).
-  const ravitoStoppedS = stops.filter((s) => effLabel(s) === 'ravito').reduce((a, s) => a + s.durationS, 0)
-  const expectedStoppedS = stops.filter((s) => { const l = effLabel(s); return !!l && EXPECTED.has(l) }).reduce((a, s) => a + s.durationS, 0)
+  // Les durées d'arrêt DÉTECTÉES (flux GPS) et le total D'ARRÊT (métadonnées Strava
+  // élapsé−mouvement) viennent de sources différentes → on recale les sous-totaux
+  // détectés sur le total métadonnées, sinon « dont X au ravito » peut dépasser le total.
+  const detectedSum = stops.reduce((a, s) => a + s.durationS, 0)
+  const stopScale = detectedSum > 0 ? Math.min(1, stoppedS / detectedSum) : 1
+  const ravitoStoppedS = stops.filter((s) => effLabel(s) === 'ravito').reduce((a, s) => a + s.durationS, 0) * stopScale
+  const expectedStoppedS = stops.filter((s) => { const l = effLabel(s); return !!l && EXPECTED.has(l) }).reduce((a, s) => a + s.durationS, 0) * stopScale
   const unplannedStoppedS = Math.max(0, stoppedS - expectedStoppedS)
   // Causes explicitement renseignées
   const hasCramp = annotations.some((a) => a.label === 'crampe')
@@ -565,13 +596,16 @@ export function computeRaceDebrief(
       : executionScore >= 55 ? 'Correcte'
         : 'À travailler'
 
-  // Précision : la projection prédit un temps EN COURSE (sans pauses) → on la compare
-  // au temps en mouvement. Sans arrêt, movingS = temps réel → comportement inchangé.
-  const movingDeltaPct = cmp.projTotalS > 0 ? ((movingS - cmp.projTotalS) / cmp.projTotalS) * 100 : 0
+  // Précision & écart : projection = temps EN COURSE (sans pauses) sur le tracé projeté →
+  // on compare au temps EN MOUVEMENT à la distance COMMUNE (cf. projAtCommonS plus haut).
+  // Sans arrêt ni écart de distance, ça revient au comportement d'avant.
+  const movingAtCommonS = movingAtKm(totalKm)
+  const likeDeltaS = movingAtCommonS - projAtCommonS
+  const movingDeltaPct = projAtCommonS > 0 ? (likeDeltaS / projAtCommonS) * 100 : 0
   const accuracyPct = clamp(100 - Math.abs(movingDeltaPct), 0, 100)
 
   // ── Verdict (phrase de coach) ──
-  const fasterSlower = cmp.deltaS <= 0 ? 'plus rapide' : 'plus lent'
+  const fasterSlower = likeDeltaS <= 0 ? 'plus rapide' : 'plus lent'
   const horsArrets = accuracyPct >= 95 ? 'la projection est quasi parfaite' : `exécution ${executionLabel.toLowerCase()}`
   let verdict: string
   if (hasCramp || hasFall || hasPain) {
@@ -590,7 +624,7 @@ export function computeRaceDebrief(
     // Symptôme de fatigue de fin + arrivé sous-préparé → c'est le fond récent, pas une faiblesse.
     verdict = `Ta fin de course a lâché, mais tu l'abordais avec une préparation légère (charge ~${preparation!.loadRatioPct} % de ton habitude) — c'est le fond récent qui manquait, pas ta capacité d'endurance.`
   } else if (executionScore >= 80 && Math.abs(splitPct) < 5) {
-    verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(cmp.deltaS)} (${fasterSlower}) que la projection.`
+    verdict = `Course bien gérée — allure tenue et effort maîtrisé, ${fmtDelta(likeDeltaS)} (${fasterSlower}) que la projection.`
   } else if (splitPct >= 9) {
     verdict = `Départ trop ambitieux : tu as payé la facture en 2ᵉ moitié (+${splitPct.toFixed(0)} % d'allure).`
   } else if (decouplingPct != null && decouplingPct >= 10) {
@@ -601,7 +635,7 @@ export function computeRaceDebrief(
       verdict = `L'effort a dérivé en fin de course (FC qui grimpe à allure égale) — endurance ou nutrition à renforcer.`
     }
   } else {
-    verdict = `Course ${fasterSlower === 'plus lent' ? 'en deçà' : 'au-dessus'} de la projection (${fmtDelta(cmp.deltaS)}), exécution ${executionLabel.toLowerCase()}.`
+    verdict = `Course ${fasterSlower === 'plus lent' ? 'en deçà' : 'au-dessus'} de la projection (${fmtDelta(likeDeltaS)}), exécution ${executionLabel.toLowerCase()}.`
   }
 
   // ── Enseignements (priorisés, 2-3) ──
@@ -659,9 +693,12 @@ export function computeRaceDebrief(
   return {
     projTotalS: cmp.projTotalS,
     actualTotalS: realElapsedS,
-    deltaS: realElapsedS - cmp.projTotalS,
-    deltaPct: cmp.projTotalS > 0 ? ((realElapsedS - cmp.projTotalS) / cmp.projTotalS) * 100 : 0,
+    deltaS: likeDeltaS,
+    deltaPct: movingDeltaPct,
     accuracyPct,
+    actualDistKm: cmp.actualDistKm,
+    projDistKm: cmp.projDistKm,
+    distanceMismatch,
     executionScore,
     executionLabel,
     verdict,
