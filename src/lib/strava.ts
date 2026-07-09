@@ -1,7 +1,7 @@
 // Connexion Strava (OAuth) côté front. Le client_id est PUBLIC (il apparaît dans
 // l'URL d'autorisation) ; le secret reste dans l'edge function strava-oauth.
 // Configurer VITE_STRAVA_CLIENT_ID dans l'environnement de build.
-import { supabase, SUPA_URL } from './supabase'
+import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
 
 
 // client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
@@ -18,6 +18,10 @@ function redirectUri(): string {
   return `${window.location.origin}${import.meta.env.BASE_URL}`
 }
 
+// Marqueur renvoyé tel quel par Strava dans `state` : permet de distinguer un retour
+// Strava d'un retour OAuth Supabase (Google/Apple) qui utilise AUSSI `?code=`.
+const STRAVA_STATE = 'vl_strava'
+
 /** Démarre le flux OAuth Strava (redirige le navigateur vers Strava). */
 export function startStravaOAuth(): void {
   if (!stravaConfigured()) return
@@ -27,6 +31,7 @@ export function startStravaOAuth(): void {
     redirect_uri: redirectUri(),
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',
+    state: STRAVA_STATE,
   })
   window.location.href = `https://www.strava.com/oauth/authorize?${params.toString()}`
 }
@@ -42,6 +47,9 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   const code = url.searchParams.get('code')
   const err = url.searchParams.get('error')
   const scope = url.searchParams.get('scope') ?? ''
+  // On n'intercepte QUE les retours Strava (state dédié) : un retour OAuth Supabase
+  // (Google/Apple) utilise aussi `?code=` et doit être laissé à detectSessionInUrl.
+  if (url.searchParams.get('state') !== STRAVA_STATE) return null
   if (!code && !err) return null
 
   // Nettoie l'URL (retire la query OAuth, conserve le chemin de routage).
@@ -50,15 +58,35 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   if (err || !code) return 'denied'
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return 'error'
 
+  // ── Cas 1 — DÉJÀ connecté : on LIE Strava au compte existant (strava-oauth). ──
+  if (session) {
+    try {
+      const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ code, scope }),
+      })
+      return r.ok ? 'connected' : 'error'
+    } catch {
+      return 'error'
+    }
+  }
+
+  // ── Cas 2 — PAS de session : inscription / connexion AVEC Strava (strava-auth). ──
+  // La fonction publique retrouve/crée le compte lié à l'athlète et renvoie un
+  // token_hash de magic-link ; on l'échange contre une session côté client.
   try {
-    const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
+    const r = await fetch(`${SUPA_URL}/functions/v1/strava-auth`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` },
       body: JSON.stringify({ code, scope }),
     })
-    return r.ok ? 'connected' : 'error'
+    if (!r.ok) return 'error'
+    const { token_hash } = (await r.json()) as { token_hash?: string }
+    if (!token_hash) return 'error'
+    const { error: otpErr } = await supabase.auth.verifyOtp({ type: 'magiclink', token_hash })
+    return otpErr ? 'error' : 'connected'
   } catch {
     return 'error'
   }

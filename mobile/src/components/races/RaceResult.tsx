@@ -182,9 +182,10 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
           <MLabel style={{ marginBottom: 6 }}>RÉSULTAT</MLabel>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <Text style={{ fontSize: 32, color: colors.text, fontWeight: '700' }}>{fmtHM(d.actualTotalS / 60)}</Text>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: deltaColor }}>{fmtDelta(d.deltaS)}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: deltaColor }}>{fmtDelta(d.deltaS)}{d.distanceMismatch ? '*' : ''}</Text>
           </View>
           <Text style={{ fontSize: 10.5, color: colors.text3, marginTop: 4 }}>projeté {fmtHM(d.projTotalS / 60)}</Text>
+          {d.distanceMismatch ? <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>*activité {d.actualDistKm.toFixed(1)} km · tracé {d.projDistKm.toFixed(1)} km — écart comparé sur {Math.min(d.actualDistKm, d.projDistKm).toFixed(1)} km</Text> : null}
         </View>
         <View style={{ flex: 1, minWidth: 150, backgroundColor: colors.surf2, borderRadius: radius.sm, padding: 14 }}>
           <MLabel style={{ marginBottom: 6 }}>EXÉCUTION</MLabel>

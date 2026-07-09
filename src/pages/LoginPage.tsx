@@ -53,6 +53,14 @@ export default function LoginPage() {
 
   useEffect(() => { setLoginRedirect(true) }, [setLoginRedirect])
 
+  // Retour d'un échec OAuth Strava (posé par App.tsx) → message clair, une seule fois.
+  useEffect(() => {
+    let r: string | null = null
+    try { r = sessionStorage.getItem('vl-strava-auth-result'); if (r) sessionStorage.removeItem('vl-strava-auth-result') } catch { /* ignore */ }
+    if (r === 'error') setStatus({ msg: 'La connexion avec Strava a échoué. Réessaie, ou crée un compte par email.', ok: false })
+    else if (r === 'denied') setStatus({ msg: 'Autorisation Strava refusée. Réessaie pour continuer.', ok: false })
+  }, [])
+
   function clearStatus() { setStatus(null) }
   function goTab(t: Tab) { setTab(t); setSecondary(null); clearStatus() }
   function goSecondary(m: SecondaryMode) { setSecondary(m); clearStatus() }
@@ -112,6 +120,16 @@ export default function LoginPage() {
     if (error) setStatus({ msg: 'Erreur : ' + error.message, ok: false })
     else setStatus({ msg: 'Lien de réinitialisation envoyé.', ok: true })
   }
+
+  async function handleGoogle() {
+    setLoading(true); clearStatus()
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: REDIRECT } })
+    // Succès → redirection vers Google en cours (pas de retour ici).
+    if (error) { setLoading(false); setStatus({ msg: 'Erreur Google : ' + error.message, ok: false }) }
+  }
+
+  // Libellé des boutons sociaux selon l'onglet (même action dessous : inscription OU connexion).
+  const providerVerb = tab === 'signup' ? "S'inscrire avec" : 'Se connecter avec'
 
   const sessionExpired = localStorage.getItem('vl-had-session') === '1'
 
@@ -302,7 +320,7 @@ export default function LoginPage() {
 
               {status && <div className="auth-msg" style={{ color: status.ok ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>{status.msg}</div>}
 
-              {/* Strava — sous le formulaire email */}
+              {/* Connexions sociales — sous le formulaire email */}
               {stravaConfigured() && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '1.1rem 0' }}>
@@ -310,22 +328,45 @@ export default function LoginPage() {
                     <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, letterSpacing: '.1em', color: 'var(--vl-text-3)', textTransform: 'uppercase' }}>ou</span>
                     <div style={{ flex: 1, height: 1, background: 'var(--vl-line)' }} />
                   </div>
-                  <button
-                    onClick={() => startStravaOAuth()}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      background: '#FC4C02', color: '#fff', border: 'none', borderRadius: 'var(--vl-r-sm)',
-                      padding: '12px 16px', fontFamily: 'var(--vl-body)', fontWeight: 700, fontSize: 14,
-                      cursor: 'pointer', transition: 'opacity .2s',
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.opacity = '.88')}
-                    onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-                    </svg>
-                    Continuer avec Strava
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      onClick={() => startStravaOAuth()}
+                      disabled={loading}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        background: '#FC4C02', color: '#fff', border: 'none', borderRadius: 'var(--vl-r-sm)',
+                        padding: '12px 16px', fontFamily: 'var(--vl-body)', fontWeight: 700, fontSize: 14,
+                        cursor: 'pointer', transition: 'opacity .2s',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.opacity = '.88')}
+                      onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                      </svg>
+                      {providerVerb} Strava
+                    </button>
+                    <button
+                      onClick={handleGoogle}
+                      disabled={loading}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        background: '#fff', color: '#1f1f1f', border: '1px solid var(--vl-line-2)', borderRadius: 'var(--vl-r-sm)',
+                        padding: '12px 16px', fontFamily: 'var(--vl-body)', fontWeight: 600, fontSize: 14,
+                        cursor: 'pointer', transition: 'opacity .2s',
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.opacity = '.88')}
+                      onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+                      </svg>
+                      {providerVerb} Google
+                    </button>
+                  </div>
                 </>
               )}
 

@@ -260,6 +260,43 @@ describe('computeRaceDebrief — détection des arrêts (crampes)', () => {
   })
 })
 
+describe('computeRaceDebrief — cohérence arrêts & distance', () => {
+  // Flux 10 km avec un arrêt de 55 s à km 5 (distance qui stagne), reste à 4:10/km.
+  function stallStreams(): StreamData {
+    const distance: number[] = [], time: number[] = []
+    for (let i = 0; i <= 50; i++) { distance.push(i * 100); time.push(i * 25) }        // 0→5000 m, 0→1250 s
+    for (let k = 1; k <= 11; k++) { distance.push(5000); time.push(1250 + k * 5) }       // stall 55 s à 5000 m
+    for (let i = 51; i <= 100; i++) { distance.push(i * 100); time.push(1305 + (i - 50) * 25) } // 5100→10000 m
+    return { distance: { data: distance }, time: { data: time } }
+  }
+
+  it('« dont X au ravito » ne dépasse jamais le total d\'arrêt (recalage sur les métadonnées)', () => {
+    // Métadonnées : 54 s d'arrêt (élapsé − mouvement) < 55 s détectés au ravito.
+    const d = computeRaceDebrief(projection(), stallStreams(), null, {
+      movingTimeS: 2500, elapsedTimeS: 2554, ravitoKms: [5],
+    })!
+    expect(d.stoppedS).toBeCloseTo(54, 0)
+    expect(d.ravitoStoppedS).toBeLessThanOrEqual(d.stoppedS + 1e-6) // la part ≤ le tout
+  })
+
+  it('compare à DISTANCE ÉGALE quand l\'activité est plus longue que le tracé (pas de faux « +6 min »)', () => {
+    // Projection 10 km ; activité 12 km à 4:00/km → à 10 km l'athlète est EN AVANCE.
+    const distance: number[] = [], time: number[] = []
+    for (let i = 0; i <= 100; i++) { distance.push(i * 120); time.push(Math.round(i * 120 * 0.24)) } // 12 km @ 240 s/km
+    const s: StreamData = { distance: { data: distance }, time: { data: time } }
+    const d = computeRaceDebrief(projection(), s)!
+    expect(d.distanceMismatch).toBe(true)
+    expect(d.actualDistKm).toBeCloseTo(12, 0)
+    expect(d.projDistKm).toBeCloseTo(10, 0)
+    // À 10 km l'athlète est plus rapide que la projection → delta NÉGATIF …
+    expect(d.deltaS).toBeLessThan(0)
+    // … et non le « +temps » trompeur qu'aurait donné la comparaison plein-vs-plein.
+    const naiveFullDelta = d.actualTotalS - d.projTotalS
+    expect(naiveFullDelta).toBeGreaterThan(0)
+    expect(d.deltaS).toBeLessThan(naiveFullDelta)
+  })
+})
+
 describe('computeRaceDebrief — dérive cardiaque : chaleur & départ rapide', () => {
   it('un départ trop rapide est identifié comme facteur de la dérive (pas un déficit d\'endurance)', () => {
     const d = computeRaceDebrief(projection(), positiveSplitStreams())!
