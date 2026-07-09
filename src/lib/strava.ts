@@ -18,6 +18,10 @@ function redirectUri(): string {
   return `${window.location.origin}${import.meta.env.BASE_URL}`
 }
 
+// Marqueur renvoyé tel quel par Strava dans `state` : permet de distinguer un retour
+// Strava d'un retour OAuth Supabase (Google/Apple) qui utilise AUSSI `?code=`.
+const STRAVA_STATE = 'vl_strava'
+
 /** Démarre le flux OAuth Strava (redirige le navigateur vers Strava). */
 export function startStravaOAuth(): void {
   if (!stravaConfigured()) return
@@ -27,6 +31,7 @@ export function startStravaOAuth(): void {
     redirect_uri: redirectUri(),
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',
+    state: STRAVA_STATE,
   })
   window.location.href = `https://www.strava.com/oauth/authorize?${params.toString()}`
 }
@@ -42,6 +47,9 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   const code = url.searchParams.get('code')
   const err = url.searchParams.get('error')
   const scope = url.searchParams.get('scope') ?? ''
+  // On n'intercepte QUE les retours Strava (state dédié) : un retour OAuth Supabase
+  // (Google/Apple) utilise aussi `?code=` et doit être laissé à detectSessionInUrl.
+  if (url.searchParams.get('state') !== STRAVA_STATE) return null
   if (!code && !err) return null
 
   // Nettoie l'URL (retire la query OAuth, conserve le chemin de routage).
