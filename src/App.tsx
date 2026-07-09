@@ -22,6 +22,7 @@ import RenfoLibraryPage from './pages/RenfoLibraryPage'
 import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
 import BrandedLoader from './components/BrandedLoader'
 import DemoStrategyPage from './pages/DemoStrategyPage'
+import MobileStravaBridge from './pages/MobileStravaBridge'
 import UpgradeModal from './components/UpgradeModal'
 import AdminPage from './pages/AdminPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
@@ -130,6 +131,7 @@ export default function App() {
         <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />
         <Route path="preview/session" element={<SessionPreviewPage />} />
         <Route path="demo" element={<DemoStrategyPage />} />
+        <Route path="mobile-strava" element={<MobileStravaBridge />} />
         <Route path="payment/success" element={<PaymentSuccessPage />} />
         <Route path="login" element={<LoginRoute />} />
         <Route path="legal/cgu" element={<CguPage />} />
