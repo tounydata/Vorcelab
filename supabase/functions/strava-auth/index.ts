@@ -92,7 +92,14 @@ Deno.serve(async (req: Request) => {
       athlete_firstname: athlete.firstname, athlete_lastname: athlete.lastname,
       athlete_avatar: athlete.profile_medium, updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
-    if (upsertErr) { console.error('strava_tokens upsert error:', upsertErr.message); return fail('Failed to store Strava connection', 500) }
+    if (upsertErr) {
+      // Course (double inscription simultanée) : l'index unique strava_athlete_id a rejeté
+      // notre insert car un autre compte vient de réclamer cet athlète → on reprend LE compte
+      // gagnant (garantit « un athlète = un compte », même en cas de clics quasi simultanés).
+      const { data: winner } = await admin.from('strava_tokens').select('user_id').eq('strava_athlete_id', athlete.id).limit(1).maybeSingle()
+      if (winner?.user_id) { userId = winner.user_id as string }
+      else { console.error('strava_tokens upsert error:', upsertErr.message); return fail('Failed to store Strava connection', 500) }
+    }
 
     // 4. Forge une session : magic-link admin → on renvoie le token_hash (le client verifyOtp).
     const { data: udata, error: getErr } = await admin.auth.admin.getUserById(userId)
