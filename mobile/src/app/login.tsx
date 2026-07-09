@@ -14,6 +14,7 @@ import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { signInWithStravaMobile } from '@/lib/strava'
 import { APPLE_ENABLED, signInWithSupabaseOAuthMobile } from '@/lib/socialAuth'
+import { LEGAL, openLegal } from '@/lib/legal'
 import { colors, radius, space } from '@/lib/theme'
 
 export default function LoginScreen() {
@@ -163,6 +164,21 @@ export default function LoginScreen() {
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Continuer avec Apple</Text>
           </Pressable>
         )}
+
+        {/* Mention légale — en te connectant, tu acceptes les CGU & la confidentialité. */}
+        <View style={{ marginTop: space.xl, alignItems: 'center' }}>
+          <Text style={{ color: colors.text3, fontSize: 11, textAlign: 'center', lineHeight: 17 }}>
+            En continuant, tu acceptes nos{' '}
+            <Text style={{ textDecorationLine: 'underline' }} onPress={() => openLegal(LEGAL.terms)}>
+              CGU
+            </Text>{' '}
+            et notre{' '}
+            <Text style={{ textDecorationLine: 'underline' }} onPress={() => openLegal(LEGAL.privacy)}>
+              politique de confidentialité
+            </Text>
+            .
+          </Text>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
