@@ -293,7 +293,8 @@ export default function RenfoSessionScreen() {
         })}
       </View>
       <Text style={{ marginTop: 6, fontSize: 10.5, color: colors.text3 }}>
-        Variantes adaptées à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Configurable dans Réglages équipement.
+        Variantes adaptées à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Configurable dans{' '}
+        <Text style={{ color: colors.ember, textDecorationLine: 'underline' }} onPress={() => router.push('/renfo/equipment')}>Réglages équipement</Text>.
       </Text>
     </Card>
   )
@@ -308,7 +309,8 @@ export default function RenfoSessionScreen() {
         <Card style={{ borderLeftWidth: 3, borderLeftColor: colors.ember }}>
           <MLabel style={{ color: colors.ember, marginBottom: 4 }}>Aucun exercice disponible</MLabel>
           <Text style={{ fontSize: 10.5, color: colors.text3, marginTop: 4 }}>
-            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l'autre lieu, ou ajoute du matériel dans Réglages équipement.
+            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l'autre lieu, ou ajoute du matériel dans{' '}
+            <Text style={{ color: colors.ember, textDecorationLine: 'underline' }} onPress={() => router.push('/renfo/equipment')}>Réglages équipement</Text>.
           </Text>
           {sessionPlan._buildError ? (
             <Text style={{ fontSize: 10, color: colors.text3, marginTop: 4 }}>{sessionPlan._buildError}</Text>

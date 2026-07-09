@@ -7,6 +7,7 @@ import { colors, radius, space } from '@/lib/theme'
 import CoachEngine from '@/components/profile/CoachEngine'
 import CalibrationCard from '@/components/profile/CalibrationCard'
 import Constants from 'expo-constants'
+import { useRouter } from 'expo-router'
 import DeleteAccount from '@/components/profile/DeleteAccount'
 import { LEGAL, openLegal, openSupport } from '@/lib/legal'
 
@@ -318,6 +319,7 @@ type TabKey = 'compte' | 'records' | 'analyse'
 export default function ProfileScreen() {
   const { session } = useAuth()
   const user = session?.user
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('compte')
   const [loading, setLoading] = useState(true)
   const [row, setRow] = useState<ProfileRow | null>(null)
@@ -492,6 +494,14 @@ export default function ProfileScreen() {
               </Pressable>
               {saveMsg ? <Text style={{ marginTop: 6, fontSize: 11, color: colors.growth }}>{saveMsg}</Text> : null}
             </View>
+
+            <Pressable onPress={() => router.push('/renfo/equipment')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[clabel, { marginBottom: 6 }]}>MATÉRIEL RENFO — MAISON / SALLE</Text>
+                <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Ce que tu as chez toi et en salle. Détermine les variantes d'exercices proposées en séance.</Text>
+              </View>
+              <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
+            </Pressable>
 
             <View style={cardS}>
               <Text style={[clabel, { marginBottom: 6 }]}>HISTORIQUE COMPLET — ARCHIVE STRAVA</Text>
