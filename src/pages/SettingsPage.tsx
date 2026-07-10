@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router'
 import type { CSSProperties } from 'react'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+import { signOutAndClear } from '../lib/session'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
 import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
 import StravaConnection from '../components/StravaConnection'
@@ -403,7 +404,7 @@ export default function SettingsPage() {
       <button
         className="hbtn"
         style={{ marginTop: '1.5rem' }}
-        onClick={() => { localStorage.removeItem('vl-had-session'); supabase.auth.signOut() }}
+        onClick={() => { void signOutAndClear() }}
       >
         Se déconnecter
       </button>

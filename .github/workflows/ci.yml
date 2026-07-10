@@ -37,6 +37,34 @@ jobs:
           path: dist
           retention-days: 1
 
+  # Tests SQL de sécurité (RLS profiles/admin) — démontrent et verrouillent la
+  # non-régression des vulnérabilités P0 (escalade PRO/admin via profiles).
+  rls-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run RLS security tests
+        run: bash scripts/test-rls.sh
+
   # Smoke e2e (projet `react`, sans auth) — protège routing, pages publiques,
   # landing et aperçu séance contre les régressions de type "app cassée".
   e2e-smoke:

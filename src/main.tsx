@@ -3,7 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as Sentry from '@sentry/react'
 import App from './App'
+import { purgeDangerousCaches } from './lib/cachePurge'
 import '../style.css'
+
+// Nettoie tout cache authentifié laissé par une ancienne version du service
+// worker (fuite potentielle de données entre comptes). Sans effet si absent.
+void purgeDangerousCaches()
 
 // Monitoring d'erreurs (Sentry) — no-op tant que VITE_SENTRY_DSN n'est pas
 // fourni au build (secret GitHub Actions). Erreurs uniquement, pas de tracing :

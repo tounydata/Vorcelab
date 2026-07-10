@@ -1,0 +1,21 @@
+Copyright (c) 2025-2026 Vorcelab. Tous droits réservés. / All rights reserved.
+
+Ce dépôt et l'ensemble de son contenu — code source, moteur de projection de
+course, moteur de coaching, formules et coefficients, migrations de base de
+données, Edge Functions, logique de paiement et d'abonnement, schémas et
+architecture — constituent un logiciel PROPRIÉTAIRE et CONFIDENTIEL.
+
+Aucune licence n'est accordée, expressément ou implicitement. Sans autorisation
+écrite préalable du titulaire des droits, il est notamment interdit de :
+  - copier, reproduire ou distribuer tout ou partie du code ;
+  - modifier, adapter ou créer des œuvres dérivées ;
+  - utiliser le moteur, les formules ou les données à des fins commerciales
+    ou de recherche ;
+  - publier, sous-licencier ou revendre le logiciel ou ses composants.
+
+L'accès à ce dépôt (y compris s'il a temporairement été public) ne confère
+aucun droit d'usage, de réutilisation ni de rétro-ingénierie.
+
+Les dépendances tierces restent régies par leurs licences respectives.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
