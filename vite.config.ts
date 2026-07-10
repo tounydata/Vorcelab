@@ -16,8 +16,14 @@ export default defineConfig({
         globIgnores: ['**/maplibre-gl-*.js'],
         // BrowserRouter (SPA) : toute navigation revient sur index.html
         navigateFallback: '/index.html',
-        // Ne pas mettre en cache les appels Supabase auth (sécurité)
-        navigateFallbackDenylist: [/^\/api/],
+        // Purge automatique des anciennes versions de précache à chaque déploiement.
+        cleanupOutdatedCaches: true,
+        // SÉCURITÉ : on ne met JAMAIS en cache les réponses de l'API Supabase
+        // (Auth, REST, GraphQL, Storage, Functions). Ce sont des réponses
+        // authentifiées propres à l'utilisateur connecté ; les mettre en cache
+        // exposerait les données d'un compte à un autre sur le même appareil et
+        // servirait des données périmées hors ligne. Aucune règle runtimeCaching
+        // ne cible *.supabase.co : ces requêtes vont toujours au réseau.
         runtimeCaching: [
           {
             // Bundle MapLibre (lazy) — CacheFirst une fois téléchargé
@@ -36,17 +42,6 @@ export default defineConfig({
             options: {
               cacheName: 'maptiler-tiles',
               expiration: { maxEntries: 500, maxAgeSeconds: 604800 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            // Données Supabase — NetworkFirst, fallback cache 24h
-            urlPattern: /^https:\/\/[a-z]+\.supabase\.co\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 60, maxAgeSeconds: 86400 },
               cacheableResponse: { statuses: [200] },
             },
           },

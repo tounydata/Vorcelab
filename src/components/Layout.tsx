@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { signOutAndClear } from '../lib/session'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useVLStore } from '../store/vlStore'
 import OnboardingGate from './onboarding/OnboardingGate'
@@ -220,7 +221,7 @@ export default function Layout() {
           </div>
           <button
             className="hbtn"
-            onClick={() => { localStorage.removeItem('vl-had-session'); supabase.auth.signOut() }}
+            onClick={() => { void signOutAndClear() }}
           >
             Déconnexion
           </button>
