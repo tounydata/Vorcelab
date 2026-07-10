@@ -81,9 +81,21 @@ fonctionnalité ou d'un contenu en moins.
   (séance du jour + frise semaine), « ce mois » + dernières sorties, sections
   **réorganisables** (▲▼ + persistance `dashboard_layout`), recalcul profil en tâche
   de fond + rattrapage Strava→renfo (`syncStravaRenfo`).
+- `Réglages app` : `SettingsPage.tsx` porté → `app/settings` (2 sous-onglets
+  RÉGLAGES / NUTRITION) : connexion Strava (statut/sync/déco, `StravaConnectionCard`),
+  orientation coach (`coach_motivation`), jours de course, cible renfo, 1RM force
+  (`OneRMSettingsCard` + test guidé), accès matériel renfo (`app/renfo/equipment`),
+  compte (email + changement de mot de passe), préférences nutrition (sans caféine +
+  catalogue produits par marque). Branché depuis l'onglet Profil.
 
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
-- (aucune — tous les écrans web sont portés.) Onboarding / tour guidé non requis sur natif.
+- **Abonnement PRO (`SubscriptionCard`) volontairement absent sur iOS** : Apple impose
+  l'In-App Purchase (Guideline 3.1.1) pour l'abonnement — Stripe hors-app = rejet. À
+  porter en StoreKit/IAP une fois le compte Apple Developer souscrit (cf. suivi App Store).
+  Corollaire : le gating PRO du web (`usePlanTier`) n'est pas encore porté (tout est
+  débloqué sur natif tant que l'IAP n'existe pas).
+- Onboarding / tour guidé non requis sur natif.
 - Limites physiques natives (≠ simplification) : impression (`window.print`) absente
   du menu stratégie ; saisie date/heure en texte faute de date-picker sans dépendance ;
-  réorganisation du dashboard via ▲▼ (le drag&drop pointer du web → boutons natifs).
+  réorganisation du dashboard via ▲▼ (le drag&drop pointer du web → boutons natifs) ;
+  éditeur matériel renfo : sliders `<input range>` → steppers − / + (mêmes plages/pas).

@@ -495,6 +495,14 @@ export default function ProfileScreen() {
               {saveMsg ? <Text style={{ marginTop: 6, fontSize: 11, color: colors.growth }}>{saveMsg}</Text> : null}
             </View>
 
+            <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[clabel, { marginBottom: 6 }]}>⚙️  RÉGLAGES DE L'APP</Text>
+                <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Strava, orientation du coach, jours de course, renfo, 1RM, nutrition, compte.</Text>
+              </View>
+              <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
+            </Pressable>
+
             <Pressable onPress={() => router.push('/renfo/equipment')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[clabel, { marginBottom: 6 }]}>MATÉRIEL RENFO — MAISON / SALLE</Text>
