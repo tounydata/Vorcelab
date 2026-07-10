@@ -185,6 +185,20 @@ export function computeSessionVerdict(
     }
   }
 
+  // Discordance de type de séance : séance d'intervalles prévue (zone I/R)
+  // mais FC réelle dans la zone aérobie facile (≤ zone E max). L'activité liée
+  // n'est clairement pas la bonne séance — on force trop_facile sans ambiguïté.
+  const isIntervalSession = target.zone === 'I' || target.zone === 'R'
+  const actualHrIsEasy = actual.avgHrPctMax != null && actual.avgHrPctMax <= ZONE_HR_PCT['E'].max
+  if (isIntervalSession && actualHrIsEasy) {
+    return {
+      verdict: 'trop_facile',
+      confidence: actual.avgHrPctMax != null ? 'high' : 'low',
+      signals: [...signals, { axis: 'fc', status: 'easier', label: 'FC en zone E — séance d\'intervalles prévue' }],
+      summary: 'L\'activité liée est une sortie en endurance, pas la séance d\'intervalles prévue — associe la bonne activité ou saisis ton ressenti seul.',
+    }
+  }
+
   let score = 0
   for (const s of signals) {
     const sign = s.status === 'harder' ? 1 : s.status === 'easier' ? -1 : 0
