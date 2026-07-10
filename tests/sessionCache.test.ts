@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { purgeDangerousCaches } from '../src/lib/session'
+import { purgeDangerousCaches } from '../src/lib/cachePurge'
 
 // Mock minimal de l'API CacheStorage du navigateur.
 function makeCacheStorage(names: string[]) {
