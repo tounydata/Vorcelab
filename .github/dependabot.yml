@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # ── npm racine (web) ────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Regroupe pour limiter le bruit ; sécurité traitée en priorité par ailleurs.
+      dev-dependencies:
+        dependency-type: development
+      production-minor-patch:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "web"]
+
+  # ── npm mobile (Expo) ───────────────────────────────────────────────────────
+  # Expo pilote des versions précises par SDK : on limite aux minor/patch et on
+  # regroupe, pour ne pas casser l'alignement SDK (bumps majeurs à faire via
+  # `npx expo install` manuellement).
+  - package-ecosystem: npm
+    directory: "/mobile"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+    groups:
+      mobile-minor-patch:
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "mobile"]
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    labels: ["dependencies", "ci"]
