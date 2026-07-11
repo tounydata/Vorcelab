@@ -112,3 +112,23 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
         working-directory: mobile
+
+  # Chaîne d'approvisionnement : scan de secrets déterministe (bloquant) + audit
+  # des dépendances (informatif — ne bloque pas sur des CVE préexistantes).
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan (blocking on real secrets)
+        run: bash scripts/scan-secrets.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: npm audit (web, informational)
+        run: npm audit --audit-level=high || true
+      - name: npm audit (mobile, informational)
+        run: npm audit --audit-level=high || true
+        working-directory: mobile

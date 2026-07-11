@@ -71,10 +71,11 @@ ouverture commerciale** :
       sécurité/migrations, pas de push direct, squash merge (voir Phase 3 CI).
 
 ### Supabase
-- [ ] **Appliquer la migration `20260710000000` en prod** (`supabase db push` ou
-      via CI de déploiement des migrations).
-- [ ] Après application, **vérifier via l'API anon** qu'un `update` de `is_admin`
-      / `plan_tier` est bien rejeté (test manuel de bout en bout avec un vrai JWT).
+- [x] **Migration `20260710000000` appliquée en prod** (projet `runnerdata` /
+      `wanzrkdgqmcctwvnbmuv`) le 2026-07-11 via l'outil Supabase, + suivi
+      `20260710010000` (voir addendum ci-dessous). Vérifié en base : trigger
+      présent, attaque `is_admin`/`plan_tier` rejetée en rôle `authenticated`
+      simulé, `anon` privé des RPC admin, advisors propres.
 - [ ] Activer *Leaked password protection* (réglage Auth, non scriptable en SQL).
 - [ ] Confirmer que la clé `service_role` n'a **jamais** été exposée côté client
       ni dans un build ; sinon la **faire tourner**.
@@ -90,5 +91,53 @@ ouverture commerciale** :
       `package.json` mais l'install/lock doit être faite dans l'environnement de
       build mobile).
 
-> ⚠️ Aucune de ces actions distantes n'a été réalisée ni supposée active : elles
-> sont listées ici comme **à faire manuellement**.
+> ⚠️ Les actions non cochées ci-dessus restent **à faire manuellement** et ne sont
+> pas supposées actives.
+
+---
+
+## Addendum 2026-07-11 — Application en production + durcissement de suivi
+
+Le connecteur Supabase (projet `runnerdata` / `wanzrkdgqmcctwvnbmuv`, Postgres 17,
+ACTIVE) a permis de vérifier l'état réel et d'appliquer la correction :
+
+**État avant (vérifié en prod)**
+- Policy unique `"Users see own profile"` `FOR ALL USING ((select auth.uid()) = id)`
+  **sans `WITH CHECK`** → Postgres réutilise le `USING` comme check → un client
+  pouvait écrire toute sa ligne, y compris les 5 colonnes sensibles. (Le nom de
+  policy diffère du dépôt : **drift de schéma** — les migrations du repo ont été
+  appliquées en prod sous d'autres timestamps.)
+- Les 13 fonctions `admin_*` étaient exécutables par `anon` (ACL `anon=X`), 10
+  sans `search_path`.
+
+**Appliqué**
+1. `secure_profiles_and_admin` (= `20260710000000`) — trigger garde-fou +
+   durcissement admin.
+2. `secure_hardening_followup` (= `20260710010000`) — `search_path` sur la
+   fonction trigger + retrait du `GRANT PUBLIC` résiduel sur `update_last_seen`.
+
+**Vérifié après**
+- Simulation en rôle `authenticated` réel : `update is_admin=true` et
+  `update plan_tier='pro'` → **rejetés** (`insufficient_privilege`) ; écriture
+  légitime → OK ; `anon` → `admin_get_kpis()` **refusé**.
+- Advisors sécurité : plus aucun avertissement actionnable. Restent des WARN
+  **intentionnels et documentés** :
+  - `get_shared_race` exécutable par `anon` → page de partage publique par token.
+  - `admin_*`, `update_last_seen`, `get_shared_race` exécutables par
+    `authenticated` → volontaire (contrôle `is_admin`/périmètre en interne).
+  - `strava_tokens`, `strava_webhook_events` : RLS active sans policy → deny-all
+    voulu (accès service-role uniquement).
+  - `auth_leaked_password_protection` → à activer dans le dashboard Auth.
+
+**Note drift** : parce que les migrations du repo ont des timestamps différents de
+la prod, un `supabase db pull`/rebaseline de l'historique de migrations est
+recommandé (voir roadmap) pour garantir qu'un environnement vierge est recréable
+**uniquement** depuis le dépôt.
+
+## Chaîne d'approvisionnement (ajouté)
+
+- `.github/dependabot.yml` : npm racine, npm mobile (bumps majeurs Expo/RN
+  ignorés — à faire via `npx expo install`), GitHub Actions, regroupés.
+- CI job `supply-chain` : `scripts/scan-secrets.sh` (bloquant, distingue clés anon
+  publiques / secrets serveur) + `npm audit` web & mobile (informatif).
+
