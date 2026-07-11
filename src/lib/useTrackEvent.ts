@@ -11,6 +11,7 @@ export type AppEvent =
   | 'strava_connected'
   | 'gpx_uploaded'
   | 'plan_upgraded'
+  | 'payment_success_viewed'
   | 'progate_view'
   | 'upgrade_modal_open'
   | 'upgrade_cta_click'
