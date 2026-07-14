@@ -59,3 +59,39 @@ describe('buildRenfoRows — déduplication par (date + focus)', () => {
     expect(buildRenfoRows(U, acts, [])).toHaveLength(0)
   })
 })
+
+describe('buildRenfoRows — déduplication par id d’activité Strava', () => {
+  it('conserve DEUX séances le même jour issues de deux activités différentes', () => {
+    const acts: StravaActLite[] = [
+      { strava_activity_id: 111, type: 'WeightTraining', sport_type: 'WeightTraining', start_date_local: '2026-06-03 08:00:00', moving_time: 1800 },
+      { strava_activity_id: 222, type: 'WeightTraining', sport_type: 'WeightTraining', start_date_local: '2026-06-03 18:00:00', moving_time: 1500 },
+    ]
+    const rows = buildRenfoRows(U, acts, [])
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.source_activity_id).sort()).toEqual(['111', '222'])
+  })
+
+  it('ne ré-importe pas une activité déjà présente (même source_activity_id)', () => {
+    const acts: StravaActLite[] = [
+      { strava_activity_id: 111, type: 'WeightTraining', sport_type: 'WeightTraining', start_date_local: '2026-06-03 08:00:00', moving_time: 1800 },
+    ]
+    const existing = [{ session_date: '2026-06-03', focus: 'force_lourde', source_activity_id: '111' }]
+    expect(buildRenfoRows(U, acts, existing)).toHaveLength(0)
+  })
+
+  it('transition : ne duplique pas une ligne HISTORIQUE sans id (même date+focus)', () => {
+    const acts: StravaActLite[] = [
+      { strava_activity_id: 111, type: 'Yoga', sport_type: 'Yoga', start_date_local: '2026-06-03 08:00:00', moving_time: 1800 },
+    ]
+    // Ligne importée avant l'ajout de source_activity_id (id NULL), même date/focus.
+    const existing = [{ session_date: '2026-06-03', focus: 'yoga_coureur', source_activity_id: null }]
+    expect(buildRenfoRows(U, acts, existing)).toHaveLength(0)
+  })
+
+  it('renseigne source_activity_id sur les nouvelles lignes', () => {
+    const acts: StravaActLite[] = [
+      { strava_activity_id: 999, type: 'WeightTraining', sport_type: 'WeightTraining', start_date_local: '2026-06-05 08:00:00', moving_time: 1200 },
+    ]
+    expect(buildRenfoRows(U, acts, [])[0].source_activity_id).toBe('999')
+  })
+})

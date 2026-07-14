@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
-import { predictRaceTimeS, fmtRaceTime, estimateVdotGain } from '../lib/raceTimeProjection'
+import { predictRaceTimeS, fmtRaceTime, estimateVdotGainRange } from '../lib/raceTimeProjection'
 import { useVLStore } from '../store/vlStore'
 import { useTrackEvent } from '../lib/useTrackEvent'
 
@@ -75,18 +75,22 @@ export default function UpgradeModal() {
 
   if (!open) return null
 
-  const vdotGain = teaser ? estimateVdotGain(teaser.weeksToRace) : 0
+  const gainRange = teaser ? estimateVdotGainRange(teaser.weeksToRace) : { low: 0, high: 0 }
   const distM = (teaser?.distanceKm ?? 0) * 1000
   const currentVdot = teaser?.vdot ?? 0
-  const currentTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot, distM) : null
-  const coachTimeS = distM > 0 && currentVdot > 0 ? predictRaceTimeS(currentVdot + vdotGain, distM) : null
-  const savedSeconds = currentTimeS && coachTimeS ? currentTimeS - coachTimeS : 0
-  const savedMin = Math.floor(savedSeconds / 60)
-  const savedSec = Math.round(savedSeconds % 60)
+  const hasData = distM > 0 && currentVdot > 0 && gainRange.high > 0
+  const currentTimeS = hasData ? predictRaceTimeS(currentVdot, distM) : null
+  // Scénario indicatif : borne basse (gain faible) → borne haute (gain élevé).
+  const coachSlowS = hasData ? predictRaceTimeS(currentVdot + gainRange.low, distM) : null // moins de gain = plus lent
+  const coachFastS = hasData ? predictRaceTimeS(currentVdot + gainRange.high, distM) : null
+  const savedMinLow = currentTimeS && coachSlowS ? Math.floor((currentTimeS - coachSlowS) / 60) : 0
+  const savedMinHigh = currentTimeS && coachFastS ? Math.floor((currentTimeS - coachFastS) / 60) : 0
 
   function handleCTA() {
     const base = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
-    track('upgrade_cta_click', { billing, has_link: !!base })
+    // has_teaser = un scénario chiffré a réellement été montré → mesure si le
+    // teaser aide à convertir (à croiser avec upgrade_modal_open.with_teaser).
+    track('upgrade_cta_click', { billing, has_link: !!base, has_teaser: hasData })
     if (base) {
       // Stripe Payment Links acceptent ?client_reference_id= pour retrouver l'user côté webhook
       const url = user?.id ? `${base}?client_reference_id=${user.id}&prefilled_email=${encodeURIComponent(user.email ?? '')}` : base
@@ -177,8 +181,8 @@ export default function UpgradeModal() {
           )}
         </div>
 
-        {/* ── Perf comparison (si données réelles disponibles) ─────────── */}
-        {currentTimeS && coachTimeS && (
+        {/* ── Scénario indicatif (si données suffisantes) ─────────────── */}
+        {hasData && currentTimeS && coachFastS && coachSlowS && (
           <div style={{
             padding: '24px 32px 20px',
             borderBottom: '1px solid var(--vl-line)',
@@ -204,15 +208,15 @@ export default function UpgradeModal() {
               }}>→</div>
 
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--vl-ember)', textTransform: 'uppercase', marginBottom: 8 }}>Avec le coach</div>
-                <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1 }}>
-                  {fmtRaceTime(coachTimeS)}
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.1em', color: 'var(--vl-ember)', textTransform: 'uppercase', marginBottom: 8 }}>Scénario coach</div>
+                <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(1.4rem, 4.5vw, 2rem)', fontWeight: 800, color: 'var(--vl-ember)', lineHeight: 1.05 }}>
+                  {fmtRaceTime(coachFastS)}<span style={{ color: 'var(--vl-text-3)' }}>–</span>{fmtRaceTime(coachSlowS)}
                 </div>
-                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6 }}>VDOT {Math.round(currentVdot + vdotGain)}</div>
+                <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 6 }}>VDOT {Math.round(currentVdot + gainRange.low)}–{Math.round(currentVdot + gainRange.high)}</div>
               </div>
             </div>
 
-            {savedMin > 0 && (
+            {savedMinHigh > 0 && (
               <div style={{
                 marginTop: 16, textAlign: 'center',
                 padding: '9px 16px', borderRadius: 10,
@@ -220,11 +224,16 @@ export default function UpgradeModal() {
                 border: '1px solid color-mix(in oklab, var(--vl-ember) 30%, transparent)',
               }}>
                 <span style={{ fontFamily: 'var(--vl-display)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--vl-ember)' }}>
-                  −{savedMin}min{savedSec > 0 ? ` ${savedSec}sec` : ''}
+                  {savedMinLow > 0 ? `−${savedMinLow} à −${savedMinHigh} min` : `jusqu'à −${savedMinHigh} min`}
                 </span>
-                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginLeft: 8 }}>de gain estimé sur {teaser?.distanceKm} km</span>
+                <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 10, color: 'var(--vl-text-3)', marginLeft: 8 }}>sur {teaser?.distanceKm} km</span>
               </div>
             )}
+
+            <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9.5, lineHeight: 1.6, color: 'var(--vl-text-3)', marginTop: 14, textAlign: 'center' }}>
+              Scénario indicatif basé sur une progression théorique. Le résultat réel dépend de ta régularité,
+              de ton entraînement, du parcours et des conditions de course.
+            </div>
           </div>
         )}
 

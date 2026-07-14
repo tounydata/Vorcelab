@@ -25,7 +25,25 @@ export function fmtRaceTime(seconds: number): string {
   return `${m} min`
 }
 
-/** Gain de VDOT estimé après un plan complet (progression structurée). */
+/** Nombre minimal de semaines de plan pour afficher une progression indicative.
+ *  En deçà, les données sont trop faibles pour un scénario crédible → pas de gain. */
+export const MIN_PLAN_WEEKS = 4
+
+/** Gain de VDOT estimé après un plan complet (progression structurée, borne haute). */
 export function estimateVdotGain(weeksToRace: number): number {
   return Math.min(weeksToRace * 0.4, 7)
+}
+
+/**
+ * Plage de gain de VDOT **théorique** (basse → haute) pour une durée de plan.
+ * On expose une plage plutôt qu'un chiffre faussement précis. En dessous de
+ * MIN_PLAN_WEEKS (ou durée non valide), on renvoie {0,0} : on ne génère AUCUN gain
+ * quand les données sont insuffisantes.
+ */
+export function estimateVdotGainRange(weeksToRace: number): { low: number; high: number } {
+  if (!Number.isFinite(weeksToRace) || weeksToRace < MIN_PLAN_WEEKS) return { low: 0, high: 0 }
+  return {
+    low: Math.min(weeksToRace * 0.2, 3.5),
+    high: Math.min(weeksToRace * 0.4, 7),
+  }
 }
