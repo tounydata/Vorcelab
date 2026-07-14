@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { MISSING_LEGAL_INFO } from '../lib/legalVersions'
 
 // Pages légales publiques (CGU + confidentialité) — exigées avant d'encaisser
 // des paiements (Stripe, RGPD). Rédaction type à faire valider par un
@@ -28,6 +29,7 @@ function Shell({ title, updated, children }: { title: string; updated: string; c
         <div style={{ marginTop: '3rem', paddingTop: '1.25rem', borderTop: '1px solid var(--vl-line)', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           <Link to="/legal/cgu" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>CGU / CGV</Link>
           <Link to="/legal/confidentialite" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Confidentialité</Link>
+          <Link to="/legal/mentions" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Mentions légales</Link>
           <a href="mailto:hello@vorcelab.com" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Contact</a>
         </div>
       </div>
@@ -37,6 +39,44 @@ function Shell({ title, updated, children }: { title: string; updated: string; c
 
 function H2({ children }: { children: ReactNode }) {
   return <h2 style={{ fontFamily: 'var(--vl-display)', fontSize: '1.15rem', fontWeight: 800, letterSpacing: '.02em', color: 'var(--vl-text)', margin: '2rem 0 .6rem' }}>{children}</h2>
+}
+
+export function MentionsPage() {
+  return (
+    <Shell title="Mentions légales" updated="2 juillet 2026">
+      <H2>Éditeur</H2>
+      <p>
+        Vorcelab est édité par Tony Bollecker — contact :{' '}
+        <a href="mailto:hello@vorcelab.com" style={{ color: 'var(--vl-ember)' }}>hello@vorcelab.com</a>.
+      </p>
+
+      <H2>Hébergement</H2>
+      <p>
+        Base de données, authentification et fonctions serveur : Supabase (infrastructure
+        Amazon Web Services, région <code>eu-north-1</code>, Stockholm). Application web :
+        GitHub Pages (GitHub, Inc.). Paiements : Stripe.
+      </p>
+
+      <H2>Propriété intellectuelle</H2>
+      <p>
+        L'ensemble du contenu, des moteurs de calcul, des formules et de l'interface est la
+        propriété exclusive de l'éditeur. Toute reproduction ou réutilisation non autorisée
+        est interdite.
+      </p>
+
+      <H2>Informations à compléter avant l'ouverture commerciale</H2>
+      <p>
+        Les mentions obligatoires suivantes doivent être renseignées et{' '}
+        <strong>validées par un professionnel du droit</strong> avant toute mise en vente
+        publique. Tant qu'elles sont incomplètes, le service n'est pas commercialement ouvert.
+      </p>
+      <ul style={{ paddingLeft: '1.2rem' }}>
+        {MISSING_LEGAL_INFO.map((item) => (
+          <li key={item}><em>[À compléter : {item}.]</em></li>
+        ))}
+      </ul>
+    </Shell>
+  )
 }
 
 export function CguPage() {
