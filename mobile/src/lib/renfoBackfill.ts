@@ -57,6 +57,8 @@ export interface StravaActLite {
   start_date_local?: string | null
   moving_time?: number | null
   raw_data?: { exercise_sets?: ExerciseSet[] } | null
+  /** Id réel de l'activité Strava (bigint) — clé de déduplication. */
+  strava_activity_id?: number | string | null
 }
 
 export interface RenfoLogRow {
@@ -67,28 +69,55 @@ export interface RenfoLogRow {
   duration_min: number | null
   completed_exercises: Record<string, never>
   source: 'strava'
+  /** Id de l'activité source (Strava) ; null pour une saisie manuelle. */
+  source_activity_id: string | null
+}
+
+export interface ExistingRenfoRow {
+  session_date: string
+  focus: string | null
+  source_activity_id?: string | null
 }
 
 /**
  * À partir des activités Strava et des séances déjà loggées, construit les lignes
- * renfo manquantes (déduplication par date + focus).
+ * renfo manquantes. Déduplication par IDENTIFIANT d'activité Strava (deux séances
+ * le même jour issues de deux activités différentes sont conservées). Sécurité de
+ * transition : une activité dont l'id n'est pas encore connu mais dont (date+focus)
+ * correspond à une ligne HISTORIQUE sans id n'est pas ré-importée (évite les
+ * doublons avec les lignes créées avant l'ajout de source_activity_id).
  */
 export function buildRenfoRows(
   userId: string,
   acts: StravaActLite[],
-  existing: { session_date: string; focus: string | null }[],
+  existing: ExistingRenfoRow[],
 ): RenfoLogRow[] {
-  const keyOf = (date: string, focus: string | null) => `${date}|${focus ?? ''}`
-  const seen = new Set(existing.map((e) => keyOf(e.session_date, e.focus)))
+  const dateFocusKey = (date: string, focus: string | null) => `${date}|${focus ?? ''}`
+  const seenIds = new Set(
+    existing.filter((e) => e.source_activity_id != null).map((e) => String(e.source_activity_id)),
+  )
+  const legacyDateFocus = new Set(
+    existing.filter((e) => e.source_activity_id == null).map((e) => dateFocusKey(e.session_date, e.focus)),
+  )
   const rows: RenfoLogRow[] = []
   for (const a of acts) {
     if (!isRenfo(a.type, a.sport_type)) continue
     const date = String(a.start_date_local ?? a.start_date ?? '').slice(0, 10)
     if (!date) continue
     const focus = inferRenfoFocus(a.type ?? '', a.sport_type ?? '', a.raw_data?.exercise_sets)
-    const key = keyOf(date, focus)
-    if (seen.has(key)) continue
-    seen.add(key)
+    const sid = a.strava_activity_id != null ? String(a.strava_activity_id) : null
+
+    if (sid != null) {
+      if (seenIds.has(sid)) continue // déjà importée (par id)
+      if (legacyDateFocus.has(dateFocusKey(date, focus))) continue // déjà importée avant l'id
+      seenIds.add(sid)
+    } else {
+      // Pas d'id (saisie manuelle / activité sans id) : dédup par date+focus.
+      const key = dateFocusKey(date, focus)
+      if (legacyDateFocus.has(key)) continue
+      legacyDateFocus.add(key)
+    }
+
     const movingMin = a.moving_time ? Math.round(a.moving_time / 60) : null
     rows.push({
       user_id: userId,
@@ -98,6 +127,7 @@ export function buildRenfoRows(
       duration_min: movingMin && movingMin > 0 ? movingMin : null,
       completed_exercises: {},
       source: 'strava',
+      source_activity_id: sid,
     })
   }
   return rows
