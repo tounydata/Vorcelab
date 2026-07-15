@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ANALYTICS_EVENTS } from '../src/lib/useTrackEvent'
+import { ANALYTICS_EVENTS } from '../src/lib/analyticsEvents'
 
 // Événements requis par la taxonomie produit (docs/analytics.md). Ce test évite
 // qu'un événement disparaisse accidentellement de la taxonomie.
