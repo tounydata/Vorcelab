@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Map as MlMap, Marker as MlMarker, LngLatBoundsLike } from 'maplibre-gl'
 import type { GpxPoint } from '../../../lib/computeRaceProjection'
+import type { RaceConditions } from '../../../lib/raceWeather'
 import type { ProfileMarker } from './ElevationProfile'
 import { hav } from '../../../lib/gpxCore'
 import { HEAT_COLORS, HEAT_NAMES } from '../../../lib/raceStrategyView'
@@ -17,6 +18,12 @@ interface Props {
   heightPx: number
   /** Temps de course écoulé (s) à un km donné — pour le chrono du rejeu animé. */
   secAtKm?: (km: number) => number
+  /** Météo de la fenêtre de course — pour la couche « météo » (badge). */
+  forecast?: RaceConditions | null
+  /** Date de la course (ISO) — pour la couche « soleil » (angle réel du soleil). */
+  raceDate?: string
+  /** Heure de départ 'HH:MM' — pour positionner le soleil à l'heure de course. */
+  startTime?: string | null
 }
 
 /** lon/lat interpolés sur le tracé à une distance donnée (km). */
@@ -56,6 +63,65 @@ function buildHeatFC(heatSegments: HeatSeg[], cum: number[], pts: GpxPoint[]) {
   return { type: 'FeatureCollection' as const, features }
 }
 
+// ── Couche « pente » (#10) : le tracé coloré par % de pente signée ────────────
+const GRADE_LEGEND: { color: string; label: string }[] = [
+  { color: '#38bdf8', label: 'descente −' },
+  { color: '#4ad07a', label: 'plat' },
+  { color: '#eab308', label: '4-8%' },
+  { color: '#f97316', label: '8-14%' },
+  { color: '#ef4444', label: '>14%' },
+]
+function gradeColor(g: number): string {
+  if (g <= -4) return '#38bdf8'
+  if (g < 4) return '#4ad07a'
+  if (g < 8) return '#eab308'
+  if (g < 14) return '#f97316'
+  return '#ef4444'
+}
+/** FeatureCollection colorée par pente signée (fusion des segments de même couleur). */
+function buildGradeFC(pts: GpxPoint[], cum: number[]) {
+  const features: { type: 'Feature'; properties: { color: string }; geometry: { type: 'LineString'; coordinates: [number, number][] } }[] = []
+  let curColor: string | null = null
+  let coords: [number, number][] = []
+  for (let i = 1; i < pts.length; i++) {
+    const dxm = (cum[i] - cum[i - 1]) * 1000
+    const de = (pts[i].ele ?? 0) - (pts[i - 1].ele ?? 0)
+    const g = dxm > 1 ? (de / dxm) * 100 : 0
+    const col = gradeColor(g)
+    if (col !== curColor) {
+      if (curColor && coords.length >= 2) features.push({ type: 'Feature', properties: { color: curColor }, geometry: { type: 'LineString', coordinates: coords } })
+      curColor = col
+      coords = [[pts[i - 1].lon, pts[i - 1].lat]]
+    }
+    coords.push([pts[i].lon, pts[i].lat])
+  }
+  if (curColor && coords.length >= 2) features.push({ type: 'Feature', properties: { color: curColor }, geometry: { type: 'LineString', coordinates: coords } })
+  return { type: 'FeatureCollection' as const, features }
+}
+
+// ── Couche « soleil » (#7) : azimut réel du soleil (°, 0 = Nord, sens horaire)
+//    et hauteur (°) pour la date+heure de course. Algorithme solaire compact
+//    (NOAA simplifié) — suffisant pour orienter l'ombrage du relief. ────────────
+function sunPosition(date: Date, lat: number, lon: number): { azimuth: number; altitude: number } {
+  const rad = Math.PI / 180
+  const dayMs = 86400000
+  const J1970 = 2440588, J2000 = 2451545
+  const toJulian = (d: Date) => d.valueOf() / dayMs - 0.5 + J1970
+  const d = toJulian(date) - J2000
+  const M = rad * (357.5291 + 0.98560028 * d)                       // anomalie moyenne
+  const L = M + rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)) + rad * 102.9372 + Math.PI // longitude éclip.
+  const e = rad * 23.4397                                            // obliquité
+  const dec = Math.asin(Math.sin(e) * Math.sin(L))                  // déclinaison
+  const ra = Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L))     // ascension droite
+  const lw = rad * -lon
+  const theta = rad * (280.16 + 360.9856235 * d) - lw               // temps sidéral
+  const H = theta - ra                                              // angle horaire
+  const phi = rad * lat
+  const altitude = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H))
+  const azimuth = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) // 0 = Sud, horaire
+  return { azimuth: (azimuth / rad + 180) % 360, altitude: altitude / rad }   // ramené à 0 = Nord
+}
+
 /** Cap (°, 0 = Nord) du point a vers le point b — oriente la caméra du rejeu. */
 function bearingBetween(a: [number, number], b: [number, number]): number {
   const toRad = Math.PI / 180
@@ -83,7 +149,7 @@ function fmtChrono(sec: number): string {
 
 // Carte 3D (MapLibre + terrain MapTiler) : tracé GPS drapé sur le relief en perspective.
 // MapLibre est chargé en import dynamique → hors du bundle initial. Repli : cadre sombre.
-export default function RouteMap3D({ points, markers, heatSegments, cursorKm, totalKm, heightPx, secAtKm }: Props) {
+export default function RouteMap3D({ points, markers, heatSegments, cursorKm, totalKm, heightPx, secAtKm, forecast, raceDate, startTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const mlRef = useRef<typeof import('maplibre-gl') | null>(null)
@@ -91,10 +157,15 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const routeMarkersRef = useRef<MlMarker[]>([])
   const cumRef = useRef<number[]>([])
   const boundsRef = useRef<LngLatBoundsLike | null>(null)
+  const centerRef = useRef<[number, number]>([0, 0])
   const readyRef = useRef(false)
   const [ready, setReady] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [is3D, setIs3D] = useState(true)
+  // Couches optionnelles (OFF par défaut : la carte reste épurée).
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [layers, setLayers] = useState({ sun: false, weather: false, grade: false })
+  const [exagg, setExagg] = useState(2.5)
   // Rejeu animé : un coureur parcourt le tracé, la caméra le suit, chrono live.
   const [playing, setPlaying] = useState(false)
   const [head, setHead] = useState<{ km: number; sec: number; pace: number | null; heat: number } | null>(null)
@@ -130,6 +201,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     }
     const bounds: LngLatBoundsLike = [[minLon, minLat], [maxLon, maxLat]]
     boundsRef.current = bounds
+    centerRef.current = [(minLon + maxLon) / 2, (minLat + maxLat) / 2]
 
     let map: MlMap | null = null
     let cancelled = false
@@ -184,6 +256,9 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         } else {
           map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#E5562A', 'line-width': 3.6 } })
         }
+        // Couche « pente » (#10), cachée par défaut : on la révèle en masquant l'effort.
+        map.addSource('route-grade', { type: 'geojson', data: buildGradeFC(points, cum) })
+        map.addLayer({ id: 'route-grade', type: 'line', source: 'route-grade', layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' }, paint: { 'line-color': ['get', 'color'], 'line-width': 4.2 } })
 
         // Cadre sur le tracé (en gardant l'inclinaison)
         map.fitBounds(bounds, { padding: 38, pitch: 54, bearing: -18, duration: 0, maxZoom: 15 })
@@ -264,6 +339,64 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   }
   useEffect(() => { placeCursor(cursorKm) // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursorKm])
+
+  // ── Couche #9 : exagération du relief (slider) ─────────────────────────────
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !ready) return
+    try { m.setTerrain({ source: 'dem', exaggeration: exagg }) } catch { /* terrain pas prêt */ }
+  }, [exagg, ready])
+
+  // ── Couche #10 : bascule effort ↔ pente (visibilité des deux calques) ───────
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !ready) return
+    try {
+      if (m.getLayer('route-grade')) m.setLayoutProperty('route-grade', 'visibility', layers.grade ? 'visible' : 'none')
+      if (m.getLayer('route-line')) m.setLayoutProperty('route-line', 'visibility', layers.grade ? 'none' : 'visible')
+    } catch { /* calque pas prêt */ }
+  }, [layers.grade, ready])
+
+  // Position du soleil (azimut/hauteur) à la date+heure de course, au centre du parcours.
+  const sunInfo = useMemo(() => {
+    if (!raceDate) return null
+    const [c0, c1] = centerRef.current
+    const d = new Date(raceDate)
+    if (isNaN(d.getTime())) return null
+    const mt = startTime?.match(/^(\d{1,2}):(\d{2})/)
+    d.setHours(mt ? parseInt(mt[1], 10) : 12, mt ? parseInt(mt[2], 10) : 0, 0, 0)
+    return sunPosition(d, c1 || 45, c0 || 6)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceDate, startTime, ready])
+
+  // ── Couche #7 : ombrage du relief éclairé depuis la position réelle du soleil ─
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !ready) return
+    try {
+      const has = m.getLayer('sun-hillshade')
+      if (layers.sun && sunInfo) {
+        if (!has) {
+          const before = m.getLayer('route-casing') ? 'route-casing' : undefined
+          m.addLayer({
+            id: 'sun-hillshade', type: 'hillshade', source: 'dem',
+            paint: {
+              'hillshade-illumination-anchor': 'map',
+              'hillshade-illumination-direction': Math.round(sunInfo.azimuth),
+              // Soleil bas (aube/crépuscule) → ombres plus marquées.
+              'hillshade-exaggeration': sunInfo.altitude < 12 ? 0.9 : 0.6,
+              'hillshade-shadow-color': '#05070d',
+              'hillshade-highlight-color': sunInfo.altitude <= 0 ? '#1a2740' : '#fce9c8',
+            },
+          }, before)
+        } else {
+          m.setPaintProperty('sun-hillshade', 'hillshade-illumination-direction', Math.round(sunInfo.azimuth))
+        }
+      } else if (has) {
+        m.removeLayer('sun-hillshade')
+      }
+    } catch { /* source dem pas prête */ }
+  }, [layers.sun, sunInfo, ready])
 
   // Rotation manuelle : le relief peut masquer une partie du tracé selon l'angle.
   function rotateBy(deg: number) {
@@ -367,6 +500,49 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             <span style={{ fontSize: 11.5, color: 'var(--vl-text-3)', maxWidth: 300, textAlign: 'center', lineHeight: 1.5 }}>Clé MapTiler non autorisée pour ce domaine. Ajouter <b>vorcelab.app</b> dans le dashboard MapTiler ou configurer le secret <code>VITE_MAPTILER_KEY</code>.</span>
           </div>
         )}
+        {/* ── Panneau « Couches » (haut-gauche) : tout OFF par défaut pour ne pas
+            surcharger la carte ; l'utilisateur active ce qu'il veut. ── */}
+        {!mapError && (
+          <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+            <button
+              title="Couches de la carte" aria-label="Couches de la carte" aria-expanded={panelOpen}
+              onClick={() => setPanelOpen((o) => !o)}
+              style={{ ...ctrlBtn, width: 'auto', padding: '0 10px', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '.06em', fontFamily: 'var(--vl-mono)',
+                borderColor: panelOpen || layers.sun || layers.weather || layers.grade ? 'rgba(229,86,42,.7)' : 'rgba(255,255,255,.18)' }}
+            >⚑ COUCHES</button>
+            {panelOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '10px 12px', borderRadius: 9, background: 'rgba(12,12,14,.82)', backdropFilter: 'blur(3px)', border: '1px solid rgba(255,255,255,.14)', minWidth: 168 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: raceDate ? '#e8e8ea' : '#6b7280', cursor: raceDate ? 'pointer' : 'not-allowed' }}>
+                  <input type="checkbox" checked={layers.sun} disabled={!raceDate} onChange={(e) => setLayers((l) => ({ ...l, sun: e.target.checked }))} />
+                  ☀ Soleil / ombres
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: forecast?.available ? '#e8e8ea' : '#6b7280', cursor: forecast?.available ? 'pointer' : 'not-allowed' }}>
+                  <input type="checkbox" checked={layers.weather} disabled={!forecast?.available} onChange={(e) => setLayers((l) => ({ ...l, weather: e.target.checked }))} />
+                  ⛅ Météo
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: '#e8e8ea', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={layers.grade} onChange={(e) => setLayers((l) => ({ ...l, grade: e.target.checked }))} />
+                  ▲ Pente (%)
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, borderTop: '1px solid rgba(255,255,255,.12)', paddingTop: 8 }}>
+                  <span style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#e8e8ea' }}>
+                    <span>⛰ Relief</span><span style={{ color: 'var(--vl-text-3)' }}>×{exagg.toFixed(1)}</span>
+                  </span>
+                  <input type="range" min={1} max={5} step={0.5} value={exagg} onChange={(e) => setExagg(parseFloat(e.target.value))} style={{ accentColor: '#E5562A', width: '100%' }} aria-label="Exagération du relief" />
+                </div>
+              </div>
+            )}
+            {layers.weather && forecast?.available && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 10px', borderRadius: 8, background: 'rgba(12,12,14,.78)', backdropFilter: 'blur(3px)', border: '1px solid rgba(255,255,255,.12)', fontFamily: 'var(--vl-mono)', fontSize: 11, color: '#e8e8ea' }}>
+                {forecast.tempC != null && <span>🌡 {Math.round(forecast.tempC)}°</span>}
+                {forecast.feelsLikeC != null && <span style={{ color: 'var(--vl-text-3)' }}>ress. {Math.round(forecast.feelsLikeC)}°</span>}
+                {forecast.windKmh != null && <span>💨 {Math.round(forecast.windKmh)} km/h</span>}
+                {forecast.precipMm != null && forecast.precipMm > 0 && <span>🌧 {forecast.precipMm} mm</span>}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Contrôles caméra. Zoom +/- (haut-droite) séparés de la rotation/2D-3D
             pour rester lisibles. Aucun recadrage n'est automatique : « recentrer »
             (⌂) est le seul et il est déclenché ici, à la demande. */}
@@ -382,14 +558,21 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             <button title="Recentrer sur le parcours" aria-label="Recentrer sur le parcours" onClick={recenter} style={{ ...ctrlBtn, fontSize: 13 }}>⌂</button>
           </div>
         </div>
-        {(heatSegments?.length ?? 0) > 0 && !playing && (
+        {!playing && (layers.grade || (heatSegments?.length ?? 0) > 0) && (
           <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 7, padding: '4px 7px', borderRadius: 6, background: 'rgba(12,12,14,.6)', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>
-            {[1, 2, 3, 4].map((h) => (
-              <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: HEAT_COLORS[h] }} />
-                <span className="mono" style={{ fontSize: 8, color: '#e8e8ea', letterSpacing: '.02em' }}>{HEAT_NAMES[h]}</span>
-              </span>
-            ))}
+            {layers.grade
+              ? GRADE_LEGEND.map((g) => (
+                  <span key={g.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: g.color }} />
+                    <span className="mono" style={{ fontSize: 8, color: '#e8e8ea', letterSpacing: '.02em' }}>{g.label}</span>
+                  </span>
+                ))
+              : [1, 2, 3, 4].map((h) => (
+                  <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: HEAT_COLORS[h] }} />
+                    <span className="mono" style={{ fontSize: 8, color: '#e8e8ea', letterSpacing: '.02em' }}>{HEAT_NAMES[h]}</span>
+                  </span>
+                ))}
           </div>
         )}
 
