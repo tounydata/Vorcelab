@@ -122,6 +122,12 @@ function sunPosition(date: Date, lat: number, lon: number): { azimuth: number; a
   return { azimuth: (azimuth / rad + 180) % 360, altitude: altitude / rad }   // ramené à 0 = Nord
 }
 
+/** Azimut (°) → point cardinal FR, pour l'indicateur soleil. */
+function compassFR(az: number): string {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO']
+  return dirs[Math.round((az % 360) / 45) % 8]
+}
+
 /** Niveau d'effort (heat) à un km — pour l'étiquette live du rejeu. */
 function heatAtKm(km: number, segs: HeatSeg[]): number {
   for (const s of segs) if (km >= s.startKm && km <= s.endKm) return s.heat
@@ -154,9 +160,9 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const [mapError, setMapError] = useState(false)
   const [is3D, setIs3D] = useState(true)
   // Couches optionnelles (OFF par défaut : la carte reste épurée).
-  const [panelOpen, setPanelOpen] = useState(false)
   const [layers, setLayers] = useState({ sun: false, weather: false, grade: false })
-  const [exagg, setExagg] = useState(2.5)
+  // Relief : 3 presets sains (un slider libre laissait pousser à ×5 → pics moches).
+  const [exagg, setExagg] = useState(2)
   // Rejeu animé : un coureur parcourt le tracé, la caméra le suit, chrono live.
   const [playing, setPlaying] = useState(false)
   const [head, setHead] = useState<{ km: number; sec: number; pace: number | null; heat: number } | null>(null)
@@ -230,7 +236,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         setMapError(false)
         // Relief 3D
         map.addSource('dem', { type: 'raster-dem', url: cfg.terrain })
-        map.setTerrain({ source: 'dem', exaggeration: 2.5 })  // relief bien marqué même dézoomé
+        map.setTerrain({ source: 'dem', exaggeration: 2 })  // « Naturel » par défaut
         try {
           map.setSky({ 'sky-color': '#0d1320', 'horizon-color': '#1d2738', 'fog-color': '#0c0c0e', 'sky-horizon-blend': 0.5, 'horizon-fog-blend': 0.6 })
         } catch { /* setSky indispo selon style */ }
@@ -366,6 +372,10 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     try {
       const has = m.getLayer('sun-hillshade')
       if (layers.sun && sunInfo) {
+        // Ombres SEULEMENT : les taches sable/blanches venaient du « highlight »
+        // du hillshade sur le satellite → on le rend transparent (comme l'accent),
+        // ne reste qu'un assombrissement doux des versants à l'ombre du soleil.
+        const shadowStrength = sunInfo.altitude <= 0 ? 0.5 : sunInfo.altitude < 15 ? 0.42 : 0.3
         if (!has) {
           const before = m.getLayer('route-casing') ? 'route-casing' : undefined
           m.addLayer({
@@ -373,14 +383,15 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             paint: {
               'hillshade-illumination-anchor': 'map',
               'hillshade-illumination-direction': Math.round(sunInfo.azimuth),
-              // Soleil bas (aube/crépuscule) → ombres plus marquées.
-              'hillshade-exaggeration': sunInfo.altitude < 12 ? 0.9 : 0.6,
-              'hillshade-shadow-color': '#05070d',
-              'hillshade-highlight-color': sunInfo.altitude <= 0 ? '#1a2740' : '#fce9c8',
+              'hillshade-exaggeration': shadowStrength,
+              'hillshade-shadow-color': 'hsla(220, 45%, 8%, 0.9)',
+              'hillshade-highlight-color': 'rgba(0,0,0,0)',
+              'hillshade-accent-color': 'rgba(0,0,0,0)',
             },
           }, before)
         } else {
           m.setPaintProperty('sun-hillshade', 'hillshade-illumination-direction', Math.round(sunInfo.azimuth))
+          m.setPaintProperty('sun-hillshade', 'hillshade-exaggeration', shadowStrength)
         }
       } else if (has) {
         m.removeLayer('sun-hillshade')
@@ -420,9 +431,12 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   function startFly() {
     const map = mapRef.current, maplibregl = mlRef.current
     if (!map || !maplibregl || !readyRef.current || points.length < 2) return
-    if (!runnerRef.current) {
+    // Curseur coureur recréé à chaque rejeu, en BLANC/ember : un point vert se
+    // fondait dans la forêt du satellite (invisible). Blanc = lisible partout.
+    if (runnerRef.current) { runnerRef.current.remove(); runnerRef.current = null }
+    {
       const el = document.createElement('div')
-      el.style.cssText = 'width:16px;height:16px;border-radius:999px;background:#4ad07a;border:3px solid #0c0c0e;box-shadow:0 0 0 6px rgba(74,208,122,.28),0 2px 6px rgba(0,0,0,.6)'
+      el.style.cssText = 'width:20px;height:20px;border-radius:999px;background:#fff;border:3px solid #E5562A;box-shadow:0 0 0 5px rgba(229,86,42,.35),0 2px 7px rgba(0,0,0,.7)'
       runnerRef.current = new maplibregl.Marker({ element: el }).setLngLat(lngLatAtKm(0, cumRef.current, points) ?? [0, 0]).addTo(map)
     }
     setIs3D(true)
@@ -476,8 +490,69 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     backdropFilter: 'blur(2px)', color: '#e8e8ea', fontSize: 16, lineHeight: 1, cursor: 'pointer',
   }
 
+  const sunLabel = sunInfo
+    ? sunInfo.altitude <= 0 ? 'sous l’horizon (nuit)' : `${compassFR(sunInfo.azimuth)} · ${Math.round(sunInfo.altitude)}° de hauteur`
+    : null
+  const RELIEF_PRESETS: { label: string; v: number }[] = [
+    { label: 'Doux', v: 1.3 }, { label: 'Naturel', v: 2 }, { label: 'Fort', v: 3 },
+  ]
+
+  // Colonne de contrôle des couches (carte à gauche de la carte 3D).
+  const layersPanel = (
+    <aside style={{ flex: '1 1 190px', maxWidth: 240, minWidth: 168, background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="mono" style={{ fontSize: 11, letterSpacing: '.2em', color: 'var(--vl-text-3)', fontWeight: 500 }}>COUCHES</div>
+
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 12, color: raceDate ? 'var(--vl-text)' : 'var(--vl-text-3)', cursor: raceDate ? 'pointer' : 'not-allowed' }}>
+        <input type="checkbox" style={{ marginTop: 2, accentColor: '#E5562A' }} checked={layers.sun} disabled={!raceDate} onChange={(e) => setLayers((l) => ({ ...l, sun: e.target.checked }))} />
+        <span>
+          ☀ Soleil / ombres
+          {layers.sun && sunLabel && <span style={{ display: 'block', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>{sunLabel}</span>}
+          {!raceDate && <span style={{ display: 'block', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>date de course requise</span>}
+        </span>
+      </label>
+
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 12, color: forecast?.available ? 'var(--vl-text)' : 'var(--vl-text-3)', cursor: forecast?.available ? 'pointer' : 'not-allowed' }}>
+        <input type="checkbox" style={{ marginTop: 2, accentColor: '#E5562A' }} checked={layers.weather} disabled={!forecast?.available} onChange={(e) => setLayers((l) => ({ ...l, weather: e.target.checked }))} />
+        <span>
+          ⛅ Météo
+          {layers.weather && forecast?.available && (
+            <span style={{ display: 'block', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 3, lineHeight: 1.5 }}>
+              {forecast.tempC != null && <>🌡 {Math.round(forecast.tempC)}°{forecast.feelsLikeC != null ? ` (ress. ${Math.round(forecast.feelsLikeC)}°)` : ''} </>}
+              {forecast.windKmh != null && <>· 💨 {Math.round(forecast.windKmh)} km/h </>}
+              {forecast.precipMm != null && forecast.precipMm > 0 && <>· 🌧 {forecast.precipMm} mm</>}
+            </span>
+          )}
+          {!forecast?.available && <span style={{ display: 'block', fontSize: 10, color: 'var(--vl-text-3)', marginTop: 2 }}>météo indisponible</span>}
+        </span>
+      </label>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-text)', cursor: 'pointer' }}>
+        <input type="checkbox" style={{ accentColor: '#E5562A' }} checked={layers.grade} onChange={(e) => setLayers((l) => ({ ...l, grade: e.target.checked }))} />
+        ▲ Couleur = pente (%)
+      </label>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--vl-line)', paddingTop: 10 }}>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--vl-text-2)' }}>⛰ Relief</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {RELIEF_PRESETS.map((p) => (
+            <button key={p.label} onClick={() => setExagg(p.v)}
+              style={{ flex: 1, padding: '5px 0', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--vl-mono)', fontSize: 10, letterSpacing: '.04em',
+                border: `1px solid ${exagg === p.v ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
+                background: exagg === p.v ? 'color-mix(in srgb, var(--vl-ember) 18%, transparent)' : 'transparent',
+                color: exagg === p.v ? 'var(--vl-ember)' : 'var(--vl-text-2)' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </aside>
+  )
+
   return (
-    <div style={{ background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: heightPx }}>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+      {!mapError && layersPanel}
+      <div style={{ flex: '3 1 380px', minWidth: 280 }}>
+        <div style={{ background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: heightPx }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: '.2em', color: 'var(--vl-text-3)', fontWeight: 500 }}>TRACÉ GPS · 3D</div>
         <span className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)' }}>{totalKm.toFixed(1)} KM</span>
@@ -490,49 +565,6 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             <span style={{ fontSize: 11.5, color: 'var(--vl-text-3)', maxWidth: 300, textAlign: 'center', lineHeight: 1.5 }}>Clé MapTiler non autorisée pour ce domaine. Ajouter <b>vorcelab.app</b> dans le dashboard MapTiler ou configurer le secret <code>VITE_MAPTILER_KEY</code>.</span>
           </div>
         )}
-        {/* ── Panneau « Couches » (haut-gauche) : tout OFF par défaut pour ne pas
-            surcharger la carte ; l'utilisateur active ce qu'il veut. ── */}
-        {!mapError && (
-          <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-            <button
-              title="Couches de la carte" aria-label="Couches de la carte" aria-expanded={panelOpen}
-              onClick={() => setPanelOpen((o) => !o)}
-              style={{ ...ctrlBtn, width: 'auto', padding: '0 10px', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '.06em', fontFamily: 'var(--vl-mono)',
-                borderColor: panelOpen || layers.sun || layers.weather || layers.grade ? 'rgba(229,86,42,.7)' : 'rgba(255,255,255,.18)' }}
-            >⚑ COUCHES</button>
-            {panelOpen && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '10px 12px', borderRadius: 9, background: 'rgba(12,12,14,.82)', backdropFilter: 'blur(3px)', border: '1px solid rgba(255,255,255,.14)', minWidth: 168 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: raceDate ? '#e8e8ea' : '#6b7280', cursor: raceDate ? 'pointer' : 'not-allowed' }}>
-                  <input type="checkbox" checked={layers.sun} disabled={!raceDate} onChange={(e) => setLayers((l) => ({ ...l, sun: e.target.checked }))} />
-                  ☀ Soleil / ombres
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: forecast?.available ? '#e8e8ea' : '#6b7280', cursor: forecast?.available ? 'pointer' : 'not-allowed' }}>
-                  <input type="checkbox" checked={layers.weather} disabled={!forecast?.available} onChange={(e) => setLayers((l) => ({ ...l, weather: e.target.checked }))} />
-                  ⛅ Météo
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--vl-mono)', fontSize: 11, color: '#e8e8ea', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={layers.grade} onChange={(e) => setLayers((l) => ({ ...l, grade: e.target.checked }))} />
-                  ▲ Pente (%)
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, borderTop: '1px solid rgba(255,255,255,.12)', paddingTop: 8 }}>
-                  <span style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--vl-mono)', fontSize: 10, color: '#e8e8ea' }}>
-                    <span>⛰ Relief</span><span style={{ color: 'var(--vl-text-3)' }}>×{exagg.toFixed(1)}</span>
-                  </span>
-                  <input type="range" min={1} max={5} step={0.5} value={exagg} onChange={(e) => setExagg(parseFloat(e.target.value))} style={{ accentColor: '#E5562A', width: '100%' }} aria-label="Exagération du relief" />
-                </div>
-              </div>
-            )}
-            {layers.weather && forecast?.available && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 10px', borderRadius: 8, background: 'rgba(12,12,14,.78)', backdropFilter: 'blur(3px)', border: '1px solid rgba(255,255,255,.12)', fontFamily: 'var(--vl-mono)', fontSize: 11, color: '#e8e8ea' }}>
-                {forecast.tempC != null && <span>🌡 {Math.round(forecast.tempC)}°</span>}
-                {forecast.feelsLikeC != null && <span style={{ color: 'var(--vl-text-3)' }}>ress. {Math.round(forecast.feelsLikeC)}°</span>}
-                {forecast.windKmh != null && <span>💨 {Math.round(forecast.windKmh)} km/h</span>}
-                {forecast.precipMm != null && forecast.precipMm > 0 && <span>🌧 {forecast.precipMm} mm</span>}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Contrôles caméra. Zoom +/- (haut-droite) séparés de la rotation/2D-3D
             pour rester lisibles. Aucun recadrage n'est automatique : « recentrer »
             (⌂) est le seul et il est déclenché ici, à la demande. */}
@@ -597,6 +629,8 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             </button>
           </div>
         )}
+      </div>
+    </div>
       </div>
     </div>
   )
