@@ -122,15 +122,6 @@ function sunPosition(date: Date, lat: number, lon: number): { azimuth: number; a
   return { azimuth: (azimuth / rad + 180) % 360, altitude: altitude / rad }   // ramené à 0 = Nord
 }
 
-/** Cap (°, 0 = Nord) du point a vers le point b — oriente la caméra du rejeu. */
-function bearingBetween(a: [number, number], b: [number, number]): number {
-  const toRad = Math.PI / 180
-  const p1 = a[1] * toRad, p2 = b[1] * toRad
-  const dl = (b[0] - a[0]) * toRad
-  const y = Math.sin(dl) * Math.cos(p2)
-  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
-  return (Math.atan2(y, x) / toRad + 360) % 360
-}
 /** Niveau d'effort (heat) à un km — pour l'étiquette live du rejeu. */
 function heatAtKm(km: number, segs: HeatSeg[]): number {
   for (const s of segs) if (km >= s.startKm && km <= s.endKm) return s.heat
@@ -172,7 +163,6 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const rafRef = useRef<number | null>(null)
   const runnerRef = useRef<MlMarker | null>(null)
   const playStartRef = useRef(0)
-  const bearingRef = useRef(-18)
 
   // Signature GÉOMÉTRIQUE du tracé : on ne reconstruit la carte QUE si le parcours
   // change réellement (nb de points + extrémités). Un simple re-render du parent
@@ -439,8 +429,13 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     setPlaying(true)
     // Durée du rejeu : ~20 s, un peu plus pour les longs parcours (plafond 34 s).
     const durMs = Math.min(34000, Math.max(16000, totalKm * 900))
-    bearingRef.current = map.getBearing()
     playStartRef.current = performance.now()
+    // Cadrage de suivi FIXE : on garde l'orientation courante, un pitch et un zoom
+    // modérés (sinon la caméra plonge dans le relief ou vers le ciel → écran noir),
+    // et on ne fait ENSUITE que recentrer sur le coureur. Pas de rotation par frame
+    // (c'était la cause du « ça tourne dans tous les sens » sur un tracé bruité).
+    const followZoom = Math.min(13.6, Math.max(12, map.getZoom()))
+    map.jumpTo({ center: lngLatAtKm(0, cumRef.current, points) ?? map.getCenter(), pitch: 52, zoom: followZoom, bearing: map.getBearing() })
     let lastText = 0
     const frame = (now: number) => {
       const m = mapRef.current
@@ -449,13 +444,8 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
       const km = u * totalKm
       const ll = lngLatAtKm(km, cumRef.current, points)
       if (ll) {
-        const ahead = lngLatAtKm(Math.min(totalKm, km + 0.12), cumRef.current, points) ?? ll
-        const targetHdg = bearingBetween(ll, ahead)
-        // Lissage angulaire (plus court chemin) → caméra qui suit sans à-coups.
-        const diff = ((targetHdg - bearingRef.current + 540) % 360) - 180
-        bearingRef.current = (bearingRef.current + diff * 0.18 + 360) % 360
         runnerRef.current.setLngLat(ll)
-        m.jumpTo({ center: ll, bearing: bearingRef.current, pitch: 64, zoom: 14.4 })
+        m.setCenter(ll)   // suivi doux : on ne touche qu'au centre, jamais à l'angle
       }
       if (now - lastText > 90) {
         lastText = now
