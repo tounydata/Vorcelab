@@ -15,10 +15,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
+  # Job BUILD séparé du DEPLOY (patron GitHub recommandé) : ainsi, relancer le job
+  # `deploy` (ex. après une erreur transitoire de l'API Pages) ne ré-uploade PAS
+  # l'artifact — ce qui évitait l'erreur « Multiple artifacts named github-pages ».
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,12 +52,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: .pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
+    steps:
       # L'API Pages répond sporadiquement « Deployment failed, try again later »
-      # (3 occurrences le 2026-07-03, incident côté GitHub) : 1ʳᵉ tentative non
-      # bloquante puis re-tentative après 60 s dans le MÊME run. Ne jamais
-      # re-lancer les jobs échoués à la main : l'artifact serait re-uploadé en
-      # double et deploy-pages@v4 refuse (« Multiple artifacts named github-pages ») —
-      # si les 2 tentatives échouent, relancer un run complet (workflow_dispatch).
+      # (incident côté GitHub) : 1ʳᵉ tentative non bloquante puis re-tentative après
+      # 60 s dans le MÊME run. Comme l'upload est fait dans le job `build`, relancer
+      # ce job `deploy` ne crée jamais de doublon d'artifact.
       - id: deployment
         uses: actions/deploy-pages@v5
         continue-on-error: true
