@@ -373,7 +373,7 @@ function GpxTrace({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
     <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet"
       style={{ width: '100%', height: '100%', display: 'block', opacity: 0.22, pointerEvents: 'none' }}>
       <polyline points={tracePts} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
-        pathLength={1} className="vl-drawline" style={{ animationDuration: '2s', animationDelay: '.25s' }} />
+        pathLength={1} className="vl-drawline" style={{ animationDuration: '3.4s', animationDelay: '.35s' }} />
     </svg>
   )
 }
@@ -399,9 +399,9 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
           </linearGradient>
         </defs>
         <path d={`${pathD} L${W},${H} L0,${H} Z`} fill="url(#altiG)"
-          className="vl-fadein" style={{ animationDelay: '.75s' }} />
+          className="vl-fadein" style={{ animationDelay: '1.6s', animationDuration: '1.1s' }} />
         <path d={pathD} fill="none" stroke="var(--vl-ember)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.75}
-          pathLength={1} className="vl-drawline" style={{ animationDuration: '1.3s' }} />
+          pathLength={1} className="vl-drawline" style={{ animationDuration: '2.4s', animationDelay: '.35s' }} />
       </svg>
     </div>
   )
