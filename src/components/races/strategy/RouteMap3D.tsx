@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import type { Map as MlMap, Marker as MlMarker } from 'maplibre-gl'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Map as MlMap, Marker as MlMarker, LngLatBoundsLike } from 'maplibre-gl'
 import type { GpxPoint } from '../../../lib/computeRaceProjection'
 import type { ProfileMarker } from './ElevationProfile'
 import { hav } from '../../../lib/gpxCore'
@@ -61,11 +61,25 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const mapRef = useRef<MlMap | null>(null)
   const mlRef = useRef<typeof import('maplibre-gl') | null>(null)
   const cursorMarkerRef = useRef<MlMarker | null>(null)
+  const routeMarkersRef = useRef<MlMarker[]>([])
   const cumRef = useRef<number[]>([])
+  const boundsRef = useRef<LngLatBoundsLike | null>(null)
   const readyRef = useRef(false)
+  const [ready, setReady] = useState(false)
   const [mapError, setMapError] = useState(false)
+  const [is3D, setIs3D] = useState(true)
 
-  // ── Construction de la carte (une fois par tracé) ──────────────────────────
+  // Signature GÉOMÉTRIQUE du tracé : on ne reconstruit la carte QUE si le parcours
+  // change réellement (nb de points + extrémités). Un simple re-render du parent
+  // (météo, survol du profil…) qui recrée le tableau `points` ne doit PAS rebâtir
+  // la carte — sinon la vue de l'utilisateur se fait recadrer en pleine navigation.
+  const routeSig = useMemo(() => {
+    if (points.length < 2) return ''
+    const a = points[0], b = points[points.length - 1]
+    return `${points.length}|${a.lon.toFixed(5)},${a.lat.toFixed(5)}|${b.lon.toFixed(5)},${b.lat.toFixed(5)}`
+  }, [points])
+
+  // ── Construction de la carte (uniquement quand le tracé change) ─────────────
   useEffect(() => {
     if (!containerRef.current || points.length < 2) return
     const cfg = mapTiler3DConfig()
@@ -80,6 +94,8 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
       if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon
       if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat
     }
+    const bounds: LngLatBoundsLike = [[minLon, minLat], [maxLon, maxLat]]
+    boundsRef.current = bounds
 
     let map: MlMap | null = null
     let cancelled = false
@@ -95,8 +111,11 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         zoom: 11,
         pitch: 54,
         bearing: -18,
-        scrollZoom: false,            // ne pas piéger le scroll de page
-        cooperativeGestures: true,    // mobile : 2 doigts pour bouger
+        // Navigation confort : on déplace à un doigt, on pince pour zoomer, et les
+        // boutons +/- couvrent le desktop. scrollZoom reste OFF pour ne pas piéger
+        // le scroll de page ; cooperativeGestures OFF pour ne pas exiger 2 doigts.
+        scrollZoom: false,
+        cooperativeGestures: false,
         attributionControl: { compact: true },
         // no-referrer : contournement restriction origine clé MapTiler (domaine vorcelab.app
         // non listé). Supprime l'en-tête Referer → MapTiler accepte si la clé le permet.
@@ -133,29 +152,25 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         }
 
         // Cadre sur le tracé (en gardant l'inclinaison)
-        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 38, pitch: 54, bearing: -18, duration: 0, maxZoom: 15 })
+        map.fitBounds(bounds, { padding: 38, pitch: 54, bearing: -18, duration: 0, maxZoom: 15 })
 
         // Entrée « survol » : caméra à plat légèrement dézoomée qui bascule en 3D
         // en balayant vers l'angle par défaut. Coupée si prefers-reduced-motion.
+        // INTERRUPTIBLE : au moindre geste de l'utilisateur on stoppe l'animation
+        // pour ne jamais lui reprendre la main pendant qu'il navigue.
         if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           const targetZoom = map.getZoom()
           map.jumpTo({ pitch: 10, bearing: -95, zoom: targetZoom - 0.7 })
-          map.easeTo({ pitch: 54, bearing: -18, zoom: targetZoom, duration: 1900, essential: false })
-        }
-
-        // Repères départ / ravitos / arrivée
-        for (const m of markers) {
-          if (m.kind === 'wall') continue
-          const ll = lngLatAtKm(m.km, cum, points)
-          if (!ll) continue
-          const ring = m.kind === 'start' || m.kind === 'finish'
-          const c = m.kind === 'finish' ? '#4ad07a' : m.kind === 'start' ? '#E5562A' : '#ffffff'
-          const el = document.createElement('div')
-          el.style.cssText = `width:${ring ? 11 : 8}px;height:${ring ? 11 : 8}px;border-radius:999px;background:${c};border:2px solid #0c0c0e;box-shadow:0 1px 4px rgba(0,0,0,.6)`
-          new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map)
+          map.easeTo({ pitch: 54, bearing: -18, zoom: targetZoom, duration: 1600, essential: false })
+          const stopIntro = () => { map?.stop() }
+          map.once('mousedown', stopIntro)
+          map.once('touchstart', stopIntro)
+          map.once('wheel', stopIntro)
+          map.once('dragstart', stopIntro)
         }
 
         readyRef.current = true
+        setReady(true)
         placeCursor(cursorKm)
       })
     })()
@@ -163,12 +178,34 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     return () => {
       cancelled = true
       readyRef.current = false
+      setReady(false)
       cursorMarkerRef.current = null
+      routeMarkersRef.current = []
       if (map) map.remove()
       mapRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, markers])
+  }, [routeSig])
+
+  // ── Repères (départ / ravitos / arrivée) : posés/rafraîchis SANS reconstruire
+  //    la carte (donc sans recadrage) quand la liste de marqueurs change. ────────
+  useEffect(() => {
+    const map = mapRef.current, maplibregl = mlRef.current
+    if (!map || !maplibregl || !ready) return
+    routeMarkersRef.current.forEach((m) => m.remove())
+    routeMarkersRef.current = []
+    for (const m of markers) {
+      if (m.kind === 'wall') continue
+      const ll = lngLatAtKm(m.km, cumRef.current, points)
+      if (!ll) continue
+      const ring = m.kind === 'start' || m.kind === 'finish'
+      const c = m.kind === 'finish' ? '#4ad07a' : m.kind === 'start' ? '#E5562A' : '#ffffff'
+      const el = document.createElement('div')
+      el.style.cssText = `width:${ring ? 11 : 8}px;height:${ring ? 11 : 8}px;border-radius:999px;background:${c};border:2px solid #0c0c0e;box-shadow:0 1px 4px rgba(0,0,0,.6)`
+      routeMarkersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, ready])
 
   // ── Curseur synchronisé avec le survol du profil ───────────────────────────
   function placeCursor(km: number | null) {
@@ -196,9 +233,23 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     const m = mapRef.current; if (!m) return
     m.easeTo({ bearing: m.getBearing() + deg, duration: 350 })
   }
-  function resetView() {
+  function zoomBy(delta: number) {
     const m = mapRef.current; if (!m) return
-    m.easeTo({ bearing: -18, pitch: 54, duration: 400 })
+    m.easeTo({ zoom: m.getZoom() + delta, duration: 250 })
+  }
+  // « Recentrer » : recadre sur le parcours + angle par défaut. C'est le SEUL
+  // recadrage — et il est déclenché par l'utilisateur, jamais automatiquement.
+  function recenter() {
+    const m = mapRef.current; if (!m || !boundsRef.current) return
+    setIs3D(true)
+    m.fitBounds(boundsRef.current, { padding: 38, pitch: 54, bearing: -18, duration: 600, maxZoom: 15 })
+  }
+  // Bascule 2D (vue de dessus) ↔ 3D (perspective sur le relief).
+  function toggle3D() {
+    const m = mapRef.current; if (!m) return
+    const next = !is3D
+    setIs3D(next)
+    m.easeTo({ pitch: next ? 54 : 0, duration: 450 })
   }
   const ctrlBtn: React.CSSProperties = {
     width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -220,11 +271,20 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             <span style={{ fontSize: 11.5, color: 'var(--vl-text-3)', maxWidth: 300, textAlign: 'center', lineHeight: 1.5 }}>Clé MapTiler non autorisée pour ce domaine. Ajouter <b>vorcelab.app</b> dans le dashboard MapTiler ou configurer le secret <code>VITE_MAPTILER_KEY</code>.</span>
           </div>
         )}
-        {/* Rotation : pour voir le tracé quand une crête le masque */}
-        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-          <button title="Tourner à gauche" aria-label="Tourner à gauche" onClick={() => rotateBy(-40)} style={ctrlBtn}>⟲</button>
-          <button title="Vue par défaut" aria-label="Vue par défaut" onClick={resetView} style={{ ...ctrlBtn, fontSize: 13 }}>⌂</button>
-          <button title="Tourner à droite" aria-label="Tourner à droite" onClick={() => rotateBy(40)} style={ctrlBtn}>⟳</button>
+        {/* Contrôles caméra. Zoom +/- (haut-droite) séparés de la rotation/2D-3D
+            pour rester lisibles. Aucun recadrage n'est automatique : « recentrer »
+            (⌂) est le seul et il est déclenché ici, à la demande. */}
+        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button title="Zoom avant" aria-label="Zoom avant" onClick={() => zoomBy(1)} style={{ ...ctrlBtn, fontSize: 20 }}>+</button>
+            <button title="Zoom arrière" aria-label="Zoom arrière" onClick={() => zoomBy(-1)} style={{ ...ctrlBtn, fontSize: 20 }}>−</button>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button title="Tourner à gauche" aria-label="Tourner à gauche" onClick={() => rotateBy(-40)} style={ctrlBtn}>⟲</button>
+            <button title="Tourner à droite" aria-label="Tourner à droite" onClick={() => rotateBy(40)} style={ctrlBtn}>⟳</button>
+            <button title={is3D ? 'Vue 2D (de dessus)' : 'Vue 3D (relief)'} aria-label={is3D ? 'Passer en 2D' : 'Passer en 3D'} onClick={toggle3D} style={{ ...ctrlBtn, fontSize: 11, fontWeight: 700, width: 34 }}>{is3D ? '2D' : '3D'}</button>
+            <button title="Recentrer sur le parcours" aria-label="Recentrer sur le parcours" onClick={recenter} style={{ ...ctrlBtn, fontSize: 13 }}>⌂</button>
+          </div>
         </div>
         {(heatSegments?.length ?? 0) > 0 && (
           <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 7, padding: '4px 7px', borderRadius: 6, background: 'rgba(12,12,14,.6)', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>
