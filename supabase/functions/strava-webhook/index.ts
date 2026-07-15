@@ -236,30 +236,35 @@ async function syncRenfoActivity(
 ): Promise<void> {
   const sessionDate = (activity.start_date_local ?? activity.start_date).slice(0, 10)
   const durationMin = Math.round(activity.moving_time / 60)
+  const sourceActivityId = String(activity.id)
 
-  // Avoid duplicates — one log per strava activity id
+  // Anti-doublon par ID RÉEL d'activité Strava (et non par jour) : deux séances de
+  // renforcement le même jour issues de deux activités distinctes sont conservées.
   const { data: existing } = await supabase
     .from('renfo_session_log')
     .select('id')
     .eq('user_id', userId)
     .eq('source', 'strava')
-    .eq('session_date', sessionDate)
+    .eq('source_activity_id', sourceActivityId)
     .maybeSingle()
 
   if (existing) return
 
   const focus = inferRenfoFocus(activity.type, activity.sport_type, activity.exercise_sets)
 
-  await supabase.from('renfo_session_log').insert({
+  // upsert on (user_id, source, source_activity_id) : idempotent même en cas de
+  // rejeu du webhook pour la même activité.
+  await supabase.from('renfo_session_log').upsert({
     user_id: userId,
     session_date: sessionDate,
     focus,
     duration_min: durationMin > 0 ? durationMin : null,
     source: 'strava',
+    source_activity_id: sourceActivityId,
     completed_exercises: activity.exercise_sets?.length
       ? activity.exercise_sets.map((s) => s.exercise_type)
       : [],
-  })
+  }, { onConflict: 'user_id,source,source_activity_id' })
 }
 
 async function syncActivityWeather(

@@ -29,14 +29,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Vérifier le secret
         run: |
           if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
             echo "::error::Secret SUPABASE_ACCESS_TOKEN manquant — créer un Personal Access Token (sbp_…) sur https://supabase.com/dashboard/account/tokens puis l'ajouter dans Settings → Secrets → Actions."
             exit 1
           fi
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - name: Deploy functions

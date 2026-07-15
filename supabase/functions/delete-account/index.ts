@@ -1,4 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { captureException } from '../_shared/sentry.ts'
+
+// Suppression de compte RGPD. Depuis la migration 20260712000000, toutes les FK
+// de données utilisateur vers auth.users sont ON DELETE CASCADE : supprimer le
+// compte Auth efface TOUTES les données en une seule transaction (atomique). On
+// ne fait plus de suppression table par table « best effort » qui pouvait laisser
+// un état partiel. Restent en best-effort (tracés) : la révocation Strava, le
+// nettoyage des événements webhook Strava (clé = athlete_id, sans FK) et les
+// avatars de stockage.
 
 const STATIC_ORIGINS = new Set([
   'https://vorcelab.app',
@@ -27,94 +36,79 @@ function cors(origin: string | null): Record<string, string> {
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin')
+  const jsonHeaders = { ...cors(origin), 'Content-Type': 'application/json' }
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
 
   try {
-    // 1. Authentifier via JWT
     const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-    if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...cors(origin), 'Content-Type': 'application/json' }
-    })
+    if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders })
 
-    const anonClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!
-    )
+    const anonClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!)
     const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
-    if (authError || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...cors(origin), 'Content-Type': 'application/json' }
-    })
+    if (authError || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders })
 
     const userId = user.id
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      { auth: { autoRefreshToken: false, persistSession: false } },
     )
 
-    // 2. Récupérer strava_tokens pour révoquer + nettoyer webhook events
+    // Récupère le token Strava avant suppression (best-effort).
     const { data: tokenRow } = await admin
       .from('strava_tokens')
       .select('access_token, strava_athlete_id')
       .eq('user_id', userId)
       .maybeSingle()
 
-    // 3. Révoquer Strava — best effort
+    // Révocation Strava — best effort, mais tracée (ne doit pas être silencieuse).
     if (tokenRow?.access_token) {
       try {
-        await fetch('https://www.strava.com/oauth/deauthorize', {
+        const resp = await fetch('https://www.strava.com/oauth/deauthorize', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${tokenRow.access_token}` },
+          headers: { Authorization: `Bearer ${tokenRow.access_token}` },
         })
-      } catch { /* best effort, continue */ }
+        if (!resp.ok) {
+          await captureException(new Error(`Strava deauthorize HTTP ${resp.status}`),
+            { function: 'delete-account', step: 'strava-revoke', userId })
+        }
+      } catch (err) {
+        await captureException(err, { function: 'delete-account', step: 'strava-revoke', userId })
+      }
     }
 
-    // 4. Supprimer webhook events liés à strava_athlete_id
+    // Événements webhook Strava (clé = athlete_id, pas de FK vers auth.users).
     if (tokenRow?.strava_athlete_id) {
-      await admin
-        .from('strava_webhook_events')
-        .delete()
-        .eq('owner_id', tokenRow.strava_athlete_id)
+      const { error } = await admin.from('strava_webhook_events').delete().eq('owner_id', tokenRow.strava_athlete_id)
+      if (error) await captureException(new Error(error.message),
+        { function: 'delete-account', step: 'strava-webhook-cleanup', userId })
     }
 
-    // 5. Supprimer toutes les données utilisateur dans l'ordre
-    const tables: { table: string; column: string }[] = [
-      { table: 'renfo_exercise_log',  column: 'user_id' },
-      { table: 'renfo_session_log',   column: 'user_id' },
-      { table: 'renfo_max_lifts',     column: 'user_id' },
-      { table: 'renfo_program',       column: 'user_id' },
-      { table: 'renfo_profile',       column: 'user_id' },
-      { table: 'race_calendar',       column: 'user_id' },
-      { table: 'activities_history',  column: 'user_id' },
-      { table: 'strava_activities',   column: 'user_id' },
-      { table: 'strava_tokens',       column: 'user_id' },
-      { table: 'profiles',            column: 'id'      },
-    ]
-
-    for (const { table, column } of tables) {
-      const { error } = await admin.from(table).delete().eq(column, userId)
-      if (error) console.error(`delete ${table} error:`, error.message)
+    // Avatars de stockage — best effort (pas de cascade sur le bucket).
+    try {
+      const { data: files } = await admin.storage.from('avatars').list(userId)
+      if (files?.length) {
+        await admin.storage.from('avatars').remove(files.map((f) => `${userId}/${f.name}`))
+      }
+    } catch (err) {
+      await captureException(err, { function: 'delete-account', step: 'avatar-cleanup', userId })
     }
 
-    // 6. Supprimer le compte Supabase Auth
+    // Suppression du compte Auth → CASCADE sur toutes les tables de données.
+    // Atomique : en cas d'échec, aucune donnée n'est supprimée partiellement.
     const { error: deleteAuthError } = await admin.auth.admin.deleteUser(userId)
     if (deleteAuthError) {
-      console.error('deleteUser error:', deleteAuthError.message)
-      return new Response(JSON.stringify({ error: 'Failed to delete auth user' }), {
-        status: 500, headers: { ...cors(origin), 'Content-Type': 'application/json' }
-      })
+      await captureException(new Error(deleteAuthError.message),
+        { function: 'delete-account', step: 'delete-auth-user', userId })
+      return new Response(JSON.stringify({ error: 'Failed to delete account' }), { status: 500, headers: jsonHeaders })
     }
 
-    return new Response(JSON.stringify({ deleted: true }), {
-      status: 200, headers: { ...cors(origin), 'Content-Type': 'application/json' }
-    })
-
+    return new Response(JSON.stringify({ deleted: true }), { status: 200, headers: jsonHeaders })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('delete-account error:', msg)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500, headers: { ...cors(origin), 'Content-Type': 'application/json' }
-    })
+    await captureException(err, { function: 'delete-account' })
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...cors(origin), 'Content-Type': 'application/json' } })
   }
 })

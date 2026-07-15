@@ -2,20 +2,11 @@ import { useCallback } from 'react'
 import { supabase } from './supabase'
 import { useVLStore } from '../store/vlStore'
 
-export type AppEvent =
-  | 'session_start'
-  | 'coach_viewed'
-  | 'race_created'
-  | 'strategy_viewed'
-  | 'activities_viewed'
-  | 'strava_connected'
-  | 'gpx_uploaded'
-  | 'plan_upgraded'
-  | 'progate_view'
-  | 'upgrade_modal_open'
-  | 'upgrade_cta_click'
-  | 'dashboard_pro_card_click'
-  | 'subscription_manage_click'
+// La taxonomie vit dans un module sans dépendance (testable sous Node sans
+// initialiser supabase-js). Réexportée pour compatibilité des imports existants.
+export { ANALYTICS_EVENTS } from './analyticsEvents'
+export type { AppEvent } from './analyticsEvents'
+import type { AppEvent } from './analyticsEvents'
 
 export function useTrackEvent() {
   const user = useVLStore((s) => s.user)

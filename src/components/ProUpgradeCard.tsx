@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
+import { priceLabels } from '../lib/pricing'
 
 // Carte d'incitation PRO en tête du Dashboard, pour les comptes gratuits.
 // Présence permanente mais NON intrusive : masquable pour la session (pas de
@@ -101,7 +102,7 @@ export default function ProUpgradeCard() {
             Voir les offres →
           </button>
           <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
-            dès 4,17€/mois
+            dès {priceLabels.annualPerMonth()}
           </span>
         </div>
       </div>

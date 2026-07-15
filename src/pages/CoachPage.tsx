@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
+import { priceLabels } from '../lib/pricing'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
 import { allocatePhases, PHASE_LABELS, type PlannedSession, type PlanWeek } from '../lib/coach/planGenerator'
@@ -633,7 +634,7 @@ function CoachProTeaser({
           DÉBLOQUER LE PLAN COMPLET →
         </button>
         <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', textAlign: 'center', marginTop: 8 }}>
-          50€/an · 5€/mois sans engagement
+          {priceLabels.annual()} · {priceLabels.monthly()} sans engagement
         </div>
       </div>
     </div>

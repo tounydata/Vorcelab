@@ -1,33 +1,40 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ActivitiesPage from './pages/ActivitiesPage'
-import RaceListPage from './pages/RaceListPage'
-import AddRacePage from './pages/AddRacePage'
-import RaceStrategyPage from './pages/RaceStrategyPage'
-import RaceStrategyPublicPage from './pages/RaceStrategyPublicPage'
-import SessionPreviewPage from './pages/SessionPreviewPage'
-import ProfilePage from './pages/ProfilePage'
-import SettingsPage from './pages/SettingsPage'
-import NotFoundPage from './pages/NotFoundPage'
-import ActivityDetailPage from './pages/ActivityDetailPage'
-import CoachPage from './pages/CoachPage'
-import RenfoSessionPage from './pages/RenfoSessionPage'
-import RenfoLibraryPage from './pages/RenfoLibraryPage'
-import RenfoExerciseDetailPage from './pages/RenfoExerciseDetailPage'
 import BrandedLoader from './components/BrandedLoader'
-import DemoStrategyPage from './pages/DemoStrategyPage'
-import MobileStravaBridge from './pages/MobileStravaBridge'
 import UpgradeModal from './components/UpgradeModal'
-import AdminPage from './pages/AdminPage'
-import PaymentSuccessPage from './pages/PaymentSuccessPage'
-import LandingPage from './pages/LandingPage'
-import { CguPage, PrivacyPage } from './pages/LegalPage'
+import LegalAcceptanceGate from './components/LegalAcceptanceGate'
+import LoginPage from './pages/LoginPage'
+import NotFoundPage from './pages/NotFoundPage'
+
+// Lazy-loading des pages : chaque grande section devient un chunk séparé, chargé
+// à la navigation. Réduit fortement le bundle initial (cartes MapLibre/Leaflet,
+// moteurs coach/projection, admin, renfo…). Fallback = BrandedLoader.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ActivitiesPage = lazy(() => import('./pages/ActivitiesPage'))
+const ActivityDetailPage = lazy(() => import('./pages/ActivityDetailPage'))
+const RaceListPage = lazy(() => import('./pages/RaceListPage'))
+const AddRacePage = lazy(() => import('./pages/AddRacePage'))
+const RaceStrategyPage = lazy(() => import('./pages/RaceStrategyPage'))
+const RaceStrategyPublicPage = lazy(() => import('./pages/RaceStrategyPublicPage'))
+const SessionPreviewPage = lazy(() => import('./pages/SessionPreviewPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const CoachPage = lazy(() => import('./pages/CoachPage'))
+const RenfoSessionPage = lazy(() => import('./pages/RenfoSessionPage'))
+const RenfoLibraryPage = lazy(() => import('./pages/RenfoLibraryPage'))
+const RenfoExerciseDetailPage = lazy(() => import('./pages/RenfoExerciseDetailPage'))
+const DemoStrategyPage = lazy(() => import('./pages/DemoStrategyPage'))
+const MobileStravaBridge = lazy(() => import('./pages/MobileStravaBridge'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const CguPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.CguPage })))
+const PrivacyPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.PrivacyPage })))
+const MentionsPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.MentionsPage })))
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -57,7 +64,14 @@ function PrivateRoutes() {
     return location.pathname === '/' && !hadSession ? <LandingPage /> : <LoginPage />
   }
 
-  return <Outlet />
+  return (
+    <>
+      {/* Consentement versionné CGU/confidentialité — inerte tant que les mentions
+          légales obligatoires ne sont pas complètes (LEGAL_INFO_COMPLETE). */}
+      <LegalAcceptanceGate />
+      <Outlet />
+    </>
+  )
 }
 
 // /login public : les CTA de la landing et des pages publiques pointent ici.
@@ -126,6 +140,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <UpgradeModal />
+      <Suspense fallback={<BrandedLoader />}>
       <Routes>
         {/* Routes publiques — sans authentification */}
         <Route path="s/:shareToken" element={<RaceStrategyPublicPage />} />
@@ -136,6 +151,7 @@ export default function App() {
         <Route path="login" element={<LoginRoute />} />
         <Route path="legal/cgu" element={<CguPage />} />
         <Route path="legal/confidentialite" element={<PrivacyPage />} />
+        <Route path="legal/mentions" element={<MentionsPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>
@@ -159,6 +175,7 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }
