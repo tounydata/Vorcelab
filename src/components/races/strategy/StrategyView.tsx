@@ -149,7 +149,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
         {hasRoute && (
           <div style={{ padding: '0 18px 12px' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-              <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={440} />
+              <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={440} secAtKm={(km) => elapsedSecAtKm(km, p)} />
             </div>
           </div>
         )}

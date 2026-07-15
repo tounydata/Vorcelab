@@ -15,6 +15,8 @@ interface Props {
   cursorKm: number | null
   totalKm: number
   heightPx: number
+  /** Temps de course écoulé (s) à un km donné — pour le chrono du rejeu animé. */
+  secAtKm?: (km: number) => number
 }
 
 /** lon/lat interpolés sur le tracé à une distance donnée (km). */
@@ -54,9 +56,34 @@ function buildHeatFC(heatSegments: HeatSeg[], cum: number[], pts: GpxPoint[]) {
   return { type: 'FeatureCollection' as const, features }
 }
 
+/** Cap (°, 0 = Nord) du point a vers le point b — oriente la caméra du rejeu. */
+function bearingBetween(a: [number, number], b: [number, number]): number {
+  const toRad = Math.PI / 180
+  const p1 = a[1] * toRad, p2 = b[1] * toRad
+  const dl = (b[0] - a[0]) * toRad
+  const y = Math.sin(dl) * Math.cos(p2)
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
+  return (Math.atan2(y, x) / toRad + 360) % 360
+}
+/** Niveau d'effort (heat) à un km — pour l'étiquette live du rejeu. */
+function heatAtKm(km: number, segs: HeatSeg[]): number {
+  for (const s of segs) if (km >= s.startKm && km <= s.endKm) return s.heat
+  return 0
+}
+function fmtPaceSec(secPerKm: number): string {
+  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '—'
+  const m = Math.floor(secPerKm / 60), s = Math.round(secPerKm % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+function fmtChrono(sec: number): string {
+  const s = Math.max(0, Math.round(sec))
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`
+}
+
 // Carte 3D (MapLibre + terrain MapTiler) : tracé GPS drapé sur le relief en perspective.
 // MapLibre est chargé en import dynamique → hors du bundle initial. Repli : cadre sombre.
-export default function RouteMap3D({ points, markers, heatSegments, cursorKm, totalKm, heightPx }: Props) {
+export default function RouteMap3D({ points, markers, heatSegments, cursorKm, totalKm, heightPx, secAtKm }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const mlRef = useRef<typeof import('maplibre-gl') | null>(null)
@@ -68,6 +95,13 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   const [ready, setReady] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [is3D, setIs3D] = useState(true)
+  // Rejeu animé : un coureur parcourt le tracé, la caméra le suit, chrono live.
+  const [playing, setPlaying] = useState(false)
+  const [head, setHead] = useState<{ km: number; sec: number; pace: number | null; heat: number } | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const runnerRef = useRef<MlMarker | null>(null)
+  const playStartRef = useRef(0)
+  const bearingRef = useRef(-18)
 
   // Signature GÉOMÉTRIQUE du tracé : on ne reconstruit la carte QUE si le parcours
   // change réellement (nb de points + extrémités). Un simple re-render du parent
@@ -111,10 +145,10 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
         zoom: 11,
         pitch: 54,
         bearing: -18,
-        // Navigation confort : on déplace à un doigt, on pince pour zoomer, et les
-        // boutons +/- couvrent le desktop. scrollZoom reste OFF pour ne pas piéger
-        // le scroll de page ; cooperativeGestures OFF pour ne pas exiger 2 doigts.
-        scrollZoom: false,
+        // Navigation confort : molette pour zoomer (desktop), pincer sur mobile,
+        // boutons +/- en secours, déplacement à un doigt. cooperativeGestures OFF
+        // pour ne pas exiger 2 doigts.
+        scrollZoom: true,
         cooperativeGestures: false,
         attributionControl: { compact: true },
         // no-referrer : contournement restriction origine clé MapTiler (domaine vorcelab.app
@@ -179,8 +213,11 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
       cancelled = true
       readyRef.current = false
       setReady(false)
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+      setPlaying(false)
       cursorMarkerRef.current = null
       routeMarkersRef.current = []
+      runnerRef.current = null
       if (map) map.remove()
       mapRef.current = null
     }
@@ -251,6 +288,65 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
     setIs3D(next)
     m.easeTo({ pitch: next ? 54 : 0, duration: 450 })
   }
+
+  // ── Rejeu animé de la course ────────────────────────────────────────────────
+  function stopFly() {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    setPlaying(false)
+  }
+  function startFly() {
+    const map = mapRef.current, maplibregl = mlRef.current
+    if (!map || !maplibregl || !readyRef.current || points.length < 2) return
+    if (!runnerRef.current) {
+      const el = document.createElement('div')
+      el.style.cssText = 'width:16px;height:16px;border-radius:999px;background:#4ad07a;border:3px solid #0c0c0e;box-shadow:0 0 0 6px rgba(74,208,122,.28),0 2px 6px rgba(0,0,0,.6)'
+      runnerRef.current = new maplibregl.Marker({ element: el }).setLngLat(lngLatAtKm(0, cumRef.current, points) ?? [0, 0]).addTo(map)
+    }
+    setIs3D(true)
+    setPlaying(true)
+    // Durée du rejeu : ~20 s, un peu plus pour les longs parcours (plafond 34 s).
+    const durMs = Math.min(34000, Math.max(16000, totalKm * 900))
+    bearingRef.current = map.getBearing()
+    playStartRef.current = performance.now()
+    let lastText = 0
+    const frame = (now: number) => {
+      const m = mapRef.current
+      if (!m || !runnerRef.current) { stopFly(); return }
+      const u = Math.min(1, (now - playStartRef.current) / durMs)
+      const km = u * totalKm
+      const ll = lngLatAtKm(km, cumRef.current, points)
+      if (ll) {
+        const ahead = lngLatAtKm(Math.min(totalKm, km + 0.12), cumRef.current, points) ?? ll
+        const targetHdg = bearingBetween(ll, ahead)
+        // Lissage angulaire (plus court chemin) → caméra qui suit sans à-coups.
+        const diff = ((targetHdg - bearingRef.current + 540) % 360) - 180
+        bearingRef.current = (bearingRef.current + diff * 0.18 + 360) % 360
+        runnerRef.current.setLngLat(ll)
+        m.jumpTo({ center: ll, bearing: bearingRef.current, pitch: 64, zoom: 14.4 })
+      }
+      if (now - lastText > 90) {
+        lastText = now
+        const sec = secAtKm ? secAtKm(km) : 0
+        let pace: number | null = null
+        if (secAtKm && km > 0.05 && km < totalKm - 0.05) {
+          const d = 0.05
+          pace = (secAtKm(km + d) - secAtKm(km - d)) / (2 * d)
+        }
+        setHead({ km, sec, pace, heat: heatAtKm(km, heatSegments ?? []) })
+      }
+      if (u < 1) {
+        rafRef.current = requestAnimationFrame(frame)
+      } else {
+        setHead({ km: totalKm, sec: secAtKm ? secAtKm(totalKm) : 0, pace: null, heat: heatAtKm(totalKm, heatSegments ?? []) })
+        stopFly()
+      }
+    }
+    rafRef.current = requestAnimationFrame(frame)
+  }
+  function toggleFly() { if (playing) stopFly(); else startFly() }
+
+  // Sécurité : coupe l'animation si le composant est démonté en plein rejeu.
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
   const ctrlBtn: React.CSSProperties = {
     width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
     borderRadius: 7, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(12,12,14,.62)',
@@ -286,7 +382,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
             <button title="Recentrer sur le parcours" aria-label="Recentrer sur le parcours" onClick={recenter} style={{ ...ctrlBtn, fontSize: 13 }}>⌂</button>
           </div>
         </div>
-        {(heatSegments?.length ?? 0) > 0 && (
+        {(heatSegments?.length ?? 0) > 0 && !playing && (
           <div style={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 7, padding: '4px 7px', borderRadius: 6, background: 'rgba(12,12,14,.6)', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>
             {[1, 2, 3, 4].map((h) => (
               <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
@@ -294,6 +390,38 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
                 <span className="mono" style={{ fontSize: 8, color: '#e8e8ea', letterSpacing: '.02em' }}>{HEAT_NAMES[h]}</span>
               </span>
             ))}
+          </div>
+        )}
+
+        {/* ── Rejeu animé : bouton ▶ + tableau de bord live (chrono / km / allure / effort) ── */}
+        {!mapError && (
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'none' }}>
+            {playing && head && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 13px', borderRadius: 9, background: 'rgba(12,12,14,.74)', backdropFilter: 'blur(3px)', border: '1px solid rgba(255,255,255,.12)' }}>
+                <span className="display" style={{ fontSize: 20, color: '#4ad07a', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{fmtChrono(head.sec)}</span>
+                <span className="mono" style={{ fontSize: 11, color: '#e8e8ea', fontVariantNumeric: 'tabular-nums' }}>{head.km.toFixed(1)}/{totalKm.toFixed(1)} km</span>
+                {head.pace != null && <span className="mono" style={{ fontSize: 11, color: '#e8e8ea', fontVariantNumeric: 'tabular-nums' }}>{fmtPaceSec(head.pace)}/km</span>}
+                {head.heat > 0 && (
+                  <span className="mono" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, color: '#e8e8ea' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: HEAT_COLORS[head.heat] }} />{HEAT_NAMES[head.heat]}
+                  </span>
+                )}
+              </div>
+            )}
+            <button
+              title={playing ? 'Arrêter le rejeu' : 'Rejouer la course'}
+              aria-label={playing ? 'Arrêter le rejeu' : 'Rejouer la course'}
+              onClick={toggleFly}
+              style={{
+                pointerEvents: 'auto', display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '7px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,.18)',
+                background: playing ? 'rgba(229,86,42,.85)' : 'rgba(12,12,14,.72)', backdropFilter: 'blur(3px)',
+                color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '.04em', cursor: 'pointer',
+                fontFamily: 'var(--vl-mono)',
+              }}
+            >
+              {playing ? '⏹ ARRÊTER' : '▶ REJOUER LA COURSE'}
+            </button>
           </div>
         )}
       </div>
