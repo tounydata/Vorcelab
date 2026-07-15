@@ -6,6 +6,7 @@ import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
 import BrandedLoader from './components/BrandedLoader'
 import UpgradeModal from './components/UpgradeModal'
+import LegalAcceptanceGate from './components/LegalAcceptanceGate'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -33,6 +34,7 @@ const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const CguPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.CguPage })))
 const PrivacyPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.PrivacyPage })))
+const MentionsPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.MentionsPage })))
 
 function PrivateRoutes() {
   const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
@@ -62,7 +64,14 @@ function PrivateRoutes() {
     return location.pathname === '/' && !hadSession ? <LandingPage /> : <LoginPage />
   }
 
-  return <Outlet />
+  return (
+    <>
+      {/* Consentement versionné CGU/confidentialité — inerte tant que les mentions
+          légales obligatoires ne sont pas complètes (LEGAL_INFO_COMPLETE). */}
+      <LegalAcceptanceGate />
+      <Outlet />
+    </>
+  )
 }
 
 // /login public : les CTA de la landing et des pages publiques pointent ici.
@@ -142,6 +151,7 @@ export default function App() {
         <Route path="login" element={<LoginRoute />} />
         <Route path="legal/cgu" element={<CguPage />} />
         <Route path="legal/confidentialite" element={<PrivacyPage />} />
+        <Route path="legal/mentions" element={<MentionsPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>

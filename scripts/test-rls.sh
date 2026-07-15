@@ -16,6 +16,7 @@ TESTS=(
   supabase/tests/entitlements_stripe.sql
   supabase/tests/rgpd_deletion.sql
   supabase/tests/renfo_dedup.sql
+  supabase/tests/legal_acceptances.sql
 )
 
 CURRENT_DB=""
