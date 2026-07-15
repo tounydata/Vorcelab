@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useLegalAcceptance } from '../lib/useLegalAcceptance'
+import { useTrackEvent } from '../lib/useTrackEvent'
+import { CURRENT_LEGAL_VERSIONS } from '../lib/legalVersions'
 
 // Portail de consentement versionné : bloque l'accès tant que l'utilisateur n'a
 // pas accepté la version courante des CGU et de la politique de confidentialité.
@@ -10,6 +12,7 @@ import { useLegalAcceptance } from '../lib/useLegalAcceptance'
 // doit ré-accepter.
 export default function LegalAcceptanceGate() {
   const { needsConsent, accept } = useLegalAcceptance()
+  const track = useTrackEvent()
   const [checked, setChecked] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,6 +24,7 @@ export default function LegalAcceptanceGate() {
     setError(null)
     try {
       await accept({ surface: 'web_gate', at: new Date().toISOString() })
+      track('legal_accepted', { versions: CURRENT_LEGAL_VERSIONS })
     } catch {
       setError('Enregistrement impossible. Vérifie ta connexion et réessaie.')
       setBusy(false)
