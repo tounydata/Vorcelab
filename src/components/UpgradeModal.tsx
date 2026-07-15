@@ -92,6 +92,8 @@ export default function UpgradeModal() {
     // teaser aide à convertir (à croiser avec upgrade_modal_open.with_teaser).
     track('upgrade_cta_click', { billing, has_link: !!base, has_teaser: hasData })
     if (base) {
+      // Début effectif du parcours de paiement (la confirmation viendra du webhook).
+      track('checkout_started', { billing })
       // Stripe Payment Links acceptent ?client_reference_id= pour retrouver l'user côté webhook
       const url = user?.id ? `${base}?client_reference_id=${user.id}&prefilled_email=${encodeURIComponent(user.email ?? '')}` : base
       window.open(url, '_blank', 'noopener,noreferrer')
