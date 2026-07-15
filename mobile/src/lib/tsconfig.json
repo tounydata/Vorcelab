@@ -1,0 +1,9 @@
+{
+  "//": "Masque mobile/tsconfig.json (qui étend expo/tsconfig.base) UNIQUEMENT pour les outils qui résolvent le tsconfig le plus proche par fichier (vite/rolldown lors des tests racine important secureStorage*). Le typecheck mobile utilise explicitement mobile/tsconfig.json et ignore ce fichier imbriqué.",
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "target": "ES2020",
+    "moduleResolution": "bundler"
+  }
+}
