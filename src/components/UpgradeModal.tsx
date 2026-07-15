@@ -3,9 +3,7 @@ import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGainRange } from '../lib/raceTimeProjection'
 import { useVLStore } from '../store/vlStore'
 import { useTrackEvent } from '../lib/useTrackEvent'
-
-const STRIPE_ANNUAL_URL: string = import.meta.env.VITE_STRIPE_ANNUAL_URL ?? ''
-const STRIPE_MONTHLY_URL: string = import.meta.env.VITE_STRIPE_MONTHLY_URL ?? ''
+import { PRICING, fmtEur, priceLabels, annualSavingsPct } from '../lib/pricing'
 
 const IconStar = () => (
   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -87,7 +85,7 @@ export default function UpgradeModal() {
   const savedMinHigh = currentTimeS && coachFastS ? Math.floor((currentTimeS - coachFastS) / 60) : 0
 
   function handleCTA() {
-    const base = billing === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL
+    const base = PRICING[billing].stripeUrl
     // has_teaser = un scénario chiffré a réellement été montré → mesure si le
     // teaser aide à convertir (à croiser avec upgrade_modal_open.with_teaser).
     track('upgrade_cta_click', { billing, has_link: !!base, has_teaser: hasData })
@@ -291,7 +289,7 @@ export default function UpgradeModal() {
                 transition: 'border-color 0.15s, background 0.15s',
               }}
             >
-              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>5€</div>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>{fmtEur(PRICING.monthly.amountEur)}</div>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 5 }}>PAR MOIS</div>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 3 }}>sans engagement</div>
             </button>
@@ -315,9 +313,9 @@ export default function UpgradeModal() {
                 borderRadius: '0 0 7px 7px', padding: '2px 8px',
                 fontFamily: 'var(--vl-mono)', fontSize: 7.5, fontWeight: 700, letterSpacing: '.1em',
               }}>MEILLEUR PLAN</div>
-              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>50€</div>
+              <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.8rem', fontWeight: 800, color: 'var(--vl-text)', lineHeight: 1 }}>{fmtEur(PRICING.annual.amountEur)}</div>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 5 }}>PAR AN</div>
-              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', marginTop: 3 }}>4,17€/mois — économise 17%</div>
+              <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-ember)', marginTop: 3 }}>{priceLabels.annualPerMonth()} — économise {annualSavingsPct()}%</div>
             </button>
           </div>
 
@@ -335,7 +333,7 @@ export default function UpgradeModal() {
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'scale(1.01)' }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
           >
-            {billing === 'annual' ? 'DÉMARRER — 50€/AN →' : 'DÉMARRER — 5€/MOIS →'}
+            {billing === 'annual' ? `DÉMARRER — ${priceLabels.annual().toUpperCase()} →` : `DÉMARRER — ${priceLabels.monthly().toUpperCase()} →`}
           </button>
 
           <div style={{
