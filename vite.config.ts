@@ -82,11 +82,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-zustand': ['zustand'],
+        // Forme fonction (robuste aux versions de types Rollup/Vite) — même
+        // regroupement des vendors que la forme objet.
+        manualChunks(id: string) {
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/.test(id)) return 'vendor-react'
+          if (id.includes('node_modules/@tanstack/react-query')) return 'vendor-query'
+          if (id.includes('node_modules/@supabase/supabase-js')) return 'vendor-supabase'
+          if (id.includes('node_modules/zustand')) return 'vendor-zustand'
         },
       },
     },
