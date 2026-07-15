@@ -316,7 +316,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
             let yTop = H
             const dim = hover != null && hover !== i ? 0.35 : 1
             return (
-              <g key={`bar${i}`} opacity={dim} className="vl-bar-up" style={{ animationDelay: `${i * 14}ms` }}>
+              <g key={`bar${i}`} opacity={dim} className="vl-bar-up" style={{ animationDelay: `${i * 34}ms`, animationDuration: '0.75s' }}>
                 {daySegs[i].map((seg, j) => {
                   const bh = (seg.load / maxAxis) * H
                   yTop -= bh
@@ -407,6 +407,32 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
   )
 }
 
+// ── Effet « chrono » : le temps de projection défile vite puis se pose sur la
+//    cible, à chaque montage du widget (donc à chaque ouverture du dashboard).
+//    ease-out cubic → démarre très rapide, décélère et s'immobilise sur le
+//    temps réel. prefers-reduced-motion → affichage direct, sans défilement.
+function useChronoCount(target: number, durationMs = 1400): number {
+  const [val, setVal] = useState(0)
+  const rafRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!target || !Number.isFinite(target)) { setVal(target || 0); return }
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { setVal(target); return }
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setVal(target * eased)
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+      else setVal(target)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [target, durationMs])
+  return val
+}
+
 function NextRaceWidget({ race }: { race: NextRace }) {
   const now = new Date()
   const raceDate = new Date(race.date)
@@ -427,6 +453,9 @@ function NextRaceWidget({ race }: { race: NextRace }) {
     ? { cible: live.estTimeS, prudent: live.timeMax, agressif: live.timeMin, confidence: live.confidence }
     : race.last_projection
   const isSnapshot = !live && !!race.last_projection
+
+  // Chrono : le gros temps cible défile rapidement puis se pose sur la valeur réelle.
+  const chronoCible = useChronoCount(proj?.cible ?? 0)
 
   const confColor = proj
     ? proj.confidence === 'good' ? 'var(--color-victory)' : proj.confidence === 'medium' ? 'var(--vl-amber)' : 'var(--vl-ember)'
@@ -500,8 +529,8 @@ function NextRaceWidget({ race }: { race: NextRace }) {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82 }}>
-                    {fmtRaceTimeS(proj.cible)}
+                  <div style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(2.2rem,4vw,3rem)', fontWeight: 800, color: 'var(--color-victory)', letterSpacing: '-.03em', lineHeight: 0.82, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtRaceTimeS(chronoCible)}
                   </div>
                   <div style={{ fontSize: 11, fontFamily: 'var(--vl-mono)', letterSpacing: 2, marginTop: 6 }}>
                     {Array.from({ length: 5 }, (_, i) => (
