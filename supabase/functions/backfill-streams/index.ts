@@ -2,7 +2,7 @@
 // Rattrapage du cache des tracés GPS (activity_streams) — MODE SERVICE, AUTONOME.
 //
 // Met en cache, par LOTS, les tracés des sorties course à pied encore absentes du
-// cache, pour TOUS les athlètes connectés, sur une fenêtre glissante (12 mois par
+// cache, pour TOUS les athlètes connectés, sur une fenêtre glissante (6 mois par
 // défaut : au-delà, la forme du jour n'est plus impactée — cf. CTL 42 j). Idempotent,
 // n'ajoute que du cache (aucune suppression). Conçu pour être appelé en boucle (cron
 // ~toutes les 15 min) jusqu'à `remaining = 0`. S'arrête net sur quota Strava (429).
@@ -18,7 +18,7 @@ const STRAVA_ACTIVITY_URL = 'https://www.strava.com/api/v3/activities'
 const STREAM_KEYS = 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
-const DEFAULT_SINCE_DAYS = 400 // ~13 mois (marge sur les 12 mois utiles)
+const DEFAULT_SINCE_DAYS = 190 // ~6 mois (couvre largement la forme — CTL ~42 j — et l'ancrage courses ~6 mois)
 const MAX_CALLS_PER_RUN = 80   // marge sous le quota Strava (100 / 15 min)
 const SLEEP_MS = 250
 
