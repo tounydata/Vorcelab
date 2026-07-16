@@ -6,9 +6,14 @@ name: Engine backtest (real)
 # Déclenchement MANUEL uniquement (workflow_dispatch) → la clé service role n'est
 # jamais exposée sur un simple push, et le run ne part que quand tu le décides.
 #
-# Prérequis (à ajouter UNE fois dans Settings → Secrets and variables → Actions) :
-#   • SUPABASE_URL                (ex. https://wanzrkdgqmcctwvnbmuv.supabase.co)
-#   • SUPABASE_SERVICE_ROLE_KEY   (Dashboard Supabase → Project Settings → API)
+# Prérequis (Settings → Secrets and variables → Actions) :
+#   • SUPABASE_SERVICE_ROLE_KEY   ← SEUL secret à ajouter (Dashboard Supabase →
+#                                   Project Settings → API → service_role).
+#   • L'URL est réutilisée depuis le secret existant VITE_SUPABASE_URL (ou
+#     SUPABASE_URL s'il est défini). Rien à recréer pour l'URL.
+#
+# ⚠ SUPABASE_ACCESS_TOKEN (sbp_…) est un jeton de gestion pour déployer les edge
+#   functions — ce N'EST PAS la service_role key ; il ne convient pas ici.
 #
 # Sortie : le rapport PSEUDONYMISÉ (aucune coordonnée GPS, aucun nom) est publié
 # comme « artifact » du run, téléchargeable depuis l'onglet Actions.
@@ -36,7 +41,8 @@ jobs:
         run: npm ci
       - name: Run real backtest (read-only)
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # Réutilise l'URL déjà configurée (VITE_SUPABASE_URL) si SUPABASE_URL absent.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run backtest:real
       - name: Upload pseudonymised report
