@@ -12,6 +12,7 @@ import { reconstructGpx, type RawStreams } from './gpxReconstruct'
 import { buildRunnerProfileAtDate, type RawStreamSet } from './runnerProfileAtDate'
 import { computeErrorMetrics, distanceBucket, dplusBucket, type ErrorMetrics } from './engineBacktest'
 import { ENGINE_VERSION } from './engineVersion'
+import { resolveFcMax } from './fcMax'
 
 /** Version du profil « d'époque » (buildRunnerProfileAtDate). À incrémenter si sa
  *  logique de calcul change. Reliée à chaque ligne du rapport. */
@@ -189,6 +190,11 @@ export function projectRaceCase(c: RaceCaseInput): ProjectOutcome {
   const prior = selectPriorActivities(c.allActivities, race)
   const engineActivities = prior.map(toEngineActivity)
 
+  // FC max « d'époque » anti-fuite : on préfère la valeur profil (manuelle, stable,
+  // non dérivée d'une course future) ; à défaut, on estime depuis la FC max observée
+  // UNIQUEMENT sur les activités ANTÉRIEURES (par athlète — jamais la course ni après).
+  const effectiveFcMax = resolveFcMax(c.fcMax, prior as unknown as Record<string, unknown>[])
+
   const runnerProfile = buildRunnerProfileAtDate({
     activities: prior.map((a) => ({
       id: a.id,
@@ -202,13 +208,13 @@ export function projectRaceCase(c: RaceCaseInput): ProjectOutcome {
       average_speed: a.average_speed ?? null,
     })),
     activityStreams: c.priorStreams,
-    fcMax: c.fcMax,
+    fcMax: effectiveFcMax,
     asOfDate: race.start_date,
     windowDays: c.windowDays ?? 56,
   })
 
   const profileObj: Record<string, unknown> = {
-    fc_max: c.fcMax,
+    fc_max: effectiveFcMax,
     runner_profile: runnerProfile as unknown as Record<string, unknown>,
   }
 
