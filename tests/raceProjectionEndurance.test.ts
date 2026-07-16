@@ -51,10 +51,14 @@ describe('Ancrage sur les courses réelles — la projection suit ta perf démon
   })
 
   it('ajouter une VRAIE course lente ralentit une projection sinon optimiste (le bug rapporté)', () => {
-    // Historique de footings/sorties RAPIDES non étiquetés course.
+    // Historique de footings/sorties RAPIDES non étiquetés course. On inclut une grosse
+    // sortie (900 m D+) pour que le D+ habituel dépasse déjà celui de la course cible :
+    // ainsi le frein « fatigue du dénivelé » est neutre dans les DEUX scénarios et ce
+    // test isole bien l'effet d'ANCRAGE (ajout d'une vraie course).
     const fastRuns = [
       trailRun(300, 12000, 450, 5), trailRun(310, 14000, 500, 12),
       trailRun(305, 13000, 480, 20), trailRun(300, 15000, 520, 30),
+      trailRun(300, 8000, 800, 60), // courte + ancienne : relève le D+ habituel sans peser sur l'allure de base
     ]
     const noRace = computeRaceProjection(course30, fastRuns, {}, race)
     // Même historique + un vrai 22 km étiqueté course à 8:03/km (≈ 2h57).

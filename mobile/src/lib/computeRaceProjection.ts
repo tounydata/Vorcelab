@@ -804,6 +804,37 @@ export function computeRaceProjection(
     })
   }
 
+  // (c) Fade « fatigue du dénivelé » — INDIVIDUEL, jamais universel. Au-delà du D+ que
+  // TU encaisses d'habitude (ta plus grosse sortie en D+, même famille trail/route), les
+  // montées coûtent plus cher : le modèle VAM, appris surtout à l'ENTRAÎNEMENT (frais,
+  // côtes courtes), surestime ta vitesse d'ascension sur un GROS cumul. Le banc réel l'a
+  // mesuré : plus le D+/km est élevé, plus la projection est optimiste (~−0,3 %/(m/km)).
+  // Ampleur = combien le D+ dépasse TON habituel × TA durabilité (dérive cardiaque apprise).
+  // Nul si D+ ≤ ton habituel (donc aucune pénalité sur un trail court), borné, et neutre
+  // sans données fiables → pas de régression, rien d'imposé.
+  let demoDplus = 0
+  for (const a of activities) {
+    const t = a.type as string, st = a.sport_type as string
+    const run = ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t) || ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(st)
+    if (!run) continue
+    if (isTrail && !(TRAIL_TYPES.includes(t) || st === 'TrailRun')) continue
+    const dp = (a.total_elevation_gain as number) || 0
+    if ((a.distance as number) > 3000 && dp > 50) demoDplus = Math.max(demoDplus, dp)
+  }
+  if (demoDplus > 0 && dplus > demoDplus) {
+    const vRatio = dplus / demoDplus // D+ de la course vs ton plus gros D+ vécu
+    const vExtra = Math.min(0.20, Math.max(0, vRatio - 1) * 0.30 * durabilityMult)
+    if (vExtra > 0) {
+      estTimeS *= 1 + vExtra
+      const pct = Math.round(vExtra * 100)
+      if (pct >= 1) personalAdjustments.push({
+        label: `Fatigue du dénivelé : +${pct}%`,
+        detail: `Dénivelé (${Math.round(dplus)} m) au-delà de ta plus grosse sortie (${Math.round(demoDplus)} m, ×${vRatio.toFixed(1)}) — montées plus coûteuses sur la durée${durabilityNote ? `, ajusté à ta durabilité ${durabilityNote}` : ''}.`,
+        color: 'var(--vl-ember)',
+      })
+    }
+  }
+
   // Scale section times to match final estTimeS
   const rawSum = sectionTimes.reduce((s, t) => s + t, 0)
   const sf = rawSum > 0 ? estTimeS / rawSum : 1

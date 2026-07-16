@@ -551,7 +551,7 @@ export default function RouteMap3D({ points, markers, heatSegments, cursorKm, to
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
       {!mapError && layersPanel}
-      <div style={{ flex: '3 1 380px', minWidth: 280 }}>
+      <div style={{ flex: '5 1 520px', minWidth: 280 }}>
         <div style={{ background: 'var(--vl-surf)', border: '1px solid var(--vl-line)', borderRadius: 'var(--vl-r)', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: heightPx }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: '.2em', color: 'var(--vl-text-3)', fontWeight: 500 }}>TRACÉ GPS · 3D</div>
