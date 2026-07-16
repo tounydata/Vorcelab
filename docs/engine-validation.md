@@ -92,10 +92,14 @@ Correction `2026.07-2` (intervalles uniquement — projection centrale inchangé
 demi-largeur est dimensionnée par confiance + terrain (croissante avec le D+/km) +
 extrapolation, sans resserrage agressif sur « bonne couverture stream ». Résultat sur
 le même échantillon : **couverture 27 % → 82 %** (route 100 %, trail 78 %), MAPE
-inchangée. Les 2 courses encore hors intervalle sont celles à très fort D+/km, où
-l'optimisme résiduel est en partie un artefact du tracé synthétique (pénalité descente
-technique désactivée). Prochaine étape : rejouer via **Supabase (GPS réel)** pour
-confirmer, puis corriger l'optimisme fort-D+.
+inchangée.
+
+Confirmé sur les **tracés GPS réels** (pénalité descente technique réactivée) :
+**couverture 91 %** (route 100 %, trail 89 %), MAPE 9,9 % — cible >75 % atteinte.
+La pénalité « lacets » ramène dans la fourchette une des courses à fort D+ qui, en
+tracé synthétique, en sortait (artefact). Reste **une** course hors intervalle : la
+plus raide (D+/km ~51) à ~−23 % → **optimisme réel sur les très forts D+**, cible de
+la prochaine calibration (modèle de montée VAM/bucket).
 
 ## Honnêteté
 
