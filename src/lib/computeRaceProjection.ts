@@ -14,6 +14,20 @@ import { dayAnchoredNow } from './dayAnchor'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
+/**
+ * Contexte temporel de la projection. `asOfMs` = date de référence (« horloge »)
+ * à laquelle le moteur se replace : récence des entraînements, fenêtres 7 j / 42 j,
+ * ACWR, fraîcheur, récence des PR, fenêtres de confiance en découlent toutes.
+ *
+ * PRODUCTION : absent → instant réel (`dayAnchoredNow()` / `Date.now()`), comportement
+ * strictement inchangé. BANC HISTORIQUE : `asOfMs = Date.parse(race.start_date)` pour
+ * un backtest réellement historique et déterministe (une course de mars n'est plus
+ * calculée comme si ses entraînements dataient de juillet).
+ */
+export interface ProjectionTimeContext {
+  asOfMs?: number
+}
+
 export interface Section {
   type: 'up' | 'down' | 'flat'
   startKm: number
@@ -67,6 +81,15 @@ export interface ProjectionResult {
   goalCompareColor?: string
   goalCompareStr?: string
   personalAdjustments: { label: string; detail: string; color: string }[]
+  /**
+   * Vrai si la projection s'est appuyée sur au moins un repli générique (allure
+   * route/trail générique, absence totale de profil/PR historique, section sans
+   * bucket exploitable). Reflète les VRAIES sources utilisées, pas un simple compte
+   * de buckets. Cf. `fallbackSources` pour le détail machine.
+   */
+  usedFallback: boolean
+  /** Codes machine des replis réellement mobilisés (pour rapport/explicabilité). */
+  fallbackSources: string[]
 }
 
 export function computeRaceProjection(
@@ -75,7 +98,15 @@ export function computeRaceProjection(
   profile: Record<string, unknown>,
   race: { type?: string | null; goal_time?: string | null } | null,
   terrain?: { surfaces: (string | null)[]; weather?: TerrainWeather } | null,
+  ctx?: ProjectionTimeContext,
 ): ProjectionResult {
+  // Horloge de référence. Absent → instant réel (production inchangée). Présent →
+  // date historique (banc). Toutes les fenêtres de récence en découlent.
+  const asOfMs = ctx?.asOfMs
+  // Replis génériques réellement mobilisés (renseigné au fil du calcul).
+  const fallbackSources: string[] = []
+  const addFallback = (code: string) => { if (!fallbackSources.includes(code)) fallbackSources.push(code) }
+
   // ── 1. Cumulative distances & elevation stats ──────────────────────────────
   const cumDist = [0]
   let dplus = 0, dminus = 0
@@ -157,7 +188,7 @@ export function computeRaceProjection(
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
-    const now = dayAnchoredNow()
+    const now = dayAnchoredNow(asOfMs)
 
     if (isTrail) {
       const trailRuns = activities
@@ -191,6 +222,7 @@ export function computeRaceProjection(
         const totalW = scored.reduce((s: number, x: { weight: number }) => s + x.weight, 0)
         return scored.reduce((s: number, x: { paceS: number; weight: number }) => s + x.paceS * x.weight, 0) / totalW / progressionFactor
       }
+      addFallback('generic_trail_pace') // 7:00/km : aucune sortie trail exploitable
       return 420 // 7:00/km fallback
     }
 
@@ -200,13 +232,16 @@ export function computeRaceProjection(
     // retomber sur un générique. Manuel > auto. La récence est déjà gérée par
     // deriveAutoPrs (couperet 18 mois + décote douce) → jamais d'optimisme.
     const manualPrs = profile.prs as Record<string, { timeS: number; dist: number }> | undefined
-    const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0])
+    // deriveAutoPrs : `nowMs` = horloge historique (banc) pour une récence des PR
+    // calculée par rapport à la course rejouée, pas à l'exécution du script.
+    const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0], asOfMs)
     const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
     const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
     if (candidates.length) {
       const pr = prs[candidates[0]]
       return (pr.timeS / pr.dist * 1000) / progressionFactor
     }
+    addFallback('generic_road_pace') // 5:20/km : ni PR manuel, ni course route étiquetée
     return 320 // 5:20/km fallback for road
   }
 
@@ -308,7 +343,7 @@ export function computeRaceProjection(
       ? races.filter((a) => TRAIL_TYPES.includes(a.type as string) || (a.sport_type as string) === 'TrailRun')
       : races
     if (!pool.length) return { factor: 1, pct: 0 }
-    const now = dayAnchoredNow()
+    const now = dayAnchoredNow(asOfMs)
     let num = 0, den = 0
     for (const a of pool) {
       const kmh = (a.average_speed as number) * 3.6
@@ -381,6 +416,14 @@ export function computeRaceProjection(
   let usedVamForSections = false
   const weakClimbRecoveryApplied = new Set<string>()
   const weakDownhillRecoveryApplied = new Set<string>()
+  // Suivi des replis par section : combien de sections n'ont trouvé aucun bucket
+  // exploitable et sont retombées sur le modèle générique (Minetti + coeffs legacy).
+  let sectionsUsingBucket = 0
+  let sectionsUsingFallback = 0
+  // Aucun profil coureur exploitable du tout (ni buckets appris, ni streams) → repli.
+  if (!rBuckets || Object.values(rBuckets).every((b) => b.confidence === 'none')) {
+    addFallback('no_runner_profile')
+  }
 
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
@@ -395,6 +438,7 @@ export function computeRaceProjection(
     let pente: number
 
     if (hasGoodBucket && bdata!.avgSpeedKmH != null && bdata!.avgSpeedKmH > 0) {
+      sectionsUsingBucket++
       // Use learned speed directly: pace from bucket speed
       const bucketSpeedMs = bdata!.avgSpeedKmH / 3.6
       const bucketPaceS = 1000 / bucketSpeedMs
@@ -531,6 +575,7 @@ export function computeRaceProjection(
       estTimeS += t
     } else {
       // Fallback: Minetti + legacy coefficients
+      sectionsUsingFallback++
       if (s.type === 'up' && _vam > 0 && g > 0.01) {
         pente = Math.max(0, (3_600_000 * g / _vam) / basePaceS - 1)
       } else if (s.type === 'up' && _cu > 0) {
@@ -636,7 +681,7 @@ export function computeRaceProjection(
   }
 
   // ── 9. Freshness adjustment ────────────────────────────────────────────────
-  const freshness = computeFreshnessAdjustment(activities as unknown as RaceActivity[], FC_MAX)
+  const freshness = computeFreshnessAdjustment(activities as unknown as RaceActivity[], FC_MAX, asOfMs)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
     personalAdjustments.push({
@@ -733,7 +778,7 @@ export function computeRaceProjection(
   // (a) Allure plat-équivalente démontrée (s/km) sur tes courses réelles.
   const anchorPool = labeledRacePool()
   if (anchorPool.length && totalDistM > 0) {
-    const now = dayAnchoredNow()
+    const now = dayAnchoredNow(asOfMs)
     let num = 0, den = 0
     for (const a of anchorPool) {
       const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
@@ -842,7 +887,7 @@ export function computeRaceProjection(
 
   // ── 10. Confidence ─────────────────────────────────────────────────────────
   const isRunType = (t: string) => ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t)
-  const cutoff90 = dayAnchoredNow() - 90 * 24 * 3600_000
+  const cutoff90 = dayAnchoredNow(asOfMs) - 90 * 24 * 3600_000
   const recentRuns = activities.filter((a: Record<string, unknown>) =>
     (isRunType(a.type as string) || isRunType(a.sport_type as string)) && new Date(a.start_date as string).getTime() >= cutoff90 && (a.distance as number) > 0
   )
@@ -913,6 +958,14 @@ export function computeRaceProjection(
     }
   }
 
+  // Repli si TOUTES (ou l'écrasante majorité) des sections sont retombées sur le
+  // modèle générique faute de bucket appris. Seuil : > 50 % des sections chronométrées.
+  const totalScoredSections = sectionsUsingBucket + sectionsUsingFallback
+  if (totalScoredSections > 0 && sectionsUsingFallback / totalScoredSections > 0.5) {
+    addFallback('sections_generic_model')
+  }
+  const usedFallback = fallbackSources.length > 0
+
   return {
     points,
     samples,
@@ -934,5 +987,7 @@ export function computeRaceProjection(
     goalCompareColor,
     goalCompareStr,
     personalAdjustments,
+    usedFallback,
+    fallbackSources,
   }
 }

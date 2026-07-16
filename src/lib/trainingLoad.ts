@@ -175,8 +175,9 @@ export function computeActivityLoad(activity: ActivityForLoad, fcMax?: number | 
   return Math.round(effectiveMinutes(durationMin) * intensity * elev * typeFactor)
 }
 
-export function computeLoadTrend(activities: ActivityForLoad[], fcMax?: number | null): string {
-  const now = Date.now()
+export function computeLoadTrend(activities: ActivityForLoad[], fcMax?: number | null, asOfMs?: number): string {
+  // `asOfMs` = horloge historique injectable (banc). Absent → instant réel (prod).
+  const now = asOfMs ?? Date.now()
   const runs = (activities || []).filter(a => isRun(a.sport_type || a.type))
 
   const load7 = runs
@@ -199,10 +200,12 @@ export function computeLoadTrend(activities: ActivityForLoad[], fcMax?: number |
 }
 
 // ATL (charge aiguë) τ=7j / CTL (charge chronique) τ=42j — Bannister TRIMP model
-export function computeTrainingLoad(activities: ActivityForLoad[], fcMax?: number | null) {
+export function computeTrainingLoad(activities: ActivityForLoad[], fcMax?: number | null, asOfMs?: number) {
   // Ancré sur la journée (et non l'instant) → charge identique entre dashboard et
   // stratégie, calculés à des moments différents. Cf. dayAnchor.ts.
-  const now = dayAnchoredNow()
+  // `asOfMs` = horloge historique injectable (banc) : les fenêtres 7 j / 42 j se
+  // calculent alors relativement à la COURSE rejouée, pas à l'exécution du script.
+  const now = dayAnchoredNow(asOfMs)
   const runs = (activities || []).filter(a => isRun(a.sport_type || a.type))
 
   const recent42 = runs.filter(a => now - new Date(a.start_date).getTime() <= MS_42D)
@@ -225,7 +228,7 @@ export function computeTrainingLoad(activities: ActivityForLoad[], fcMax?: numbe
   const acuteLoad  = acute.weight   > 0 ? acute.sum   / acute.weight   : 0
   const chronicLoad = chronic.weight > 0 ? chronic.sum / chronic.weight : 0
   const ratio = chronicLoad > 0 ? acuteLoad / chronicLoad : null
-  const trend = computeLoadTrend(activities, fcMax)
+  const trend = computeLoadTrend(activities, fcMax, asOfMs)
 
   return {
     acuteLoad:   Math.round(acuteLoad),

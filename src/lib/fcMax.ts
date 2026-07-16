@@ -46,26 +46,42 @@ export function estimateFcMaxFromActivities(
   return observed > 0 ? Math.round(observed) : null
 }
 
+/** Origine de la FCmax retenue — pour la traçabilité du banc (jamais la valeur exacte). */
+export type FcMaxSource = 'user' | 'strava' | 'age_formula' | 'fixed_fallback'
+
 /**
- * Résout la FCmax à utiliser pour un athlète, par ordre de fiabilité :
- *   1. valeur SAISIE dans le profil (la plus fiable) ;
- *   2. estimation depuis SES données (FC max observée sur ses activités Strava) ;
- *   3. formule d'âge « 220 − âge » (repère de population, si l'âge est connu) ;
- *   4. repère fixe (dernier recours absolu).
+ * Résout la FCmax ET son origine, par ordre de fiabilité :
+ *   1. valeur SAISIE dans le profil (`user`) ;
+ *   2. estimation depuis SES données (FC max observée sur ses activités Strava — `strava`) ;
+ *   3. formule d'âge « 220 − âge » (`age_formula`, si l'âge est connu) ;
+ *   4. repère fixe (`fixed_fallback`, dernier recours absolu).
+ * La priorité produit reste INCHANGÉE : la valeur utilisateur n'est jamais remplacée.
+ */
+export function resolveFcMaxWithSource(
+  profileFcMax: unknown,
+  activities: readonly Record<string, unknown>[] = [],
+  ageYears?: number | null,
+): { value: number; source: FcMaxSource } {
+  if (typeof profileFcMax === 'number' && isPlausibleFcMax(profileFcMax)) {
+    return { value: Math.round(profileFcMax), source: 'user' }
+  }
+  const estimated = estimateFcMaxFromActivities(activities)
+  if (estimated != null) return { value: estimated, source: 'strava' }
+  if (typeof ageYears === 'number' && ageYears > 0) {
+    const byAge = Math.round(220 - ageYears)
+    if (isPlausibleFcMax(byAge)) return { value: byAge, source: 'age_formula' }
+  }
+  return { value: FC_MAX_FALLBACK, source: 'fixed_fallback' }
+}
+
+/**
+ * Résout la FCmax à utiliser pour un athlète, par ordre de fiabilité (cf.
+ * `resolveFcMaxWithSource`). Conserve la signature historique (valeur seule).
  */
 export function resolveFcMax(
   profileFcMax: unknown,
   activities: readonly Record<string, unknown>[] = [],
   ageYears?: number | null,
 ): number {
-  if (typeof profileFcMax === 'number' && isPlausibleFcMax(profileFcMax)) {
-    return Math.round(profileFcMax)
-  }
-  const estimated = estimateFcMaxFromActivities(activities)
-  if (estimated != null) return estimated
-  if (typeof ageYears === 'number' && ageYears > 0) {
-    const byAge = Math.round(220 - ageYears)
-    if (isPlausibleFcMax(byAge)) return byAge
-  }
-  return FC_MAX_FALLBACK
+  return resolveFcMaxWithSource(profileFcMax, activities, ageYears).value
 }

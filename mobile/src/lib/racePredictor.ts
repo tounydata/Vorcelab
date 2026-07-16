@@ -50,8 +50,10 @@ export function freshnessMultiplier(r: number): number {
   return 1.04
 }
 
-export function computeFreshnessAdjustment(activities: RaceActivity[], fcMax: number): FreshnessAdjustment {
-  const load = computeTrainingLoad(activities as unknown as ActivityForLoad[], fcMax || FC_MAX_DEFAULT)
+export function computeFreshnessAdjustment(activities: RaceActivity[], fcMax: number, asOfMs?: number): FreshnessAdjustment {
+  // `asOfMs` = horloge historique injectable (banc) : l'ACWR / la fraîcheur se
+  // mesurent alors sur les jours précédant la COURSE, pas l'exécution du script.
+  const load = computeTrainingLoad(activities as unknown as ActivityForLoad[], fcMax || FC_MAX_DEFAULT, asOfMs)
   if (load.ratio === null || load.count42 < 3)
     return { multiplier: 1, label: null }
 
