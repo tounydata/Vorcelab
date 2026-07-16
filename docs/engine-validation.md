@@ -81,6 +81,22 @@ La météo n'agit aujourd'hui qu'à travers les surfaces OSM (souvent absentes) 
 consommée quand `surfaces` est vide ; `has_weather` reste tracé. Voir
 `docs/examples/engine-backtest-example.md` pour le format (chiffres fictifs).
 
+## Résultats de référence (baseline) & calibration des intervalles
+
+Premier run réel (11 courses à streams, 3 athlètes, profils « d'époque ») avec le
+moteur `2026.07-1` : **MAPE 9,7 %**, erreur médiane ~6,6 %, biais moyen ≈ **−1,4 %**
+(quasi neutre). Deux défauts mesurés : intervalles **trop étroits** (couverture ~27 %)
+et **optimisme sur les trails à fort D+/km**.
+
+Correction `2026.07-2` (intervalles uniquement — projection centrale inchangée) : la
+demi-largeur est dimensionnée par confiance + terrain (croissante avec le D+/km) +
+extrapolation, sans resserrage agressif sur « bonne couverture stream ». Résultat sur
+le même échantillon : **couverture 27 % → 82 %** (route 100 %, trail 78 %), MAPE
+inchangée. Les 2 courses encore hors intervalle sont celles à très fort D+/km, où
+l'optimisme résiduel est en partie un artefact du tracé synthétique (pénalité descente
+technique désactivée). Prochaine étape : rejouer via **Supabase (GPS réel)** pour
+confirmer, puis corriger l'optimisme fort-D+.
+
 ## Honnêteté
 
 Ne pas prétendre que le moteur est « le plus puissant au monde » sans ce benchmark.
