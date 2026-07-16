@@ -10,7 +10,7 @@
 
 /** Version du moteur de projection. À incrémenter à chaque changement de formule
  *  ou de coefficient susceptible de modifier une projection. */
-export const ENGINE_VERSION = '2026.07-1'
+export const ENGINE_VERSION = '2026.07-2'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses
