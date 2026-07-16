@@ -48,9 +48,12 @@ describe('backtestReportFormat', () => {
     expect(csv).not.toContain('46.5')
   })
 
-  it('Markdown : métriques globales présentes, sans PII', () => {
+  it('Markdown : métriques elapsed + moving + hors échantillon, sans PII', () => {
     const md = toReportMarkdown(report)
-    expect(md).toContain('Métriques globales')
+    expect(md).toContain('temps écoulé')
+    expect(md).toContain('temps en mouvement')
+    expect(md).toContain('Validation hors échantillon')
+    expect(md).toContain('Contrôle du dénivelé')
     expect(md).toContain('MAPE')
     expect(md).not.toContain(USER)
     expect(md).not.toContain(NAME)

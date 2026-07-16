@@ -12,8 +12,14 @@
 // de cache météo, donc le même chiffre final). Les décroissances multi-jours sont
 // insensibles à cette précision infra-jour ; ancrer sur le début du jour SUIVANT
 // garantit en plus que les activités du jour ont un âge positif (pas de poids > 1).
-export function dayAnchoredNow(): number {
-  const d = new Date()
+//
+// HORLOGE HISTORIQUE (banc de validation) : `nowMs` peut être injecté pour replacer
+// le moteur à une date passée (ex. le départ d'une course rejouée). Absent → instant
+// réel (comportement de production strictement inchangé). Cet argument permet un
+// backtest réellement historique et DÉTERMINISTE, sans jamais monkey-patcher
+// l'horloge JavaScript globale du code de production.
+export function dayAnchoredNow(nowMs?: number): number {
+  const d = nowMs != null ? new Date(nowMs) : new Date()
   d.setHours(0, 0, 0, 0)
   return d.getTime() + 86_400_000
 }

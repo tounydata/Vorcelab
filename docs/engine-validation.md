@@ -101,6 +101,83 @@ tracé synthétique, en sortait (artefact). Reste **une** course hors intervalle
 plus raide (D+/km ~51) à ~−23 % → **optimisme réel sur les très forts D+**, cible de
 la prochaine calibration (modèle de montée VAM/bucket).
 
+## Validité historique du banc (lot « fix/historical-backtest-validity »)
+
+Ce lot corrige des défauts **méthodologiques** du banc — il ne change **aucun coefficient**
+de projection, ne recalibre **ni** l'intervalle de confiance **ni** la fatigue du dénivelé,
+et n'ajoute aucun modèle appris. But : produire une **baseline fiable et reproductible**.
+
+### 1. Horloge historique injectable (`asOfMs`)
+
+Le banc filtrait déjà les activités futures, mais plusieurs fonctions lisaient encore
+l'horloge réelle (`Date.now()`, `new Date()`, `dayAnchoredNow()`) — la récence des
+entraînements, les fenêtres 7 j / 42 j, l'ACWR, la fraîcheur, la pondération trail et la
+récence des PR étaient donc calculées « comme en juillet » pour une course de mars.
+
+`computeRaceProjection(..., { asOfMs })` injecte désormais une **date de référence**.
+En production, `asOfMs` est absent → `Date.now()` (comportement **strictement inchangé**).
+Le banc passe `asOfMs = Date.parse(race.start_date)`. L'horloge circule vers
+`dayAnchoredNow(nowMs?)`, `computeTrainingLoad(..., asOfMs?)`, `computeLoadTrend(..., asOfMs?)`,
+`computeFreshnessAdjustment(..., asOfMs?)` et `deriveAutoPrs(..., nowMs?)` — sans jamais
+monkey-patcher l'horloge JS globale du code de production. Résultat : **deux exécutions du
+banc à des dates système différentes produisent exactement les mêmes projections**
+(`computed_at` = instant d'exécution ; `as_of_at` = date historique du moteur). Testé
+(`tests/historicalClock.test.ts`, `tests/backtestHistoricalValidity.test.ts`) ; le test de
+déterminisme échoue avec l'ancienne implémentation (fuite d'horloge) et réussit avec la nouvelle.
+
+### 2. Lissage altimétrique robuste (`smoothElevationProfile`)
+
+Les altitudes brutes Strava oscillent de ±1-3 m par point ; cumulées, elles surestiment
+fortement le D+ (ex. 52 m stockés → ~217 m bruts). `src/lib/elevationProfile.ts` (pur,
+parité web/mobile) : interpolation par distance, filtre médian, lissage par fenêtre (~30 m),
+**accumulation à seuil vertical** (hystérésis), et **recalage proportionnel optionnel** des
+variations positives vers `total_elevation_gain` Strava (borné, distance JAMAIS modifiée,
+tracé si appliqué). Chaque ligne du banc porte `stored_dplus_m`, `raw_gpx_dplus_m`,
+`smoothed_gpx_dplus_m`, `dplus_calibration_ratio`, `dplus_was_calibrated`. Testé
+(`tests/elevationProfile.test.ts`, 12 cas dont plat bruité, montée continue, aberrations,
+distance inchangée, semi non classé « fort D+/km »).
+
+### 3. FC max — cascade tracée (banc seulement)
+
+La logique produit est inchangée (saisie → Strava observée → 220 − âge → repère fixe) et
+`profiles.fc_max` n'est **jamais** modifiée. Le banc charge désormais l'âge/date de naissance
+du profil pour rendre le fallback « 220 − âge » réellement disponible, et trace l'origine via
+`fcmax_source` ∈ `user | strava | age_formula | fixed_fallback` (`resolveFcMaxWithSource`).
+
+### 4. Temps écoulé vs temps en mouvement
+
+Le banc évalue les **deux** références : `elapsed_time` (heure d'arrivée réelle) devient la
+métrique **principale**, `moving_time` reste l'analyse sportive secondaire. Chaque ligne
+porte `error_vs_moving_*`, `error_vs_elapsed_*`, `stop_gap_s/pct` et `stop_class`
+(`large` si elapsed − moving > 5 %). Le rapport publie les deux jeux de métriques et
+`coverage_vs_moving` / `coverage_vs_elapsed`.
+
+### 5. Validation hors échantillon
+
+`leave-one-date-out` (les courses d'une même date/événement ne sont jamais scindées) et
+`leave-one-athlete-out`. **Aucun coefficient n'est ajusté** : le découpage garantit
+l'intégrité des groupes et expose la sensibilité (macro-moyenne des MAPE par fold). Le
+rapport publie `in_sample`, `leave_one_date_out`, `leave_one_athlete_out`.
+
+### 6. `used_fallback` réel + qualité des données
+
+`used_fallback` / `fallback_sources` reflètent les **vraies** sources mobilisées (allure
+générique route/trail, absence de profil, sections sans bucket), issues du moteur — plus un
+simple compte de buckets. Chaque ligne porte `prior_runs_count`, `prior_runs_with_streams`,
+`prior_stream_coverage_pct` et `historical_data_quality` (`poor` < 50 % · `partial` 50-85 % ·
+`good` > 85 %) ; le rapport présente les métriques **toutes courses** et **bonne qualité
+uniquement**. L'intervalle : largeur inchangée, seule sa **couverture** est re-mesurée — la
+calibration n'est pas annoncée tant que le hors-échantillon n'est pas stable.
+
+### Reproduction
+
+```bash
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run backtest:real   # lecture seule
+```
+
+Les artefacts (`artifacts/engine-backtest/`) et fixtures (`*.backtest-fixture.json`) restent
+**gitignorés** (données personnelles / GPS jamais commitées).
+
 ## Honnêteté
 
 Ne pas prétendre que le moteur est « le plus puissant au monde » sans ce benchmark.

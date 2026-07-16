@@ -29,14 +29,17 @@ import {
 } from '../src/lib/realBacktest'
 import type { RawStreamSet } from '../src/lib/runnerProfileAtDate'
 import { toSummaryJson, toResultsCsv, toReportMarkdown } from '../src/lib/backtestReportFormat'
-import { estimateFcMaxFromActivities, resolveFcMax } from '../src/lib/fcMax'
+import { ageFromBirthdate } from '../src/lib/fcMax'
 
 const OUT_DIR = resolve(process.cwd(), 'artifacts/engine-backtest')
 const WINDOW_DAYS = 56
 
 interface LoadedData {
   activities: BacktestActivity[]
-  fcMaxByUser: Record<string, number>
+  /** FC max SAISIE au profil (nullable) — la cascade FCmax est résolue dans le moteur. */
+  profileFcByUser: Record<string, number | null>
+  /** Âge (ans) par athlète, pour le fallback « 220 − âge ». */
+  ageByUser: Record<string, number | null>
   /** Streams par String(strava_activity_id). */
   streams: Record<string, RawStreamSet>
   /** strava_activity_id des courses disposant de streams. */
@@ -84,7 +87,10 @@ function buildCasesAndValidation(data: LoadedData): { cases: RaceCaseInput[]; va
       raceStreams: data.streams[rid] ?? null,
       allActivities: data.activities,
       priorStreams: data.streams,
-      fcMax: data.fcMaxByUser[race.user_id] ?? resolveFcMax(undefined, data.activities as unknown as Record<string, unknown>[]),
+      // FCmax SAISIE au profil (nullable) : la cascade (user → Strava d'époque →
+      // 220−âge → repère fixe) est résolue par le moteur, anti-fuite, avec source.
+      fcMax: data.profileFcByUser[race.user_id] ?? null,
+      athleteAge: data.ageByUser[race.user_id] ?? null,
       hasWeather: w != null,
       // La météo n'agit que via les surfaces OSM (absentes ici) → non consommée dans
       // ce lot. On la transmet malgré tout pour la traçabilité (has_weather).
@@ -105,6 +111,12 @@ function buildCasesAndValidation(data: LoadedData): { cases: RaceCaseInput[]; va
 
 interface Fixture {
   activities: BacktestActivity[]
+  /** FC max SAISIE au profil, par athlète (nullable). */
+  profileFcByUser?: Record<string, number | null>
+  /** Âge par athlète (ans). À défaut, dérivé de `birthdateByUser`. */
+  ageByUser?: Record<string, number | null>
+  birthdateByUser?: Record<string, string | null>
+  /** Rétro-compat : ancienne clé (traitée comme FC max profil). */
   fcMaxByUser?: Record<string, number>
   streams: Record<string, RawStreamSet>
   weatherByRace?: Record<string, { temp?: number | null; wind?: number | null; precip?: number | null }>
@@ -115,16 +127,15 @@ interface Fixture {
 function loadFixture(path: string): LoadedData {
   const raw = JSON.parse(readFileSync(resolve(process.cwd(), path), 'utf8')) as Fixture
   const streams = raw.streams ?? {}
-  const fcMaxByUser = raw.fcMaxByUser ?? {}
-  // fcMax par athlète : profil fourni sinon estimation depuis ses propres activités.
-  if (Object.keys(fcMaxByUser).length === 0) {
-    const byUser = new Map<string, BacktestActivity[]>()
-    for (const a of raw.activities) { const arr = byUser.get(a.user_id) ?? []; arr.push(a); byUser.set(a.user_id, arr) }
-    for (const [u, acts] of byUser) fcMaxByUser[u] = estimateFcMaxFromActivities(acts as unknown as Record<string, unknown>[]) ?? 185
+  const profileFcByUser: Record<string, number | null> = { ...(raw.profileFcByUser ?? raw.fcMaxByUser ?? {}) }
+  const ageByUser: Record<string, number | null> = { ...(raw.ageByUser ?? {}) }
+  if (raw.birthdateByUser) {
+    for (const [u, bd] of Object.entries(raw.birthdateByUser)) if (ageByUser[u] == null) ageByUser[u] = ageFromBirthdate(bd)
   }
   return {
     activities: raw.activities,
-    fcMaxByUser,
+    profileFcByUser,
+    ageByUser,
     streams,
     streamedIds: new Set(Object.keys(streams)),
     weatherByRace: raw.weatherByRace ?? {},
@@ -170,15 +181,16 @@ async function loadFromSupabase(): Promise<LoadedData> {
     if (data.length < 1000) break
   }
 
-  // 2. fcMax par athlète (profil saisi → estimation).
-  const fcMaxByUser: Record<string, number> = {}
-  const { data: profiles } = await sb.from('profiles').select('id,fc_max')
-  const profileFc = new Map<string, number | null>()
-  for (const p of (profiles ?? []) as Record<string, unknown>[]) profileFc.set(String(p.id), (p.fc_max as number) ?? null)
-  const userIds = [...new Set(activities.map((a) => a.user_id))]
-  for (const u of userIds) {
-    const acts = activities.filter((a) => a.user_id === u)
-    fcMaxByUser[u] = resolveFcMax(profileFc.get(u) ?? undefined, acts as unknown as Record<string, unknown>[])
+  // 2. FC max SAISIE + âge par athlète (LECTURE SEULE ; la cascade FCmax est résolue,
+  //    anti-fuite et avec traçage de la source, dans le moteur — jamais écrite en base).
+  const profileFcByUser: Record<string, number | null> = {}
+  const ageByUser: Record<string, number | null> = {}
+  const { data: profiles } = await sb.from('profiles').select('id,fc_max,age,birthdate')
+  for (const p of (profiles ?? []) as Record<string, unknown>[]) {
+    const id = String(p.id)
+    profileFcByUser[id] = (p.fc_max as number) ?? null
+    const ageVal = typeof p.age === 'number' ? p.age : ageFromBirthdate(p.birthdate)
+    ageByUser[id] = ageVal ?? null
   }
 
   // 3. Streams nécessaires : courses confirmées avec streams + activités antérieures
@@ -222,7 +234,7 @@ async function loadFromSupabase(): Promise<LoadedData> {
     }
   }
 
-  return { activities, fcMaxByUser, streams, streamedIds, weatherByRace }
+  return { activities, profileFcByUser, ageByUser, streams, streamedIds, weatherByRace }
 }
 
 // ── Point d'entrée ──────────────────────────────────────────────────────────────
