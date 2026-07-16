@@ -144,11 +144,12 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
           </div>
         </div>
 
-        {/* Carte 3D large sous le profil. Largeur plafonnée + centrée : sur très grand écran,
-            le plein écran rendrait un parcours compact minuscule au milieu de marges vides. */}
+        {/* Carte 3D large sous le profil : quasi pleine largeur (alignée sur le profil
+            d'altitude au-dessus), plafonnée seulement sur écran ultra-large pour éviter
+            un parcours compact perdu au milieu de marges vides. */}
         {hasRoute && (
           <div style={{ padding: '0 18px 12px' }}>
-            <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ maxWidth: 1500, margin: '0 auto' }}>
               <RouteMap3D points={p.points} markers={markers} heatSegments={heatSections} cursorKm={hoverKm} totalKm={totalKm} heightPx={440} secAtKm={(km) => elapsedSecAtKm(km, p)} forecast={forecast} raceDate={race.date} startTime={race.start_time} />
             </div>
           </div>
