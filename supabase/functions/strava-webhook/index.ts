@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  fetchAndCacheActivityStreams,
   fetchStravaActivityById,
   getValidStravaAccessToken,
   upsertStravaActivity,
@@ -147,6 +148,11 @@ async function processWebhookEvent(
       }
 
       if (event.aspect_type === 'create' && isTrailActivity(activity.type, activity.sport_type)) {
+        // Cache le tracé GPS dès l'arrivée (alimente le profil « par pente »).
+        // Best-effort : ne bloque pas le webhook, ignore les erreurs/quotas.
+        fetchAndCacheActivityStreams(supabase, userId, accessToken, activity.id).catch((e) =>
+          console.error('Stream cache error:', (e as Error).message)
+        )
         refreshRunnerProfile(userId).catch((e) =>
           console.error('Runner profile refresh error:', (e as Error).message)
         )

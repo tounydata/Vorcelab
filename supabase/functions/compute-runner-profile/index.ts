@@ -241,7 +241,7 @@ async function fetchStreams(
   accessToken: string,
   activityId: number | bigint
 ): Promise<Streams | null> {
-  const keys = 'time,altitude,velocity_smooth,heartrate,grade_smooth,distance'
+  const keys = 'time,altitude,velocity_smooth,heartrate,grade_smooth,distance,cadence,latlng'
   const res = await fetch(
     `${STRAVA_STREAMS_URL}/${activityId}/streams?keys=${keys}&key_by_type=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -669,6 +669,18 @@ Deno.serve(async (req: Request) => {
 
       const streams = await fetchStreams(accessToken, act.strava_activity_id)
       if (!streams || !streams.time?.data?.length) continue
+
+      // Cache passif : on persiste le tracé déjà téléchargé (aucun appel Strava en
+      // plus) pour alimenter le cache partagé (client, banc de validation…).
+      supabase
+        .from('activity_streams')
+        .upsert(
+          { user_id: user.id, activity_id: act.strava_activity_id, data: streams as unknown as Record<string, unknown>, cached_at: new Date().toISOString() },
+          { onConflict: 'user_id,activity_id' },
+        )
+        .then(({ error }: { error: { message: string } | null }) => {
+          if (error) console.error('stream cache write error:', error.message)
+        })
 
       const result = processStreams(streams, fcMax, act.moving_time ?? 0)
 
