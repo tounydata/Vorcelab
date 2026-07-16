@@ -35,7 +35,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          # Node 22+ requis : @supabase/supabase-js s'appuie sur le WebSocket natif,
+          # absent des versions Node ≤ 20.
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
