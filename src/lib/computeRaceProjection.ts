@@ -9,7 +9,7 @@ import { terrainTimePenalty, slipRisk, type TerrainWeather } from './terrain'
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
 import { deriveAutoPrs } from './runnerPaces'
-import { resolveFcMax } from './fcMax'
+import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
@@ -150,7 +150,8 @@ export function computeRaceProjection(
   }
 
   // ── 6. Base pace ──────────────────────────────────────────────────────────
-  const FC_MAX = resolveFcMax(profile.fc_max, activities)
+  const profileAge = (typeof profile.age === 'number' ? profile.age : undefined) ?? ageFromBirthdate(profile.birthdate)
+  const FC_MAX = resolveFcMax(profile.fc_max, activities, profileAge)
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 

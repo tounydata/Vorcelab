@@ -9,7 +9,7 @@ import { terrainTimePenalty, slipRisk, type TerrainWeather } from './terrain'
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
 import { deriveAutoPrs } from './runnerPaces'
-import { resolveFcMax } from './fcMax'
+import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
@@ -150,7 +150,8 @@ export function computeRaceProjection(
   }
 
   // ── 6. Base pace ──────────────────────────────────────────────────────────
-  const FC_MAX = resolveFcMax(profile.fc_max, activities)
+  const profileAge = (typeof profile.age === 'number' ? profile.age : undefined) ?? ageFromBirthdate(profile.birthdate)
+  const FC_MAX = resolveFcMax(profile.fc_max, activities, profileAge)
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 
@@ -838,24 +839,26 @@ export function computeRaceProjection(
   if (extrapolationRatio > 1.6) confidence = 'low'
   else if (extrapolationRatio > 1.25 && confidence === 'good') confidence = 'medium'
 
-  // ── 11. Range — tighter when good stream coverage + controlled cardio ──────
-  const rf = confidence === 'good' ? { min: 0.96, max: 1.08 } : confidence === 'medium' ? { min: 0.95, max: 1.15 } : { min: 0.97, max: 1.25 }
+  // ── 11. Range (intervalle de confiance) — CALIBRÉ sur le banc réel ─────────
+  // Le banc historique a montré que les intervalles étaient bien trop étroits
+  // (couverture ~27 % au lieu de la cible >75 %) : le resserrage agressif sur
+  // « bonne couverture stream » écrasait la fourchette (±4-6 %) alors que les
+  // erreurs réelles en trail sont de ±10-23 %. On dimensionne donc la demi-largeur
+  // à partir de la confiance, du TERRAIN (le trail ajoute de l'incertitude,
+  // croissante avec le D+/km) et de l'EXTRAPOLATION au-delà du vécu. Une bonne
+  // couverture stream ne resserre plus que légèrement (la précision terrain ne
+  // dépend pas que de la qualité GPS). La route reste serrée (erreurs ~±5 %).
+  const halfBase = confidence === 'good' ? 0.08 : confidence === 'medium' ? 0.11 : 0.15
+  const raceDpKmRange = totalDistM > 0 ? dplus / (totalDistM / 1000) : 0
+  const terrainExtra = isTrail ? Math.min(0.13, 0.03 + raceDpKmRange * 0.0025) : 0.01
+  const extrapExtra = Math.max(0, extrapolationRatio - 1) * 0.12
+  let halfWidth = halfBase + terrainExtra + extrapExtra
+  // Effort maîtrisé + bonne couverture stream : léger resserrage seulement.
+  if (streamCoverage >= 0.6 && !avgCardioCostHigh && hrDriftStatus !== 'marked') halfWidth *= 0.92
+  halfWidth = Math.min(0.30, halfWidth)
 
-  // rangeScale based on stream quality and cardio cost
-  let rangeScale = 1.0
-  if (streamCoverage >= 0.6) {
-    if (!avgCardioCostHigh && hrDriftStatus !== 'marked') {
-      rangeScale = 0.80 // tight: good data, controlled effort
-    } else {
-      rangeScale = 0.95 // slight tightening, uncertain sustainability
-    }
-  }
-
-  const baseMin = estTimeS * rf.min
-  const baseMax = estTimeS * rf.max
-  const midpoint = (baseMin + baseMax) / 2
-  const timeMin = midpoint - (midpoint - baseMin) * rangeScale
-  const timeMax = midpoint + (baseMax - midpoint) * rangeScale
+  const timeMin = estTimeS * (1 - halfWidth)
+  const timeMax = estTimeS * (1 + halfWidth)
 
   // ── 11. Goal comparison ───────────────────────────────────────────────────
   let goalLabel: string | undefined

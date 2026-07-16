@@ -8,8 +8,8 @@
 // ~toutes les 15 min) jusqu'à `remaining = 0`. S'arrête net sur quota Strava (429).
 //
 // Autonome (helpers Strava inline, volontairement dupliqués depuis _shared/strava.ts)
-// pour un déploiement fiable en un seul fichier. verify_jwt = true → seul un porteur
-// d'un JWT projet (clé anon) peut l'appeler ; l'endpoint ne fait que remplir du cache.
+// pour un déploiement fiable en un seul fichier. Réservé au SERVICE : exige la clé
+// service_role en Bearer (la clé anon publique est refusée) — endpoint de maintenance.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -49,11 +49,32 @@ async function getValidStravaAccessToken(supabase: SupabaseClient, userId: strin
   return d.access_token
 }
 
+// Fetch Strava avec retries sur erreurs TRANSITOIRES (réseau, 5xx). Ni 429 (quota,
+// géré à part), ni 4xx (définitif : 404/privé) ne sont réessayés.
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastErr: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init)
+      if (res.status >= 500 && i < attempts - 1) { await sleep(400 * (i + 1)); continue }
+      return res
+    } catch (e) {
+      lastErr = e
+      if (i < attempts - 1) { await sleep(400 * (i + 1)); continue }
+    }
+  }
+  throw lastErr ?? new Error('fetch failed')
+}
+
 type CacheResult = 'cached' | 'empty' | 'not_found' | 'rate_limited'
 async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, token: string, activityId: number): Promise<CacheResult> {
-  const res = await fetch(`${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
-    { headers: { Authorization: `Bearer ${token}` } })
+  let res: Response
+  try {
+    res = await fetchWithRetry(`${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
+      { headers: { Authorization: `Bearer ${token}` } })
+  } catch { return 'not_found' } // erreur réseau persistante → on n'écrit pas de marqueur (retentable plus tard)
   if (res.status === 429) return 'rate_limited'
+  if (res.status >= 500) return 'not_found' // 5xx persistant : pas de marqueur, retentable
   let data: Record<string, unknown> = {}
   let ok = res.ok
   if (ok) { try { data = (await res.json()) as Record<string, unknown> } catch { ok = false } }
@@ -66,7 +87,16 @@ async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, to
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+  // Sécurité : endpoint de MAINTENANCE réservé au service (cron/admin). La clé anon
+  // étant publique, on exige explicitement la clé service_role en Bearer — sinon 403.
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!serviceKey || auth !== `Bearer ${serviceKey}`) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
 
   try {
     const body = (await req.json().catch(() => ({}))) as { sinceDays?: number; maxCalls?: number }

@@ -161,11 +161,17 @@ export async function fetchAndCacheActivityStreams(
   accessToken: string,
   activityId: number | bigint,
 ): Promise<CacheStreamResult> {
-  const res = await fetch(
-    `${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STRAVA_STREAM_KEYS}&key_by_type=true`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  )
+  // Retries sur erreurs TRANSITOIRES (réseau, 5xx) ; ni 429 ni 4xx ne sont réessayés.
+  const url = `${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STRAVA_STREAM_KEYS}&key_by_type=true`
+  const init = { headers: { Authorization: `Bearer ${accessToken}` } }
+  let res: Response
+  try {
+    res = await fetchWithRetry(url, init)
+  } catch {
+    return 'not_found' // réseau persistant → pas de marqueur (retentable plus tard)
+  }
   if (res.status === 429) return 'rate_limited'
+  if (res.status >= 500) return 'not_found' // 5xx persistant → pas de marqueur (retentable)
 
   let data: Record<string, unknown> = {}
   let ok = res.ok
@@ -180,6 +186,22 @@ export async function fetchAndCacheActivityStreams(
     { onConflict: 'user_id,activity_id' },
   )
   return hasData ? 'cached' : ok ? 'empty' : 'not_found'
+}
+
+/** Fetch avec retries sur erreurs transitoires (réseau, 5xx). Backoff linéaire. */
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastErr: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init)
+      if (res.status >= 500 && i < attempts - 1) { await sleep(400 * (i + 1)); continue }
+      return res
+    } catch (e) {
+      lastErr = e
+      if (i < attempts - 1) { await sleep(400 * (i + 1)); continue }
+    }
+  }
+  throw lastErr ?? new Error('fetch failed')
 }
 
 // ─── Sync ─────────────────────────────────────────────────────────────────────
