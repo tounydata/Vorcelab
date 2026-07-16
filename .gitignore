@@ -65,3 +65,8 @@ playwright/.auth/*.json
 
 # Data dumps / exports (ne jamais committer d'archives de données)
 *.zip
+
+# Résultats du banc réel (données personnelles réelles : jamais committées)
+artifacts/engine-backtest/
+# Fixtures de banc contenant des données réelles (coordonnées GPS, etc.)
+*.backtest-fixture.json

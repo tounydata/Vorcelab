@@ -41,6 +41,46 @@ runBacktest(cases, ({ activitiesBefore, distanceKm, dplusPerKm }) => {
 })
 ```
 
+## Banc RÉEL sur données Supabase (`npm run backtest:real`)
+
+Le banc pur ci-dessus est désormais **branché sur le vrai moteur et les vraies courses**
+via `scripts/run-real-engine-backtest.ts` (orchestration pure dans `src/lib/realBacktest.ts`).
+
+Chaîne, par course confirmée :
+
+1. `validateRaceCandidate` (`raceValidation.ts`) — écarte échauffements, décrassages,
+   temps « à confirmer », distances < 3 km, dates/sports invalides… (prudent : au doute → `pending`).
+2. `selectPriorActivities` — anti-fuite STRICT : mêmes athlète, `start_date < course`, non supprimées.
+3. `reconstructGpx` (`gpxReconstruct.ts`) — tracé lat/lon/alt depuis `activity_streams`
+   (gère tailles différentes, trous GPS, altitude manquante).
+4. `buildRunnerProfileAtDate` (`runnerProfileAtDate.ts`) — profil « d'époque » (buckets/VAM/
+   dérive/récupération) reconstruit à partir des seuls streams **antérieurs** (fenêtre 56 j).
+   Ne lit **jamais** le `runner_profile` stocké (postérieur à certaines courses).
+5. `computeRaceProjection` — le VRAI moteur, avec les formats attendus (m/s, m, s, ISO…).
+6. Comparaison au réel (`moving_time` ; `elapsed_time` conservé pour info).
+
+Sorties (dossier **gitignoré** `artifacts/engine-backtest/`) : `summary.json`, `results.csv`,
+`report.md`. Identifiants **pseudonymisés** (`A1…`, `R01…`), **aucune** coordonnée GPS ni nom.
+
+Lecture seule, connexion via variables d'environnement uniquement :
+
+```bash
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run backtest:real
+# ou, hors ligne / déterministe :
+npm run backtest:real -- --fixture ./data.backtest-fixture.json
+```
+
+Note sur les fixtures hors ligne : une fixture peut fournir un tracé reconstruit à partir
+de la distance + altitude réelles (ligne synthétique fidèle en distance et D+). Dans ce
+cas la **sinuosité est nulle** → la pénalité « descente technique » n'est pas appliquée
+(le vrai tracé GPS, lui, la déclenche). Le chemin Supabase utilise le tracé GPS réel.
+
+Versionnement : chaque ligne porte `engine_version` (`engineVersion.ts`), `profile_version`
+(`PROFILE_VERSION`), `computed_at` (instant « d'époque »), `confidence`, `used_fallback`.
+La météo n'agit aujourd'hui qu'à travers les surfaces OSM (souvent absentes) → non
+consommée quand `surfaces` est vide ; `has_weather` reste tracé. Voir
+`docs/examples/engine-backtest-example.md` pour le format (chiffres fictifs).
+
 ## Honnêteté
 
 Ne pas prétendre que le moteur est « le plus puissant au monde » sans ce benchmark.
