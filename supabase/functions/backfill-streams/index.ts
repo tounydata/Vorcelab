@@ -1,91 +1,114 @@
 // backfill-streams/index.ts
-// Rattrapage : met en cache les tracés GPS (activity_streams) des sorties course à
-// pied de l'utilisateur qui n'en ont pas encore. Idempotent, par LOTS (respecte les
-// quotas Strava : ~100 req/15 min). N'ajoute que du cache — ne supprime jamais rien.
+// Rattrapage du cache des tracés GPS (activity_streams) — MODE SERVICE, AUTONOME.
 //
-// Appeler en boucle jusqu'à `remaining = 0` (chaque appel traite un lot). S'arrête
-// proprement si Strava renvoie 429 (quota) → relancer plus tard.
+// Met en cache, par LOTS, les tracés des sorties course à pied encore absentes du
+// cache, pour TOUS les athlètes connectés, sur une fenêtre glissante (12 mois par
+// défaut : au-delà, la forme du jour n'est plus impactée — cf. CTL 42 j). Idempotent,
+// n'ajoute que du cache (aucune suppression). Conçu pour être appelé en boucle (cron
+// ~toutes les 15 min) jusqu'à `remaining = 0`. S'arrête net sur quota Strava (429).
+//
+// Autonome (helpers Strava inline, volontairement dupliqués depuis _shared/strava.ts)
+// pour un déploiement fiable en un seul fichier. verify_jwt = true → seul un porteur
+// d'un JWT projet (clé anon) peut l'appeler ; l'endpoint ne fait que remplir du cache.
 
-import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
-import { requireAuth, getServiceClient } from '../_shared/auth.ts'
-import { getValidStravaAccessToken, fetchAndCacheActivityStreams } from '../_shared/strava.ts'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
+const STRAVA_ACTIVITY_URL = 'https://www.strava.com/api/v3/activities'
+const STREAM_KEYS = 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
-const DEFAULT_BATCH = 25
-const MAX_BATCH = 75
+const DEFAULT_SINCE_DAYS = 400 // ~13 mois (marge sur les 12 mois utiles)
+const MAX_CALLS_PER_RUN = 80   // marge sous le quota Strava (100 / 15 min)
 const SLEEP_MS = 250
 
-function isRun(a: { type?: string | null; sport_type?: string | null }): boolean {
-  const t = (a.sport_type ?? a.type ?? '').toLowerCase()
-  return RUN_TYPES.has(t)
-}
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+function isRun(a: { type?: string | null; sport_type?: string | null }): boolean {
+  return RUN_TYPES.has((a.sport_type ?? a.type ?? '').toLowerCase())
+}
+
+// ── Token Strava (refresh si expiré) — copie fidèle de _shared/strava.ts ──────
+async function getValidStravaAccessToken(supabase: SupabaseClient, userId: string): Promise<string> {
+  const { data: row, error } = await supabase
+    .from('strava_tokens').select('access_token, refresh_token, expires_at').eq('user_id', userId).single()
+  if (error || !row) throw new Error('No Strava connection')
+  const nowSec = Math.floor(Date.now() / 1000)
+  if ((row.expires_at as number) > nowSec + 300) return row.access_token as string
+  const res = await fetch(STRAVA_TOKEN_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: Deno.env.get('STRAVA_CLIENT_ID'), client_secret: Deno.env.get('STRAVA_CLIENT_SECRET'),
+      grant_type: 'refresh_token', refresh_token: row.refresh_token,
+    }),
+  })
+  if (!res.ok) throw new Error(`token refresh failed: ${res.status}`)
+  const d = (await res.json()) as { access_token: string; refresh_token: string; expires_at: number }
+  await supabase.from('strava_tokens').update({
+    access_token: d.access_token, refresh_token: d.refresh_token, expires_at: d.expires_at, updated_at: new Date().toISOString(),
+  }).eq('user_id', userId)
+  return d.access_token
+}
+
+type CacheResult = 'cached' | 'empty' | 'not_found' | 'rate_limited'
+async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, token: string, activityId: number): Promise<CacheResult> {
+  const res = await fetch(`${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
+    { headers: { Authorization: `Bearer ${token}` } })
+  if (res.status === 429) return 'rate_limited'
+  let data: Record<string, unknown> = {}
+  let ok = res.ok
+  if (ok) { try { data = (await res.json()) as Record<string, unknown> } catch { ok = false } }
+  const hasData = ok && data && typeof data === 'object' && Object.keys(data).length > 0
+  await supabase.from('activity_streams').upsert(
+    { user_id: userId, activity_id: activityId, data: hasData ? data : {}, cached_at: new Date().toISOString() },
+    { onConflict: 'user_id,activity_id' })
+  return hasData ? 'cached' : ok ? 'empty' : 'not_found'
+}
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return handleCors(req)
-  const cors = getCorsHeaders(req.headers.get('origin'))
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
   try {
-    const user = await requireAuth(req)
-    const supabase = getServiceClient()
+    const body = (await req.json().catch(() => ({}))) as { sinceDays?: number; maxCalls?: number }
+    const sinceDays = Math.max(30, body.sinceDays ?? DEFAULT_SINCE_DAYS)
+    const budget = Math.min(MAX_CALLS_PER_RUN, Math.max(1, body.maxCalls ?? MAX_CALLS_PER_RUN))
+    const cutoffISO = new Date(Date.now() - sinceDays * 86_400_000).toISOString()
 
-    const body = (await req.json().catch(() => ({}))) as { limit?: number }
-    const limit = Math.min(MAX_BATCH, Math.max(1, body.limit ?? DEFAULT_BATCH))
+    const { data: tokenRows } = await supabase.from('strava_tokens').select('user_id')
+    const userIds = (tokenRows ?? []).map((r: { user_id: string }) => r.user_id)
 
-    // Sorties course à pied non supprimées, plus récentes d'abord (plus utiles).
-    const { data: acts } = await supabase
-      .from('strava_activities')
-      .select('strava_activity_id,type,sport_type,distance')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .gt('distance', 1000)
-      .order('start_date', { ascending: false })
-
-    // Tracés déjà en cache (y compris marqueurs vides) → à ne pas re-télécharger.
-    const { data: cachedRows } = await supabase
-      .from('activity_streams')
-      .select('activity_id')
-      .eq('user_id', user.id)
-    const cachedSet = new Set((cachedRows ?? []).map((r: { activity_id: number }) => String(r.activity_id)))
-
-    const uncached = (acts ?? [])
-      .filter((a: { type?: string; sport_type?: string }) => isRun(a))
-      .filter((a: { strava_activity_id: number }) => !cachedSet.has(String(a.strava_activity_id)))
-
-    const remainingBefore = uncached.length
-    const batch = uncached.slice(0, limit)
-
-    if (batch.length === 0) {
-      return json({ ok: true, cached: 0, empty: 0, notFound: 0, processed: 0, remaining: 0, rateLimited: false }, cors)
+    type Work = { userId: string; activityId: number; date: string }
+    const work: Work[] = []
+    for (const userId of userIds) {
+      const { data: acts } = await supabase.from('strava_activities')
+        .select('strava_activity_id,type,sport_type,start_date')
+        .eq('user_id', userId).is('deleted_at', null).gt('distance', 1000).gte('start_date', cutoffISO)
+      const { data: cachedRows } = await supabase.from('activity_streams').select('activity_id').eq('user_id', userId)
+      const cachedSet = new Set((cachedRows ?? []).map((r: { activity_id: number }) => String(r.activity_id)))
+      for (const a of (acts ?? []) as Array<{ strava_activity_id: number; type?: string; sport_type?: string; start_date: string }>) {
+        if (isRun(a) && !cachedSet.has(String(a.strava_activity_id))) work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+      }
     }
-
-    let accessToken: string
-    try {
-      accessToken = await getValidStravaAccessToken(supabase, user.id)
-    } catch {
-      return json({ error: 'No Strava connection' }, cors, 401)
-    }
+    work.sort((a, b) => (a.date < b.date ? 1 : -1)) // plus récentes d'abord
+    const remainingBefore = work.length
+    const batch = work.slice(0, budget)
 
     let cached = 0, empty = 0, notFound = 0, processed = 0, rateLimited = false
-    for (const a of batch as Array<{ strava_activity_id: number }>) {
-      const res = await fetchAndCacheActivityStreams(supabase, user.id, accessToken, a.strava_activity_id)
+    const tokenCache = new Map<string, string>()
+    for (const w of batch) {
+      let token = tokenCache.get(w.userId)
+      if (!token) { try { token = await getValidStravaAccessToken(supabase, w.userId); tokenCache.set(w.userId, token) } catch { continue } }
+      const res = await fetchAndCacheStreams(supabase, w.userId, token, w.activityId)
       if (res === 'rate_limited') { rateLimited = true; break }
       processed++
-      if (res === 'cached') cached++
-      else if (res === 'empty') empty++
-      else notFound++
+      if (res === 'cached') cached++; else if (res === 'empty') empty++; else notFound++
       await sleep(SLEEP_MS)
     }
 
-    return json({ ok: true, cached, empty, notFound, processed, remaining: remainingBefore - processed, rateLimited }, cors)
+    return new Response(JSON.stringify({ ok: true, users: userIds.length, cached, empty, notFound, processed, remaining: remainingBefore - processed, rateLimited }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    const status = msg === 'Unauthorized' ? 401 : 500
-    if (status === 500) console.error('backfill-streams error:', msg)
-    return json({ error: msg }, getCorsHeaders(req.headers.get('origin')), status)
+    console.error('backfill-streams error:', err instanceof Error ? err.message : err)
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'error' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 })
-
-function json(payload: unknown, cors: Record<string, string>, status = 200): Response {
-  return new Response(JSON.stringify(payload), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
-}
