@@ -47,6 +47,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run backtest:real
+      - name: Print report to logs (lisible sur mobile, sans téléchargement)
+        if: always()
+        run: |
+          echo "::group::report.md (rapport pseudonymisé complet)"
+          cat artifacts/engine-backtest/report.md 2>/dev/null || echo "(rapport absent)"
+          echo "::endgroup::"
       - name: Upload pseudonymised report
         if: always()
         uses: actions/upload-artifact@v7
