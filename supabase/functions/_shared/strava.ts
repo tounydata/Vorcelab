@@ -142,6 +142,46 @@ export async function fetchStravaActivityById(
   return res.json() as Promise<StravaRawActivity>
 }
 
+// ─── Streams (tracés) : récupération + mise en cache ───────────────────────────
+
+/** Clés de streams utiles au profil coureur + à la carte (latlng inclus). */
+export const STRAVA_STREAM_KEYS = 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng'
+
+export type CacheStreamResult = 'cached' | 'empty' | 'not_found' | 'rate_limited'
+
+/**
+ * Récupère les streams d'une activité depuis Strava et les met en cache dans
+ * `activity_streams` (upsert idempotent). Ne SUPPRIME jamais rien.
+ * - 429 (quota Strava atteint) → 'rate_limited' (l'appelant doit s'arrêter).
+ * - 404 / vide → on écrit un marqueur `{}` pour ne PAS re-télécharger en boucle.
+ */
+export async function fetchAndCacheActivityStreams(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  accessToken: string,
+  activityId: number | bigint,
+): Promise<CacheStreamResult> {
+  const res = await fetch(
+    `${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STRAVA_STREAM_KEYS}&key_by_type=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (res.status === 429) return 'rate_limited'
+
+  let data: Record<string, unknown> = {}
+  let ok = res.ok
+  if (ok) {
+    try { data = (await res.json()) as Record<string, unknown> } catch { ok = false }
+  }
+  const hasData = ok && data && typeof data === 'object' && Object.keys(data).length > 0
+
+  // Marqueur `{}` pour les activités sans tracé (404/privé/vide) → plus jamais retentées.
+  await supabase.from('activity_streams').upsert(
+    { user_id: userId, activity_id: activityId, data: hasData ? data : {}, cached_at: new Date().toISOString() },
+    { onConflict: 'user_id,activity_id' },
+  )
+  return hasData ? 'cached' : ok ? 'empty' : 'not_found'
+}
+
 // ─── Sync ─────────────────────────────────────────────────────────────────────
 
 export interface SyncOptions {
