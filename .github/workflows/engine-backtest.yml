@@ -1,0 +1,48 @@
+name: Engine backtest (real)
+
+# Banc de validation RÉEL du moteur de projection, sur les vraies courses Supabase.
+#
+# LECTURE SEULE : le script ne fait que des SELECT (aucune écriture/suppression).
+# Déclenchement MANUEL uniquement (workflow_dispatch) → la clé service role n'est
+# jamais exposée sur un simple push, et le run ne part que quand tu le décides.
+#
+# Prérequis (à ajouter UNE fois dans Settings → Secrets and variables → Actions) :
+#   • SUPABASE_URL                (ex. https://wanzrkdgqmcctwvnbmuv.supabase.co)
+#   • SUPABASE_SERVICE_ROLE_KEY   (Dashboard Supabase → Project Settings → API)
+#
+# Sortie : le rapport PSEUDONYMISÉ (aucune coordonnée GPS, aucun nom) est publié
+# comme « artifact » du run, téléchargeable depuis l'onglet Actions.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-backtest
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run real backtest (read-only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run backtest:real
+      - name: Upload pseudonymised report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: engine-backtest-report
+          path: artifacts/engine-backtest/
+          retention-days: 14
