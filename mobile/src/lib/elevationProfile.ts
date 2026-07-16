@@ -25,9 +25,13 @@ export interface SmoothElevationInput {
   points: GpxPoint[]
   /** total_elevation_gain Strava (m) pour recalage optionnel. Absent/incohérent → pas de recalage. */
   targetElevationGainM?: number | null
-  /** Fenêtre de lissage par distance (m). Défaut 30 (plage recommandée 20-50). */
+  /** Fenêtre de lissage par distance (m). Défaut 50 — l'essentiel de l'anti-bruit
+   *  passe par ce lissage (plutôt que par un seuil élevé qui rognerait les vraies
+   *  montées douces). */
   smoothingDistanceM?: number
-  /** Seuil vertical minimal d'accumulation du D+ (m, hystérésis). Défaut 2. */
+  /** Seuil vertical minimal d'accumulation du D+ (m, hystérésis). Défaut 3 —
+   *  absorbe la dérive barométrique/GPS résiduelle tout en conservant les vraies
+   *  montées soutenues (montée douce +20 m ≈ +18 m conservés). */
   minVerticalM?: number
   /** Taille (impaire) de la fenêtre du filtre médian (points). Défaut 5. */
   medianWindow?: number
@@ -55,8 +59,12 @@ export interface SmoothElevationResult {
 }
 
 // Bornes de plausibilité pour le recalage Strava (rejette valeurs aberrantes / facteurs absurdes).
-const CAL_RATIO_MIN = 0.2
+// Bornes de mise à l'échelle du recalage (facteur appliqué aux montées). Larges :
+// un tracé plat très bruité exige légitimement un ratio faible (raw ≫ Strava).
+const CAL_RATIO_MIN = 0.05
 const CAL_RATIO_MAX = 3.0
+// D+ Strava plausible : positif et ≤ 250 m/km (au-delà = valeur aberrante).
+const MAX_PLAUSIBLE_DPLUS_PER_KM = 250
 
 /**
  * D+ / D− cumulés d'une série d'altitudes avec seuil vertical d'hystérésis.
@@ -78,14 +86,58 @@ function accumulateGain(ele: number[], minVerticalM: number): { gain: number; lo
 }
 
 /**
+ * Reconstruit une série DÉBRUITÉE : linéaire par morceaux entre les extrêmes
+ * « confirmés » de l'hystérésis (les points où `ref` franchit le seuil). Les
+ * micro-oscillations sous le seuil sont supprimées du PROFIL lui-même, si bien
+ * que la somme naïve des dénivelés positifs de la sortie ≈ le D+ seuillé (le moteur
+ * accumule le D+ sans seuil : sans ce débruitage, il re-gonflerait le D+).
+ * La forme (vraies montées/descentes) et la distance sont préservées.
+ */
+function buildMonotoneSeries(ele: number[], cumDist: number[], minVerticalM: number): number[] {
+  const n = ele.length
+  if (n === 0) return []
+  const pivIdx: number[] = [0]
+  const pivVal: number[] = [ele[0]]
+  let ref = ele[0]
+  for (let i = 1; i < n; i++) {
+    const e = ele[i]
+    if (e - ref >= minVerticalM || ref - e >= minVerticalM) { ref = e; pivIdx.push(i); pivVal.push(e) }
+  }
+  // Termine sur le dernier point (palier plat jusqu'à la fin — n'ajoute aucun D+).
+  if (pivIdx[pivIdx.length - 1] !== n - 1) { pivIdx.push(n - 1); pivVal.push(ref) }
+
+  const out = new Array<number>(n)
+  let seg = 0
+  for (let i = 0; i < n; i++) {
+    while (seg < pivIdx.length - 2 && i > pivIdx[seg + 1]) seg++
+    const a = pivIdx[seg], b = pivIdx[seg + 1]
+    const da = cumDist[a], db = cumDist[b]
+    const t = db > da ? (cumDist[i] - da) / (db - da) : 0
+    out[i] = pivVal[seg] + t * (pivVal[seg + 1] - pivVal[seg])
+  }
+  return out
+}
+
+/** Reconstruit une série en mettant à l'échelle par `k` les seules variations POSITIVES. */
+function scalePositiveDeltas(ele: number[], k: number): number[] {
+  const out = new Array<number>(ele.length)
+  out[0] = ele[0]
+  for (let i = 1; i < ele.length; i++) {
+    const d = ele[i] - ele[i - 1]
+    out[i] = out[i - 1] + (d > 0 ? d * k : d)
+  }
+  return out
+}
+
+/**
  * Nettoie et lisse le profil altimétrique. Préserve la forme, écrase le bruit cumulé,
  * et — si `targetElevationGainM` est fourni et plausible — recale proportionnellement
  * le D+ lissé vers la valeur Strava. La distance n'est JAMAIS modifiée.
  */
 export function smoothElevationProfile(input: SmoothElevationInput): SmoothElevationResult {
   const { points } = input
-  const smoothingDistanceM = input.smoothingDistanceM ?? 30
-  const minVerticalM = input.minVerticalM ?? 2
+  const smoothingDistanceM = input.smoothingDistanceM ?? 50
+  const minVerticalM = input.minVerticalM ?? 3
   const medianWindow = Math.max(1, (input.medianWindow ?? 5) | 1) // force impaire ≥ 1
   const n = points.length
 
@@ -176,33 +228,49 @@ export function smoothElevationProfile(input: SmoothElevationInput): SmoothEleva
   let finalGainM = smoothedGainM
   let finalLossM = acc.loss
 
+  // Plausible si D+ Strava positif et physiquement crédible pour la distance
+  // (≤ 250 m/km). Un D+ minuscule sur du plat très bruité EST plausible (c'est
+  // justement le cas à corriger) ; seuls les D+ aberrants sont écartés.
+  const distanceKm = distanceM / 1000
   const targetPlausible =
     typeof target === 'number' && Number.isFinite(target) && target >= 0 &&
-    // recalage inutile/absurde si D+ Strava minuscule sur longue distance sans montée détectée
-    !(target === 0)
+    (distanceKm <= 0 || target <= distanceKm * MAX_PLAUSIBLE_DPLUS_PER_KM)
 
   if (targetPlausible && smoothedGainM > 1) {
-    const ratio = (target as number) / smoothedGainM
-    const clamped = Math.min(CAL_RATIO_MAX, Math.max(CAL_RATIO_MIN, ratio))
-    // On ne recale que si l'écart est significatif (> 5 %) et le facteur reste borné.
-    if (Math.abs(clamped - 1) > 0.05 && clamped === ratio) {
-      // Reconstruit la série en mettant à l'échelle les seules variations POSITIVES.
-      const rescaled: number[] = new Array(n)
-      rescaled[0] = smoothed[0]
-      for (let i = 1; i < n; i++) {
-        const d = smoothed[i] - smoothed[i - 1]
-        rescaled[i] = rescaled[i - 1] + (d > 0 ? d * clamped : d)
+    const t = target as number
+    // Recherche du facteur d'échelle des montées qui amène le D+ (seuillé) au plus
+    // près du D+ Strava. `gainAt` est monotone croissant en k → dichotomie robuste
+    // (le seuil rend la relation non linéaire ; la dichotomie évite tout dépassement,
+    // ex. un ratio trop faible qui écraserait le profil à zéro).
+    const gainAt = (k: number) => accumulateGain(scalePositiveDeltas(smoothed, k), minVerticalM).gain
+    const gainAtOne = smoothedGainM
+    // Recale seulement si l'écart au D+ Strava est significatif (> 5 %).
+    if (Math.abs(gainAtOne - t) / Math.max(1, t) > 0.05) {
+      let lo = CAL_RATIO_MIN, hi = CAL_RATIO_MAX
+      let k = 1
+      if (gainAt(hi) <= t) k = hi          // même au max on n'atteint pas la cible
+      else if (gainAt(lo) >= t) k = lo      // même au min on la dépasse
+      else {
+        for (let it = 0; it < 40; it++) {
+          k = (lo + hi) / 2
+          if (gainAt(k) < t) lo = k; else hi = k
+        }
+        k = (lo + hi) / 2
       }
-      finalEle = rescaled
-      calibrationRatio = clamped
+      finalEle = scalePositiveDeltas(smoothed, k)
+      calibrationRatio = k
       wasCalibrated = true
-      const acc2 = accumulateGain(rescaled, minVerticalM)
+      const acc2 = accumulateGain(finalEle, minVerticalM)
       finalGainM = acc2.gain
       finalLossM = acc2.loss
     }
   }
 
-  const outPoints: GpxPoint[] = points.map((p, i) => ({ lat: p.lat, lon: p.lon, ele: +finalEle[i].toFixed(2) }))
+  // Débruitage du PROFIL de sortie : linéaire par morceaux entre extrêmes confirmés,
+  // pour que la somme naïve des D+ positifs de la sortie ≈ le D+ seuillé (sinon un
+  // consommateur qui accumule sans seuil — comme le moteur — re-gonflerait le D+).
+  const cleanEle = buildMonotoneSeries(finalEle, cumDist, minVerticalM)
+  const outPoints: GpxPoint[] = points.map((p, i) => ({ lat: p.lat, lon: p.lon, ele: +cleanEle[i].toFixed(2) }))
 
   return {
     points: outPoints,

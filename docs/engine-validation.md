@@ -134,8 +134,19 @@ parité web/mobile) : interpolation par distance, filtre médian, lissage par fe
 variations positives vers `total_elevation_gain` Strava (borné, distance JAMAIS modifiée,
 tracé si appliqué). Chaque ligne du banc porte `stored_dplus_m`, `raw_gpx_dplus_m`,
 `smoothed_gpx_dplus_m`, `dplus_calibration_ratio`, `dplus_was_calibrated`. Testé
-(`tests/elevationProfile.test.ts`, 12 cas dont plat bruité, montée continue, aberrations,
+(`tests/elevationProfile.test.ts`, plat bruité, montée continue, aberrations,
 distance inchangée, semi non classé « fort D+/km »).
+
+**Post-baseline (branchement production + précision du recalage).** Après la première
+baseline réelle (D+ brut vs Strava : écart moyen **67 m → 22 m** après lissage), deux
+améliorations sans toucher aux coefficients moteur : (a) le lissage est branché en
+**production** — `computeRaceProjection(..., { smoothElevation: true })`, parité
+web/mobile — pour débruiter les GPX importés ; (b) le recalage Strava utilise une
+**dichotomie** qui vise précisément le D+ Strava (les tracés plats très bruités,
+52 m réel → ~272 m brut, étaient auparavant sous-corrigés : ratio faible refusé, ou
+profil écrasé à zéro). Le profil de sortie est **débruité par morceaux** (linéaire
+entre extrêmes confirmés) pour que la somme naïve des D+ du moteur ≈ le D+ seuillé.
+Défauts : fenêtre 50 m, seuil 3 m. Testé (`tests/productionElevationSmoothing.test.ts`).
 
 ### 3. FC max — cascade tracée (banc seulement)
 

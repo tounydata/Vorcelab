@@ -86,6 +86,22 @@ describe('smoothElevationProfile', () => {
     expect(Math.abs(r.finalGainM - 50)).toBeLessThan(8)
   })
 
+  it('7bis. semi plat très bruité recalé serré sur le D+ Strava (cas R14/R15)', () => {
+    // ~21 km plats, forte dérive baro ±3 m → brut ≫ Strava. Le recalage doit
+    // ramener le D+ tout près des 66 m Strava (le lissage seul ne suffisait pas).
+    const pts = track(21000, 10, (d) => 100 + 3 * Math.sin(d / 2500) + noise(d, 3))
+    const r = smoothElevationProfile({ points: pts, targetElevationGainM: 66 })
+    expect(r.rawGainM).toBeGreaterThan(300)          // le brut explose
+    expect(r.wasCalibrated).toBe(true)
+    expect(Math.abs(r.finalGainM - 66)).toBeLessThan(10) // recalé serré
+  })
+
+  it('7ter. plat très bruité SANS Strava : le lissage seul suffit à rester « route »', () => {
+    const pts = track(21000, 10, (d) => 100 + 3 * Math.sin(d / 2500) + noise(d, 3))
+    const r = smoothElevationProfile({ points: pts }) // pas de cible
+    expect(r.finalGainM / (r.distanceM / 1000)).toBeLessThan(10) // D+/km route
+  })
+
   it('8a. aucun recalage lorsque le D+ Strava est absent', () => {
     const pts = track(1000, 5, (d) => 100 + 0.03 * d + noise(d, 2))
     const r = smoothElevationProfile({ points: pts })

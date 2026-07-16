@@ -11,6 +11,7 @@ import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './
 import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
+import { smoothElevationProfile } from './elevationProfile'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -26,6 +27,14 @@ export interface GpxPoint { lat: number; lon: number; ele: number | null }
  */
 export interface ProjectionTimeContext {
   asOfMs?: number
+  /**
+   * Nettoie/lisse le profil altimétrique d'entrée avant projection (anti-bruit
+   * barométrique/GPS). Recommandé en PRODUCTION sur les GPX importés (dont
+   * l'altitude brute peut fortement surestimer le D+ et faire passer un parcours
+   * plat pour un trail). Absent → aucune modification (comportement inchangé ;
+   * le banc gère son propre lissage avec recalage Strava en amont).
+   */
+  smoothElevation?: boolean
 }
 
 export interface Section {
@@ -103,6 +112,12 @@ export function computeRaceProjection(
   // Horloge de référence. Absent → instant réel (production inchangée). Présent →
   // date historique (banc). Toutes les fenêtres de récence en découlent.
   const asOfMs = ctx?.asOfMs
+
+  // Nettoyage altimétrique optionnel (production) : écrase le bruit baro/GPS qui
+  // gonfle le D+. Sans cible Strava ici (GPX importé) → lissage seul, pas de recalage.
+  if (ctx?.smoothElevation) {
+    points = smoothElevationProfile({ points }).points
+  }
   // Replis génériques réellement mobilisés (renseigné au fil du calcul).
   const fallbackSources: string[] = []
   const addFallback = (code: string) => { if (!fallbackSources.includes(code)) fallbackSources.push(code) }
