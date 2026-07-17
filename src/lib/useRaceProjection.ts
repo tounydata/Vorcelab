@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from './computeRaceProjection'
 import { fetchRaceForecast } from './raceWeather'
+import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from './engineHistory'
 
 // ─── Projection de course PARTAGÉE (page Stratégie ↔ dashboard). ──────────────
 // Reproduit À L'IDENTIQUE le pipeline de RaceStrategyPage — mêmes queryKeys
@@ -28,17 +29,22 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
     : null
 
   // Mêmes clés que la page Stratégie → une seule source de données pour les deux.
+  // Fenêtre TEMPORELLE des six derniers mois (pas de `.limit(150)` arbitraire) : un
+  // athlète très actif peut dépasser 150 activités sur six mois. Colonnes utiles seules.
   const { data: activitiesData } = useQuery<Record<string, unknown>[]>({
     queryKey: ['activities-strategy'],
     enabled: !!pts,
     queryFn: async () => {
+      const { asOfISO, sinceISO } = engineHistoryBounds()
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('*')
+        .select(ENGINE_COLUMNS_SELECT)
+        .lt('start_date', asOfISO)
+        .gte('start_date', sinceISO)
+        .is('deleted_at', null)
         .order('start_date', { ascending: false })
-        .limit(150)
       if (error) throw error
-      return (data ?? []) as Record<string, unknown>[]
+      return (data ?? []) as unknown as Record<string, unknown>[]
     },
   })
 

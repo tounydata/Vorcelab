@@ -9,8 +9,12 @@
 // Logique PURE (aucune dépendance) → testable et réutilisable web/mobile.
 
 /** Version du moteur de projection. À incrémenter à chaque changement de formule
- *  ou de coefficient susceptible de modifier une projection. */
-export const ENGINE_VERSION = '2026.07-4'
+ *  ou de coefficient susceptible de modifier une projection.
+ *  2026.07-5 : fenêtre moteur unique de six mois (ENGINE_HISTORY_DAYS=183) en
+ *  remplacement du `.limit(150)` arbitraire — l'ensemble d'activités alimentant le
+ *  moteur change → la projection affichée peut changer. (Coefficients centraux
+ *  inchangés ; calibration de pente extraite à l'identique.) */
+export const ENGINE_VERSION = '2026.07-5'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

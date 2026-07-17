@@ -18,7 +18,13 @@ const STRAVA_ACTIVITY_URL = 'https://www.strava.com/api/v3/activities'
 const STREAM_KEYS = 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
-const DEFAULT_SINCE_DAYS = 190 // ~6 mois (couvre largement la forme — CTL ~42 j — et l'ancrage courses ~6 mois)
+// Fenêtre de CONSERVATION du cache = légèrement plus large que la fenêtre MOTEUR
+// (ENGINE_HISTORY_DAYS=183, définie côté app dans src/lib/engineHistory.ts). La marge
+// (~1 semaine) garantit une couverture complète des six mois moteur sans jamais
+// supprimer d'anciens streams — la fenêtre de six mois concerne les données ALIMENTANT
+// le moteur, pas la conservation en base. Deno ne peut pas importer la constante TS ;
+// cette valeur est volontairement un SUR-ensemble, pas un doublon de la fenêtre moteur.
+const DEFAULT_SINCE_DAYS = 190 // ≥ 183 (six mois moteur) + marge
 const MAX_CALLS_PER_RUN = 80   // marge sous le quota Strava (100 / 15 min)
 const SLEEP_MS = 250
 
@@ -109,6 +115,8 @@ Deno.serve(async (req: Request) => {
 
     type Work = { userId: string; activityId: number; date: string }
     const work: Work[] = []
+    // Diagnostic de couverture des six derniers mois (comptage LECTURE SEULE).
+    let sixMonthAll = 0, sixMonthRunning = 0, sixMonthOther = 0, sixMonthRunsWithStreams = 0
     for (const userId of userIds) {
       const { data: acts } = await supabase.from('strava_activities')
         .select('strava_activity_id,type,sport_type,start_date')
@@ -116,9 +124,20 @@ Deno.serve(async (req: Request) => {
       const { data: cachedRows } = await supabase.from('activity_streams').select('activity_id').eq('user_id', userId)
       const cachedSet = new Set((cachedRows ?? []).map((r: { activity_id: number }) => String(r.activity_id)))
       for (const a of (acts ?? []) as Array<{ strava_activity_id: number; type?: string; sport_type?: string; start_date: string }>) {
-        if (isRun(a) && !cachedSet.has(String(a.strava_activity_id))) work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+        sixMonthAll++
+        if (isRun(a)) {
+          sixMonthRunning++
+          if (cachedSet.has(String(a.strava_activity_id))) sixMonthRunsWithStreams++
+          else work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+        } else {
+          // Les autres sports restent exploitables via leurs résumés (streams non requis).
+          sixMonthOther++
+        }
       }
     }
+    const sixMonthStreamCoveragePct = sixMonthRunning > 0
+      ? +((sixMonthRunsWithStreams / sixMonthRunning) * 100).toFixed(1)
+      : 0
     work.sort((a, b) => (a.date < b.date ? 1 : -1)) // plus récentes d'abord
     const remainingBefore = work.length
     const batch = work.slice(0, budget)
@@ -135,8 +154,16 @@ Deno.serve(async (req: Request) => {
       await sleep(SLEEP_MS)
     }
 
-    return new Response(JSON.stringify({ ok: true, users: userIds.length, cached, empty, notFound, processed, remaining: remainingBefore - processed, rateLimited }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({
+      ok: true, users: userIds.length, cached, empty, notFound, processed,
+      remaining: remainingBefore - processed, rateLimited,
+      // Couverture des six derniers mois (streams priorisés sur running/trail).
+      six_month_activities_count: sixMonthAll,
+      six_month_running_activities_count: sixMonthRunning,
+      six_month_other_sport_activities_count: sixMonthOther,
+      six_month_runs_with_streams: sixMonthRunsWithStreams,
+      six_month_stream_coverage_pct: sixMonthStreamCoveragePct,
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   } catch (err) {
     console.error('backfill-streams error:', err instanceof Error ? err.message : err)
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'error' }), { status: 500, headers: { 'Content-Type': 'application/json' } })

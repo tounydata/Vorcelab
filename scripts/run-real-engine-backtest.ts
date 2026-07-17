@@ -27,12 +27,15 @@ import {
   type RaceCaseInput,
   type ValidationBreakdown,
 } from '../src/lib/realBacktest'
+import { RUNNER_PROFILE_WINDOW_DAYS } from '../src/lib/engineHistory'
 import type { RawStreamSet } from '../src/lib/runnerProfileAtDate'
 import { toSummaryJson, toResultsCsv, toReportMarkdown } from '../src/lib/backtestReportFormat'
 import { ageFromBirthdate } from '../src/lib/fcMax'
 
 const OUT_DIR = resolve(process.cwd(), 'artifacts/engine-backtest')
-const WINDOW_DAYS = 56
+// Fenêtre de chargement des STREAMS = fenêtre du profil récent par pente (56 j). Les
+// résumés d'activités des six mois sont, eux, filtrés par le moteur (ENGINE_HISTORY_DAYS).
+const WINDOW_DAYS = RUNNER_PROFILE_WINDOW_DAYS
 
 interface LoadedData {
   activities: BacktestActivity[]

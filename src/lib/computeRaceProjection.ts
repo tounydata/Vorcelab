@@ -12,6 +12,7 @@ import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
+import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -99,6 +100,14 @@ export interface ProjectionResult {
   usedFallback: boolean
   /** Codes machine des replis réellement mobilisés (pour rapport/explicabilité). */
   fallbackSources: string[]
+  /** Calibration de pente PERSONNELLE réellement appliquée (ralentissement). */
+  steepness_calibration_active: boolean
+  /** Nombre de compétitions confirmées ayant alimenté la calibration de pente. */
+  steepness_calibration_race_count: number
+  /** Étalement de D+/km sur ces compétitions (m par km). */
+  steepness_calibration_spread_dplus_per_km: number
+  /** Code d'état de la calibration de pente (cf. SteepnessCalibrationResult.reason). */
+  steepness_calibration_reason: SteepnessCalibrationResult['reason']
 }
 
 export function computeRaceProjection(
@@ -392,6 +401,8 @@ export function computeRaceProjection(
   const _cd = (profile.coeff_downhill as number | undefined) ?? 0
   const _cf = (profile.coeff_flat as number | undefined) ?? 0
   const personalAdjustments: { label: string; detail: string; color: string }[] = []
+  // Calibration de pente PERSONNELLE (renseignée dans le bloc d'ancrage ci-dessous).
+  let steepnessCalibration: SteepnessCalibrationResult | null = null
   if (rif.pct > 0) personalAdjustments.push({
     label: `Allure de course : +${rif.pct}%`,
     detail: 'calée sur tes courses étiquetées (vs allure d\'entraînement)',
@@ -816,32 +827,18 @@ export function computeRaceProjection(
       const wAvgFlatPaceS = num / den
       const n = anchorPool.length
 
-      // Régression pondérée allure-plat ~ D+/km : ne s'active qu'avec ≥ 3 courses ET
-      // un ÉTALEMENT de pente suffisant (≥ 12 m/km entre la plus plate et la plus raide)
-      // — sinon la pente de la droite serait du bruit. Elle est NULLE sur ta pente
-      // habituelle (la droite passe par tes données) → ne touche pas les terrains déjà
-      // bien calés ; elle n'extrapole (prudemment) que vers une pente inhabituelle.
-      let demoFlatPaceS = wAvgFlatPaceS
-      let slopeApplied = false
-      const dpkms = pts.map((p) => p.dpkm)
-      const spread = Math.max(...dpkms) - Math.min(...dpkms)
-      if (n >= 3 && spread >= 12) {
-        const xbar = pts.reduce((s, p) => s + p.w * p.dpkm, 0) / den
-        const ybar = pts.reduce((s, p) => s + p.w * p.flatPaceS, 0) / den
-        let sxx = 0, sxy = 0
-        for (const p of pts) { sxx += p.w * (p.dpkm - xbar) ** 2; sxy += p.w * (p.dpkm - xbar) * (p.flatPaceS - ybar) }
-        if (sxx > 0) {
-          const slope = sxy / sxx
-          // Prédiction à la pente de la course. Bornée : jamais plus rapide que ta
-          // moyenne (le plancher évite qu'une course plate n'accélère la projection —
-          // c'est le rôle du FIC), et plafond d'extrapolation +30 % au-dessus de ta
-          // course réelle la plus lente (anti-emballement sur 3 points).
-          const predicted = ybar + slope * (raceDpKm2 - xbar)
-          const maxObs = Math.max(...pts.map((p) => p.flatPaceS))
-          demoFlatPaceS = Math.min(maxObs * 1.30, Math.max(wAvgFlatPaceS, predicted))
-          slopeApplied = demoFlatPaceS > wAvgFlatPaceS + 0.5
-        }
-      }
+      // Régression pondérée allure-plat ~ D+/km (fonction PURE, testable) : ne s'active
+      // qu'avec ≥ 3 courses ET un ÉTALEMENT de pente suffisant (≥ 12 m/km entre la plus
+      // plate et la plus raide) — sinon la pente de la droite serait du bruit. Elle est
+      // NULLE sur ta pente habituelle (la droite passe par tes données) → ne touche pas
+      // les terrains déjà bien calés ; elle n'extrapole (prudemment) que vers une pente
+      // inhabituelle, et RALENTIT seulement (plancher = ta moyenne).
+      steepnessCalibration = computePersonalSteepnessCalibration(
+        pts.map((p) => ({ dplusPerKm: p.dpkm, flatEquivalentPaceS: p.flatPaceS, weight: p.w })),
+        { targetDplusPerKm: raceDpKm2 },
+      )
+      const demoFlatPaceS = steepnessCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
+      const slopeApplied = steepnessCalibration.active
 
       // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
       const trust = n >= 3 ? 0.9 : n === 2 ? 0.7 : 0.45
@@ -1041,5 +1038,11 @@ export function computeRaceProjection(
     personalAdjustments,
     usedFallback,
     fallbackSources,
+    steepness_calibration_active: steepnessCalibration?.active ?? false,
+    steepness_calibration_race_count: steepnessCalibration?.sampleCount ?? 0,
+    steepness_calibration_spread_dplus_per_km: steepnessCalibration
+      ? +steepnessCalibration.spread.toFixed(1)
+      : 0,
+    steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
   }
 }
