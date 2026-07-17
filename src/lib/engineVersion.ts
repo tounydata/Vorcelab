@@ -13,8 +13,13 @@
  *  2026.07-5 : fenêtre moteur unique de six mois (ENGINE_HISTORY_DAYS=183) en
  *  remplacement du `.limit(150)` arbitraire — l'ensemble d'activités alimentant le
  *  moteur change → la projection affichée peut changer. (Coefficients centraux
- *  inchangés ; calibration de pente extraite à l'identique.) */
-export const ENGINE_VERSION = '2026.07-5'
+ *  inchangés ; calibration de pente extraite à l'identique.)
+ *  2026.07-6 : le FIC, l'ancrage et la calibration de pente n'acceptent plus qu'une
+ *  COMPÉTITION CONFIRMÉE (isEligiblePersonalCalibrationRace) — un footing/échauffement
+ *  étiqueté « course » par erreur, ou un effort « à confirmer », ne cale plus la
+ *  projection. La charge générale (fraîcheur) reste multisport, explicitement.
+ *  (Coefficients centraux inchangés.) */
+export const ENGINE_VERSION = '2026.07-6'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

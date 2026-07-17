@@ -209,16 +209,21 @@ export interface ExcludedRace {
 /** Projette une activité résumé vers la forme lue par `computeRaceProjection`. */
 function toEngineActivity(a: BacktestActivity): Record<string, unknown> {
   return {
+    // `name` + `elapsed_time` nécessaires à la validation stricte des compétitions
+    // (isEligiblePersonalCalibrationRace : exclusion échauffement/footing, arrêts).
+    name: a.name ?? null,
     type: a.type ?? null,
     sport_type: a.sport_type ?? null,
     distance: a.distance ?? 0,
     moving_time: a.moving_time ?? 0,
+    elapsed_time: a.elapsed_time ?? null,
     total_elevation_gain: a.total_elevation_gain ?? 0,
     average_speed: a.average_speed ?? 0,
     average_heartrate: a.average_heartrate ?? 0,
     max_heartrate: a.max_heartrate ?? 0,
     start_date: a.start_date,
     is_race: a.is_race === true,
+    deleted_at: a.deleted_at ?? null,
     raw_data: { workout_type: a.workout_type ?? null, average_temp: a.average_temp ?? null },
   }
 }

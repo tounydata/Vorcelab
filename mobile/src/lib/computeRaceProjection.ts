@@ -13,6 +13,7 @@ import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
+import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -204,6 +205,18 @@ export function computeRaceProjection(
     isTrail = totalDistM > 0 && (dplus / (totalDistM / 1000)) > 20
   }
 
+  // ── Séparation multisport de l'historique (décision produit) ────────────────
+  // La CHARGE GÉNÉRALE (fraîcheur / fatigue / ACWR) compte TOUTES les activités
+  // sportives éligibles : le cross-training (vélo, natation…) crée une fatigue réelle
+  // qui pèse sur la course, et le moteur en tient déjà compte (computeTrainingLoad
+  // applique un coefficient par famille de sport). Les signaux SPÉCIFIQUES au running
+  // (allure de base, VAM, PR, progression, FIC, ancrage, calibration de pente) restent
+  // calculés sur les seules activités course à pied / trail — chaque calcul filtre déjà
+  // en interne. Une sortie vélo n'alimente donc JAMAIS l'allure, la VAM ni les PR.
+  const loadActivities = selectActivitiesForTrainingLoad(
+    activities as unknown as EngineActivity[],
+  ) as unknown as Record<string, unknown>[]
+
   // ── 6. Base pace ──────────────────────────────────────────────────────────
   const profileAge = (typeof profile.age === 'number' ? profile.age : undefined) ?? ageFromBirthdate(profile.birthdate)
   const FC_MAX = resolveFcMax(profile.fc_max, activities, profileAge)
@@ -349,10 +362,13 @@ export function computeRaceProjection(
     if (g === 0) return 1
     return 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
   }
+  // Une activité ne nourrit le FIC, l'ancrage et la calibration de pente que si c'est
+  // une COMPÉTITION CONFIRMÉE (mêmes règles que le banc : running/trail, étiquetée course,
+  // distance/temps/vitesse plausibles, ni échauffement/décrassage/footing, ni pending).
+  // L'étiquette `is_race`/`workout_type=1` seule ne suffit PLUS (un footing étiqueté par
+  // erreur, un échauffement, un « à confirmer » ne doivent pas caler ta projection).
   function isRaceEffort(a: Record<string, unknown>): boolean {
-    if (a.is_race === true) return true // étiquette « course » Vorcelab (à venir)
-    const raw = a.raw_data as { workout_type?: unknown } | undefined
-    return raw?.workout_type === 1 || raw?.workout_type === '1' // Strava « Course »
+    return isEligiblePersonalCalibrationRace(a as unknown as EngineActivity)
   }
   function computeRaceIntensityFactor(): { factor: number; pct: number } {
     const flat = rBuckets?.flat
@@ -706,8 +722,8 @@ export function computeRaceProjection(
     }
   }
 
-  // ── 9. Freshness adjustment ────────────────────────────────────────────────
-  const freshness = computeFreshnessAdjustment(activities as unknown as RaceActivity[], FC_MAX, asOfMs)
+  // ── 9. Freshness adjustment (CHARGE GÉNÉRALE = tous sports éligibles) ───────
+  const freshness = computeFreshnessAdjustment(loadActivities as unknown as RaceActivity[], FC_MAX, asOfMs)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
     personalAdjustments.push({
