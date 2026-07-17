@@ -795,6 +795,12 @@ export function computeRaceProjection(
   if (anchorPool.length && totalDistM > 0) {
     const now = dayAnchoredNow(asOfMs)
     let num = 0, den = 0
+    // Points pour la CALIBRATION DE PENTE INDIVIDUELLE (apprise, pas codée en dur) :
+    // si Minetti neutralisait parfaitement le D+, ton allure plat-équivalente serait
+    // constante quelle que soit la pente. Si elle DÉRIVE avec le D+/km sur tes courses,
+    // c'est TON écart personnel à Minetti (tu encaisses plus/moins la pente que la
+    // moyenne). On l'apprend par régression et on l'applique à la pente de LA course.
+    const pts: { dpkm: number; flatPaceS: number; w: number }[] = []
     for (const a of anchorPool) {
       const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
       const flatPaceS = (1000 / (a.average_speed as number)) / meanGradeFactor(dpkm)
@@ -804,11 +810,40 @@ export function computeRaceProjection(
       const sim = 1 - Math.min(1, Math.abs(dist - totalDistM) / Math.max(totalDistM, dist)) // 1 = même distance
       const w = wRec * (0.4 + 0.6 * sim)
       num += flatPaceS * w; den += w
+      pts.push({ dpkm, flatPaceS, w })
     }
     if (den > 0) {
-      const demoFlatPaceS = num / den
-      // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
+      const wAvgFlatPaceS = num / den
       const n = anchorPool.length
+
+      // Régression pondérée allure-plat ~ D+/km : ne s'active qu'avec ≥ 3 courses ET
+      // un ÉTALEMENT de pente suffisant (≥ 12 m/km entre la plus plate et la plus raide)
+      // — sinon la pente de la droite serait du bruit. Elle est NULLE sur ta pente
+      // habituelle (la droite passe par tes données) → ne touche pas les terrains déjà
+      // bien calés ; elle n'extrapole (prudemment) que vers une pente inhabituelle.
+      let demoFlatPaceS = wAvgFlatPaceS
+      let slopeApplied = false
+      const dpkms = pts.map((p) => p.dpkm)
+      const spread = Math.max(...dpkms) - Math.min(...dpkms)
+      if (n >= 3 && spread >= 12) {
+        const xbar = pts.reduce((s, p) => s + p.w * p.dpkm, 0) / den
+        const ybar = pts.reduce((s, p) => s + p.w * p.flatPaceS, 0) / den
+        let sxx = 0, sxy = 0
+        for (const p of pts) { sxx += p.w * (p.dpkm - xbar) ** 2; sxy += p.w * (p.dpkm - xbar) * (p.flatPaceS - ybar) }
+        if (sxx > 0) {
+          const slope = sxy / sxx
+          // Prédiction à la pente de la course. Bornée : jamais plus rapide que ta
+          // moyenne (le plancher évite qu'une course plate n'accélère la projection —
+          // c'est le rôle du FIC), et plafond d'extrapolation +30 % au-dessus de ta
+          // course réelle la plus lente (anti-emballement sur 3 points).
+          const predicted = ybar + slope * (raceDpKm2 - xbar)
+          const maxObs = Math.max(...pts.map((p) => p.flatPaceS))
+          demoFlatPaceS = Math.min(maxObs * 1.30, Math.max(wAvgFlatPaceS, predicted))
+          slopeApplied = demoFlatPaceS > wAvgFlatPaceS + 0.5
+        }
+      }
+
+      // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
       const trust = n >= 3 ? 0.9 : n === 2 ? 0.7 : 0.45
       const projFlatPaceS = (estTimeS / (totalDistM / 1000)) / meanGradeFactor(raceDpKm2)
       if (projFlatPaceS > 0) {
@@ -818,8 +853,10 @@ export function computeRaceProjection(
         estTimeS *= calib
         const pct = Math.round((calib - 1) * 100)
         if (pct >= 1) personalAdjustments.push({
-          label: `Calé sur tes courses : +${pct}%`,
-          detail: 'Projection ramenée à l\'allure plat-équivalente de tes courses réelles (Minetti neutralise le D+ de chacune) — corrige un excès d\'optimisme.',
+          label: slopeApplied ? `Calé sur tes courses (pente) : +${pct}%` : `Calé sur tes courses : +${pct}%`,
+          detail: slopeApplied
+            ? 'Projection ramenée à ton allure réelle, en tenant compte de ta sensibilité PERSONNELLE à la pente apprise sur tes courses (au-delà de Minetti) — s\'affine à chaque nouvelle course.'
+            : 'Projection ramenée à l\'allure plat-équivalente de tes courses réelles (Minetti neutralise le D+ de chacune) — corrige un excès d\'optimisme.',
           color: 'var(--vl-ember)',
         })
       }
