@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
-  runRealBacktest, projectRaceCase, foldsByKey, oosKeyFn,
+  runRealBacktest, projectRaceCase, foldsByKey, groupedKeyFn,
   type BacktestActivity, type RaceCaseInput,
 } from '../src/lib/realBacktest'
 
@@ -121,10 +121,10 @@ describe('Leave-one-date-out — groupes jamais scindés', () => {
       caseFor(race(U1, 'c', '2026-07-04T18:00:00Z'), [prior(U1, 'pc', 15, 185)]),
     ]
     const report = runRealBacktest(cases, { now: new Date('2026-07-16T00:00:00Z') })
-    const folds = foldsByKey(report.rows, oosKeyFn('leave_one_date_out'))
+    const folds = foldsByKey(report.rows, groupedKeyFn('grouped_error_analysis_by_date'))
     expect(folds.size).toBe(1) // une seule date → un seul fold
     expect(folds.get('2026-07-04')!.length).toBe(3)
-    expect(report.leaveOneDateOut.folds).toBe(1)
+    expect(report.groupedErrorAnalysisByDate.folds).toBe(1)
   })
 })
 
@@ -151,8 +151,8 @@ describe('Rapport — elapsed principal + hors échantillon + qualité', () => {
   it('expose métriques elapsed, moving, OOS et qualité de données', () => {
     expect(report.overallElapsed.n).toBe(2)
     expect(report.overallMoving.n).toBe(2)
-    expect(report.leaveOneAthleteOut.folds).toBe(2)
-    expect(report.leaveOneDateOut.folds).toBe(2)
+    expect(report.groupedErrorAnalysisByAthlete.folds).toBe(2)
+    expect(report.groupedErrorAnalysisByDate.folds).toBe(2)
     expect(report.coverageVsElapsed).not.toBeUndefined()
     expect(report.sample.distinctEvents).toBe(2)
     expect(['poor', 'partial', 'good']).toContain(report.rows[0].historical_data_quality)

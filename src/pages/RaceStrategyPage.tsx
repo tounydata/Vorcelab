@@ -15,6 +15,7 @@ import CrewPlan from '../components/races/CrewPlan'
 import StrategyView from '../components/races/strategy/StrategyView'
 import RaceResult from '../components/races/RaceResult'
 import { fetchTerrainSurfaces } from '../lib/terrain'
+import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from '../lib/engineHistory'
 import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
 import ProGate from '../components/ProGate'
@@ -164,13 +165,17 @@ export default function RaceStrategyPage() {
   const { data: activitiesData } = useQuery<Record<string, unknown>[]>({
     queryKey: ['activities-strategy'],
     queryFn: async () => {
+      // Fenêtre des six derniers mois (colonnes utiles) — même source que le dashboard.
+      const { asOfISO, sinceISO } = engineHistoryBounds()
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('*')
+        .select(ENGINE_COLUMNS_SELECT)
+        .lt('start_date', asOfISO)
+        .gte('start_date', sinceISO)
+        .is('deleted_at', null)
         .order('start_date', { ascending: false })
-        .limit(150)
       if (error) throw error
-      return (data ?? []) as Record<string, unknown>[]
+      return (data ?? []) as unknown as Record<string, unknown>[]
     },
   })
 

@@ -14,6 +14,12 @@ import { buildRunnerProfileAtDate, type RawStreamSet } from './runnerProfileAtDa
 import { computeErrorMetrics, distanceBucket, dplusBucket, type ErrorMetrics } from './engineBacktest'
 import { ENGINE_VERSION, stampProjection, type ProjectionSourceContribution } from './engineVersion'
 import { resolveFcMaxWithSource, type FcMaxSource } from './fcMax'
+import {
+  ENGINE_HISTORY_DAYS,
+  RUNNER_PROFILE_WINDOW_DAYS,
+  selectEngineHistoryAtDate,
+  type EngineActivity,
+} from './engineHistory'
 
 /** Version du profil « d'époque » (buildRunnerProfileAtDate). À incrémenter si sa
  *  logique de calcul change. Reliée à chaque ligne du rapport. */
@@ -44,6 +50,20 @@ export interface BacktestActivity {
   deleted_at?: string | null
 }
 
+/**
+ * Référence altimétrique du parcours pour la projection :
+ *   • `gpx_only`             → lissage du GPX SEUL, aucun recalage → reproduit la
+ *     production quand aucun D+ officiel n'est connu (MÉTRIQUE PRINCIPALE) ;
+ *   • `official_course_dplus`→ recalage sur un D+ OFFICIEL connu AVANT la course
+ *     (saisi dans race_calendar, valeur organisateur, métadonnée du parcours) ;
+ *   • `post_race_strava_dplus`→ recalage sur le D+ Strava obtenu APRÈS la course —
+ *     DIAGNOSTIC de qualité du lissage uniquement, JAMAIS la métrique principale.
+ */
+export type ElevationReferenceMode =
+  | 'gpx_only'
+  | 'official_course_dplus'
+  | 'post_race_strava_dplus'
+
 export interface RaceCaseInput {
   race: BacktestActivity
   /** Streams bruts de la course (pour reconstruire le GPX). */
@@ -64,6 +84,10 @@ export interface RaceCaseInput {
   /** Surfaces OSM par section (rarement dispo) → terrain. */
   surfaces?: (string | null)[] | null
   windowDays?: number
+  /** Mode de référence altimétrique (défaut : `gpx_only` = parité production). */
+  elevationReferenceMode?: ElevationReferenceMode
+  /** D+ OFFICIEL connu AVANT la course (m), si disponible — sinon null. */
+  officialDplusM?: number | null
 }
 
 // ── Pseudonymisation (déterministe, non nominative) ─────────────────────────────
@@ -130,6 +154,15 @@ export interface BacktestRow {
   smoothed_gpx_dplus_m: number
   dplus_calibration_ratio: number
   dplus_was_calibrated: boolean
+  // ── Référence altimétrique explicite (parité production vs diagnostic) ────────
+  /** D+ du GPX lissé SANS recalage (parité production). */
+  gpx_only_dplus_m: number
+  /** D+ officiel connu avant la course (m), ou null si inconnu. */
+  official_dplus_m: number | null
+  /** D+ Strava post-course (m), ou null — DIAGNOSTIC uniquement. */
+  post_race_strava_dplus_m: number | null
+  /** Mode réellement utilisé pour alimenter le moteur sur cette course. */
+  elevation_reference_mode: ElevationReferenceMode
   // ── Qualité des données historiques ──────────────────────────────────────────
   activities_before_count: number
   prior_runs_count: number
@@ -138,6 +171,11 @@ export interface BacktestRow {
   historical_data_quality: HistoricalDataQuality
   stream_coverage: number
   alt_coverage: number
+  // ── Calibration de pente PERSONNELLE (compétitions confirmées) ────────────────
+  steepness_calibration_active: boolean
+  steepness_calibration_race_count: number
+  steepness_calibration_spread_dplus_per_km: number
+  steepness_calibration_reason: string
   // ── Sources réellement utilisées ─────────────────────────────────────────────
   used_fallback: boolean
   fallback_sources: string[]
@@ -152,6 +190,10 @@ export interface BacktestRow {
   computed_at: string
   /** Date historique à laquelle le moteur se replace (départ de la course). */
   as_of_at: string
+  /** Fenêtre moteur globale (jours) utilisée pour sélectionner l'historique. */
+  history_window_days: number
+  /** Fenêtre du profil récent par pente (jours). */
+  runner_profile_window_days: number
   explanations: ProjectionSourceContribution[]
 }
 
@@ -182,19 +224,28 @@ function toEngineActivity(a: BacktestActivity): Record<string, unknown> {
 }
 
 /**
- * Sélectionne les activités STRICTEMENT antérieures à la course, du MÊME athlète,
- * non supprimées (anti-fuite). C'est l'ensemble fourni au moteur.
+ * Sélectionne la FENÊTRE MOTEUR DE SIX MOIS avant la course (même athlète, non
+ * supprimées, strictement antérieures) — via `selectEngineHistoryAtDate`, EXACTEMENT
+ * comme la production. Garantit la parité production/benchmark : chaque projection est
+ * alimentée par la fenêtre de six mois correspondant à sa date historique, jamais par
+ * l'historique complet. La course elle-même est exclue (borne haute stricte + id).
  */
-export function selectPriorActivities(all: BacktestActivity[], race: BacktestActivity): BacktestActivity[] {
+export function selectPriorActivities(
+  all: BacktestActivity[],
+  race: BacktestActivity,
+  historyDays: number = ENGINE_HISTORY_DAYS,
+): BacktestActivity[] {
   const start = Date.parse(race.start_date)
   if (Number.isNaN(start)) return []
-  return all.filter((a) => {
-    if (a.user_id !== race.user_id) return false
-    if (a.deleted_at != null) return false
-    if (String(a.strava_activity_id) === String(race.strava_activity_id)) return false
-    const d = Date.parse(a.start_date)
-    return !Number.isNaN(d) && d < start
+  const window = selectEngineHistoryAtDate({
+    activities: all as unknown as EngineActivity[],
+    userId: race.user_id,
+    asOfMs: start,
+    historyDays,
   })
+  return window.filter(
+    (a) => String(a.strava_activity_id) !== String(race.strava_activity_id),
+  ) as unknown as BacktestActivity[]
 }
 
 /** Qualité du profil d'époque = nb de buckets à confiance ≥ medium. */
@@ -276,9 +327,27 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     return { excluded: { race_id: rawRaceId, athlete_id: rawUserId, date, exclusion_reason: gpx.issues[0] ?? 'no_gps', _rawUserId: rawUserId, _rawRaceId: rawRaceId } }
   }
 
-  // ── Lissage altimétrique robuste (anti-bruit cumulé) + recalage Strava optionnel. ─
+  // ── Référence altimétrique : trois modes explicites, MÉTRIQUE PRINCIPALE = gpx_only. ─
+  // La production ne connaît PAS le D+ Strava avant la course : la métrique principale
+  // ne doit donc jamais s'y recaler. On calcule les trois D+ pour diagnostic, mais on
+  // n'alimente le moteur qu'avec le mode demandé (défaut : gpx_only = parité production).
+  const mode: ElevationReferenceMode = c.elevationReferenceMode ?? 'gpx_only'
   const storedDplus = typeof race.total_elevation_gain === 'number' ? race.total_elevation_gain : null
-  const smooth = smoothElevationProfile({ points: gpx.points, targetElevationGainM: storedDplus })
+  const officialDplus = typeof c.officialDplusM === 'number' && c.officialDplusM > 0 ? c.officialDplusM : null
+
+  const gpxOnly = smoothElevationProfile({ points: gpx.points }) // lissage seul, aucun recalage
+  const officialSmooth = officialDplus != null
+    ? smoothElevationProfile({ points: gpx.points, targetElevationGainM: officialDplus })
+    : null
+  const postRaceSmooth = storedDplus != null
+    ? smoothElevationProfile({ points: gpx.points, targetElevationGainM: storedDplus })
+    : null
+
+  const smooth = mode === 'official_course_dplus' && officialSmooth
+    ? officialSmooth
+    : mode === 'post_race_strava_dplus' && postRaceSmooth
+      ? postRaceSmooth
+      : gpxOnly
   const points: GpxPoint[] = smooth.points
 
   const prior = selectPriorActivities(c.allActivities, race)
@@ -305,7 +374,8 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     activityStreams: c.priorStreams,
     fcMax: effectiveFcMax,
     asOfDate: race.start_date,
-    windowDays: c.windowDays ?? 56,
+    // Profil détaillé par pente : fenêtre récente (56 j), distincte des six mois globaux.
+    windowDays: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
   })
 
   const profileObj: Record<string, unknown> = {
@@ -396,6 +466,10 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     smoothed_gpx_dplus_m: smooth.finalGainM,
     dplus_calibration_ratio: smooth.calibrationRatio,
     dplus_was_calibrated: smooth.wasCalibrated,
+    gpx_only_dplus_m: gpxOnly.finalGainM,
+    official_dplus_m: officialDplus != null ? Math.round(officialDplus) : null,
+    post_race_strava_dplus_m: storedDplus != null ? Math.round(storedDplus) : null,
+    elevation_reference_mode: mode,
     activities_before_count: prior.length,
     prior_runs_count: priorRuns.length,
     prior_runs_with_streams: priorRunsWithStreams,
@@ -403,6 +477,10 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     historical_data_quality: classifyHistoricalQuality(priorStreamCoveragePct),
     stream_coverage: +runnerProfile.streamCoverage.toFixed(3),
     alt_coverage: +gpx.altCoverage.toFixed(3),
+    steepness_calibration_active: proj.steepness_calibration_active,
+    steepness_calibration_race_count: proj.steepness_calibration_race_count,
+    steepness_calibration_spread_dplus_per_km: proj.steepness_calibration_spread_dplus_per_km,
+    steepness_calibration_reason: proj.steepness_calibration_reason,
     used_fallback: proj.usedFallback,
     fallback_sources: proj.fallbackSources,
     fcmax_source: fc.source,
@@ -413,6 +491,8 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     profile_version: PROFILE_VERSION,
     computed_at: computedAt,
     as_of_at: new Date(race.start_date).toISOString(),
+    history_window_days: ENGINE_HISTORY_DAYS,
+    runner_profile_window_days: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
     explanations: stamped.explanations,
     _rawUserId: rawUserId,
     _rawRaceId: rawRaceId,
@@ -452,18 +532,25 @@ function groupBy(rows: BacktestRow[], keyFn: (r: BacktestRow) => string, basis: 
   return out
 }
 
-// ── Validation HORS ÉCHANTILLON (leave-one-*-out) ────────────────────────────────
-// Aucun coefficient n'est ajusté dans ce lot : les folds ne servent pas à ré-entraîner
-// le moteur mais à GARANTIR l'intégrité des groupes (une même date/événement — ou un
-// même athlète — n'est jamais scindée entre « appris » et « validé ») et à exposer la
-// sensibilité des métriques au découpage. Le moteur étant figé, l'union des folds tenus
-// à l'écart = l'échantillon complet ; on rapporte donc les métriques agrégées + le
-// nombre de folds + la macro-moyenne (moyenne des MAPE par fold, sensible aux groupes).
+// ── ANALYSE D'ERREUR PAR GROUPES (PAS du hors-échantillon) ───────────────────────
+// IMPORTANT — HONNÊTETÉ MÉTHODOLOGIQUE : ces blocs ne recalculent PAS les projections
+// en excluant un fold ; ils REGROUPENT les erreurs DÉJÀ obtenues par date/événement ou
+// par athlète. Ce n'est donc PAS une vraie validation hors échantillon (`is_true_out_of
+// _sample = false`). Ils garantissent l'intégrité des groupes (une même date/athlète
+// n'est jamais scindée) et exposent la sensibilité des métriques au découpage (macro-
+// moyenne par fold). La vraie validation hors échantillon (recalibration d'un
+// coefficient GLOBAL en excluant le fold) est portée séparément — voir
+// `computeTrueLeaveOneOut` : non applicable ici car aucun coefficient global n'est
+// recalibré dans ce lot (mécanismes purement PERSONNELS → rien à tenir à l'écart).
 
-export type OosProtocol = 'leave_one_date_out' | 'leave_one_athlete_out'
+export type GroupedAnalysisProtocol =
+  | 'grouped_error_analysis_by_date'
+  | 'grouped_error_analysis_by_athlete'
 
-export interface OosResult {
-  protocol: OosProtocol
+export interface GroupedErrorAnalysis {
+  protocol: GroupedAnalysisProtocol
+  /** Toujours false : simple regroupement d'erreurs, pas de recalcul hors échantillon. */
+  is_true_out_of_sample: false
   folds: number
   n: number
   elapsed: CategoryMetrics
@@ -475,8 +562,8 @@ export interface OosResult {
 }
 
 /** Clé de regroupement d'un protocole. Exportée pour tester l'intégrité des groupes. */
-export function oosKeyFn(protocol: OosProtocol): (r: BacktestRow) => string {
-  return protocol === 'leave_one_date_out' ? (r) => r.event_key : (r) => r.athlete_id
+export function groupedKeyFn(protocol: GroupedAnalysisProtocol): (r: BacktestRow) => string {
+  return protocol === 'grouped_error_analysis_by_date' ? (r) => r.event_key : (r) => r.athlete_id
 }
 
 /** Regroupe les lignes par fold (une entrée par clé). Aucun groupe n'est scindé. */
@@ -486,8 +573,8 @@ export function foldsByKey(rows: BacktestRow[], keyFn: (r: BacktestRow) => strin
   return m
 }
 
-function computeOos(rows: BacktestRow[], protocol: OosProtocol): OosResult {
-  const keyFn = oosKeyFn(protocol)
+function computeGroupedErrorAnalysis(rows: BacktestRow[], protocol: GroupedAnalysisProtocol): GroupedErrorAnalysis {
+  const keyFn = groupedKeyFn(protocol)
   const folds = foldsByKey(rows, keyFn)
   const macroE: number[] = []
   const macroM: number[] = []
@@ -500,6 +587,7 @@ function computeOos(rows: BacktestRow[], protocol: OosProtocol): OosResult {
   const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : NaN)
   return {
     protocol,
+    is_true_out_of_sample: false,
     folds: folds.size,
     n: rows.length,
     elapsed: toCategoryMetrics(rows, 'elapsed'),
@@ -507,6 +595,18 @@ function computeOos(rows: BacktestRow[], protocol: OosProtocol): OosResult {
     macroMapeElapsedPct: mean(macroE),
     macroMapeMovingPct: mean(macroM),
   }
+}
+
+/**
+ * Vraie validation hors échantillon : recalibrerait un coefficient GLOBAL en excluant
+ * chaque fold, puis évaluerait sur le fold tenu à l'écart. NON APPLICABLE dans ce lot :
+ * aucun coefficient global n'est recalibré (la calibration de pente et l'ancrage sont
+ * PERSONNELS — appris uniquement sur l'historique de l'athlète, disponible avant la
+ * course). Retourne `null` plutôt que de présenter un regroupement comme du hors-
+ * échantillon. Reliée à un test qui documente cette non-applicabilité.
+ */
+export function computeTrueLeaveOneOut(): null {
+  return null
 }
 
 // ── Contrôle du D+ (brut / lissé / Strava) ───────────────────────────────────────
@@ -562,10 +662,43 @@ export interface SampleQuality {
   historicalQuality: Record<HistoricalDataQuality, number>
 }
 
+/** Fenêtres temporelles du moteur (rapport). */
+export interface EngineWindows {
+  engineHistoryDays: number
+  runnerProfileWindowDays: number
+}
+
+/** Volume d'activités chargé par projection (diagnostic anonymisé, section 18). */
+export interface ActivityVolumeDiagnostic {
+  meanActivityCount: number
+  p75ActivityCount: number
+  p90ActivityCount: number
+  maxActivityCount: number
+  /** Estimation grossière de la charge utile (octets) : count × ~octets/ligne. */
+  approxPayloadBytes: number
+}
+
+/** Comptes agrégés sur la fenêtre de six mois (dérivés des lignes testées). */
+export interface SixMonthCounts {
+  /** Moyenne d'activités (toutes) dans la fenêtre par course. */
+  meanAllActivities: number
+  /** Moyenne de courses à pied/trail dans la fenêtre par course. */
+  meanRunningActivities: number
+  /** Total de compétitions confirmées testées (une par course). */
+  confirmedRaceAnchorCount: number
+  /** Moyenne de runs disposant de streams (profil récent). */
+  meanRunsWithStreams: number
+  /** Couverture moyenne des streams running (%). */
+  meanStreamCoveragePct: number
+}
+
 export interface BacktestReport {
   generatedAt: string
   engineVersion: string
   profileVersion: string
+  windows: EngineWindows
+  activityVolume: ActivityVolumeDiagnostic
+  sixMonthCounts: SixMonthCounts
   counts: {
     candidates: number
     confirmed: number
@@ -583,10 +716,18 @@ export interface BacktestReport {
   /** Couverture de l'intervalle vs moving / vs elapsed. */
   coverageVsMoving: number | null
   coverageVsElapsed: number | null
-  /** Validation hors échantillon. */
+  /** Référence altimétrique de la métrique principale (parité production). */
+  elevationReferenceMode: ElevationReferenceMode
+  // ── Validation ────────────────────────────────────────────────────────────────
   inSample: { elapsed: CategoryMetrics; moving: CategoryMetrics }
-  leaveOneDateOut: OosResult
-  leaveOneAthleteOut: OosResult
+  /** Regroupement d'erreurs par date/événement — PAS du hors-échantillon. */
+  groupedErrorAnalysisByDate: GroupedErrorAnalysis
+  /** Regroupement d'erreurs par athlète — PAS du hors-échantillon. */
+  groupedErrorAnalysisByAthlete: GroupedErrorAnalysis
+  /** Vraie validation hors échantillon par date (null = non applicable dans ce lot). */
+  trueLeaveOneDateOut: null
+  /** Vraie validation hors échantillon par athlète (null = non applicable dans ce lot). */
+  trueLeaveOneAthleteOut: null
   /** Contrôle du dénivelé (brut / lissé / Strava). */
   dplusControl: DplusControl
   /** Métriques restreintes aux courses à historique de bonne qualité (streams > 85 %). */
@@ -610,6 +751,44 @@ export interface RunRealBacktestOptions {
   confirmedCount?: number
   validation?: ValidationBreakdown
   now?: Date
+}
+
+/** Percentile (interpolation linéaire) d'une liste triée croissante. */
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0
+  const idx = (sorted.length - 1) * p
+  const lo = Math.floor(idx)
+  const hi = Math.ceil(idx)
+  if (lo === hi) return sorted[lo]
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo)
+}
+
+/** Estimation d'octets par ligne d'activité (colonnes moteur, ordre de grandeur). */
+const APPROX_BYTES_PER_ACTIVITY = 400
+
+function computeActivityVolume(rows: BacktestRow[]): ActivityVolumeDiagnostic {
+  const counts = rows.map((r) => r.activities_before_count).sort((a, b) => a - b)
+  const mean = counts.length ? counts.reduce((s, x) => s + x, 0) / counts.length : 0
+  const max = counts.length ? counts[counts.length - 1] : 0
+  return {
+    meanActivityCount: +mean.toFixed(1),
+    p75ActivityCount: +percentile(counts, 0.75).toFixed(1),
+    p90ActivityCount: +percentile(counts, 0.9).toFixed(1),
+    maxActivityCount: max,
+    approxPayloadBytes: Math.round(mean * APPROX_BYTES_PER_ACTIVITY),
+  }
+}
+
+function computeSixMonthCounts(rows: BacktestRow[]): SixMonthCounts {
+  const mean = (f: (r: BacktestRow) => number) =>
+    rows.length ? +(rows.reduce((s, r) => s + f(r), 0) / rows.length).toFixed(1) : 0
+  return {
+    meanAllActivities: mean((r) => r.activities_before_count),
+    meanRunningActivities: mean((r) => r.prior_runs_count),
+    confirmedRaceAnchorCount: rows.length,
+    meanRunsWithStreams: mean((r) => r.prior_runs_with_streams),
+    meanStreamCoveragePct: mean((r) => r.prior_stream_coverage_pct),
+  }
 }
 
 /**
@@ -685,6 +864,12 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
     generatedAt: computedAtISO,
     engineVersion: ENGINE_VERSION,
     profileVersion: PROFILE_VERSION,
+    windows: {
+      engineHistoryDays: ENGINE_HISTORY_DAYS,
+      runnerProfileWindowDays: rows[0]?.runner_profile_window_days ?? RUNNER_PROFILE_WINDOW_DAYS,
+    },
+    activityVolume: computeActivityVolume(rows),
+    sixMonthCounts: computeSixMonthCounts(rows),
     counts: { candidates, confirmed, excluded: excluded.length, tested },
     validation: opts.validation,
     sample,
@@ -693,9 +878,12 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
     overall: overallMoving,
     coverageVsMoving: overallMoving.intervalCoverage,
     coverageVsElapsed: overallElapsed.intervalCoverage,
+    elevationReferenceMode: rows[0]?.elevation_reference_mode ?? 'gpx_only',
     inSample: { elapsed: overallElapsed, moving: overallMoving },
-    leaveOneDateOut: computeOos(rows, 'leave_one_date_out'),
-    leaveOneAthleteOut: computeOos(rows, 'leave_one_athlete_out'),
+    groupedErrorAnalysisByDate: computeGroupedErrorAnalysis(rows, 'grouped_error_analysis_by_date'),
+    groupedErrorAnalysisByAthlete: computeGroupedErrorAnalysis(rows, 'grouped_error_analysis_by_athlete'),
+    trueLeaveOneDateOut: computeTrueLeaveOneOut(),
+    trueLeaveOneAthleteOut: computeTrueLeaveOneOut(),
     dplusControl: computeDplusControl(rows),
     goodQualityOnly: {
       n: goodRows.length,

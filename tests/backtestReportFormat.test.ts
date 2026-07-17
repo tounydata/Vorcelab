@@ -48,13 +48,18 @@ describe('backtestReportFormat', () => {
     expect(csv).not.toContain('46.5')
   })
 
-  it('Markdown : métriques elapsed + moving + hors échantillon, sans PII', () => {
+  it('Markdown : métriques elapsed + moving + analyse par groupes (pas hors échantillon), sans PII', () => {
     const md = toReportMarkdown(report)
     expect(md).toContain('temps écoulé')
     expect(md).toContain('temps en mouvement')
-    expect(md).toContain('Validation hors échantillon')
+    // Le faux « leave-one-out » est renommé « analyse d'erreur par groupes ».
+    expect(md).toContain('Analyse d’erreur par groupes')
+    expect(md).toContain('is_true_out_of_sample')
     expect(md).toContain('Contrôle du dénivelé')
     expect(md).toContain('MAPE')
+    // Fenêtres + volume six mois exposés.
+    expect(md).toContain('engine_history_days')
+    expect(md).toContain('runner_profile_window_days')
     expect(md).not.toContain(USER)
     expect(md).not.toContain(NAME)
     expect(md).not.toContain('46.5')

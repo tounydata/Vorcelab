@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from '../lib/engineHistory'
 import { signOutAndClear } from '../lib/session'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useVLStore } from '../store/vlStore'
@@ -135,20 +136,24 @@ export default function Layout() {
   // Le renfo vit sous l'onglet Coach (fusion coach complet) : /renfo/* allume Coach.
   const coachAlsoActive = pathname.startsWith('/renfo')
 
-  // Préchargement eager de ['activities-strategy'] : les 150 dernières activités
-  // nécessaires à la projection de course. Sans ça, le dashboard charge le snapshot
-  // DB (last_projection) pendant 1-2 s avant de basculer sur le calcul live.
+  // Préchargement eager de ['activities-strategy'] : l'historique moteur des six
+  // derniers mois nécessaire à la projection de course. MÊME requête que la page
+  // Stratégie / le dashboard (une seule source de données). Sans ça, le dashboard
+  // charge le snapshot DB (last_projection) 1-2 s avant de basculer sur le calcul live.
   useEffect(() => {
     queryClient.prefetchQuery({
       queryKey: ['activities-strategy'],
       queryFn: async () => {
+        const { asOfISO, sinceISO } = engineHistoryBounds()
         const { data, error } = await supabase
           .from('strava_activities')
-          .select('*')
+          .select(ENGINE_COLUMNS_SELECT)
+          .lt('start_date', asOfISO)
+          .gte('start_date', sinceISO)
+          .is('deleted_at', null)
           .order('start_date', { ascending: false })
-          .limit(150)
         if (error) throw error
-        return (data ?? []) as Record<string, unknown>[]
+        return (data ?? []) as unknown as Record<string, unknown>[]
       },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps

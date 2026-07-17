@@ -30,12 +30,17 @@ export function toSummaryJson(report: BacktestReport): string {
 const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'race_id', 'athlete_id', 'date', 'event_key', 'sport', 'distance_km', 'dplus_m', 'dplus_per_km',
   'stored_dplus_m', 'raw_gpx_dplus_m', 'smoothed_gpx_dplus_m', 'dplus_calibration_ratio', 'dplus_was_calibrated',
+  'gpx_only_dplus_m', 'official_dplus_m', 'post_race_strava_dplus_m', 'elevation_reference_mode',
   'actual_moving_s', 'actual_elapsed_s', 'predicted_s', 'low_s', 'high_s',
   'error_vs_moving_s', 'error_vs_elapsed_s', 'error_vs_moving_pct', 'error_vs_elapsed_pct',
   'stop_gap_s', 'stop_gap_pct', 'stop_class', 'inside_interval', 'inside_interval_elapsed', 'confidence',
   'activities_before_count', 'prior_runs_count', 'prior_runs_with_streams', 'prior_stream_coverage_pct',
-  'historical_data_quality', 'stream_coverage', 'alt_coverage', 'used_fallback', 'fcmax_source',
+  'historical_data_quality', 'stream_coverage', 'alt_coverage',
+  'steepness_calibration_active', 'steepness_calibration_race_count',
+  'steepness_calibration_spread_dplus_per_km', 'steepness_calibration_reason',
+  'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',
+  'history_window_days', 'runner_profile_window_days',
 ]
 
 function csvCell(v: unknown): string {
@@ -89,6 +94,26 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push('> `computed_at` = instant d\'exécution du banc · `as_of_at` = date historique du moteur (départ de la course). Horloge historique injectée → deux exécutions à des dates système différentes produisent les MÊMES projections.')
   out.push('')
 
+  // ── Fenêtres moteur ───────────────────────────────────────────────────────────
+  out.push('## Fenêtres')
+  out.push('')
+  out.push(`- \`engine_history_days\` : **${report.windows.engineHistoryDays}** (historique global six mois)`)
+  out.push(`- \`runner_profile_window_days\` : **${report.windows.runnerProfileWindowDays}** (profil récent par pente)`)
+  out.push(`- \`elevation_reference_mode\` (métrique principale) : **${report.elevationReferenceMode}**`)
+  out.push('')
+
+  // ── Volume d'activités chargé (diagnostic) ────────────────────────────────────
+  const av = report.activityVolume
+  const smc = report.sixMonthCounts
+  out.push('## Volume d’activités chargé (fenêtre six mois)')
+  out.push('')
+  out.push(`- Moyenne : **${av.meanActivityCount}** · P75 : **${av.p75ActivityCount}** · P90 : **${av.p90ActivityCount}** · max : **${av.maxActivityCount}**`)
+  out.push(`- Charge utile approx. : **${(av.approxPayloadBytes / 1024).toFixed(1)} Kio** / projection (≈ ${av.meanActivityCount} activités)`)
+  out.push(`- Moyenne running/trail : **${smc.meanRunningActivities}** · runs avec streams : **${smc.meanRunsWithStreams}** · couverture streams : **${n1(smc.meanStreamCoveragePct)} %**`)
+  out.push(`- Compétitions confirmées (ancrage) : **${smc.confirmedRaceAnchorCount}**`)
+  out.push('> La fenêtre temporelle peut retourner **plus de 150 activités** pour un athlète très actif (la limite arbitraire `.limit(150)` a été retirée).')
+  out.push('')
+
   // ── Qualité de l'échantillon ──────────────────────────────────────────────────
   const s = report.sample
   out.push('## Qualité de l’échantillon')
@@ -130,24 +155,29 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push('> Largeur de l’intervalle **inchangée** dans ce lot — seule sa couverture est re-mesurée après horloge historique, D+ lissé et évaluation elapsed/hors échantillon. La calibration de l’intervalle n’est PAS annoncée tant que le hors-échantillon n’est pas stable.')
   out.push('')
 
-  // ── Validation hors échantillon ──────────────────────────────────────────────
-  const oosTable = (o: typeof report.leaveOneDateOut) => [
-    `- Folds : **${o.folds}** · n : **${o.n}**`,
+  // ── Analyse d'erreur par groupes (PAS du hors-échantillon) ───────────────────
+  const groupTable = (o: typeof report.groupedErrorAnalysisByDate) => [
+    `- Folds : **${o.folds}** · n : **${o.n}** · hors-échantillon réel : **${o.is_true_out_of_sample ? 'oui' : 'non'}**`,
     `- MAPE elapsed : **${n1(o.elapsed.mapePct)} %** (macro par fold : ${n1(o.macroMapeElapsedPct)} %) · biais ${o.elapsed.meanBiasS >= 0 ? '+' : ''}${fmtHms(o.elapsed.meanBiasS)}`,
     `- MAPE moving : **${n1(o.moving.mapePct)} %** (macro par fold : ${n1(o.macroMapeMovingPct)} %)`,
     `- Médiane elapsed ${fmtHms(o.elapsed.medianAbsS)} · P75 ${fmtHms(o.elapsed.p75AbsS)} · P90 ${fmtHms(o.elapsed.p90AbsS)} · couverture ${o.elapsed.intervalCoverage == null ? '—' : pct(o.elapsed.intervalCoverage)}`,
   ]
-  out.push('## Validation hors échantillon')
+  out.push('## Analyse d’erreur par groupes')
   out.push('')
-  out.push('> Aucun coefficient n’est ajusté dans ce lot : le découpage garantit qu’un même groupe (date/événement, ou athlète) n’est jamais scindé. Le moteur étant figé, l’agrégat des folds tenus à l’écart = l’échantillon complet ; la **macro-moyenne par fold** révèle une éventuelle dépendance à un groupe.')
+  out.push('> ⚠ Ce n’est **PAS** du hors-échantillon (`is_true_out_of_sample = false`) : les projections ne sont pas recalculées en excluant un fold — les erreurs déjà obtenues sont simplement **regroupées** par date/événement ou par athlète. Le découpage garantit qu’un même groupe n’est jamais scindé ; la **macro-moyenne par fold** révèle une éventuelle dépendance à un groupe.')
   out.push('')
-  out.push('### Leave-one-date-out')
+  out.push('### Groupé par date / événement')
   out.push('')
-  out.push(...oosTable(report.leaveOneDateOut))
+  out.push(...groupTable(report.groupedErrorAnalysisByDate))
   out.push('')
-  out.push('### Leave-one-athlete-out')
+  out.push('### Groupé par athlète')
   out.push('')
-  out.push(...oosTable(report.leaveOneAthleteOut))
+  out.push(...groupTable(report.groupedErrorAnalysisByAthlete))
+  out.push('')
+  out.push('### Vraie validation hors échantillon')
+  out.push('')
+  out.push(`- Par date : ${report.trueLeaveOneDateOut == null ? '**non applicable** dans ce lot (aucun coefficient global recalibré ; calibration & ancrage PERSONNELS)' : 'calculée'}`)
+  out.push(`- Par athlète : ${report.trueLeaveOneAthleteOut == null ? '**non applicable** dans ce lot' : 'calculée'}`)
   out.push('')
 
   // ── Bonne qualité uniquement ─────────────────────────────────────────────────

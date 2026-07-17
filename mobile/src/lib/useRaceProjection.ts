@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from './computeRaceProjection'
 import { fetchRaceForecast } from './raceWeather'
+import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from './engineHistory'
 
 // ─── Projection de course PARTAGÉE (page Stratégie ↔ dashboard). ──────────────
 // Portage mobile : mêmes entrées et mêmes 2 passes que le web (loaders Supabase
@@ -27,7 +28,9 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
 
   useEffect(() => {
     if (!pts) return
-    supabase.from('strava_activities').select('*').order('start_date', { ascending: false }).limit(150).then(({ data }) => setActivitiesData((data ?? []) as Record<string, unknown>[]))
+    // Fenêtre TEMPORELLE des six derniers mois (cf. web) — pas de `.limit(150)`.
+    const { asOfISO, sinceISO } = engineHistoryBounds()
+    supabase.from('strava_activities').select(ENGINE_COLUMNS_SELECT).lt('start_date', asOfISO).gte('start_date', sinceISO).is('deleted_at', null).order('start_date', { ascending: false }).then(({ data }) => setActivitiesData((data ?? []) as unknown as Record<string, unknown>[]))
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { setProfileData({}); return }
       supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => setProfileData((data ?? {}) as Record<string, unknown>))

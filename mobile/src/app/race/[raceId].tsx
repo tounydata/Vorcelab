@@ -15,6 +15,7 @@ import { extractGpxWaypointsRegex, parseGpxTrackPoints, type RavitoPoint, type U
 import type { RaceAnnotation } from '@/lib/raceDebrief'
 import { getAthleteLabel } from '@/lib/athleteLabel'
 import { fetchTerrainSurfaces } from '@/lib/terrain'
+import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from '@/lib/engineHistory'
 import CrewPlan from '@/components/races/CrewPlan'
 import StrategyView from '@/components/races/strategy/StrategyView'
 import RaceResult from '@/components/races/RaceResult'
@@ -76,7 +77,8 @@ export default function RaceStrategyScreen() {
 
   useEffect(() => { loadRace() }, [loadRace])
   useEffect(() => {
-    supabase.from('strava_activities').select('*').order('start_date', { ascending: false }).limit(150).then(({ data }) => setActivitiesData((data ?? []) as Record<string, unknown>[]))
+    { const { asOfISO, sinceISO } = engineHistoryBounds()
+      supabase.from('strava_activities').select(ENGINE_COLUMNS_SELECT).lt('start_date', asOfISO).gte('start_date', sinceISO).is('deleted_at', null).order('start_date', { ascending: false }).then(({ data }) => setActivitiesData((data ?? []) as unknown as Record<string, unknown>[])) }
     if (userId) supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfileData((data ?? {}) as Record<string, unknown>))
     else setProfileData({})
   }, [userId])
