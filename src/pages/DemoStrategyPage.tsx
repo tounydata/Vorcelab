@@ -62,7 +62,7 @@ export default function DemoStrategyPage() {
   const demoPoints = useMemo<GpxPoint[]>(() => generateDemoRoute(), [])
 
   const projection = useMemo(
-    () => computeRaceProjection(demoPoints, [], DEMO_PROFILE, { type: 'Trail' }, null),
+    () => computeRaceProjection(demoPoints, [], DEMO_PROFILE, { type: 'Trail' }, null, { smoothElevation: true }),
     [demoPoints],
   )
 
