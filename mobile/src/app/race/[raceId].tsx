@@ -94,7 +94,7 @@ export default function RaceStrategyScreen() {
     setIsComputing(true)
     setTimeout(() => {
       try {
-        const result = computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, terrain ?? null)
+        const result = computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, terrain ?? null, { smoothElevation: true })
         setProjection(result)
         if (!terrain) setBaseEstTimeS(result.estTimeS)
         const fresh = { cible: Math.round(result.estTimeS), prudent: Math.round(result.timeMax), agressif: Math.round(result.timeMin), confidence: result.confidence, computedAt: new Date().toISOString() }

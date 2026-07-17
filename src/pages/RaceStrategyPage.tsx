@@ -244,6 +244,7 @@ export default function RaceStrategyPage() {
           profileData ?? {},
           race ? { type: race.type, goal_time: race.goal_time } : null,
           terrain ?? null,
+          { smoothElevation: true }, // anti-bruit altimétrique sur le GPX importé
         )
         setProjection(result)
         // Fixe l'estTimeS de base une seule fois (passe sans terrain) pour que

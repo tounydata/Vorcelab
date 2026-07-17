@@ -62,7 +62,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
   const baseProjection = useMemo<ProjectionResult | null>(() => {
     if (!pts || !activitiesData || !profileData || !race) return null
     try {
-      return computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, null)
+      return computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, null, { smoothElevation: true })
     } catch {
       return null
     }
@@ -92,6 +92,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
           pts, activitiesData ?? [], profileData ?? {},
           { type: race.type, goal_time: race.goal_time },
           { surfaces: cached as (string | null)[], weather },
+          { smoothElevation: true },
         )
       } catch {
         return baseProjection
