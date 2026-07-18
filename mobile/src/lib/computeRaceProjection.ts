@@ -14,6 +14,7 @@ import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
+import type { MergedBestEffort } from './bestEfforts'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -109,6 +110,9 @@ export interface ProjectionResult {
   steepness_calibration_spread_dplus_per_km: number
   /** Code d'état de la calibration de pente (cf. SteepnessCalibrationResult.reason). */
   steepness_calibration_reason: SteepnessCalibrationResult['reason']
+  /** Vrai si l'allure s'est appuyée sur des records AUTO détectés depuis les streams
+   *  (toutes sorties), et non seulement sur des courses étiquetées / PR manuels. */
+  used_stream_best_efforts: boolean
 }
 
 export function computeRaceProjection(
@@ -223,6 +227,23 @@ export function computeRaceProjection(
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 
+  // Records AUTO détectés depuis les streams de TOUTES tes sorties (pas seulement les
+  // courses étiquetées), fournis par le profil s'ils ont été calculés. On utilise la
+  // valeur « équivalent plat » (gapTimeSec) — comparable d'un profil à l'autre. ABSENT
+  // en production tant que le profil ne les calcule pas → projection strictement inchangée.
+  const streamBestEfforts =
+    ((profile.runner_profile as { bestEfforts?: MergedBestEffort[] } | undefined)?.bestEfforts) ?? []
+  // Correspondance distance repère → clé de PR utilisée par l'allure route.
+  const BEST_EFFORT_PR_KEY: Record<number, string> = {
+    5000: '5k', 10000: '10k', 20000: '20k', 21097: 'semi', 42195: 'marathon',
+  }
+  const streamPrs: Record<string, { timeS: number; dist: number }> = {}
+  for (const rec of streamBestEfforts) {
+    const key = BEST_EFFORT_PR_KEY[rec.distanceM]
+    if (key) streamPrs[key] = { timeS: rec.gapTimeSec, dist: rec.distanceM }
+  }
+  const usedStreamPrs = Object.keys(streamPrs).length > 0
+
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
     const now = dayAnchoredNow(asOfMs)
@@ -272,7 +293,10 @@ export function computeRaceProjection(
     // deriveAutoPrs : `nowMs` = horloge historique (banc) pour une récence des PR
     // calculée par rapport à la course rejouée, pas à l'exécution du script.
     const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0], asOfMs)
-    const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
+    // Priorité : records auto (toutes sorties, streams) > PR de courses étiquetées (résumés)
+    // < PR MANUELS saisis (toujours prioritaires). Les records auto élargissent la base à
+    // TOUTES tes sorties sans dépendre de l'étiquette « course ».
+    const prs = { ...(autoPrs ?? {}), ...streamPrs, ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
     const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
     if (candidates.length) {
       const pr = prs[candidates[0]]
@@ -1060,5 +1084,6 @@ export function computeRaceProjection(
       ? +steepnessCalibration.spread.toFixed(1)
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
+    used_stream_best_efforts: usedStreamPrs && !isTrail,
   }
 }

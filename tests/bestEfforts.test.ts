@@ -3,6 +3,7 @@ import {
   extractBestEfforts,
   buildCleanStreams,
   mergeBestEfforts,
+  buildAthleteBestEfforts,
   type BestEffortStreams,
   type BestEffortRecord,
 } from '../src/lib/bestEfforts'
@@ -109,6 +110,37 @@ describe('mergeBestEfforts — on ne jette RIEN (record réel + valeur équivale
     expect(r.rawFromDownhill).toBe(true)
     // Mais la valeur « équivalent plat » retenue est la meilleure des deux (2500 plat).
     expect(r.gapTimeSec).toBe(2500)
+  })
+})
+
+describe('buildAthleteBestEfforts — agrégation multi-sorties', () => {
+  it('agrège les records sur toutes les sorties running et ignore le vélo', () => {
+    const run1 = stream(4.0, 3000) // 12 km @ 4 m/s
+    const run2 = stream(4.3, 1600) // ~6.9 km @ 4.3 m/s (meilleur 5 km)
+    const ride = stream(9.0, 2000) // vélo rapide → ne doit pas compter
+    const activities = [
+      { strava_activity_id: 'a1', sport_type: 'Run', start_date: '2026-05-01T08:00:00Z' },
+      { strava_activity_id: 'a2', sport_type: 'TrailRun', start_date: '2026-05-10T08:00:00Z' },
+      { strava_activity_id: 'bike', sport_type: 'Ride', start_date: '2026-05-12T08:00:00Z' },
+    ]
+    const res = buildAthleteBestEfforts(activities, { a1: run1, a2: run2, bike: ride })
+    expect(res.activitiesUsed).toBe(2) // le vélo est ignoré
+    const r5 = res.records.find((r) => r.distanceM === 5000)!
+    // Meilleur 5 km = celui de la sortie la plus rapide (4.3 m/s → ~1163 s).
+    expect(r5.rawTimeSec).toBeLessThan(5000 / 4.2)
+    // Vitesse critique estimée (~4 m/s pour un athlète à vitesse constante).
+    expect(res.criticalSpeed).toBeTruthy()
+    expect(res.criticalSpeed!.csMetersPerSec).toBeGreaterThan(3.5)
+  })
+
+  it('sans streams exploitables, ne renvoie aucun record (dégradation propre)', () => {
+    const res = buildAthleteBestEfforts(
+      [{ strava_activity_id: 'x', sport_type: 'Run', start_date: '2026-05-01T08:00:00Z' }],
+      {},
+    )
+    expect(res.activitiesUsed).toBe(0)
+    expect(res.records).toEqual([])
+    expect(res.criticalSpeed).toBeNull()
   })
 })
 

@@ -15,7 +15,7 @@
 // 100 % pur (aucune IO), donc testable et identique web/mobile.
 
 import { minettiGradePenalty } from './gpxCore'
-import type { Effort } from './criticalSpeed'
+import { computeCriticalSpeed, type Effort, type CriticalSpeedResult } from './criticalSpeed'
 
 /** Un stream brut : soit `{ data: [...] }` (Strava), soit un tableau direct. */
 type RawStream = { data?: unknown } | unknown[] | null | undefined
@@ -293,4 +293,67 @@ export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number,
     }
   }
   return best
+}
+
+/** Familles course à pied / trail (records extraits uniquement de ces activités). */
+const RUN_SPORTS_LC = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
+
+/** Activité minimale nécessaire à l'agrégation des records. */
+export interface BestEffortActivity {
+  strava_activity_id: string | number
+  type?: string | null
+  sport_type?: string | null
+  start_date?: string | null
+}
+
+export interface AthleteBestEfforts {
+  /** Records par distance (triés) : chrono réel + valeur équivalent-plat. */
+  records: MergedBestEffort[]
+  /** Vitesse critique estimée à partir de la courbe mean-max (ou null). */
+  criticalSpeed: CriticalSpeedResult | null
+  /** Nombre d'activités running réellement exploitées (avec streams). */
+  activitiesUsed: number
+}
+
+/**
+ * Agrège les meilleures perfs d'un athlète sur SES activités course à pied/trail
+ * (fenêtre déjà sélectionnée par l'appelant — records = longue mémoire, pas 56 j).
+ * NE JETTE RIEN : garde le meilleur chrono réel par distance ET la meilleure valeur
+ * équivalent-plat, et estime la vitesse critique depuis la courbe mean-max poolée.
+ */
+export function buildAthleteBestEfforts(
+  activities: BestEffortActivity[],
+  streamsById: Record<string, BestEffortStreams>,
+): AthleteBestEfforts {
+  const perActivityRecords: BestEffortRecord[][] = []
+  // Pour la vitesse critique : meilleure distance atteinte sur chaque durée repère,
+  // toutes activités confondues (la courbe mean-max « longue mémoire »).
+  const bestDistByDuration = new Map<number, number>()
+  let used = 0
+
+  for (const a of activities) {
+    const sport = String(a.sport_type ?? a.type ?? '').toLowerCase()
+    if (!RUN_SPORTS_LC.has(sport)) continue
+    const streams = streamsById[String(a.strava_activity_id)]
+    if (!streams) continue
+    const ext = extractBestEfforts(streams)
+    if (!ext) continue
+    used++
+    perActivityRecords.push(ext.records)
+    for (const e of ext.criticalSpeedEfforts) {
+      const cur = bestDistByDuration.get(e.timeSec)
+      if (cur == null || e.distM > cur) bestDistByDuration.set(e.timeSec, e.distM)
+    }
+  }
+
+  const merged = mergeBestEfforts(perActivityRecords)
+  const records = [...merged.values()].sort((x, y) => x.distanceM - y.distanceM)
+
+  // Vitesse critique : régression sur la fenêtre 2–15 min (là où le modèle est valide).
+  const csEfforts: Effort[] = [...bestDistByDuration.entries()]
+    .filter(([T]) => T >= 120 && T <= 900)
+    .map(([T, distM]) => ({ distM, timeSec: T }))
+  const criticalSpeed = computeCriticalSpeed(csEfforts)
+
+  return { records, criticalSpeed, activitiesUsed: used }
 }

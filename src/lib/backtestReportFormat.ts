@@ -38,6 +38,7 @@ const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'historical_data_quality', 'stream_coverage', 'alt_coverage',
   'steepness_calibration_active', 'steepness_calibration_race_count',
   'steepness_calibration_spread_dplus_per_km', 'steepness_calibration_reason',
+  'auto_best_efforts_count', 'critical_speed_mps', 'used_stream_best_efforts',
   'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',
   'history_window_days', 'runner_profile_window_days',
@@ -112,6 +113,20 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push(`- Moyenne running/trail : **${smc.meanRunningActivities}** · runs avec streams : **${smc.meanRunsWithStreams}** · couverture streams : **${n1(smc.meanStreamCoveragePct)} %**`)
   out.push(`- Compétitions confirmées (ancrage) : **${smc.confirmedRaceAnchorCount}**`)
   out.push('> La fenêtre temporelle peut retourner **plus de 150 activités** pour un athlète très actif (la limite arbitraire `.limit(150)` a été retirée).')
+  out.push('')
+
+  // ── Records auto détectés depuis les streams (Étape 1) ────────────────────────
+  const roadRows = report.rows.filter((r) => r.sport === 'road')
+  const usedBE = roadRows.filter((r) => r.used_stream_best_efforts).length
+  const withCS = report.rows.filter((r) => r.critical_speed_mps != null)
+  const meanCS = withCS.length ? withCS.reduce((s, r) => s + (r.critical_speed_mps as number), 0) / withCS.length : NaN
+  const meanBE = report.rows.length ? report.rows.reduce((s, r) => s + r.auto_best_efforts_count, 0) / report.rows.length : 0
+  out.push('## Records auto (détectés depuis les streams, toutes sorties)')
+  out.push('')
+  out.push(`- Courses ROUTE s'appuyant sur des records auto : **${usedBE}/${roadRows.length}**`)
+  out.push(`- Records auto détectés en moyenne par course : **${meanBE.toFixed(1)}**`)
+  out.push(`- Vitesse critique estimée (moy.) : **${Number.isFinite(meanCS) ? meanCS.toFixed(2) + ' m/s' : '—'}** (sur ${withCS.length} courses)`)
+  out.push('> Les records sont extraits de TOUTES les sorties (pas seulement les courses étiquetées), en valeur « équivalent plat ». Comparer `used_stream_best_efforts` et le MAPE route à la version de référence pour mesurer le gain.')
   out.push('')
 
   // ── Qualité de l'échantillon ──────────────────────────────────────────────────

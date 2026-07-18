@@ -20,6 +20,11 @@ import {
   selectEngineHistoryAtDate,
   type EngineActivity,
 } from './engineHistory'
+import {
+  buildAthleteBestEfforts,
+  type BestEffortActivity,
+  type BestEffortStreams,
+} from './bestEfforts'
 
 /** Version du profil « d'époque » (buildRunnerProfileAtDate). À incrémenter si sa
  *  logique de calcul change. Reliée à chaque ligne du rapport. */
@@ -88,6 +93,8 @@ export interface RaceCaseInput {
   elevationReferenceMode?: ElevationReferenceMode
   /** D+ OFFICIEL connu AVANT la course (m), si disponible — sinon null. */
   officialDplusM?: number | null
+  /** Désactive les records auto (streams) — pour comparer AVANT/APRÈS dans un même banc. */
+  disableStreamBestEfforts?: boolean
 }
 
 // ── Pseudonymisation (déterministe, non nominative) ─────────────────────────────
@@ -176,6 +183,10 @@ export interface BacktestRow {
   steepness_calibration_race_count: number
   steepness_calibration_spread_dplus_per_km: number
   steepness_calibration_reason: string
+  // ── Records auto détectés depuis les streams (toutes sorties) ─────────────────
+  auto_best_efforts_count: number
+  critical_speed_mps: number | null
+  used_stream_best_efforts: boolean
   // ── Sources réellement utilisées ─────────────────────────────────────────────
   used_fallback: boolean
   fallback_sources: string[]
@@ -383,9 +394,24 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     windowDays: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
   })
 
+  // Records AUTO détectés depuis les streams de TOUTES les sorties running de la fenêtre
+  // (pas seulement les courses étiquetées). Sur six mois — mémoire longue des perfs,
+  // distincte du profil de pente (56 j). Attachés au profil pour que le moteur en dispose.
+  const athleteBest = c.disableStreamBestEfforts
+    ? { records: [], criticalSpeed: null, activitiesUsed: 0 }
+    : buildAthleteBestEfforts(
+        prior as unknown as BestEffortActivity[],
+        c.priorStreams as unknown as Record<string, BestEffortStreams>,
+      )
+  const runnerProfileWithBest = {
+    ...(runnerProfile as unknown as Record<string, unknown>),
+    bestEfforts: athleteBest.records,
+    criticalSpeed: athleteBest.criticalSpeed,
+  }
+
   const profileObj: Record<string, unknown> = {
     fc_max: effectiveFcMax,
-    runner_profile: runnerProfile as unknown as Record<string, unknown>,
+    runner_profile: runnerProfileWithBest,
   }
 
   const terrain = c.surfaces?.length
@@ -486,6 +512,9 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     steepness_calibration_race_count: proj.steepness_calibration_race_count,
     steepness_calibration_spread_dplus_per_km: proj.steepness_calibration_spread_dplus_per_km,
     steepness_calibration_reason: proj.steepness_calibration_reason,
+    auto_best_efforts_count: athleteBest.records.length,
+    critical_speed_mps: athleteBest.criticalSpeed?.csMetersPerSec ?? null,
+    used_stream_best_efforts: proj.used_stream_best_efforts,
     used_fallback: proj.usedFallback,
     fallback_sources: proj.fallbackSources,
     fcmax_source: fc.source,
