@@ -18,8 +18,13 @@
  *  COMPÉTITION CONFIRMÉE (isEligiblePersonalCalibrationRace) — un footing/échauffement
  *  étiqueté « course » par erreur, ou un effort « à confirmer », ne cale plus la
  *  projection. La charge générale (fraîcheur) reste multisport, explicitement.
- *  (Coefficients centraux inchangés.) */
-export const ENGINE_VERSION = '2026.07-6'
+ *  (Coefficients centraux inchangés.)
+ *  2026.07-7 : DURABILITÉ personnelle activée — le fade d'endurance utilise l'exposant
+ *  appris sur la courbe de meilleures perfs (records auto détectés depuis les streams,
+ *  désormais calculés par le profil). Gain mesuré au banc sur le trail long
+ *  (MAPE 8.8→8.2 %) sans régression route. Les records auto NE pilotent PAS l'allure
+ *  (le banc a montré que ça dégrade) — ils servent la durabilité et l'affichage. */
+export const ENGINE_VERSION = '2026.07-7'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

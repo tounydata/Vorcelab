@@ -38,7 +38,8 @@ const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'historical_data_quality', 'stream_coverage', 'alt_coverage',
   'steepness_calibration_active', 'steepness_calibration_race_count',
   'steepness_calibration_spread_dplus_per_km', 'steepness_calibration_reason',
-  'auto_best_efforts_count', 'critical_speed_mps', 'used_stream_best_efforts', 'predicted_s_no_be',
+  'auto_best_efforts_count', 'critical_speed_mps', 'used_stream_best_efforts',
+  'used_personal_fade', 'personal_fade_exponent', 'best_climb_vam_mh', 'predicted_s_no_be',
   'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',
   'history_window_days', 'runner_profile_window_days',
@@ -126,18 +127,24 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push(`- Courses ROUTE s'appuyant sur des records auto : **${usedBE}/${roadRows.length}**`)
   out.push(`- Records auto détectés en moyenne par course : **${meanBE.toFixed(1)}**`)
   out.push(`- Vitesse critique estimée (moy.) : **${Number.isFinite(meanCS) ? meanCS.toFixed(2) + ' m/s' : '—'}** (sur ${withCS.length} courses)`)
+  const usedFade = report.rows.filter((r) => r.used_personal_fade)
+  const meanExp = usedFade.length ? usedFade.reduce((s, r) => s + (r.personal_fade_exponent as number), 0) / usedFade.length : NaN
+  out.push(`- Durabilité : exposant d'endurance personnel utilisé sur **${usedFade.length}** courses (moy. **${Number.isFinite(meanExp) ? meanExp.toFixed(3) : '—'}**)`)
   out.push('')
-  // A/B déterministe : précision AVEC vs SANS les records auto (même run, mêmes données).
+  // A/B déterministe : précision AVEC vs SANS les features stream (records + durabilité).
   const ab = report.streamBestEffortsAB
-  if (ab.n > 0) {
-    const delta = ab.mapeElapsedWithoutPct - ab.mapeElapsedWithPct
-    const verdict = delta > 0 ? `**améliore** de ${delta.toFixed(2)} pt` : delta < 0 ? `**dégrade** de ${(-delta).toFixed(2)} pt` : 'neutre'
-    out.push(`- **A/B (${ab.n} courses)** — MAPE elapsed SANS records : **${n1(ab.mapeElapsedWithoutPct)} %** → AVEC : **${n1(ab.mapeElapsedWithPct)} %** (${verdict})`)
-    out.push(`  - MAE elapsed SANS : ${fmtHms(ab.maeElapsedWithoutS)} → AVEC : ${fmtHms(ab.maeElapsedWithS)}`)
-  } else {
-    out.push('- A/B records auto : aucune course n\'a utilisé de records auto (données insuffisantes).')
+  const line = (label: string, s: typeof ab.overall) => {
+    if (s.n === 0) return `- **${label}** : aucune course impactée.`
+    const delta = s.mapeElapsedWithoutPct - s.mapeElapsedWithPct
+    const verdict = delta > 0.01 ? `**améliore** de ${delta.toFixed(2)} pt` : delta < -0.01 ? `**dégrade** de ${(-delta).toFixed(2)} pt` : 'neutre'
+    return `- **${label} (${s.n})** — MAPE elapsed SANS : **${n1(s.mapeElapsedWithoutPct)} %** → AVEC : **${n1(s.mapeElapsedWithPct)} %** (${verdict}) · MAE ${fmtHms(s.maeElapsedWithoutS)} → ${fmtHms(s.maeElapsedWithS)}`
   }
-  out.push('> Contrefactuel déterministe (même horloge, mêmes données) → isole l\'effet PROPRE des records, sans le confondre avec les autres changements du moteur.')
+  out.push('### A/B records auto + durabilité (contrefactuel déterministe)')
+  out.push('')
+  out.push(line('Global', ab.overall))
+  out.push(line('Route', ab.road))
+  out.push(line('Trail', ab.trail))
+  out.push('> Même horloge, mêmes données, projection recalculée SANS les features stream → isole leur effet propre. Les records touchent surtout la route, la durabilité surtout le trail long.')
   out.push('')
 
   // ── Qualité de l'échantillon ──────────────────────────────────────────────────

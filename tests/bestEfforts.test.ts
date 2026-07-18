@@ -4,6 +4,8 @@ import {
   buildCleanStreams,
   mergeBestEfforts,
   buildAthleteBestEfforts,
+  detectClimbs,
+  bestClimb,
   type BestEffortStreams,
   type BestEffortRecord,
 } from '../src/lib/bestEfforts'
@@ -141,6 +143,64 @@ describe('buildAthleteBestEfforts — agrégation multi-sorties', () => {
     expect(res.activitiesUsed).toBe(0)
     expect(res.records).toEqual([])
     expect(res.criticalSpeed).toBeNull()
+  })
+})
+
+describe('detectClimbs — records de trail (VAM / ascension)', () => {
+  // Profil : 2 km de montée à ~10 % (200 m D+) puis 2 km de descente, à 2 m/s.
+  function climbThenDescent(): BestEffortStreams {
+    const time: number[] = []
+    const distance: number[] = []
+    const altitude: number[] = []
+    const speed = 2
+    for (let t = 0; t <= 2000; t++) {
+      time.push(t)
+      const d = speed * t
+      distance.push(d)
+      // Monte de 100→300 sur les 2 premiers km (2000 m), puis redescend.
+      const alt = d <= 2000 ? 100 + (d / 2000) * 200 : 300 - ((d - 2000) / 2000) * 200
+      altitude.push(alt)
+    }
+    return { time: { data: time }, distance: { data: distance }, altitude: { data: altitude } }
+  }
+
+  it('détecte l’ascension et calcule une VAM plausible', () => {
+    const climbs = detectClimbs(climbThenDescent())
+    expect(climbs.length).toBe(1)
+    const c = climbs[0]
+    expect(c.ascentM).toBeGreaterThan(180)
+    expect(c.ascentM).toBeLessThan(220)
+    // 200 m en 1000 s = 720 m/h.
+    expect(c.vamMh).toBeGreaterThan(650)
+    expect(c.vamMh).toBeLessThan(780)
+    expect(c.avgGradePct).toBeGreaterThan(8)
+  })
+
+  it('ignore une bosse trop faible (< dénivelé minimum)', () => {
+    const time: number[] = []
+    const distance: number[] = []
+    const altitude: number[] = []
+    for (let t = 0; t <= 1000; t++) {
+      time.push(t); distance.push(2 * t); altitude.push(100 + Math.sin(t / 100) * 20) // ±20 m
+    }
+    expect(detectClimbs({ time: { data: time }, distance: { data: distance }, altitude: { data: altitude } })).toEqual([])
+  })
+
+  it('bestClimb retient la meilleure VAM', () => {
+    const c = bestClimb([
+      { ascentM: 200, durationS: 1200, distM: 2000, vamMh: 600, avgGradePct: 10 },
+      { ascentM: 150, durationS: 600, distM: 1500, vamMh: 900, avgGradePct: 10 },
+    ])
+    expect(c!.vamMh).toBe(900)
+  })
+
+  it('buildAthleteBestEfforts expose la meilleure ascension', () => {
+    const res = buildAthleteBestEfforts(
+      [{ strava_activity_id: 't1', sport_type: 'TrailRun', start_date: '2026-05-01T08:00:00Z' }],
+      { t1: climbThenDescent() },
+    )
+    expect(res.bestClimb).toBeTruthy()
+    expect(res.bestClimb!.vamMh).toBeGreaterThan(650)
   })
 })
 

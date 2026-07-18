@@ -459,4 +459,12 @@ export interface RunnerProfileComputed {
 
   // ── Technical (winding) descent slowdown, learned from history (optional) ────
   technicalDescent?: TechnicalDescentProfile
+
+  // ── Records AUTO détectés depuis les streams (Étapes 1–3) ────────────────────
+  /** Meilleurs temps par distance (chrono réel + valeur équivalent-plat). */
+  bestEfforts?: import('./bestEfforts').MergedBestEffort[]
+  /** Vitesse critique estimée depuis la courbe mean-max (alimente la durabilité). */
+  criticalSpeed?: import('./criticalSpeed').CriticalSpeedResult | null
+  /** Meilleure ascension détectée (VAM), record de trail. */
+  bestClimb?: import('./bestEfforts').ClimbEffort | null
 }

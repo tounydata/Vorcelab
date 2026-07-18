@@ -3,6 +3,15 @@
 import { supabase } from './supabase'
 import { fetchStreams } from './streams'
 import { sectionTurnDegPerKm } from './gpxCore'
+import {
+  extractBestEfforts,
+  mergeBestEfforts,
+  detectClimbs,
+  bestClimb,
+  type BestEffortRecord,
+  type ClimbEffort,
+} from './bestEfforts'
+import { computeCriticalSpeed, type Effort } from './criticalSpeed'
 import { fetchActivityWeather } from './weather'
 import {
   getGradeBucket,
@@ -82,6 +91,11 @@ export async function buildRunnerProfile(
   let processedCount = 0
   const analyzedMonthSet = new Set<string>()
 
+  // Records AUTO + durabilité + meilleure ascension (extraits des mêmes streams).
+  const bestEffortRecordsPerAct: BestEffortRecord[][] = []
+  const bestDistByDuration = new Map<number, number>()
+  let bestClimbOverall: ClimbEffort | null = null
+
   for (let i = 0; i < runs.length; i++) {
     const act = runs[i]
     onProgress?.(Math.round((i / runs.length) * 85), `Analyse ${i + 1}/${runs.length}…`)
@@ -98,6 +112,18 @@ export async function buildRunnerProfile(
     const latlng = streams.latlng?.data
 
     if (!altitude || !velocity || time.length < 5) continue
+
+    // Records AUTO (toutes sorties) + meilleure ascension, depuis ces mêmes streams.
+    const be = extractBestEfforts(streams)
+    if (be) {
+      bestEffortRecordsPerAct.push(be.records)
+      for (const e of be.criticalSpeedEfforts) {
+        const cur = bestDistByDuration.get(e.timeSec)
+        if (cur == null || e.distM > cur) bestDistByDuration.set(e.timeSec, e.distM)
+      }
+      const climb = bestClimb(detectClimbs(streams))
+      if (climb && (!bestClimbOverall || climb.vamMh > bestClimbOverall.vamMh)) bestClimbOverall = climb
+    }
 
     const n = time.length
     const actDur = time[n - 1] - time[0]
@@ -729,8 +755,19 @@ export async function buildRunnerProfile(
 
   const analyzedMonths = Array.from(analyzedMonthSet).sort()
 
+  // Agrégats records auto : meilleurs temps par distance, vitesse critique, ascension.
+  const mergedBest = mergeBestEfforts(bestEffortRecordsPerAct)
+  const bestEfforts = [...mergedBest.values()].sort((a, b) => a.distanceM - b.distanceM)
+  const csEfforts: Effort[] = [...bestDistByDuration.entries()]
+    .filter(([T]) => T >= 120 && T <= 900)
+    .map(([T, distM]) => ({ distM, timeSec: T }))
+  const criticalSpeed = computeCriticalSpeed(csEfforts)
+
   return {
     _computedAt: new Date().toISOString(),
+    bestEfforts,
+    criticalSpeed,
+    bestClimb: bestClimbOverall,
     fcMax,
     totalStreamSeconds,
     streamCoverage: totalActivitySeconds > 0 ? totalStreamSeconds / totalActivitySeconds : 0,

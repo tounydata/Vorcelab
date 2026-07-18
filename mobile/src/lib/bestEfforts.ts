@@ -295,6 +295,98 @@ export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number,
   return best
 }
 
+// ── Records de TRAIL : meilleures ascensions / VAM (Étape 3) ─────────────────────
+
+export interface ClimbEffort {
+  /** Dénivelé positif de l'ascension (m). */
+  ascentM: number
+  /** Durée de l'ascension (s). */
+  durationS: number
+  /** Distance horizontale parcourue (m). */
+  distM: number
+  /** VAM = vitesse ascensionnelle moyenne (m/h). */
+  vamMh: number
+  /** Pente moyenne de l'ascension (%). */
+  avgGradePct: number
+}
+
+export interface ClimbDetectionOptions {
+  /** Dénivelé minimum pour retenir une ascension (m). */
+  minAscentM?: number
+  /** Pente moyenne minimum (%). */
+  minGradePct?: number
+  /** Tolérance de redescente avant de clore une ascension (m). */
+  hysteresisM?: number
+}
+
+const CLIMB_DEFAULTS: Required<ClimbDetectionOptions> = { minAscentM: 100, minGradePct: 3, hysteresisM: 10 }
+
+/**
+ * Détecte les ASCENSIONS soutenues d'une activité (vallée → sommet) par détection de
+ * pics/creux sur l'altitude lissée, avec hystérésis anti-bruit. Pour chaque ascension :
+ * dénivelé, durée, distance, VAM (m/h) et pente moyenne. Sert les records de trail
+ * (meilleure ascension / meilleure VAM) — l'altitude est lissée avant tout calcul.
+ */
+export function detectClimbs(streams: BestEffortStreams, options?: ClimbDetectionOptions): ClimbEffort[] {
+  const o = { ...CLIMB_DEFAULTS, ...(options ?? {}) }
+  const time = toNumArray(streams.time)
+  const distance = toNumArray(streams.distance)
+  const rawAlt = toNumArray(streams.altitude)
+  const n = Math.min(time.length, distance.length, rawAlt.length)
+  if (n < 5 || !rawAlt.slice(0, n).every((x) => Number.isFinite(x))) return []
+  const alt = smooth(rawAlt.slice(0, n), ELEV_SMOOTH_HALF)
+
+  const climbs: ClimbEffort[] = []
+  let valleyIdx = 0
+  let valleyAlt = alt[0]
+  let peakIdx = 0
+  let peakAlt = alt[0]
+
+  const close = (vIdx: number, pIdx: number) => {
+    const ascentM = alt[pIdx] - alt[vIdx]
+    if (ascentM < o.minAscentM) return
+    const durationS = time[pIdx] - time[vIdx]
+    const distM = distance[pIdx] - distance[vIdx]
+    if (!(durationS > 0) || !(distM > 0)) return
+    const avgGradePct = (ascentM / distM) * 100
+    if (avgGradePct < o.minGradePct) return
+    climbs.push({
+      ascentM: Math.round(ascentM),
+      durationS: Math.round(durationS),
+      distM: Math.round(distM),
+      vamMh: Math.round((ascentM * 3600) / durationS),
+      avgGradePct: +avgGradePct.toFixed(1),
+    })
+  }
+
+  for (let i = 1; i < n; i++) {
+    if (alt[i] > peakAlt) {
+      peakAlt = alt[i]
+      peakIdx = i
+    } else if (peakAlt - valleyAlt < o.minAscentM && alt[i] < valleyAlt) {
+      // Toujours en descente avant toute vraie montée → on abaisse la vallée.
+      valleyAlt = alt[i]
+      valleyIdx = i
+      peakAlt = alt[i]
+      peakIdx = i
+    } else if (peakAlt - alt[i] > o.hysteresisM) {
+      // Redescente franche depuis le sommet → on clôt l'ascension vallée→sommet.
+      close(valleyIdx, peakIdx)
+      valleyAlt = alt[i]
+      valleyIdx = i
+      peakAlt = alt[i]
+      peakIdx = i
+    }
+  }
+  close(valleyIdx, peakIdx)
+  return climbs
+}
+
+/** Meilleure ascension d'une liste (par VAM). */
+export function bestClimb(climbs: ClimbEffort[]): ClimbEffort | null {
+  return climbs.reduce<ClimbEffort | null>((best, c) => (!best || c.vamMh > best.vamMh ? c : best), null)
+}
+
 /** Familles course à pied / trail (records extraits uniquement de ces activités). */
 const RUN_SPORTS_LC = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
 
@@ -311,6 +403,8 @@ export interface AthleteBestEfforts {
   records: MergedBestEffort[]
   /** Vitesse critique estimée à partir de la courbe mean-max (ou null). */
   criticalSpeed: CriticalSpeedResult | null
+  /** Meilleure ascension (VAM la plus élevée) sur l'ensemble des sorties (trail). */
+  bestClimb: ClimbEffort | null
   /** Nombre d'activités running réellement exploitées (avec streams). */
   activitiesUsed: number
 }
@@ -329,6 +423,7 @@ export function buildAthleteBestEfforts(
   // Pour la vitesse critique : meilleure distance atteinte sur chaque durée repère,
   // toutes activités confondues (la courbe mean-max « longue mémoire »).
   const bestDistByDuration = new Map<number, number>()
+  let bestClimbOverall: ClimbEffort | null = null
   let used = 0
 
   for (const a of activities) {
@@ -344,6 +439,8 @@ export function buildAthleteBestEfforts(
       const cur = bestDistByDuration.get(e.timeSec)
       if (cur == null || e.distM > cur) bestDistByDuration.set(e.timeSec, e.distM)
     }
+    const climb = bestClimb(detectClimbs(streams))
+    if (climb && (!bestClimbOverall || climb.vamMh > bestClimbOverall.vamMh)) bestClimbOverall = climb
   }
 
   const merged = mergeBestEfforts(perActivityRecords)
@@ -355,5 +452,5 @@ export function buildAthleteBestEfforts(
     .map(([T, distM]) => ({ distM, timeSec: T }))
   const criticalSpeed = computeCriticalSpeed(csEfforts)
 
-  return { records, criticalSpeed, activitiesUsed: used }
+  return { records, criticalSpeed, bestClimb: bestClimbOverall, activitiesUsed: used }
 }

@@ -15,6 +15,7 @@ import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
 import type { MergedBestEffort } from './bestEfforts'
+import { fitFadeExponent } from './fadeModel'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -113,6 +114,10 @@ export interface ProjectionResult {
   /** Vrai si l'allure s'est appuyée sur des records AUTO détectés depuis les streams
    *  (toutes sorties), et non seulement sur des courses étiquetées / PR manuels. */
   used_stream_best_efforts: boolean
+  /** Vrai si le fade d'endurance a utilisé l'exposant PERSONNEL (appris), pas le fixe. */
+  used_personal_fade: boolean
+  /** Exposant d'endurance personnel appliqué (ou null si non appris/fiable). */
+  personal_fade_exponent: number | null
 }
 
 export function computeRaceProjection(
@@ -228,21 +233,20 @@ export function computeRaceProjection(
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 
   // Records AUTO détectés depuis les streams de TOUTES tes sorties (pas seulement les
-  // courses étiquetées), fournis par le profil s'ils ont été calculés. On utilise la
-  // valeur « équivalent plat » (gapTimeSec) — comparable d'un profil à l'autre. ABSENT
-  // en production tant que le profil ne les calcule pas → projection strictement inchangée.
+  // courses étiquetées), fournis par le profil s'ils ont été calculés. Servent à la
+  // DURABILITÉ (courbe → exposant d'endurance) et à l'affichage des records — PAS à
+  // l'allure (le benchmark a montré que ça la dégrade). Cf. streamPrs plus bas.
   const streamBestEfforts =
     ((profile.runner_profile as { bestEfforts?: MergedBestEffort[] } | undefined)?.bestEfforts) ?? []
-  // Correspondance distance repère → clé de PR utilisée par l'allure route.
-  const BEST_EFFORT_PR_KEY: Record<number, string> = {
-    5000: '5k', 10000: '10k', 20000: '20k', 21097: 'semi', 42195: 'marathon',
-  }
-  const streamPrs: Record<string, { timeS: number; dist: number }> = {}
-  for (const rec of streamBestEfforts) {
-    const key = BEST_EFFORT_PR_KEY[rec.distanceM]
-    if (key) streamPrs[key] = { timeS: rec.gapTimeSec, dist: rec.distanceM }
-  }
-  const usedStreamPrs = Object.keys(streamPrs).length > 0
+
+  // Durabilité INTER-distances (Étape 2) : exposant d'endurance PERSONNEL appris sur ta
+  // courbe de meilleures perfs (valeur équivalent-plat). Remplace l'exposant fixe du fade
+  // d'endurance quand il est fiable. ABSENT si le profil ne fournit pas de records
+  // (production actuelle) → fade inchangé. Cf. fadeModel.ts.
+  const personalFade = fitFadeExponent(
+    streamBestEfforts.map((r) => ({ distM: r.distanceM, timeSec: r.gapTimeSec })),
+  )
+  const usePersonalFade = personalFade.reason === 'personal'
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
@@ -293,10 +297,10 @@ export function computeRaceProjection(
     // deriveAutoPrs : `nowMs` = horloge historique (banc) pour une récence des PR
     // calculée par rapport à la course rejouée, pas à l'exécution du script.
     const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0], asOfMs)
-    // Priorité : records auto (toutes sorties, streams) > PR de courses étiquetées (résumés)
-    // < PR MANUELS saisis (toujours prioritaires). Les records auto élargissent la base à
-    // TOUTES tes sorties sans dépendre de l'étiquette « course ».
-    const prs = { ...(autoPrs ?? {}), ...streamPrs, ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
+    // NOTE (benchmark réel) : alimenter l'allure route avec les records auto (streams)
+    // DÉGRADE la précision (route 4.6 %→6.3 % en A/B). On ne les utilise donc PAS pour
+    // l'allure — seulement pour la DURABILITÉ et l'affichage des records.
+    const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
     const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
     if (candidates.length) {
       const pr = prs[candidates[0]]
@@ -491,10 +495,22 @@ export function computeRaceProjection(
     addFallback('no_runner_profile')
   }
 
+  // Fatigue de montée INTRA-course : à mesure que le D+ s'accumule, tes jambes montent
+  // plus lentement (la VAM d'entraînement, apprise sur des côtes fraîches et courtes,
+  // surestime la fin d'un gros trail vertical). Le banc réel montre une sous-estimation
+  // systématique des longs trails raides (biais −20 à −40 min). Facteur BORNÉ, croissant
+  // avec le D+ déjà grimpé, appliqué aux seules montées VAM. Nul en début de course et
+  // sur un trail peu vertical → pas de régression sur le court.
+  let cumClimbDplus = 0
+  const CLIMB_FATIGUE_PER_1000M = 0.09 // +9 % de temps de montée par 1000 m déjà grimpés
+  const CLIMB_FATIGUE_MAX = 0.18
+
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
     const g = s.grade / 100
     const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
+    const climbFatigue = 1 + Math.min(CLIMB_FATIGUE_MAX, (cumClimbDplus / 1000) * CLIMB_FATIGUE_PER_1000M)
+    cumClimbDplus += s.dplus
 
     const bkey = sectionBucketKey(s.grade, s.type)
     const bdata = bkey && rBucketsScaled ? rBucketsScaled[bkey] : null
@@ -521,7 +537,8 @@ export function computeRaceProjection(
         const speedTimeS = bdata!.avgSpeedKmH ? s.dist / (bdata!.avgSpeedKmH / 3.6) : vamTimeS
         // Blend: steep = 85% VAM, mod = 70% VAM
         const vamWeight = bkey === 'steep_up' ? 0.85 : 0.70
-        const baseTimeS = vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)
+        // Fatigue de montée intra-course (croît avec le D+ déjà grimpé).
+        const baseTimeS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)) * climbFatigue
         // Apply drift/recovery penalties to baseTimeS directly, then push and continue
         let missionOnePenalty = 1.0
 
@@ -924,10 +941,14 @@ export function computeRaceProjection(
   let extrapolationRatio = 1
   if (demoDurationS > 0 && estTimeS > demoDurationS) {
     extrapolationRatio = estTimeS / demoDurationS
-    // Exposant Riegel : 1.06 sur le domaine « classique », plus raide quand on extrapole
-    // très au-delà du vécu (Riegel sous-estime les ultras) → k monte jusqu'à 0.12 ; puis
-    // modulé par TA durabilité (dérive cardiaque apprise).
-    const k = (0.06 + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
+    // Exposant Riegel : base 1.06 (k≈0.06) sur le domaine « classique », OU ton exposant
+    // d'endurance PERSONNEL appris sur ta courbe de perfs (Étape 2) quand il est fiable
+    // (k = b − 1, borné). Plus raide quand on extrapole très au-delà du vécu (Riegel
+    // sous-estime les ultras) → +0.06 ; puis modulé par TA durabilité (dérive cardiaque).
+    const baseK = usePersonalFade
+      ? Math.min(0.14, Math.max(0.03, personalFade.exponent - 1))
+      : 0.06
+    const k = (baseK + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
     const fade = Math.min(1.40, Math.pow(extrapolationRatio, k))
     estTimeS *= fade
     const pct = Math.round((fade - 1) * 100)
@@ -1084,6 +1105,8 @@ export function computeRaceProjection(
       ? +steepnessCalibration.spread.toFixed(1)
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
-    used_stream_best_efforts: usedStreamPrs && !isTrail,
+    used_stream_best_efforts: false, // records auto non utilisés pour l'allure (cf. benchmark)
+    used_personal_fade: usePersonalFade,
+    personal_fade_exponent: usePersonalFade ? personalFade.exponent : null,
   }
 }
