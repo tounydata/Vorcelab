@@ -495,10 +495,22 @@ export function computeRaceProjection(
     addFallback('no_runner_profile')
   }
 
+  // Fatigue de montée INTRA-course : à mesure que le D+ s'accumule, tes jambes montent
+  // plus lentement (la VAM d'entraînement, apprise sur des côtes fraîches et courtes,
+  // surestime la fin d'un gros trail vertical). Le banc réel montre une sous-estimation
+  // systématique des longs trails raides (biais −20 à −40 min). Facteur BORNÉ, croissant
+  // avec le D+ déjà grimpé, appliqué aux seules montées VAM. Nul en début de course et
+  // sur un trail peu vertical → pas de régression sur le court.
+  let cumClimbDplus = 0
+  const CLIMB_FATIGUE_PER_1000M = 0.09 // +9 % de temps de montée par 1000 m déjà grimpés
+  const CLIMB_FATIGUE_MAX = 0.18
+
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
     const g = s.grade / 100
     const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
+    const climbFatigue = 1 + Math.min(CLIMB_FATIGUE_MAX, (cumClimbDplus / 1000) * CLIMB_FATIGUE_PER_1000M)
+    cumClimbDplus += s.dplus
 
     const bkey = sectionBucketKey(s.grade, s.type)
     const bdata = bkey && rBucketsScaled ? rBucketsScaled[bkey] : null
@@ -525,7 +537,8 @@ export function computeRaceProjection(
         const speedTimeS = bdata!.avgSpeedKmH ? s.dist / (bdata!.avgSpeedKmH / 3.6) : vamTimeS
         // Blend: steep = 85% VAM, mod = 70% VAM
         const vamWeight = bkey === 'steep_up' ? 0.85 : 0.70
-        const baseTimeS = vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)
+        // Fatigue de montée intra-course (croît avec le D+ déjà grimpé).
+        const baseTimeS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)) * climbFatigue
         // Apply drift/recovery penalties to baseTimeS directly, then push and continue
         let missionOnePenalty = 1.0
 
