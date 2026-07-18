@@ -14,7 +14,7 @@ import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
-import type { MergedBestEffort } from './bestEfforts'
+import { assessBestEffortQuality, type MergedBestEffort } from './bestEfforts'
 import { fitFadeExponent } from './fadeModel'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
@@ -118,6 +118,18 @@ export interface ProjectionResult {
   used_personal_fade: boolean
   /** Exposant d'endurance personnel appliqué (ou null si non appris/fiable). */
   personal_fade_exponent: number | null
+  /** R² de la régression log-log de durabilité (garde-fou de qualité). */
+  personal_fade_r2: number | null
+  /** Confiance du modèle de durabilité personnel : none/low/medium/high. */
+  personal_fade_confidence: 'none' | 'low' | 'medium' | 'high'
+  /** Nombre d'efforts (distances repères) retenus pour l'ajustement. */
+  personal_fade_effort_count: number
+  /** Nombre d'activités DISTINCTES ayant fourni ces efforts (anti-mono-sortie). */
+  personal_fade_distinct_activity_count: number
+  /** Étalement de distance (max/min) de la courbe de records. */
+  personal_fade_spread_ratio: number
+  /** Raison machine de l'(in)activation de la durabilité personnelle. */
+  personal_fade_reason: string
 }
 
 export function computeRaceProjection(
@@ -243,10 +255,16 @@ export function computeRaceProjection(
   // courbe de meilleures perfs (valeur équivalent-plat). Remplace l'exposant fixe du fade
   // d'endurance quand il est fiable. ABSENT si le profil ne fournit pas de records
   // (production actuelle) → fade inchangé. Cf. fadeModel.ts.
-  const personalFade = fitFadeExponent(
-    streamBestEfforts.map((r) => ({ distM: r.distanceM, timeSec: r.gapTimeSec })),
-  )
-  const usePersonalFade = personalFade.reason === 'personal'
+  // Qualité des records (§8) : on DÉPONDÈRE/exclut les records douteux (descente suspecte,
+  // trou temporel, altitude incomplète, vitesse invraisemblable, hors running) AVANT de les
+  // laisser activer la durabilité personnelle. Filtrage sur l'éligibilité, provenance
+  // conservée pour compter les activités DISTINCTES.
+  const eligibleFadeEfforts = streamBestEfforts
+    .filter((r) => assessBestEffortQuality(r).eligibleForFade)
+    .map((r) => ({ distM: r.distanceM, timeSec: r.gapTimeSec, activityId: r.gapSource?.activityId }))
+  const personalFade = fitFadeExponent(eligibleFadeEfforts)
+  // Le moteur n'utilise l'exposant personnel QUE pour une confiance medium ou high (§6).
+  const usePersonalFade = personalFade.confidence === 'medium' || personalFade.confidence === 'high'
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
@@ -1108,5 +1126,11 @@ export function computeRaceProjection(
     used_stream_best_efforts: false, // records auto non utilisés pour l'allure (cf. benchmark)
     used_personal_fade: usePersonalFade,
     personal_fade_exponent: usePersonalFade ? personalFade.exponent : null,
+    personal_fade_r2: personalFade.r2,
+    personal_fade_confidence: personalFade.confidence,
+    personal_fade_effort_count: personalFade.n,
+    personal_fade_distinct_activity_count: personalFade.distinctActivityCount,
+    personal_fade_spread_ratio: personalFade.spreadRatio,
+    personal_fade_reason: personalFade.reason,
   }
 }

@@ -611,12 +611,19 @@ Deno.serve(async (req: Request) => {
     const user = await requireAuth(req)
     const supabase = getServiceClient()
 
-    // Load user profile (for fcMax)
+    // Load user profile (for fcMax) AND the EXISTING runner_profile. This function
+    // still computes only the recent 56-day buckets / recovery / drift (legacy scope);
+    // the engine 2026.07-7 additionally reads bestEfforts / criticalSpeed / bestClimb /
+    // schemaVersion produced by the shared TS builder. We must therefore NEVER drop those
+    // fields when persisting a partial recompute (§3) — see the merge below.
     const { data: profileRow } = await supabase
       .from('profiles')
-      .select('fc_max')
+      .select('fc_max,runner_profile')
       .eq('id', user.id)
       .single()
+
+    const existingProfile =
+      ((profileRow as { runner_profile?: Record<string, unknown> } | null)?.runner_profile) ?? null
 
     const fcMax: number = (profileRow as { fc_max?: number } | null)?.fc_max ?? 190
 
@@ -778,7 +785,7 @@ Deno.serve(async (req: Request) => {
     // ── Build final profile ───────────────────────────────────────────────────
 
     const computedAt = new Date().toISOString()
-    const runnerProfile = {
+    const computedFields = {
       computedAt,
       periodDays: 56,
       activitiesAnalyzed: activities.length,
@@ -796,20 +803,46 @@ Deno.serve(async (req: Request) => {
       hrDriftStatus,
     }
 
-    // Persist to profiles table
+    // ── Non-destructive persistence (§3) ──────────────────────────────────────
+    // This legacy function does NOT (yet) produce the engine-critical fields
+    // (bestEfforts / criticalSpeed / bestClimb) nor the schema header. Overwriting the
+    // whole profile would silently strip those fields and break durability/diagnostics
+    // for anyone whose profile was previously built by the shared TS builder. We MERGE:
+    // freshly recomputed recent fields win; every other field the existing profile
+    // carried (records, schema header, …) is preserved untouched.
+    const PRESERVE_KEYS = [
+      'schemaVersion', 'asOfAt', 'historyDays', 'detailedProfileDays',
+      'bestEfforts', 'criticalSpeed', 'bestClimb',
+      'postClimbRecoveryByBucket', 'postDownhillRecoveryByBucket',
+      'downhillFatigue', 'conditionPenalties', 'technicalDescent', 'analyzedMonths',
+    ]
+    const preserved: Record<string, unknown> = {}
+    if (existingProfile) {
+      for (const k of PRESERVE_KEYS) {
+        if (k in existingProfile) preserved[k] = existingProfile[k]
+      }
+    }
+    const runnerProfile: Record<string, unknown> = { ...preserved, ...computedFields }
+
+    // Persist to profiles table. NOTE: runner_profile_at reflects this partial recompute;
+    // the shared TS builder is still authoritative for the engine-critical fields.
     await supabase
       .from('profiles')
       .upsert({
         id: user.id,
-        runner_profile: runnerProfile as unknown as Record<string, unknown>,
+        runner_profile: runnerProfile,
         runner_profile_at: computedAt,
         updated_at: computedAt,
       })
 
-    return new Response(JSON.stringify({ ok: true, profile: runnerProfile }), {
-      status: 200,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        profile: runnerProfile,
+        preserved_fields: Object.keys(preserved),
+      }),
+      { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } },
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     const status = msg === 'Unauthorized' ? 401 : 500

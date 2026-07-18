@@ -13,6 +13,8 @@ import {
 } from './bestEfforts'
 import { computeCriticalSpeed, type Effort } from './criticalSpeed'
 import { fetchActivityWeather } from './weather'
+import { buildProfileSchemaMeta } from './runnerProfileSchema'
+import { ENGINE_HISTORY_DAYS, RUNNER_PROFILE_WINDOW_DAYS } from './engineHistory'
 import {
   getGradeBucket,
   getBucketType,
@@ -114,7 +116,11 @@ export async function buildRunnerProfile(
     if (!altitude || !velocity || time.length < 5) continue
 
     // Records AUTO (toutes sorties) + meilleure ascension, depuis ces mêmes streams.
-    const be = extractBestEfforts(streams)
+    const be = extractBestEfforts(streams, {
+      activityId: act.strava_activity_id,
+      activityDate: act.start_date ?? null,
+      sportType: act.sport_type ?? act.type ?? null,
+    })
     if (be) {
       bestEffortRecordsPerAct.push(be.records)
       for (const e of be.criticalSpeedEfforts) {
@@ -763,8 +769,13 @@ export async function buildRunnerProfile(
     .map(([T, distM]) => ({ distM, timeSec: T }))
   const criticalSpeed = computeCriticalSpeed(csEfforts)
 
+  const nowIso = new Date().toISOString()
   return {
-    _computedAt: new Date().toISOString(),
+    ...buildProfileSchemaMeta({
+      historyDays: ENGINE_HISTORY_DAYS,
+      detailedProfileDays: RUNNER_PROFILE_WINDOW_DAYS,
+    }),
+    _computedAt: nowIso,
     bestEfforts,
     criticalSpeed,
     bestClimb: bestClimbOverall,

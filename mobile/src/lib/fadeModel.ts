@@ -16,10 +16,20 @@ export interface FadeEffort {
   distM: number
   /** Temps de l'effort (s). */
   timeSec: number
+  /**
+   * Provenance : identifiant (pseudonymisé) de l'activité source. Sert à compter les
+   * activités DISTINCTES — trois distances extraites d'UNE SEULE sortie ne prouvent pas
+   * une vraie courbe d'endurance (cf. `distinctActivityCount`). Absent → l'effort est
+   * compté comme provenant d'une activité distincte (provenance inconnue).
+   */
+  activityId?: string | number
 }
 
+/** Niveau de confiance du modèle de durabilité (garde-fou d'activation). */
+export type FadeConfidence = 'none' | 'low' | 'medium' | 'high'
+
 export interface FadeModelResult {
-  /** Exposant d'endurance personnel (loi de Riegel). */
+  /** Exposant d'endurance personnel (loi de Riegel). Défaut si confiance < medium. */
   exponent: number
   /** Effort de référence retenu (le plus long fiable) pour projeter par la loi. */
   reference: FadeEffort | null
@@ -29,7 +39,19 @@ export interface FadeModelResult {
   r2: number
   /** Rapport distance max / min (étalement) — la régression exige un vrai écart. */
   spreadRatio: number
-  reason: 'personal' | 'insufficient_data' | 'insufficient_spread'
+  /** Nombre d'activités DISTINCTES ayant fourni les efforts (garde-fou anti-mono-sortie). */
+  distinctActivityCount: number
+  /**
+   * Confiance dans l'exposant appris. Le moteur n'active la durabilité personnelle que
+   * pour `medium` ou `high` — jamais sur `none`/`low` (cf. §6).
+   */
+  confidence: FadeConfidence
+  reason:
+    | 'personal'
+    | 'insufficient_data'
+    | 'insufficient_spread'
+    | 'insufficient_activities'
+    | 'low_r2'
 }
 
 export interface FadeModelOptions {
@@ -37,7 +59,7 @@ export interface FadeModelOptions {
   defaultExponent?: number
   /** Minimum d'efforts pour apprendre un exposant personnel (défaut 3). */
   minEfforts?: number
-  /** Étalement minimal de distance (max/min) pour une régression fiable (défaut 1.6). */
+  /** Étalement minimal de distance (max/min) pour tenter une régression (défaut 1.8). */
   minSpreadRatio?: number
   /** Bornes de l'exposant appris (anti-aberration). */
   minExponent?: number
@@ -47,9 +69,28 @@ export interface FadeModelOptions {
 const DEFAULTS: Required<FadeModelOptions> = {
   defaultExponent: 1.06,
   minEfforts: 3,
-  minSpreadRatio: 1.6,
+  minSpreadRatio: 1.8,
   minExponent: 1.01,
   maxExponent: 1.2,
+}
+
+/**
+ * Seuils d'activation de la durabilité personnelle (§6). Justification : une régression
+ * log-log n'est crédible que si elle repose sur (a) assez de points, (b) provenant de
+ * plusieurs sorties distinctes — sinon on ajuste le bruit d'une seule course —, (c) un
+ * étalement de distance réel et (d) un R² élevé. Ces seuils NE sont PAS calibrés sur le
+ * benchmark : ce sont des garde-fous statistiques conservateurs.
+ */
+export const FADE_CONFIDENCE_RULES = {
+  high: { minEfforts: 4, minDistinctActivities: 3, minSpreadRatio: 3, minR2: 0.95 },
+  medium: { minEfforts: 3, minDistinctActivities: 2, minSpreadRatio: 1.8, minR2: 0.9 },
+} as const
+
+/** Compte les activités distinctes (provenance inconnue = comptée comme distincte). */
+function countDistinctActivities(pts: FadeEffort[]): number {
+  const seen = new Set<string>()
+  pts.forEach((e, i) => seen.add(e.activityId != null ? `id:${e.activityId}` : `idx:${i}`))
+  return seen.size
 }
 
 /** Distance marathon (m) — au-delà, on ajoute une pénalité ultra progressive. */
@@ -67,13 +108,16 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
   const reference = pts.length
     ? pts.reduce((best, e) => (e.distM > best.distM ? e : best), pts[0])
     : null
+  const distinctActivityCount = countDistinctActivities(pts)
+
+  const base = { reference, distinctActivityCount }
 
   if (pts.length < o.minEfforts) {
-    return { exponent: o.defaultExponent, reference, n: pts.length, r2: 0, spreadRatio: spread(pts), reason: 'insufficient_data' }
+    return { ...base, exponent: o.defaultExponent, n: pts.length, r2: 0, spreadRatio: spread(pts), confidence: 'none', reason: 'insufficient_data' }
   }
   const sr = spread(pts)
   if (sr < o.minSpreadRatio) {
-    return { exponent: o.defaultExponent, reference, n: pts.length, r2: 0, spreadRatio: sr, reason: 'insufficient_spread' }
+    return { ...base, exponent: o.defaultExponent, n: pts.length, r2: 0, spreadRatio: +sr.toFixed(2), confidence: 'none', reason: 'insufficient_spread' }
   }
 
   const xs = pts.map((e) => Math.log(e.distM))
@@ -88,12 +132,12 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
     sxy += (xs[i] - xbar) * (ys[i] - ybar)
   }
   if (sxx <= 0) {
-    return { exponent: o.defaultExponent, reference, n, r2: 0, spreadRatio: sr, reason: 'insufficient_spread' }
+    return { ...base, exponent: o.defaultExponent, n, r2: 0, spreadRatio: +sr.toFixed(2), confidence: 'none', reason: 'insufficient_spread' }
   }
   const slope = sxy / sxx
-  const exponent = clamp(slope, o.minExponent, o.maxExponent)
+  const fittedExponent = +clamp(slope, o.minExponent, o.maxExponent).toFixed(4)
 
-  // R² pour la confiance.
+  // R² : garde-fou de qualité de la régression (auparavant calculé mais inutilisé).
   let ssTot = 0
   let ssRes = 0
   const intercept = ybar - slope * xbar
@@ -102,9 +146,32 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
     ssRes += (ys[i] - pred) ** 2
     ssTot += (ys[i] - ybar) ** 2
   }
-  const r2 = ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 0
+  const r2 = +(ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 0).toFixed(3)
+  const srRounded = +sr.toFixed(2)
 
-  return { exponent: +exponent.toFixed(4), reference, n, r2: +r2.toFixed(3), spreadRatio: +sr.toFixed(2), reason: 'personal' }
+  // Confiance : deux paliers (high/medium) ; sinon on n'active PAS la durabilité perso.
+  const H = FADE_CONFIDENCE_RULES.high
+  const M = FADE_CONFIDENCE_RULES.medium
+  let confidence: FadeConfidence
+  if (n >= H.minEfforts && distinctActivityCount >= H.minDistinctActivities && sr >= H.minSpreadRatio && r2 >= H.minR2) {
+    confidence = 'high'
+  } else if (n >= M.minEfforts && distinctActivityCount >= M.minDistinctActivities && sr >= M.minSpreadRatio && r2 >= M.minR2) {
+    confidence = 'medium'
+  } else {
+    confidence = 'low'
+  }
+
+  if (confidence === 'high' || confidence === 'medium') {
+    return { ...base, exponent: fittedExponent, n, r2, spreadRatio: srRounded, confidence, reason: 'personal' }
+  }
+
+  // Confiance insuffisante → exposant par défaut, aucune activation personnelle.
+  // On expose la vraie raison dominante pour l'explicabilité/diagnostic.
+  const reason: FadeModelResult['reason'] =
+    r2 < M.minR2 ? 'low_r2'
+    : distinctActivityCount < M.minDistinctActivities ? 'insufficient_activities'
+    : 'insufficient_spread'
+  return { ...base, exponent: o.defaultExponent, n, r2, spreadRatio: srRounded, confidence, reason }
 }
 
 /**
