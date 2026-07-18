@@ -477,4 +477,6 @@ export interface RunnerProfileComputed {
   criticalSpeed?: import('./criticalSpeed').CriticalSpeedResult | null
   /** Meilleure ascension détectée (VAM), record de trail. */
   bestClimb?: import('./bestEfforts').ClimbEffort | null
+  /** Courbe verticale : meilleure ascension par palier de D+ (100/300/500/1000 m). §11 */
+  bestClimbByTier?: Record<number, import('./bestEfforts').VerticalEffort>
 }

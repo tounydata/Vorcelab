@@ -70,6 +70,31 @@ recalculés gagnent, tout champ moteur/schéma préexistant est **préservé**. 
 `preserved_fields`. Ceci garantit qu'un recalcul ne supprime plus les records (test de
 non-régression côté TS : `bestEffortQuality` + `runnerProfileSchema`).
 
+## 5. Fatigue GLOBALE de montée v1 — clarification (§10)
+
+Le coefficient de fatigue intra-course (montées de plus en plus lentes à mesure que le D+
+s'accumule) est **global** (niveau population), pas personnel. Renommé
+`GLOBAL_CLIMB_FATIGUE_V1_*` avec un commentaire explicite pour ne pas le confondre avec la
+durabilité personnelle (fadeModel) ni les buckets appris. **Valeurs inchangées** (0.09 / 1000 m,
+plafond 0.18) — aucune hausse dans cette PR.
+
+Diagnostics ajoutés (n'altèrent PAS le temps calculé) : `global_climb_fatigue_active`,
+`global_climb_fatigue_max_multiplier` (borné à 1.18), `global_climb_fatigue_seconds_added`.
+
+> Limite honnête : le coefficient s'applique aujourd'hui au **chemin VAM** (bucket de montée
+> fiable). L'étendre au repli Minetti « sans profil » — pour que le fallback ne soit pas plus
+> optimiste que le profil personnalisé (§10) — **change les projections affichées** et exige
+> un run du benchmark ; laissé ouvert plutôt qu'appliqué sans mesure.
+
+## 6. Courbe verticale — extraction seule (§11)
+
+`extractVerticalEfforts(streams, source?)` : temps minimal (VAM max) pour grimper 100 / 300 /
+500 / 1000 m de D+ (équivalent « mean-max » vertical). Chaque effort conserve
+`ascent / duration / distance / VAM / grade / source / hasTimeGap`. Fusion multi-activités
+par `mergeVerticalEfforts` (meilleure VAM par palier). Stocké dans le profil
+(`bestClimbByTier`). **Non branché sur la projection centrale** (cf. §11) : fondation +
+tests uniquement.
+
 ## Ancienne vs nouvelle architecture (profil)
 
 ```
@@ -96,9 +121,6 @@ que « faits » de façon non vérifiée :
   depuis l'Edge Function (Deno) ; test de contrat commun aux 4 producteurs ; **déploiement**.
 - **§4/§5** : cache-first `activity_streams` avant Strava, diagnostics de cache, suppression
   du `.limit(30)`, pagination temporelle sur les deux fenêtres (183 / 56 j) côté Edge Func.
-- **§10** : renommer `CLIMB_FATIGUE_*` → `global_climb_fatigue_v1` + diagnostics (sans
-  augmenter les coefficients).
-- **§11** : extraire `bestClimb100m/300m/500m/1000m` (données uniquement, pas de branchement).
 - **§12–§17** : rapport moving+elapsed, couverture d'intervalles recalculée, baselines
   déterministes, bootstrap clusterisé (seed fixe), `evaluation_type`.
 - **§14/§23** : table `projection_validation_snapshots` + RLS `user_id = auth.uid()`
