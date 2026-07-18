@@ -27,8 +27,10 @@ import {
 } from './bestEfforts'
 
 /** Version du profil « d'époque » (buildRunnerProfileAtDate). À incrémenter si sa
- *  logique de calcul change. Reliée à chaque ligne du rapport. */
-export const PROFILE_VERSION = 'atDate-2026.07-1'
+ *  logique de calcul change. Reliée à chaque ligne du rapport.
+ *  atDate-2026.07-2 : records porteurs de provenance (§7) + garde-fous de confiance de
+ *  la durabilité personnelle (§6, R²/activités distinctes) → l'activation du fade change. */
+export const PROFILE_VERSION = 'atDate-2026.07-2'
 
 // ── Entrées ────────────────────────────────────────────────────────────────────
 

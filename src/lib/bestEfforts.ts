@@ -176,6 +176,30 @@ function bestDistanceForDuration(cumDist: number[], time: number[], T: number): 
   return best > 0 ? best : null
 }
 
+/**
+ * Provenance ANONYMISABLE d'un record (§7). Permet de tracer d'où vient chaque chrono
+ * (brut / GAP) sans jamais exposer l'identifiant réel de l'activité : `activityId` est
+ * destiné à être pseudonymisé (hash court) par le rapport avant publication.
+ */
+export interface BestEffortSource {
+  /** Identifiant (à pseudonymiser dans tout rapport) de l'activité source. */
+  activityId: string | number
+  /** Date de l'activité source (ISO) — sert au diagnostic, pas à identifier l'athlète. */
+  activityDate: string
+  /** Type de sport de l'activité source (Run / TrailRun…). */
+  sportType: string
+  /** Chrono BRUT sur la distance (s). */
+  rawTimeSec: number
+  /** Chrono « équivalent plat » (GAP) sur la distance (s). */
+  gapTimeSec: number
+  /** Perf brute nettement aidée par la descente → suspecte comme record « propre ». */
+  suspectDownhill: boolean
+  /** L'activité présente-t-elle un gros trou temporel (pause / arrêt) ? */
+  hasTimeGap: boolean
+  /** Couverture altimétrique (0..100 %) — <100 % = GAP moins fiable sur cette sortie. */
+  altitudeCoveragePct: number
+}
+
 export interface BestEffortRecord {
   distanceM: number
   /** Meilleur temps « équivalent plat » (GAP) — la perf JUSTE, comparable entre parcours. */
@@ -186,6 +210,8 @@ export interface BestEffortRecord {
   rawAvgGrade: number
   /** Vrai si la perf brute est nettement en descente → suspecte comme « record propre ». */
   suspectDownhill: boolean
+  /** Provenance anonymisable (renseignée quand l'appelant fournit `source`). */
+  source?: BestEffortSource
 }
 
 export interface ExtractedBestEfforts {
@@ -200,12 +226,31 @@ export interface ExtractedBestEfforts {
  * plat, avec repérage des descentes) et les efforts par durée (pour la vitesse critique).
  * Rejette les fenêtres à vitesse invraisemblable (artefacts GPS).
  */
-export function extractBestEfforts(streams: BestEffortStreams): ExtractedBestEfforts | null {
+export interface BestEffortSourceMeta {
+  activityId: string | number
+  activityDate?: string | null
+  sportType?: string | null
+}
+
+export function extractBestEfforts(
+  streams: BestEffortStreams,
+  sourceMeta?: BestEffortSourceMeta,
+): ExtractedBestEfforts | null {
   const c = buildCleanStreams(streams)
   if (!c) return null
   const { time, distance, gapDistance } = c
   const totalRaw = distance[distance.length - 1] - distance[0]
   const altGain = gapDistance[gapDistance.length - 1] // borne indicative
+
+  // ── Qualité de l'activité (provenance) : trous temporels + couverture altimétrique.
+  // Un gros trou de temps (auto-pause, arrêt) invalide la continuité d'un « record ».
+  let hasTimeGap = false
+  for (let i = 1; i < time.length; i++) {
+    if (time[i] - time[i - 1] > 20) { hasTimeGap = true; break }
+  }
+  const rawAlt = toNumArray(streams.altitude)
+  const altFinite = rawAlt.slice(0, c.n).filter((x) => Number.isFinite(x)).length
+  const altitudeCoveragePct = c.n > 0 ? +((altFinite / c.n) * 100).toFixed(1) : 0
 
   const records: BestEffortRecord[] = []
   for (const D of RUN_BENCHMARK_DISTANCES_M) {
@@ -227,12 +272,25 @@ export function extractBestEfforts(streams: BestEffortStreams): ExtractedBestEff
     const suspectDownhill = gradeProxy < SUSPECT_DOWNHILL_GRADE
     void endD
     void altGain
+    const source: BestEffortSource | undefined = sourceMeta
+      ? {
+          activityId: sourceMeta.activityId,
+          activityDate: sourceMeta.activityDate ?? '',
+          sportType: String(sourceMeta.sportType ?? ''),
+          rawTimeSec: raw.timeSec,
+          gapTimeSec,
+          suspectDownhill,
+          hasTimeGap,
+          altitudeCoveragePct,
+        }
+      : undefined
     records.push({
       distanceM: D,
       gapTimeSec,
       rawTimeSec: raw.timeSec,
       rawAvgGrade: +gradeProxy.toFixed(4),
       suspectDownhill,
+      ...(source ? { source } : {}),
     })
   }
 
@@ -259,6 +317,70 @@ export interface MergedBestEffort {
   /** Meilleure perf « équivalent plat » (peut venir d'une AUTRE sortie) — sert au moteur
    *  pour prédire équitablement une course au profil différent. */
   gapTimeSec: number
+  /** Provenance du CHRONO BRUT retenu (§7) — renseignée si les records portaient `source`. */
+  rawSource?: BestEffortSource
+  /** Provenance de la valeur GAP retenue (peut différer du brut) — §7. */
+  gapSource?: BestEffortSource
+}
+
+/** Résultat d'évaluation de la qualité d'un record pour la durabilité personnelle (§8). */
+export interface BestEffortQuality {
+  /** Le record peut-il ALIMENTER librement l'exposant de durabilité personnel ? */
+  eligibleForFade: boolean
+  /** Poids robuste (0..1) — dépondération douce plutôt que rejet brutal quand pertinent. */
+  weight: number
+  /** Raisons machine de la dépondération / exclusion (explicabilité). */
+  reasons: string[]
+}
+
+// Seuils de qualité (§8). Conservateurs, non calibrés sur le benchmark.
+const QUALITY = {
+  minAltitudeCoveragePct: 80,
+  suspectDownhillWeight: 0.3,
+  timeGapWeight: 0.4,
+  lowAltitudeWeight: 0.5,
+  nonRunWeight: 0,
+  eligibilityFloor: 0.5,
+  speedHardMax: SPEED_HARD_MAX,
+} as const
+
+/**
+ * Évalue la qualité d'un record (§8) : plutôt que de filtrer brutalement, on DÉPONDÈRE.
+ * Un record en descente suspecte, avec trou temporel, à couverture altimétrique faible,
+ * à vitesse invraisemblable, ou hors course à pied/trail voit son poids réduit et n'est
+ * plus éligible à activer LIBREMENT la durabilité personnelle (`eligibleForFade`).
+ */
+export function assessBestEffortQuality(
+  record: Pick<MergedBestEffort, 'distanceM' | 'gapTimeSec' | 'rawFromDownhill' | 'gapSource'>,
+): BestEffortQuality {
+  const reasons: string[] = []
+  let weight = 1
+  const src = record.gapSource
+
+  // Vitesse invraisemblable (équivalent plat) → artefact GPS.
+  if (record.gapTimeSec > 0 && record.distanceM / record.gapTimeSec > QUALITY.speedHardMax) {
+    reasons.push('implausible_speed')
+    weight = 0
+  }
+  // Descente suspecte : le record peut être « aidé » — on ne l'interdit pas mais on le pèse.
+  if (record.rawFromDownhill || src?.suspectDownhill) {
+    reasons.push('suspect_downhill')
+    weight = Math.min(weight, QUALITY.suspectDownhillWeight)
+  }
+  if (src?.hasTimeGap) {
+    reasons.push('time_gap')
+    weight = Math.min(weight, QUALITY.timeGapWeight)
+  }
+  if (src && src.altitudeCoveragePct < QUALITY.minAltitudeCoveragePct) {
+    reasons.push('low_altitude_coverage')
+    weight = Math.min(weight, QUALITY.lowAltitudeWeight)
+  }
+  if (src && src.sportType && !RUN_SPORTS_LC.has(src.sportType.toLowerCase())) {
+    reasons.push('non_running_sport')
+    weight = QUALITY.nonRunWeight
+  }
+
+  return { eligibleForFade: weight >= QUALITY.eligibilityFloor, weight: +weight.toFixed(3), reasons }
 }
 
 /**
@@ -280,6 +402,7 @@ export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number,
           rawTimeSec: r.rawTimeSec,
           rawFromDownhill: r.suspectDownhill,
           gapTimeSec: r.gapTimeSec,
+          ...(r.source ? { rawSource: r.source, gapSource: r.source } : {}),
         })
         continue
       }
@@ -287,9 +410,13 @@ export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number,
       if (r.rawTimeSec < cur.rawTimeSec) {
         cur.rawTimeSec = r.rawTimeSec
         cur.rawFromDownhill = r.suspectDownhill
+        if (r.source) cur.rawSource = r.source
       }
       // Valeur équivalent-plat = meilleure indépendamment (pour la prédiction équitable).
-      if (r.gapTimeSec < cur.gapTimeSec) cur.gapTimeSec = r.gapTimeSec
+      if (r.gapTimeSec < cur.gapTimeSec) {
+        cur.gapTimeSec = r.gapTimeSec
+        if (r.source) cur.gapSource = r.source
+      }
     }
   }
   return best
@@ -431,7 +558,11 @@ export function buildAthleteBestEfforts(
     if (!RUN_SPORTS_LC.has(sport)) continue
     const streams = streamsById[String(a.strava_activity_id)]
     if (!streams) continue
-    const ext = extractBestEfforts(streams)
+    const ext = extractBestEfforts(streams, {
+      activityId: a.strava_activity_id,
+      activityDate: a.start_date ?? null,
+      sportType: a.sport_type ?? a.type ?? null,
+    })
     if (!ext) continue
     used++
     perActivityRecords.push(ext.records)

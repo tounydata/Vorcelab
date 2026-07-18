@@ -420,7 +420,17 @@ export interface BucketStats {
 // ─── Full profile type ────────────────────────────────────────────────────────
 
 export interface RunnerProfileComputed {
-  /** Computed at timestamp */
+  /** Version du schéma du profil (cf. RUNNER_PROFILE_SCHEMA_VERSION). */
+  schemaVersion?: string
+  /** Instant du calcul (ISO) — provenance explicite exigée par le schéma courant. */
+  computedAt?: string
+  /** Horloge de référence (ISO) : « à la date de » — égale computedAt en production. */
+  asOfAt?: string
+  /** Fenêtre d'historique moteur en jours (ENGINE_HISTORY_DAYS = 183). */
+  historyDays?: number
+  /** Fenêtre du profil détaillé récent en jours (RUNNER_PROFILE_WINDOW_DAYS = 56). */
+  detailedProfileDays?: number
+  /** Computed at timestamp (legacy — conservé pour compat ; = computedAt). */
   _computedAt: string
   /** FCmax used for computation */
   fcMax: number
