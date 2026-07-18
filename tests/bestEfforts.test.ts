@@ -85,7 +85,7 @@ describe('garde-fous anti-faux-records', () => {
   })
 })
 
-describe('mergeBestEfforts — garde le meilleur, préfère les perfs propres', () => {
+describe('mergeBestEfforts — on ne jette RIEN (record réel + valeur équivalent-plat)', () => {
   const mk = (D: number, gap: number, raw: number, suspect: boolean): BestEffortRecord => ({
     distanceM: D,
     gapTimeSec: gap,
@@ -94,15 +94,21 @@ describe('mergeBestEfforts — garde le meilleur, préfère les perfs propres', 
     suspectDownhill: suspect,
   })
 
-  it('garde le meilleur temps entre deux sorties', () => {
+  it('garde le meilleur chrono réel entre deux sorties', () => {
     const m = mergeBestEfforts([[mk(10000, 2600, 2600, false)], [mk(10000, 2500, 2500, false)]])
-    expect(m.get(10000)!.gapTimeSec).toBe(2500)
+    expect(m.get(10000)!.rawTimeSec).toBe(2500)
   })
 
-  it('une perf propre bat une perf suspecte plus rapide', () => {
-    const m = mergeBestEfforts([[mk(10000, 2400, 2200, true)], [mk(10000, 2500, 2500, false)]])
-    expect(m.get(10000)!.suspectDownhill).toBe(false)
-    expect(m.get(10000)!.gapTimeSec).toBe(2500)
+  it('un 10 km en descente plus rapide RESTE le record réel (il compte !)', () => {
+    // Sortie A : 10 km en descente en 2200 s (record réel, mais aidé).
+    // Sortie B : 10 km à plat en 2500 s.
+    const m = mergeBestEfforts([[mk(10000, 2750, 2200, true)], [mk(10000, 2500, 2500, false)]])
+    const r = m.get(10000)!
+    // Le record réel = le meilleur chrono = 2200 (la descente compte).
+    expect(r.rawTimeSec).toBe(2200)
+    expect(r.rawFromDownhill).toBe(true)
+    // Mais la valeur « équivalent plat » retenue est la meilleure des deux (2500 plat).
+    expect(r.gapTimeSec).toBe(2500)
   })
 })
 

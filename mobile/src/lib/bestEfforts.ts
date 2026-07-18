@@ -249,25 +249,47 @@ export function extractBestEfforts(streams: BestEffortStreams): ExtractedBestEff
   return { records, criticalSpeedEfforts }
 }
 
+/** Record fusionné par distance : le vrai chrono ET la valeur « équivalent plat ». */
+export interface MergedBestEffort {
+  distanceM: number
+  /** TON RECORD RÉEL : meilleur chrono terrain, descente comprise — il compte toujours. */
+  rawTimeSec: number
+  /** Info : ce record réel était-il aidé par une descente marquée ? (jamais « jeté »). */
+  rawFromDownhill: boolean
+  /** Meilleure perf « équivalent plat » (peut venir d'une AUTRE sortie) — sert au moteur
+   *  pour prédire équitablement une course au profil différent. */
+  gapTimeSec: number
+}
+
 /**
- * Fusionne les records de plusieurs activités : garde le MEILLEUR temps (le plus petit)
- * par distance. On compare sur l'équivalent plat (GAP) — la perf juste. Les perfs
- * suspectes (descente) ne peuvent gagner que si aucune perf propre n'existe.
+ * Fusionne les records de plusieurs activités. On NE JETTE RIEN :
+ *   • `rawTimeSec` = le meilleur CHRONO RÉEL sur la distance (une descente qui bat ton
+ *     temps EST ton record, elle compte) ;
+ *   • `gapTimeSec` = la meilleure perf « équivalent plat » (indépendante), que le moteur
+ *     utilise seulement pour prédire une course d'un autre profil.
+ * Les deux peuvent provenir de sorties différentes — c'est voulu.
  */
-export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number, BestEffortRecord> {
-  const best = new Map<number, BestEffortRecord>()
+export function mergeBestEfforts(perActivity: BestEffortRecord[][]): Map<number, MergedBestEffort> {
+  const best = new Map<number, MergedBestEffort>()
   for (const list of perActivity) {
     for (const r of list) {
       const cur = best.get(r.distanceM)
       if (!cur) {
-        best.set(r.distanceM, r)
+        best.set(r.distanceM, {
+          distanceM: r.distanceM,
+          rawTimeSec: r.rawTimeSec,
+          rawFromDownhill: r.suspectDownhill,
+          gapTimeSec: r.gapTimeSec,
+        })
         continue
       }
-      // Une perf propre bat une suspecte ; sinon on garde le meilleur temps GAP.
-      const curClean = !cur.suspectDownhill
-      const rClean = !r.suspectDownhill
-      if (rClean && !curClean) best.set(r.distanceM, r)
-      else if (rClean === curClean && r.gapTimeSec < cur.gapTimeSec) best.set(r.distanceM, r)
+      // Record réel = meilleur chrono, quel que soit le profil (descente comprise).
+      if (r.rawTimeSec < cur.rawTimeSec) {
+        cur.rawTimeSec = r.rawTimeSec
+        cur.rawFromDownhill = r.suspectDownhill
+      }
+      // Valeur équivalent-plat = meilleure indépendamment (pour la prédiction équitable).
+      if (r.gapTimeSec < cur.gapTimeSec) cur.gapTimeSec = r.gapTimeSec
     }
   }
   return best
