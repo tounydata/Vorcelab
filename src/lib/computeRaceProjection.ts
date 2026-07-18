@@ -233,21 +233,11 @@ export function computeRaceProjection(
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
 
   // Records AUTO détectés depuis les streams de TOUTES tes sorties (pas seulement les
-  // courses étiquetées), fournis par le profil s'ils ont été calculés. On utilise la
-  // valeur « équivalent plat » (gapTimeSec) — comparable d'un profil à l'autre. ABSENT
-  // en production tant que le profil ne les calcule pas → projection strictement inchangée.
+  // courses étiquetées), fournis par le profil s'ils ont été calculés. Servent à la
+  // DURABILITÉ (courbe → exposant d'endurance) et à l'affichage des records — PAS à
+  // l'allure (le benchmark a montré que ça la dégrade). Cf. streamPrs plus bas.
   const streamBestEfforts =
     ((profile.runner_profile as { bestEfforts?: MergedBestEffort[] } | undefined)?.bestEfforts) ?? []
-  // Correspondance distance repère → clé de PR utilisée par l'allure route.
-  const BEST_EFFORT_PR_KEY: Record<number, string> = {
-    5000: '5k', 10000: '10k', 20000: '20k', 21097: 'semi', 42195: 'marathon',
-  }
-  const streamPrs: Record<string, { timeS: number; dist: number }> = {}
-  for (const rec of streamBestEfforts) {
-    const key = BEST_EFFORT_PR_KEY[rec.distanceM]
-    if (key) streamPrs[key] = { timeS: rec.gapTimeSec, dist: rec.distanceM }
-  }
-  const usedStreamPrs = Object.keys(streamPrs).length > 0
 
   // Durabilité INTER-distances (Étape 2) : exposant d'endurance PERSONNEL appris sur ta
   // courbe de meilleures perfs (valeur équivalent-plat). Remplace l'exposant fixe du fade
@@ -307,10 +297,10 @@ export function computeRaceProjection(
     // deriveAutoPrs : `nowMs` = horloge historique (banc) pour une récence des PR
     // calculée par rapport à la course rejouée, pas à l'exécution du script.
     const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0], asOfMs)
-    // Priorité : records auto (toutes sorties, streams) > PR de courses étiquetées (résumés)
-    // < PR MANUELS saisis (toujours prioritaires). Les records auto élargissent la base à
-    // TOUTES tes sorties sans dépendre de l'étiquette « course ».
-    const prs = { ...(autoPrs ?? {}), ...streamPrs, ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
+    // NOTE (benchmark réel) : alimenter l'allure route avec les records auto (streams)
+    // DÉGRADE la précision (route 4.6 %→6.3 % en A/B). On ne les utilise donc PAS pour
+    // l'allure — seulement pour la DURABILITÉ et l'affichage des records.
+    const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
     const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
     if (candidates.length) {
       const pr = prs[candidates[0]]
@@ -1102,7 +1092,7 @@ export function computeRaceProjection(
       ? +steepnessCalibration.spread.toFixed(1)
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
-    used_stream_best_efforts: usedStreamPrs && !isTrail,
+    used_stream_best_efforts: false, // records auto non utilisés pour l'allure (cf. benchmark)
     used_personal_fade: usePersonalFade,
     personal_fade_exponent: usePersonalFade ? personalFade.exponent : null,
   }
