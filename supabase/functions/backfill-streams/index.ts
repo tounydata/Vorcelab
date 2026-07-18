@@ -25,6 +25,9 @@ const RUN_TYPES = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualru
 // le moteur, pas la conservation en base. Deno ne peut pas importer la constante TS ;
 // cette valeur est volontairement un SUR-ensemble, pas un doublon de la fenêtre moteur.
 const DEFAULT_SINCE_DAYS = 190 // ≥ 183 (six mois moteur) + marge
+// Fenêtre MOTEUR (= ENGINE_HISTORY_DAYS dans src/lib/engineHistory.ts). Deno ne peut
+// pas importer la constante TS ; gardée synchrone avec l'app (source unique côté app).
+const ENGINE_HISTORY_DAYS = 183
 const MAX_CALLS_PER_RUN = 80   // marge sous le quota Strava (100 / 15 min)
 const SLEEP_MS = 250
 
@@ -106,16 +109,24 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = (await req.json().catch(() => ({}))) as { sinceDays?: number; maxCalls?: number }
+    // Fenêtre de CACHE (rattrapage des streams) : 190 j par défaut, avec marge.
     const sinceDays = Math.max(30, body.sinceDays ?? DEFAULT_SINCE_DAYS)
     const budget = Math.min(MAX_CALLS_PER_RUN, Math.max(1, body.maxCalls ?? MAX_CALLS_PER_RUN))
     const cutoffISO = new Date(Date.now() - sinceDays * 86_400_000).toISOString()
+
+    // Fenêtre MOTEUR (six mois = ENGINE_HISTORY_DAYS dans src/lib/engineHistory.ts,
+    // non importable en Deno) : le DIAGNOSTIC de couverture doit refléter ce que le
+    // moteur consomme réellement (183 j), pas la fenêtre de cache plus large (190 j).
+    // Bornée par la fenêtre réellement chargée si `sinceDays` est plus court.
+    const engineWindowDays = Math.min(ENGINE_HISTORY_DAYS, sinceDays)
+    const engineCutoffISO = new Date(Date.now() - engineWindowDays * 86_400_000).toISOString()
 
     const { data: tokenRows } = await supabase.from('strava_tokens').select('user_id')
     const userIds = (tokenRows ?? []).map((r: { user_id: string }) => r.user_id)
 
     type Work = { userId: string; activityId: number; date: string }
     const work: Work[] = []
-    // Diagnostic de couverture des six derniers mois (comptage LECTURE SEULE).
+    // Diagnostic de couverture de la FENÊTRE MOTEUR (183 j, comptage LECTURE SEULE).
     let sixMonthAll = 0, sixMonthRunning = 0, sixMonthOther = 0, sixMonthRunsWithStreams = 0
     for (const userId of userIds) {
       const { data: acts } = await supabase.from('strava_activities')
@@ -124,11 +135,16 @@ Deno.serve(async (req: Request) => {
       const { data: cachedRows } = await supabase.from('activity_streams').select('activity_id').eq('user_id', userId)
       const cachedSet = new Set((cachedRows ?? []).map((r: { activity_id: number }) => String(r.activity_id)))
       for (const a of (acts ?? []) as Array<{ strava_activity_id: number; type?: string; sport_type?: string; start_date: string }>) {
+        const cached = cachedSet.has(String(a.strava_activity_id))
+        // Le RATTRAPAGE couvre toute la fenêtre de cache (190 j) : streams running non
+        // encore en cache → à récupérer (marge incluse).
+        if (isRun(a) && !cached) work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+        // Le DIAGNOSTIC ne compte que la fenêtre MOTEUR (183 j) : couverture honnête.
+        if (a.start_date < engineCutoffISO) continue
         sixMonthAll++
         if (isRun(a)) {
           sixMonthRunning++
-          if (cachedSet.has(String(a.strava_activity_id))) sixMonthRunsWithStreams++
-          else work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+          if (cached) sixMonthRunsWithStreams++
         } else {
           // Les autres sports restent exploitables via leurs résumés (streams non requis).
           sixMonthOther++
@@ -157,7 +173,10 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       ok: true, users: userIds.length, cached, empty, notFound, processed,
       remaining: remainingBefore - processed, rateLimited,
-      // Couverture des six derniers mois (streams priorisés sur running/trail).
+      // Fenêtres : cache (rattrapage, marge) vs moteur (diagnostic de couverture).
+      cache_window_days: sinceDays,
+      engine_history_days: engineWindowDays,
+      // Couverture de la FENÊTRE MOTEUR (183 j ; streams priorisés running/trail).
       six_month_activities_count: sixMonthAll,
       six_month_running_activities_count: sixMonthRunning,
       six_month_other_sport_activities_count: sixMonthOther,

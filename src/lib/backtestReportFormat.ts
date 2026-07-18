@@ -38,6 +38,7 @@ const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'historical_data_quality', 'stream_coverage', 'alt_coverage',
   'steepness_calibration_active', 'steepness_calibration_race_count',
   'steepness_calibration_spread_dplus_per_km', 'steepness_calibration_reason',
+  'auto_best_efforts_count', 'critical_speed_mps', 'used_stream_best_efforts', 'predicted_s_no_be',
   'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',
   'history_window_days', 'runner_profile_window_days',
@@ -112,6 +113,31 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push(`- Moyenne running/trail : **${smc.meanRunningActivities}** · runs avec streams : **${smc.meanRunsWithStreams}** · couverture streams : **${n1(smc.meanStreamCoveragePct)} %**`)
   out.push(`- Compétitions confirmées (ancrage) : **${smc.confirmedRaceAnchorCount}**`)
   out.push('> La fenêtre temporelle peut retourner **plus de 150 activités** pour un athlète très actif (la limite arbitraire `.limit(150)` a été retirée).')
+  out.push('')
+
+  // ── Records auto détectés depuis les streams (Étape 1) ────────────────────────
+  const roadRows = report.rows.filter((r) => r.sport === 'road')
+  const usedBE = roadRows.filter((r) => r.used_stream_best_efforts).length
+  const withCS = report.rows.filter((r) => r.critical_speed_mps != null)
+  const meanCS = withCS.length ? withCS.reduce((s, r) => s + (r.critical_speed_mps as number), 0) / withCS.length : NaN
+  const meanBE = report.rows.length ? report.rows.reduce((s, r) => s + r.auto_best_efforts_count, 0) / report.rows.length : 0
+  out.push('## Records auto (détectés depuis les streams, toutes sorties)')
+  out.push('')
+  out.push(`- Courses ROUTE s'appuyant sur des records auto : **${usedBE}/${roadRows.length}**`)
+  out.push(`- Records auto détectés en moyenne par course : **${meanBE.toFixed(1)}**`)
+  out.push(`- Vitesse critique estimée (moy.) : **${Number.isFinite(meanCS) ? meanCS.toFixed(2) + ' m/s' : '—'}** (sur ${withCS.length} courses)`)
+  out.push('')
+  // A/B déterministe : précision AVEC vs SANS les records auto (même run, mêmes données).
+  const ab = report.streamBestEffortsAB
+  if (ab.n > 0) {
+    const delta = ab.mapeElapsedWithoutPct - ab.mapeElapsedWithPct
+    const verdict = delta > 0 ? `**améliore** de ${delta.toFixed(2)} pt` : delta < 0 ? `**dégrade** de ${(-delta).toFixed(2)} pt` : 'neutre'
+    out.push(`- **A/B (${ab.n} courses)** — MAPE elapsed SANS records : **${n1(ab.mapeElapsedWithoutPct)} %** → AVEC : **${n1(ab.mapeElapsedWithPct)} %** (${verdict})`)
+    out.push(`  - MAE elapsed SANS : ${fmtHms(ab.maeElapsedWithoutS)} → AVEC : ${fmtHms(ab.maeElapsedWithS)}`)
+  } else {
+    out.push('- A/B records auto : aucune course n\'a utilisé de records auto (données insuffisantes).')
+  }
+  out.push('> Contrefactuel déterministe (même horloge, mêmes données) → isole l\'effet PROPRE des records, sans le confondre avec les autres changements du moteur.')
   out.push('')
 
   // ── Qualité de l'échantillon ──────────────────────────────────────────────────

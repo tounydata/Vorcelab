@@ -13,6 +13,8 @@ import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
+import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
+import type { MergedBestEffort } from './bestEfforts'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -108,6 +110,9 @@ export interface ProjectionResult {
   steepness_calibration_spread_dplus_per_km: number
   /** Code d'état de la calibration de pente (cf. SteepnessCalibrationResult.reason). */
   steepness_calibration_reason: SteepnessCalibrationResult['reason']
+  /** Vrai si l'allure s'est appuyée sur des records AUTO détectés depuis les streams
+   *  (toutes sorties), et non seulement sur des courses étiquetées / PR manuels. */
+  used_stream_best_efforts: boolean
 }
 
 export function computeRaceProjection(
@@ -204,11 +209,40 @@ export function computeRaceProjection(
     isTrail = totalDistM > 0 && (dplus / (totalDistM / 1000)) > 20
   }
 
+  // ── Séparation multisport de l'historique (décision produit) ────────────────
+  // La CHARGE GÉNÉRALE (fraîcheur / fatigue / ACWR) compte TOUTES les activités
+  // sportives éligibles : le cross-training (vélo, natation…) crée une fatigue réelle
+  // qui pèse sur la course, et le moteur en tient déjà compte (computeTrainingLoad
+  // applique un coefficient par famille de sport). Les signaux SPÉCIFIQUES au running
+  // (allure de base, VAM, PR, progression, FIC, ancrage, calibration de pente) restent
+  // calculés sur les seules activités course à pied / trail — chaque calcul filtre déjà
+  // en interne. Une sortie vélo n'alimente donc JAMAIS l'allure, la VAM ni les PR.
+  const loadActivities = selectActivitiesForTrainingLoad(
+    activities as unknown as EngineActivity[],
+  ) as unknown as Record<string, unknown>[]
+
   // ── 6. Base pace ──────────────────────────────────────────────────────────
   const profileAge = (typeof profile.age === 'number' ? profile.age : undefined) ?? ageFromBirthdate(profile.birthdate)
   const FC_MAX = resolveFcMax(profile.fc_max, activities, profileAge)
   const TRAIL_TYPES = ['TrailRun', 'Trail Run']
   const progressionFactor = computeProgressionFactor(activities as unknown as RaceActivity[], FC_MAX, isTrail)
+
+  // Records AUTO détectés depuis les streams de TOUTES tes sorties (pas seulement les
+  // courses étiquetées), fournis par le profil s'ils ont été calculés. On utilise la
+  // valeur « équivalent plat » (gapTimeSec) — comparable d'un profil à l'autre. ABSENT
+  // en production tant que le profil ne les calcule pas → projection strictement inchangée.
+  const streamBestEfforts =
+    ((profile.runner_profile as { bestEfforts?: MergedBestEffort[] } | undefined)?.bestEfforts) ?? []
+  // Correspondance distance repère → clé de PR utilisée par l'allure route.
+  const BEST_EFFORT_PR_KEY: Record<number, string> = {
+    5000: '5k', 10000: '10k', 20000: '20k', 21097: 'semi', 42195: 'marathon',
+  }
+  const streamPrs: Record<string, { timeS: number; dist: number }> = {}
+  for (const rec of streamBestEfforts) {
+    const key = BEST_EFFORT_PR_KEY[rec.distanceM]
+    if (key) streamPrs[key] = { timeS: rec.gapTimeSec, dist: rec.distanceM }
+  }
+  const usedStreamPrs = Object.keys(streamPrs).length > 0
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
@@ -259,7 +293,10 @@ export function computeRaceProjection(
     // deriveAutoPrs : `nowMs` = horloge historique (banc) pour une récence des PR
     // calculée par rapport à la course rejouée, pas à l'exécution du script.
     const autoPrs = deriveAutoPrs(activities as unknown as Parameters<typeof deriveAutoPrs>[0], asOfMs)
-    const prs = { ...(autoPrs ?? {}), ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
+    // Priorité : records auto (toutes sorties, streams) > PR de courses étiquetées (résumés)
+    // < PR MANUELS saisis (toujours prioritaires). Les records auto élargissent la base à
+    // TOUTES tes sorties sans dépendre de l'étiquette « course ».
+    const prs = { ...(autoPrs ?? {}), ...streamPrs, ...(manualPrs ?? {}) } as Record<string, { timeS: number; dist: number }>
     const candidates = ['semi', '10k', '15k', 'marathon', '5k'].filter((k) => prs[k]?.timeS && prs[k]?.dist)
     if (candidates.length) {
       const pr = prs[candidates[0]]
@@ -349,10 +386,13 @@ export function computeRaceProjection(
     if (g === 0) return 1
     return 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
   }
+  // Une activité ne nourrit le FIC, l'ancrage et la calibration de pente que si c'est
+  // une COMPÉTITION CONFIRMÉE (mêmes règles que le banc : running/trail, étiquetée course,
+  // distance/temps/vitesse plausibles, ni échauffement/décrassage/footing, ni pending).
+  // L'étiquette `is_race`/`workout_type=1` seule ne suffit PLUS (un footing étiqueté par
+  // erreur, un échauffement, un « à confirmer » ne doivent pas caler ta projection).
   function isRaceEffort(a: Record<string, unknown>): boolean {
-    if (a.is_race === true) return true // étiquette « course » Vorcelab (à venir)
-    const raw = a.raw_data as { workout_type?: unknown } | undefined
-    return raw?.workout_type === 1 || raw?.workout_type === '1' // Strava « Course »
+    return isEligiblePersonalCalibrationRace(a as unknown as EngineActivity)
   }
   function computeRaceIntensityFactor(): { factor: number; pct: number } {
     const flat = rBuckets?.flat
@@ -706,8 +746,8 @@ export function computeRaceProjection(
     }
   }
 
-  // ── 9. Freshness adjustment ────────────────────────────────────────────────
-  const freshness = computeFreshnessAdjustment(activities as unknown as RaceActivity[], FC_MAX, asOfMs)
+  // ── 9. Freshness adjustment (CHARGE GÉNÉRALE = tous sports éligibles) ───────
+  const freshness = computeFreshnessAdjustment(loadActivities as unknown as RaceActivity[], FC_MAX, asOfMs)
   if (freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
     personalAdjustments.push({
@@ -1044,5 +1084,6 @@ export function computeRaceProjection(
       ? +steepnessCalibration.spread.toFixed(1)
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
+    used_stream_best_efforts: usedStreamPrs && !isTrail,
   }
 }

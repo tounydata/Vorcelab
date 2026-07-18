@@ -27,7 +27,12 @@ import {
   type RaceCaseInput,
   type ValidationBreakdown,
 } from '../src/lib/realBacktest'
-import { RUNNER_PROFILE_WINDOW_DAYS } from '../src/lib/engineHistory'
+import { RUNNER_PROFILE_WINDOW_DAYS, ENGINE_HISTORY_DAYS } from '../src/lib/engineHistory'
+
+const RUN_TYPES_LC = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
+function isRunType(a: BacktestActivity): boolean {
+  return RUN_TYPES_LC.has(String(a.sport_type ?? a.type ?? '').toLowerCase())
+}
 import type { RawStreamSet } from '../src/lib/runnerProfileAtDate'
 import { toSummaryJson, toResultsCsv, toReportMarkdown } from '../src/lib/backtestReportFormat'
 import { ageFromBirthdate } from '../src/lib/fcMax'
@@ -196,17 +201,21 @@ async function loadFromSupabase(): Promise<LoadedData> {
     ageByUser[id] = ageVal ?? null
   }
 
-  // 3. Streams nécessaires : courses confirmées avec streams + activités antérieures
-  //    dans la fenêtre. On restreint le volume au strict nécessaire.
+  // 3. Streams nécessaires : courses confirmées + activités RUNNING antérieures sur la
+  //    fenêtre MOTEUR de six mois (ENGINE_HISTORY_DAYS). Les records auto (streams) ont
+  //    besoin de la mémoire longue ; le profil de pente n'utilise qu'un sous-ensemble
+  //    (56 j) des mêmes streams. Seules les activités course à pied/trail ont besoin de
+  //    streams (profil + records) → on ne charge pas les autres sports.
   const candidates = activities.filter(isRaceCandidate)
   const confirmed = candidates.filter((a) => validateRaceCandidate(toValidationInput(a)).status === 'confirmed')
   const neededIds = new Set<string>()
   for (const race of confirmed) {
     neededIds.add(String(race.strava_activity_id))
     const start = Date.parse(race.start_date)
-    const lo = start - WINDOW_DAYS * 86_400_000
+    const lo = start - ENGINE_HISTORY_DAYS * 86_400_000
     for (const a of activities) {
       if (a.user_id !== race.user_id) continue
+      if (!isRunType(a)) continue
       const d = Date.parse(a.start_date)
       if (d < start && d >= lo) neededIds.add(String(a.strava_activity_id))
     }
