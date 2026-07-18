@@ -187,6 +187,8 @@ export interface BacktestRow {
   auto_best_efforts_count: number
   critical_speed_mps: number | null
   used_stream_best_efforts: boolean
+  /** Temps projeté SANS records auto (contrefactuel A/B) — = predicted_s si non utilisés. */
+  predicted_s_no_be: number
   // ── Sources réellement utilisées ─────────────────────────────────────────────
   used_fallback: boolean
   fallback_sources: string[]
@@ -421,14 +423,31 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
   // Horloge HISTORIQUE : le moteur se replace au départ de la course (récence,
   // fenêtres 7 j/42 j, ACWR, PR… calculées par rapport à la course, pas au script).
   const asOfMs = Date.parse(race.start_date)
+  const engineCtx = { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs }
   const proj = computeRaceProjection(
     points,
     engineActivities,
     profileObj,
     { type: race.sport_type ?? race.type ?? null, goal_time: null },
     terrain,
-    { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs },
+    engineCtx,
   )
+
+  // A/B DÉTERMINISTE dans le même run : contrefactuel SANS records auto (même horloge,
+  // mêmes données) → isole l'effet propre des records, sans le confondre avec les autres
+  // changements du moteur. Recalculé seulement si des records ont réellement été détectés.
+  let predictedNoBe = Math.round(proj.estTimeS)
+  if (athleteBest.records.length > 0) {
+    const projNoBe = computeRaceProjection(
+      points,
+      engineActivities,
+      { fc_max: effectiveFcMax, runner_profile: runnerProfile as unknown as Record<string, unknown> },
+      { type: race.sport_type ?? race.type ?? null, goal_time: null },
+      terrain,
+      engineCtx,
+    )
+    predictedNoBe = Math.round(projNoBe.estTimeS)
+  }
 
   const predicted = Math.round(proj.estTimeS)
   const low = Math.round(proj.timeMin)
@@ -515,6 +534,7 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     auto_best_efforts_count: athleteBest.records.length,
     critical_speed_mps: athleteBest.criticalSpeed?.csMetersPerSec ?? null,
     used_stream_best_efforts: proj.used_stream_best_efforts,
+    predicted_s_no_be: predictedNoBe,
     used_fallback: proj.usedFallback,
     fallback_sources: proj.fallbackSources,
     fcmax_source: fc.source,
@@ -712,6 +732,16 @@ export interface ActivityVolumeDiagnostic {
   approxPayloadBytes: number
 }
 
+/** A/B des records auto (streams) : précision AVEC vs SANS, même run déterministe. */
+export interface StreamBestEffortsAB {
+  /** Nombre de courses ayant réellement utilisé des records auto. */
+  n: number
+  mapeElapsedWithPct: number
+  mapeElapsedWithoutPct: number
+  maeElapsedWithS: number
+  maeElapsedWithoutS: number
+}
+
 /** Comptes agrégés sur la fenêtre de six mois (dérivés des lignes testées). */
 export interface SixMonthCounts {
   /** Moyenne d'activités (toutes) dans la fenêtre par course. */
@@ -733,6 +763,8 @@ export interface BacktestReport {
   windows: EngineWindows
   activityVolume: ActivityVolumeDiagnostic
   sixMonthCounts: SixMonthCounts
+  /** A/B des records auto : précision AVEC vs SANS (contrefactuel déterministe). */
+  streamBestEffortsAB: StreamBestEffortsAB
   counts: {
     candidates: number
     confirmed: number
@@ -810,6 +842,22 @@ function computeActivityVolume(rows: BacktestRow[]): ActivityVolumeDiagnostic {
     p90ActivityCount: +percentile(counts, 0.9).toFixed(1),
     maxActivityCount: max,
     approxPayloadBytes: Math.round(mean * APPROX_BYTES_PER_ACTIVITY),
+  }
+}
+
+function computeStreamBestEffortsAB(rows: BacktestRow[]): StreamBestEffortsAB {
+  const used = rows.filter((r) => r.used_stream_best_efforts && r.actual_elapsed_s != null && r.actual_elapsed_s > 0)
+  const n = used.length
+  const mape = (f: (r: BacktestRow) => number) =>
+    n ? (used.reduce((s, r) => s + Math.abs(f(r) - (r.actual_elapsed_s as number)) / (r.actual_elapsed_s as number), 0) / n) * 100 : NaN
+  const mae = (f: (r: BacktestRow) => number) =>
+    n ? used.reduce((s, r) => s + Math.abs(f(r) - (r.actual_elapsed_s as number)), 0) / n : NaN
+  return {
+    n,
+    mapeElapsedWithPct: +mape((r) => r.predicted_s).toFixed(2),
+    mapeElapsedWithoutPct: +mape((r) => r.predicted_s_no_be).toFixed(2),
+    maeElapsedWithS: Math.round(mae((r) => r.predicted_s)),
+    maeElapsedWithoutS: Math.round(mae((r) => r.predicted_s_no_be)),
   }
 }
 
@@ -904,6 +952,7 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
     },
     activityVolume: computeActivityVolume(rows),
     sixMonthCounts: computeSixMonthCounts(rows),
+    streamBestEffortsAB: computeStreamBestEffortsAB(rows),
     counts: { candidates, confirmed, excluded: excluded.length, tested },
     validation: opts.validation,
     sample,
