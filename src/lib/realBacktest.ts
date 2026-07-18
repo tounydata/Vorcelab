@@ -187,7 +187,11 @@ export interface BacktestRow {
   auto_best_efforts_count: number
   critical_speed_mps: number | null
   used_stream_best_efforts: boolean
-  /** Temps projeté SANS records auto (contrefactuel A/B) — = predicted_s si non utilisés. */
+  /** Vrai si le fade d'endurance a utilisé l'exposant PERSONNEL appris (Étape 2). */
+  used_personal_fade: boolean
+  /** Exposant d'endurance personnel appliqué (ou null). */
+  personal_fade_exponent: number | null
+  /** Temps projeté SANS records/durabilité auto (contrefactuel A/B) — = predicted_s si non utilisés. */
   predicted_s_no_be: number
   // ── Sources réellement utilisées ─────────────────────────────────────────────
   used_fallback: boolean
@@ -534,6 +538,8 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     auto_best_efforts_count: athleteBest.records.length,
     critical_speed_mps: athleteBest.criticalSpeed?.csMetersPerSec ?? null,
     used_stream_best_efforts: proj.used_stream_best_efforts,
+    used_personal_fade: proj.used_personal_fade,
+    personal_fade_exponent: proj.personal_fade_exponent,
     predicted_s_no_be: predictedNoBe,
     used_fallback: proj.usedFallback,
     fallback_sources: proj.fallbackSources,
@@ -732,14 +738,24 @@ export interface ActivityVolumeDiagnostic {
   approxPayloadBytes: number
 }
 
-/** A/B des records auto (streams) : précision AVEC vs SANS, même run déterministe. */
-export interface StreamBestEffortsAB {
-  /** Nombre de courses ayant réellement utilisé des records auto. */
+/** Un côté d'A/B : MAPE/MAE elapsed AVEC vs SANS les features stream, sur n courses. */
+export interface ABSide {
   n: number
   mapeElapsedWithPct: number
   mapeElapsedWithoutPct: number
   maeElapsedWithS: number
   maeElapsedWithoutS: number
+}
+
+/**
+ * A/B des features dérivées des streams (records auto + durabilité personnelle) :
+ * précision AVEC vs SANS, même run déterministe. Ventilé route/trail car les records
+ * touchent surtout la route et la durabilité surtout le trail long.
+ */
+export interface StreamBestEffortsAB {
+  overall: ABSide
+  road: ABSide
+  trail: ABSide
 }
 
 /** Comptes agrégés sur la fenêtre de six mois (dérivés des lignes testées). */
@@ -845,8 +861,12 @@ function computeActivityVolume(rows: BacktestRow[]): ActivityVolumeDiagnostic {
   }
 }
 
-function computeStreamBestEffortsAB(rows: BacktestRow[]): StreamBestEffortsAB {
-  const used = rows.filter((r) => r.used_stream_best_efforts && r.actual_elapsed_s != null && r.actual_elapsed_s > 0)
+function abSide(rows: BacktestRow[]): ABSide {
+  // Courses où les features stream ont RÉELLEMENT changé la projection (records et/ou
+  // durabilité), avec un temps réel elapsed disponible.
+  const used = rows.filter(
+    (r) => r.predicted_s !== r.predicted_s_no_be && r.actual_elapsed_s != null && r.actual_elapsed_s > 0,
+  )
   const n = used.length
   const mape = (f: (r: BacktestRow) => number) =>
     n ? (used.reduce((s, r) => s + Math.abs(f(r) - (r.actual_elapsed_s as number)) / (r.actual_elapsed_s as number), 0) / n) * 100 : NaN
@@ -858,6 +878,14 @@ function computeStreamBestEffortsAB(rows: BacktestRow[]): StreamBestEffortsAB {
     mapeElapsedWithoutPct: +mape((r) => r.predicted_s_no_be).toFixed(2),
     maeElapsedWithS: Math.round(mae((r) => r.predicted_s)),
     maeElapsedWithoutS: Math.round(mae((r) => r.predicted_s_no_be)),
+  }
+}
+
+function computeStreamBestEffortsAB(rows: BacktestRow[]): StreamBestEffortsAB {
+  return {
+    overall: abSide(rows),
+    road: abSide(rows.filter((r) => r.sport === 'road')),
+    trail: abSide(rows.filter((r) => r.sport === 'trail')),
   }
 }
 

@@ -15,6 +15,7 @@ import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
 import type { MergedBestEffort } from './bestEfforts'
+import { fitFadeExponent } from './fadeModel'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -113,6 +114,10 @@ export interface ProjectionResult {
   /** Vrai si l'allure s'est appuyée sur des records AUTO détectés depuis les streams
    *  (toutes sorties), et non seulement sur des courses étiquetées / PR manuels. */
   used_stream_best_efforts: boolean
+  /** Vrai si le fade d'endurance a utilisé l'exposant PERSONNEL (appris), pas le fixe. */
+  used_personal_fade: boolean
+  /** Exposant d'endurance personnel appliqué (ou null si non appris/fiable). */
+  personal_fade_exponent: number | null
 }
 
 export function computeRaceProjection(
@@ -243,6 +248,15 @@ export function computeRaceProjection(
     if (key) streamPrs[key] = { timeS: rec.gapTimeSec, dist: rec.distanceM }
   }
   const usedStreamPrs = Object.keys(streamPrs).length > 0
+
+  // Durabilité INTER-distances (Étape 2) : exposant d'endurance PERSONNEL appris sur ta
+  // courbe de meilleures perfs (valeur équivalent-plat). Remplace l'exposant fixe du fade
+  // d'endurance quand il est fiable. ABSENT si le profil ne fournit pas de records
+  // (production actuelle) → fade inchangé. Cf. fadeModel.ts.
+  const personalFade = fitFadeExponent(
+    streamBestEfforts.map((r) => ({ distM: r.distanceM, timeSec: r.gapTimeSec })),
+  )
+  const usePersonalFade = personalFade.reason === 'personal'
 
   function computeBasePaceS(): number {
     const raceDpKm = dplus / (totalDistM / 1000)
@@ -924,10 +938,14 @@ export function computeRaceProjection(
   let extrapolationRatio = 1
   if (demoDurationS > 0 && estTimeS > demoDurationS) {
     extrapolationRatio = estTimeS / demoDurationS
-    // Exposant Riegel : 1.06 sur le domaine « classique », plus raide quand on extrapole
-    // très au-delà du vécu (Riegel sous-estime les ultras) → k monte jusqu'à 0.12 ; puis
-    // modulé par TA durabilité (dérive cardiaque apprise).
-    const k = (0.06 + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
+    // Exposant Riegel : base 1.06 (k≈0.06) sur le domaine « classique », OU ton exposant
+    // d'endurance PERSONNEL appris sur ta courbe de perfs (Étape 2) quand il est fiable
+    // (k = b − 1, borné). Plus raide quand on extrapole très au-delà du vécu (Riegel
+    // sous-estime les ultras) → +0.06 ; puis modulé par TA durabilité (dérive cardiaque).
+    const baseK = usePersonalFade
+      ? Math.min(0.14, Math.max(0.03, personalFade.exponent - 1))
+      : 0.06
+    const k = (baseK + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
     const fade = Math.min(1.40, Math.pow(extrapolationRatio, k))
     estTimeS *= fade
     const pct = Math.round((fade - 1) * 100)
@@ -1085,5 +1103,7 @@ export function computeRaceProjection(
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
     used_stream_best_efforts: usedStreamPrs && !isTrail,
+    used_personal_fade: usePersonalFade,
+    personal_fade_exponent: usePersonalFade ? personalFade.exponent : null,
   }
 }
