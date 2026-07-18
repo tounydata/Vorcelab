@@ -191,6 +191,8 @@ export interface BacktestRow {
   used_personal_fade: boolean
   /** Exposant d'endurance personnel appliqué (ou null). */
   personal_fade_exponent: number | null
+  /** Meilleure VAM détectée (m/h) sur les sorties de l'athlète (record de trail), ou null. */
+  best_climb_vam_mh: number | null
   /** Temps projeté SANS records/durabilité auto (contrefactuel A/B) — = predicted_s si non utilisés. */
   predicted_s_no_be: number
   // ── Sources réellement utilisées ─────────────────────────────────────────────
@@ -404,7 +406,7 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
   // (pas seulement les courses étiquetées). Sur six mois — mémoire longue des perfs,
   // distincte du profil de pente (56 j). Attachés au profil pour que le moteur en dispose.
   const athleteBest = c.disableStreamBestEfforts
-    ? { records: [], criticalSpeed: null, activitiesUsed: 0 }
+    ? { records: [], criticalSpeed: null, bestClimb: null, activitiesUsed: 0 }
     : buildAthleteBestEfforts(
         prior as unknown as BestEffortActivity[],
         c.priorStreams as unknown as Record<string, BestEffortStreams>,
@@ -540,6 +542,7 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     used_stream_best_efforts: proj.used_stream_best_efforts,
     used_personal_fade: proj.used_personal_fade,
     personal_fade_exponent: proj.personal_fade_exponent,
+    best_climb_vam_mh: athleteBest.bestClimb?.vamMh ?? null,
     predicted_s_no_be: predictedNoBe,
     used_fallback: proj.usedFallback,
     fallback_sources: proj.fallbackSources,

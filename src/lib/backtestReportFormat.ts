@@ -39,7 +39,7 @@ const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'steepness_calibration_active', 'steepness_calibration_race_count',
   'steepness_calibration_spread_dplus_per_km', 'steepness_calibration_reason',
   'auto_best_efforts_count', 'critical_speed_mps', 'used_stream_best_efforts',
-  'used_personal_fade', 'personal_fade_exponent', 'predicted_s_no_be',
+  'used_personal_fade', 'personal_fade_exponent', 'best_climb_vam_mh', 'predicted_s_no_be',
   'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',
   'history_window_days', 'runner_profile_window_days',
