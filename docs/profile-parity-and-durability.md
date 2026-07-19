@@ -121,10 +121,26 @@ que « faits » de façon non vérifiée :
   depuis l'Edge Function (Deno) ; test de contrat commun aux 4 producteurs ; **déploiement**.
 - **§4/§5** : cache-first `activity_streams` avant Strava, diagnostics de cache, suppression
   du `.limit(30)`, pagination temporelle sur les deux fenêtres (183 / 56 j) côté Edge Func.
-- **§12–§17** : rapport moving+elapsed, couverture d'intervalles recalculée, baselines
-  déterministes, bootstrap clusterisé (seed fixe), `evaluation_type`.
-- **§21/§22** : benchmark avant/après réel (2026.07-6 / -7 / -7+profil partagé) ; workflow
-  admin idempotent de recalcul des profils périmés.
+- **§21/§22** : comparaison benchmark multi-versions (2026.07-6 / -7) ; workflow admin
+  idempotent de recalcul des profils périmés (diagnostic déjà obtenu : 5 profils, 4 périmés,
+  1 absent, 0 au schéma courant — recalcul piloté côté client par `isRunnerProfileCompatible`).
+
+## 8. Validation scientifique du benchmark (§15, §16, §17, §18) — LIVRÉ
+
+- **§15 baselines** (`backtestBaselines.ts`, pur+testé) : `kilometre_effort`,
+  `riegel_distance_only`, `riegel_with_dplus`, `recent_average_pace`,
+  `best_similar_past_race`, `previous_engine_version` (= `predicted_s_no_be`). Référence
+  par athlète en leave-one-out (anti-fuite). Table comparative dans le rapport.
+- **§16 `evaluation_type`** : le lot rétrospectif est marqué `development_sample` (aucune
+  généralisation annoncée) ; `prospective_locked` réservé aux snapshots verrouillés.
+- **§17 intervalles de confiance** (`backtestBootstrap.ts`, pur+testé) : bootstrap
+  **clusterisé par athlète** (rééchantillonne les athlètes, pas les lignes), **seed fixe**
+  → reproductible. IC 95 % sur MAPE / MAE / biais / couverture, dans le rapport.
+- **§18 test de contrat** : `profileContract.test.ts` vérifie que les producteurs (web,
+  mobile, benchmark) renvoient la même structure (schemaVersion, bestEfforts,
+  criticalSpeed, bestClimb, buckets, hrDriftPct, streamCoverage…) ; **échoue** si un champ
+  manque. **Correctif de parité** : le profil du benchmark émet désormais `bestClimb` +
+  l'en-tête de schéma (auparavant absents).
 
 ## 7. Snapshots prospectifs de validation (§14, §23) — LIVRÉ
 
@@ -146,3 +162,18 @@ que « faits » de façon non vérifiée :
 
 > Reste : brancher la création du snapshot dans le parcours UI (au moment où une projection de
 > course future est affichée) — c'est un changement produit, pas une fondation.
+
+## 9. Lissage altimétrique unifié des records (§9) — LIVRÉ
+
+Le calcul GAP des `bestEfforts` utilisait un lissage simple (moyenne glissante 5 échantillons)
+DIFFÉRENT du pipeline GPX principal. Extrait dans une primitive commune
+`elevationSmoothing.ts` (`smoothAltitudeByDistance`) — mêmes 3 étapes robustes que
+`elevationProfile` : interpolation par distance, filtre médian (anti-spike), moyenne par
+fenêtre de DISTANCE (50 m). `bestEfforts` (GAP, détection de montées, courbe verticale)
+l'utilise désormais. **La distance du stream n'est jamais recalculée** (§9). Batterie de tests
+`elevationSmoothing.test.ts` : plat bruité, longue descente, montée régulière, escalier,
+altitude partielle, spike barométrique, trous temporels, déterminisme + parité web/mobile.
+
+> Effet : les records GAP sont désormais cohérents avec le D+ affiché en production. Comme ce
+> lissage change les valeurs GAP → records → durabilité, le benchmark est re-exécuté sur la
+> branche pour vérifier l'absence de régression avant tout merge.

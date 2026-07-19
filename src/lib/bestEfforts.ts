@@ -16,6 +16,7 @@
 
 import { minettiGradePenalty } from './gpxCore'
 import { computeCriticalSpeed, type Effort, type CriticalSpeedResult } from './criticalSpeed'
+import { smoothAltitudeByDistance } from './elevationSmoothing'
 
 /** Un stream brut : soit `{ data: [...] }` (Strava), soit un tableau direct. */
 type RawStream = { data?: unknown } | unknown[] | null | undefined
@@ -41,8 +42,6 @@ export const MEAN_MAX_DURATIONS_S = [
 
 // Plafond de vitesse plausible en course (m/s). 7.5 ≈ 2:13/km : au-delà = artefact.
 const SPEED_HARD_MAX = 7.5
-// Fenêtre de lissage altimétrique (nombre d'échantillons de part et d'autre).
-const ELEV_SMOOTH_HALF = 2
 // Une perf « brute » dont la pente moyenne descend sous ce seuil est suspecte
 // (aidée par la descente) → signalée, à ne pas afficher comme record « propre ».
 const SUSPECT_DOWNHILL_GRADE = -0.02
@@ -57,24 +56,6 @@ function toNumArray(s: RawStream): number[] {
     const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN
     return Number.isFinite(n) ? n : NaN
   })
-}
-
-/** Moyenne glissante (anti-bruit GPS/baro) — indispensable avant de calculer une pente. */
-function smooth(values: number[], half: number): number[] {
-  if (half <= 0 || values.length === 0) return values.slice()
-  const out = new Array<number>(values.length)
-  for (let i = 0; i < values.length; i++) {
-    let sum = 0
-    let cnt = 0
-    for (let j = Math.max(0, i - half); j <= Math.min(values.length - 1, i + half); j++) {
-      if (Number.isFinite(values[j])) {
-        sum += values[j]
-        cnt++
-      }
-    }
-    out[i] = cnt > 0 ? sum / cnt : values[i]
-  }
-  return out
 }
 
 interface CleanStreams {
@@ -104,9 +85,12 @@ export function buildCleanStreams(streams: BestEffortStreams): CleanStreams | nu
     return null
   }
 
-  const rawAlt = toNumArray(streams.altitude)
-  const hasAlt = rawAlt.length >= n && rawAlt.slice(0, n).every((x) => Number.isFinite(x))
-  const alt = hasAlt ? smooth(rawAlt.slice(0, n), ELEV_SMOOTH_HALF) : null
+  // Lissage altimétrique ROBUSTE unifié avec le pipeline GPX principal (§9) :
+  // interpolation par distance + filtre médian + moyenne par fenêtre de distance (50 m).
+  // La distance `d` du stream sert de référence — jamais recalculée.
+  const rawAlt = toNumArray(streams.altitude).slice(0, n)
+  const hasAlt = rawAlt.some((x) => Number.isFinite(x))
+  const alt = hasAlt ? smoothAltitudeByDistance(rawAlt, d, { medianWindow: 5, smoothingDistanceM: 50 }) : null
 
   const gapDistance = new Array<number>(n)
   gapDistance[0] = 0
@@ -461,7 +445,7 @@ export function detectClimbs(streams: BestEffortStreams, options?: ClimbDetectio
   const rawAlt = toNumArray(streams.altitude)
   const n = Math.min(time.length, distance.length, rawAlt.length)
   if (n < 5 || !rawAlt.slice(0, n).every((x) => Number.isFinite(x))) return []
-  const alt = smooth(rawAlt.slice(0, n), ELEV_SMOOTH_HALF)
+  const alt = smoothAltitudeByDistance(rawAlt.slice(0, n), distance.slice(0, n), { medianWindow: 5, smoothingDistanceM: 50 })
 
   const climbs: ClimbEffort[] = []
   let valleyIdx = 0
@@ -557,7 +541,7 @@ export function extractVerticalEfforts(
   const n = Math.min(time.length, distance.length, rawAlt.length)
   if (n < 5 || !rawAlt.slice(0, n).every((x) => Number.isFinite(x))) return []
   if (!(time[n - 1] > time[0])) return []
-  const alt = smooth(rawAlt.slice(0, n), ELEV_SMOOTH_HALF)
+  const alt = smoothAltitudeByDistance(rawAlt.slice(0, n), distance.slice(0, n), { medianWindow: 5, smoothingDistanceM: 50 })
 
   // Dénivelé positif CUMULÉ (monotone non décroissant).
   const cumUp = new Array<number>(n)
