@@ -123,7 +123,26 @@ que « faits » de façon non vérifiée :
   du `.limit(30)`, pagination temporelle sur les deux fenêtres (183 / 56 j) côté Edge Func.
 - **§12–§17** : rapport moving+elapsed, couverture d'intervalles recalculée, baselines
   déterministes, bootstrap clusterisé (seed fixe), `evaluation_type`.
-- **§14/§23** : table `projection_validation_snapshots` + RLS `user_id = auth.uid()`
-  (USING + WITH CHECK), empreinte déterministe d'entrées.
 - **§21/§22** : benchmark avant/après réel (2026.07-6 / -7 / -7+profil partagé) ; workflow
   admin idempotent de recalcul des profils périmés.
+
+## 7. Snapshots prospectifs de validation (§14, §23) — LIVRÉ
+
+- Migration `20260719000000_projection_validation_snapshots.sql`, **appliquée en production**
+  (`runnerdata`) : table `projection_validation_snapshots`, **RLS `user_id = auth.uid()`**
+  (SELECT/INSERT/UPDATE/DELETE, USING + WITH CHECK), aucune donnée GPS brute.
+- **Immuabilité** garantie par trigger `enforce_snapshot_immutability` (SECURITY INVOKER,
+  `search_path=''`) : après création, seuls le résultat réel (moving + elapsed) et la
+  transition de `status` (locked → evaluated/invalidated) sont autorisés ; les champs de
+  preuve (prédiction, versions, empreinte, fenêtre) sont figés ; le résultat ne s'écrit qu'une
+  fois. Vérifié en base (insert → écriture résultat OK ; tampering prédiction REJETÉ ;
+  réécriture résultat REJETÉE ; lignes de test nettoyées).
+- Cœur PUR TS `projectionSnapshot.ts` (web+mobile) : `buildProjectionSnapshot`,
+  `computeInputFingerprint` (empreinte déterministe cyrb53 sur JSON canonique → preuve
+  anti-recalcul), `snapshotToDbRow`, `isSnapshotLockedAt`.
+- Advisors sécurité relus : le seul point lié à cette PR (search_path mutable) est corrigé ;
+  les autres avertissements (fonctions admin SECURITY DEFINER, `strava_tokens`,
+  leaked-password) sont **préexistants** et hors périmètre.
+
+> Reste : brancher la création du snapshot dans le parcours UI (au moment où une projection de
+> course future est affichée) — c'est un changement produit, pas une fondation.
