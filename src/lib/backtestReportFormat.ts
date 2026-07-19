@@ -188,6 +188,52 @@ export function toReportMarkdown(report: BacktestReport): string {
   out.push('> Largeur de l’intervalle **inchangée** dans ce lot — seule sa couverture est re-mesurée après horloge historique, D+ lissé et évaluation elapsed/hors échantillon. La calibration de l’intervalle n’est PAS annoncée tant que le hors-échantillon n’est pas stable.')
   out.push('')
 
+  // ── Nature de l'évaluation (§16) ─────────────────────────────────────────────
+  out.push('## Nature de l’évaluation')
+  out.push('')
+  out.push(`- \`evaluation_type\` : **${report.evaluationType}**`)
+  out.push('> `development_sample` = lot rétrospectif servant au développement ; AUCUNE généralisation n’est annoncée. Une évaluation `prospective_locked` (snapshots verrouillés AVANT la course) est la seule preuve incontestable ; `retrospective_holdout` recalibrerait un coefficient global en excluant un fold (non applicable ici : mécanismes personnels).')
+  out.push('')
+
+  // ── Comparaison aux baselines déterministes (§15) ────────────────────────────
+  out.push('## Comparaison aux baselines déterministes')
+  out.push('')
+  out.push('> Mêmes courses, référence par athlète en leave-one-out. Vorcelab doit battre ces règles simples pour justifier sa complexité. Baselines NON optimisées (formules standard).')
+  out.push('')
+  out.push('| Modèle | n | MAPE moving | MAPE elapsed | Biais moving | P90 moving |')
+  out.push('|---|--:|--:|--:|--:|--:|')
+  out.push(`| **Vorcelab \`${report.engineVersion}\`** | ${report.overallMoving.n} | **${n1(report.overallMoving.mapePct)} %** | **${n1(report.overallElapsed.mapePct)} %** | ${report.overallMoving.meanBiasS >= 0 ? '+' : ''}${fmtHms(report.overallMoving.meanBiasS)} | ${fmtHms(report.overallMoving.p90AbsS)} |`)
+  const bMovByName = new Map(report.baselinesMoving.map((b) => [b.baseline, b]))
+  for (const be of report.baselinesElapsed) {
+    const bm = bMovByName.get(be.baseline)
+    const mMape = bm && Number.isFinite(bm.mapePct) ? `${n1(bm.mapePct)} %` : '—'
+    const eMape = Number.isFinite(be.mapePct) ? `${n1(be.mapePct)} %` : '—'
+    const bias = bm && Number.isFinite(bm.meanBiasS) ? `${bm.meanBiasS >= 0 ? '+' : ''}${fmtHms(bm.meanBiasS)}` : '—'
+    const p90 = bm && Number.isFinite(bm.p90AbsS) ? fmtHms(bm.p90AbsS) : '—'
+    out.push(`| \`${be.baseline}\` | ${bm?.covered ?? be.covered} | ${mMape} | ${eMape} | ${bias} | ${p90} |`)
+  }
+  out.push('')
+
+  // ── Intervalles de confiance (bootstrap clusterisé par athlète, §17) ─────────
+  const bootBlock = (label: string, b: typeof report.bootstrapMoving) => {
+    const ciH = (c: { point: number; lo: number; hi: number }) => `${fmtHms(c.point)} [${fmtHms(c.lo)} ; ${fmtHms(c.hi)}]`
+    const ciP = (c: { point: number; lo: number; hi: number }) => `${n1(c.point)} % [${n1(c.lo)} ; ${n1(c.hi)}]`
+    out.push(`### ${label}`)
+    out.push('')
+    out.push(`- Clusters (athlètes) : **${b.clusters}** · n : **${b.n}** · itérations : **${b.iterations}** · seed : **${b.seed}** · niveau : **${Math.round(b.level * 100)} %**`)
+    out.push(`- MAPE : **${ciP(b.mapePct)}**`)
+    out.push(`- MAE : **${ciH(b.maeS)}**`)
+    out.push(`- Biais : **${b.biasS.point >= 0 ? '+' : ''}${fmtHms(b.biasS.point)}** [${fmtHms(b.biasS.lo)} ; ${fmtHms(b.biasS.hi)}]`)
+    if (b.coverage) out.push(`- Couverture intervalle : **${pct(b.coverage.point)}** [${pct(b.coverage.lo)} ; ${pct(b.coverage.hi)}]`)
+    out.push('')
+  }
+  out.push('## Intervalles de confiance (bootstrap clusterisé par athlète)')
+  out.push('')
+  out.push('> Rééchantillonnage des ATHLÈTES avec remise (pas des lignes) → tient compte de la corrélation intra-athlète. Seed fixe = reproductible.')
+  out.push('')
+  bootBlock('Temps écoulé (elapsed)', report.bootstrapElapsed)
+  bootBlock('Temps en mouvement (moving)', report.bootstrapMoving)
+
   // ── Analyse d'erreur par groupes (PAS du hors-échantillon) ───────────────────
   const groupTable = (o: typeof report.groupedErrorAnalysisByDate) => [
     `- Folds : **${o.folds}** · n : **${o.n}** · hors-échantillon réel : **${o.is_true_out_of_sample ? 'oui' : 'non'}**`,

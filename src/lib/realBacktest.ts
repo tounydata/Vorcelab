@@ -12,6 +12,9 @@ import { reconstructGpx, type RawStreams } from './gpxReconstruct'
 import { smoothElevationProfile } from './elevationProfile'
 import { buildRunnerProfileAtDate, type RawStreamSet } from './runnerProfileAtDate'
 import { computeErrorMetrics, distanceBucket, dplusBucket, type ErrorMetrics } from './engineBacktest'
+import { computeBaselineMetrics, type BaselineMetrics, type BaselineRaceInput } from './backtestBaselines'
+import { clusteredBootstrap, type ClusteredBootstrapResult, type BootstrapPoint } from './backtestBootstrap'
+import { buildProfileSchemaMeta } from './runnerProfileSchema'
 import { ENGINE_VERSION, stampProjection, type ProjectionSourceContribution } from './engineVersion'
 import { resolveFcMaxWithSource, type FcMaxSource } from './fcMax'
 import {
@@ -413,10 +416,21 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
         prior as unknown as BestEffortActivity[],
         c.priorStreams as unknown as Record<string, BestEffortStreams>,
       )
+  // Parité de CONTRAT avec le builder de production (§18) : mêmes champs moteur
+  // (bestEfforts / criticalSpeed / bestClimb / bestClimbByTier) ET même en-tête de schéma
+  // (schemaVersion / computedAt / asOfAt / historyDays / detailedProfileDays).
   const runnerProfileWithBest = {
+    ...buildProfileSchemaMeta({
+      computedAtMs: Date.parse(race.start_date),
+      asOfMs: Date.parse(race.start_date),
+      historyDays: ENGINE_HISTORY_DAYS,
+      detailedProfileDays: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
+    }),
     ...(runnerProfile as unknown as Record<string, unknown>),
     bestEfforts: athleteBest.records,
     criticalSpeed: athleteBest.criticalSpeed,
+    bestClimb: athleteBest.bestClimb,
+    bestClimbByTier: 'bestClimbByTier' in athleteBest ? athleteBest.bestClimbByTier : {},
   }
 
   const profileObj: Record<string, unknown> = {
@@ -829,9 +843,23 @@ export interface BacktestReport {
   byHr: Record<string, CategoryMetrics>
   byEngineMode: Record<string, CategoryMetrics>
   byFcMaxSource: Record<string, CategoryMetrics>
+  // ── Validation scientifique (§15, §16, §17) ──────────────────────────────────
+  /** Nature de l'évaluation : ce lot rétrospectif est un ÉCHANTILLON DE DÉVELOPPEMENT. */
+  evaluationType: EvaluationType
+  /** Baselines déterministes (moving) — mêmes courses, références par athlète. */
+  baselinesMoving: BaselineMetrics[]
+  /** Baselines déterministes (elapsed). */
+  baselinesElapsed: BaselineMetrics[]
+  /** IC bootstrap clusterisé par athlète (moving). */
+  bootstrapMoving: ClusteredBootstrapResult
+  /** IC bootstrap clusterisé par athlète (elapsed). */
+  bootstrapElapsed: ClusteredBootstrapResult
   rows: BacktestRow[]
   excluded: ExcludedRace[]
 }
+
+/** §16 : séparer calibration et évaluation. Ce lot historique = development_sample. */
+export type EvaluationType = 'development_sample' | 'retrospective_holdout' | 'prospective_locked'
 
 export interface RunRealBacktestOptions {
   candidateCount?: number
@@ -1016,7 +1044,37 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
     byHr: groupBy(rows, (r) => (r.has_hr ? 'avec FC' : 'sans FC')),
     byEngineMode: groupBy(rows, (r) => (r.used_fallback ? 'fallback' : 'historique')),
     byFcMaxSource: groupBy(rows, (r) => r.fcmax_source),
+    // ── Validation scientifique (§15/§16/§17) ────────────────────────────────
+    evaluationType: 'development_sample',
+    baselinesMoving: computeBaselineMetrics(toBaselineInputs(rows), 'moving'),
+    baselinesElapsed: computeBaselineMetrics(toBaselineInputs(rows), 'elapsed'),
+    bootstrapMoving: clusteredBootstrap(toBootstrapPoints(rows, 'moving')),
+    bootstrapElapsed: clusteredBootstrap(toBootstrapPoints(rows, 'elapsed')),
     rows: rows.sort((a, b) => a.race_id.localeCompare(b.race_id)),
     excluded: excluded.sort((a, b) => a.race_id.localeCompare(b.race_id)),
   }
+}
+
+/** Adapte les lignes du banc vers les entrées des baselines (§15). */
+function toBaselineInputs(rows: BacktestRow[]): BaselineRaceInput[] {
+  return rows.map((r) => ({
+    athleteId: r.athlete_id,
+    raceId: r.race_id,
+    distanceKm: r.distance_km,
+    dplusM: r.dplus_m,
+    actualMovingS: r.actual_moving_s,
+    actualElapsedS: r.actual_elapsed_s,
+    predictedNoBeS: r.predicted_s_no_be,
+  }))
+}
+
+/** Adapte les lignes vers les points de bootstrap clusterisé par athlète (§17). */
+function toBootstrapPoints(rows: BacktestRow[], basis: 'moving' | 'elapsed'): BootstrapPoint[] {
+  const pts: BootstrapPoint[] = []
+  for (const r of rows) {
+    const actual = basis === 'elapsed' ? r.actual_elapsed_s : r.actual_moving_s
+    if (actual == null || actual <= 0) continue
+    pts.push({ predictedS: r.predicted_s, actualS: actual, low: r.low_s, high: r.high_s, clusterId: r.athlete_id })
+  }
+  return pts
 }
