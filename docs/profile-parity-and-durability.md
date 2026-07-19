@@ -121,9 +121,9 @@ que « faits » de façon non vérifiée :
   depuis l'Edge Function (Deno) ; test de contrat commun aux 4 producteurs ; **déploiement**.
 - **§4/§5** : cache-first `activity_streams` avant Strava, diagnostics de cache, suppression
   du `.limit(30)`, pagination temporelle sur les deux fenêtres (183 / 56 j) côté Edge Func.
-- **§9** : lissage altimétrique unifié des records (primitive commune avec elevationProfile).
 - **§21/§22** : comparaison benchmark multi-versions (2026.07-6 / -7) ; workflow admin
-  idempotent de recalcul des profils périmés.
+  idempotent de recalcul des profils périmés (diagnostic déjà obtenu : 5 profils, 4 périmés,
+  1 absent, 0 au schéma courant — recalcul piloté côté client par `isRunnerProfileCompatible`).
 
 ## 8. Validation scientifique du benchmark (§15, §16, §17, §18) — LIVRÉ
 
@@ -162,3 +162,18 @@ que « faits » de façon non vérifiée :
 
 > Reste : brancher la création du snapshot dans le parcours UI (au moment où une projection de
 > course future est affichée) — c'est un changement produit, pas une fondation.
+
+## 9. Lissage altimétrique unifié des records (§9) — LIVRÉ
+
+Le calcul GAP des `bestEfforts` utilisait un lissage simple (moyenne glissante 5 échantillons)
+DIFFÉRENT du pipeline GPX principal. Extrait dans une primitive commune
+`elevationSmoothing.ts` (`smoothAltitudeByDistance`) — mêmes 3 étapes robustes que
+`elevationProfile` : interpolation par distance, filtre médian (anti-spike), moyenne par
+fenêtre de DISTANCE (50 m). `bestEfforts` (GAP, détection de montées, courbe verticale)
+l'utilise désormais. **La distance du stream n'est jamais recalculée** (§9). Batterie de tests
+`elevationSmoothing.test.ts` : plat bruité, longue descente, montée régulière, escalier,
+altitude partielle, spike barométrique, trous temporels, déterminisme + parité web/mobile.
+
+> Effet : les records GAP sont désormais cohérents avec le D+ affiché en production. Comme ce
+> lissage change les valeurs GAP → records → durabilité, le benchmark est re-exécuté sur la
+> branche pour vérifier l'absence de régression avant tout merge.
