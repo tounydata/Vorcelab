@@ -240,14 +240,16 @@ function avgOf(arr: number[]): number | null {
 async function fetchStreams(
   accessToken: string,
   activityId: number | bigint
-): Promise<Streams | null> {
+): Promise<{ streams: Streams | null; rateLimited: boolean }> {
   const keys = 'time,altitude,velocity_smooth,heartrate,grade_smooth,distance,cadence,latlng'
   const res = await fetch(
     `${STRAVA_STREAMS_URL}/${activityId}/streams?keys=${keys}&key_by_type=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
-  if (!res.ok) return null
-  return res.json() as Promise<Streams>
+  // 429 = quota Strava dépassé → on arrête d'appeler Strava et on se contente du cache (§4).
+  if (res.status === 429) return { streams: null, rateLimited: true }
+  if (!res.ok) return { streams: null, rateLimited: false }
+  return { streams: (await res.json()) as Streams, rateLimited: false }
 }
 
 // ─── Main stream processing ───────────────────────────────────────────────────
@@ -627,7 +629,11 @@ Deno.serve(async (req: Request) => {
 
     const fcMax: number = (profileRow as { fc_max?: number } | null)?.fc_max ?? 190
 
-    // Load recent run activities — 8-week window (56 days)
+    // Load recent run activities — fenêtre 56 j (profil détaillé récent : buckets / récup /
+    // dérive). §5 : on n'impose PLUS .limit(30) — toutes les sorties de la fenêtre comptent.
+    // Le cache-first (cf. plus bas) rend cela bon marché (aucun appel Strava pour les streams
+    // déjà en cache). Garde-fou : cap large anti-boucle non bornée.
+    const HARD_CAP = 200
     const since56d = new Date(Date.now() - 56 * 24 * 60 * 60 * 1000).toISOString()
     const { data: activities } = await supabase
       .from('strava_activities')
@@ -636,7 +642,7 @@ Deno.serve(async (req: Request) => {
       .in('sport_type', ['Run', 'TrailRun', 'Trail Run', 'Running'])
       .gte('start_date', since56d)
       .order('start_date', { ascending: false })
-      .limit(30)
+      .limit(HARD_CAP)
 
     if (!activities || activities.length === 0) {
       return new Response(JSON.stringify({ error: 'No run activities found' }), {
@@ -664,30 +670,76 @@ Deno.serve(async (req: Request) => {
     let totalActivitySeconds = 0
     let totalStreamSecondsAll = 0
 
-    for (const act of activities as Array<{
+    // ── Cache-first (§4) : on lit d'abord activity_streams (cache Supabase déjà quasi
+    // complet), et on n'appelle Strava QUE pour les streams manquants. On met alors en
+    // cache le nouveau stream. On respecte le quota : au premier 429, on cesse d'appeler
+    // Strava et on se contente du cache. On ne supprime JAMAIS un ancien stream.
+    const actList = activities as Array<{
       strava_activity_id: number
       moving_time: number
       type: string
       sport_type: string | null
       total_elevation_gain: number
       distance: number
-    }>) {
+    }>
+
+    // 1) Charger en un coup tous les streams déjà en cache pour ces activités.
+    const wantedIds = actList.map((a) => a.strava_activity_id)
+    const cacheById = new Map<number, Streams>()
+    if (wantedIds.length > 0) {
+      const { data: cachedRows } = await supabase
+        .from('activity_streams')
+        .select('activity_id,data')
+        .eq('user_id', user.id)
+        .in('activity_id', wantedIds)
+      for (const row of (cachedRows ?? []) as Array<{ activity_id: number; data: Streams }>) {
+        if (row.data) cacheById.set(Number(row.activity_id), row.data)
+      }
+    }
+
+    // 2) Diagnostics de cache (§4).
+    const diag = {
+      streams_requested: actList.length,
+      streams_loaded_from_cache: 0,
+      streams_fetched_from_strava: 0,
+      streams_missing: 0,
+    }
+    let stravaRateLimited = false
+
+    for (const act of actList) {
       totalActivitySeconds += act.moving_time ?? 0
 
-      const streams = await fetchStreams(accessToken, act.strava_activity_id)
-      if (!streams || !streams.time?.data?.length) continue
+      let streams: Streams | null = cacheById.get(Number(act.strava_activity_id)) ?? null
+      if (streams) {
+        diag.streams_loaded_from_cache++
+      } else if (!stravaRateLimited) {
+        // Manquant → Strava (une seule fois), puis mise en cache.
+        const fetched = await fetchStreams(accessToken, act.strava_activity_id)
+        if (fetched.rateLimited) {
+          stravaRateLimited = true
+          diag.streams_missing++
+          continue
+        }
+        streams = fetched.streams
+        if (streams && streams.time?.data?.length) {
+          diag.streams_fetched_from_strava++
+          supabase
+            .from('activity_streams')
+            .upsert(
+              { user_id: user.id, activity_id: act.strava_activity_id, data: streams as unknown as Record<string, unknown>, cached_at: new Date().toISOString() },
+              { onConflict: 'user_id,activity_id' },
+            )
+            .then(({ error }: { error: { message: string } | null }) => {
+              if (error) console.error('stream cache write error:', error.message)
+            })
+        }
+      } else {
+        // Quota Strava atteint : on saute les manquants sans appeler Strava.
+        diag.streams_missing++
+        continue
+      }
 
-      // Cache passif : on persiste le tracé déjà téléchargé (aucun appel Strava en
-      // plus) pour alimenter le cache partagé (client, banc de validation…).
-      supabase
-        .from('activity_streams')
-        .upsert(
-          { user_id: user.id, activity_id: act.strava_activity_id, data: streams as unknown as Record<string, unknown>, cached_at: new Date().toISOString() },
-          { onConflict: 'user_id,activity_id' },
-        )
-        .then(({ error }: { error: { message: string } | null }) => {
-          if (error) console.error('stream cache write error:', error.message)
-        })
+      if (!streams || !streams.time?.data?.length) { diag.streams_missing++; continue }
 
       const result = processStreams(streams, fcMax, act.moving_time ?? 0)
 
@@ -697,6 +749,10 @@ Deno.serve(async (req: Request) => {
       allDriftEvents.push(...result.driftEvents)
       totalStreamSecondsAll += result.totalStreamSeconds
     }
+
+    const streamCacheHitRate = diag.streams_requested > 0
+      ? +(diag.streams_loaded_from_cache / diag.streams_requested).toFixed(3)
+      : 0
 
     // ── Aggregate buckets ─────────────────────────────────────────────────────
 
@@ -801,6 +857,15 @@ Deno.serve(async (req: Request) => {
       hrDriftPct: hrDriftPct != null ? +hrDriftPct.toFixed(1) : null,
       hrDriftConfidence,
       hrDriftStatus,
+      // Diagnostics de cache (§4) — provenance des streams de ce recalcul.
+      streamDiagnostics: {
+        streams_requested: diag.streams_requested,
+        streams_loaded_from_cache: diag.streams_loaded_from_cache,
+        streams_fetched_from_strava: diag.streams_fetched_from_strava,
+        streams_missing: diag.streams_missing,
+        stream_cache_hit_rate: streamCacheHitRate,
+        strava_rate_limited: stravaRateLimited,
+      },
     }
 
     // ── Non-destructive persistence (§3) ──────────────────────────────────────
@@ -840,6 +905,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         profile: runnerProfile,
         preserved_fields: Object.keys(preserved),
+        stream_diagnostics: runnerProfile.streamDiagnostics,
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } },
     )
