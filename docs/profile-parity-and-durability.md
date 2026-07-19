@@ -110,15 +110,35 @@ APRÈS (cette PR)
   Edge Func            → persistance non destructive (préserve les champs moteur)
 ```
 
-## Reste à faire (non exécutable/vérifiable dans cette PR — à ne PAS annoncer comme fait)
+## 10. Module PUR partagé du profil (§1) — LIVRÉ (TS) / partiel (Edge)
+
+`buildRunnerProfileCore.ts` (web + mobile) expose :
+- `buildRunnerProfileFromActivitiesAndStreams({ activities, streamsByActivityId, fcMax,
+  asOfMs, historyDays?, detailedProfileDays?, disableStreamBestEfforts? })` — **100 % pur**,
+  sans dépendance navigateur/Supabase. Compose `buildRunnerProfileAtDate` (buckets/récup/
+  dérive, 56 j) + `buildAthleteBestEfforts` (records/CS/climb/tier, 183 j) + l'en-tête de
+  schéma → contrat complet.
+- `assembleRunnerProfile(...)` — assemblage sans recalcul à partir de sous-résultats déjà
+  calculés.
+
+Le **benchmark** construit désormais son profil via `assembleRunnerProfile` (sortie
+byte-identique → chiffres inchangés, vérifié). `runnerProfileAtDate.ts` porté sur mobile.
+Tests `buildRunnerProfileCore.test.ts` : contrat complet, déterminisme, parité web/mobile,
+équivalence avec l'assemblage benchmark, mode A/B.
+
+> Reste : (a) faire déléguer la production web/mobile `buildRunnerProfile` à ce cœur — elle
+> produit déjà un contrat compatible mais garde sa logique propre (elle ajoute météo /
+> pénalités de condition / descente technique en SUR-ensemble) ; (b) importer le cœur depuis
+> l'Edge Function Deno, ce qui nécessite de bundler `src/lib` dans la fonction (le déploiement
+> `supabase functions deploy` ne résout pas `../../src/lib`). Ces deux points restent ouverts.
+
+## Reste à faire (non exécutable/vérifiable ici — à ne PAS annoncer comme fait)
 
 Ces points exigent un runtime Deno, des secrets Supabase de production, ou un run réel du
-benchmark GitHub Actions, indisponibles ici. Ils sont volontairement laissés ouverts plutôt
-que « faits » de façon non vérifiée :
+benchmark GitHub Actions. Ils sont volontairement laissés ouverts plutôt que « faits » de
+façon non vérifiée :
 
-- **§1/§4/§18** : extraire `buildRunnerProfileFromActivitiesAndStreams({activities,
-  streamsByActivityId, fcMax, asOfMs})` sans dépendance navigateur/Supabase et l'appeler
-  depuis l'Edge Function (Deno) ; test de contrat commun aux 4 producteurs ; **déploiement**.
+- **§1 (Edge)** : bundler + importer le cœur pur depuis l'Edge Function (Deno) ; **déploiement**.
 - **§4/§5** : cache-first `activity_streams` avant Strava, diagnostics de cache, suppression
   du `.limit(30)`, pagination temporelle sur les deux fenêtres (183 / 56 j) côté Edge Func.
 - **§21/§22** : comparaison benchmark multi-versions (2026.07-6 / -7) ; workflow admin

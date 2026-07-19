@@ -14,7 +14,7 @@ import { buildRunnerProfileAtDate, type RawStreamSet } from './runnerProfileAtDa
 import { computeErrorMetrics, distanceBucket, dplusBucket, type ErrorMetrics } from './engineBacktest'
 import { computeBaselineMetrics, type BaselineMetrics, type BaselineRaceInput } from './backtestBaselines'
 import { clusteredBootstrap, type ClusteredBootstrapResult, type BootstrapPoint } from './backtestBootstrap'
-import { buildProfileSchemaMeta } from './runnerProfileSchema'
+import { assembleRunnerProfile } from './buildRunnerProfileCore'
 import { ENGINE_VERSION, stampProjection, type ProjectionSourceContribution } from './engineVersion'
 import { resolveFcMaxWithSource, type FcMaxSource } from './fcMax'
 import {
@@ -416,22 +416,21 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
         prior as unknown as BestEffortActivity[],
         c.priorStreams as unknown as Record<string, BestEffortStreams>,
       )
-  // Parité de CONTRAT avec le builder de production (§18) : mêmes champs moteur
-  // (bestEfforts / criticalSpeed / bestClimb / bestClimbByTier) ET même en-tête de schéma
-  // (schemaVersion / computedAt / asOfAt / historyDays / detailedProfileDays).
-  const runnerProfileWithBest = {
-    ...buildProfileSchemaMeta({
-      computedAtMs: Date.parse(race.start_date),
-      asOfMs: Date.parse(race.start_date),
-      historyDays: ENGINE_HISTORY_DAYS,
-      detailedProfileDays: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
-    }),
-    ...(runnerProfile as unknown as Record<string, unknown>),
-    bestEfforts: athleteBest.records,
-    criticalSpeed: athleteBest.criticalSpeed,
-    bestClimb: athleteBest.bestClimb,
-    bestClimbByTier: 'bestClimbByTier' in athleteBest ? athleteBest.bestClimbByTier : {},
-  }
+  // Profil assemblé par le MODULE PUR PARTAGÉ (§1) — même contrat que le builder de
+  // production (web/mobile) et l'Edge Function. `assembleRunnerProfile` réutilise les
+  // sous-résultats déjà calculés (atDate + bestEfforts) → sortie identique, sans recalcul.
+  const runnerProfileWithBest = assembleRunnerProfile({
+    atDateProfile: runnerProfile,
+    bestEfforts: {
+      records: athleteBest.records,
+      criticalSpeed: athleteBest.criticalSpeed,
+      bestClimb: athleteBest.bestClimb,
+      bestClimbByTier: 'bestClimbByTier' in athleteBest ? athleteBest.bestClimbByTier : {},
+    },
+    asOfMs: Date.parse(race.start_date),
+    historyDays: ENGINE_HISTORY_DAYS,
+    detailedProfileDays: c.windowDays ?? RUNNER_PROFILE_WINDOW_DAYS,
+  }) as unknown as Record<string, unknown>
 
   const profileObj: Record<string, unknown> = {
     fc_max: effectiveFcMax,
