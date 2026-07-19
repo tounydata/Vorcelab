@@ -130,6 +130,12 @@ export interface ProjectionResult {
   personal_fade_spread_ratio: number
   /** Raison machine de l'(in)activation de la durabilité personnelle. */
   personal_fade_reason: string
+  /** Fatigue GLOBALE de montée v1 (population, non personnelle) réellement active. */
+  global_climb_fatigue_active: boolean
+  /** Multiplicateur maximal atteint (1..1.18) — borné, valeurs inchangées cette PR. */
+  global_climb_fatigue_max_multiplier: number
+  /** Secondes réellement ajoutées par la fatigue globale de montée (diagnostic). */
+  global_climb_fatigue_seconds_added: number
 }
 
 export function computeRaceProjection(
@@ -519,15 +525,27 @@ export function computeRaceProjection(
   // systématique des longs trails raides (biais −20 à −40 min). Facteur BORNÉ, croissant
   // avec le D+ déjà grimpé, appliqué aux seules montées VAM. Nul en début de course et
   // sur un trail peu vertical → pas de régression sur le court.
+  // ⚠️ Coefficient GLOBAL (niveau population), PAS personnel : il ne dépend d'aucune donnée
+  // de l'athlète, seulement du D+ déjà grimpé dans LA course. Nommé explicitement
+  // `global_climb_fatigue_v1` pour ne pas le confondre avec la durabilité personnelle
+  // (fadeModel) ou les buckets appris. Valeurs INCHANGÉES dans cette PR (pas de hausse).
   let cumClimbDplus = 0
-  const CLIMB_FATIGUE_PER_1000M = 0.09 // +9 % de temps de montée par 1000 m déjà grimpés
-  const CLIMB_FATIGUE_MAX = 0.18
+  const GLOBAL_CLIMB_FATIGUE_V1_PER_1000M = 0.09 // +9 % de temps de montée par 1000 m déjà grimpés
+  const GLOBAL_CLIMB_FATIGUE_V1_MAX = 0.18
+  // Diagnostics (explicabilité) — n'altèrent PAS le temps calculé.
+  let globalClimbFatigueActive = false
+  let globalClimbFatigueMaxMultiplier = 1
+  let globalClimbFatigueSecondsAdded = 0
 
   for (let si = 0; si < sections.length; si++) {
     const s = sections[si]
     const g = s.grade / 100
     const progressRatio = s.startKm / (totalDistM / 1000) // 0..1 through race
-    const climbFatigue = 1 + Math.min(CLIMB_FATIGUE_MAX, (cumClimbDplus / 1000) * CLIMB_FATIGUE_PER_1000M)
+    const climbFatigue = 1 + Math.min(GLOBAL_CLIMB_FATIGUE_V1_MAX, (cumClimbDplus / 1000) * GLOBAL_CLIMB_FATIGUE_V1_PER_1000M)
+    if (climbFatigue > 1) {
+      globalClimbFatigueActive = true
+      globalClimbFatigueMaxMultiplier = Math.max(globalClimbFatigueMaxMultiplier, climbFatigue)
+    }
     cumClimbDplus += s.dplus
 
     const bkey = sectionBucketKey(s.grade, s.type)
@@ -556,7 +574,8 @@ export function computeRaceProjection(
         // Blend: steep = 85% VAM, mod = 70% VAM
         const vamWeight = bkey === 'steep_up' ? 0.85 : 0.70
         // Fatigue de montée intra-course (croît avec le D+ déjà grimpé).
-        const baseTimeS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight)) * climbFatigue
+        const baseTimeNoFatigueS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight))
+        const baseTimeS = baseTimeNoFatigueS * climbFatigue
         // Apply drift/recovery penalties to baseTimeS directly, then push and continue
         let missionOnePenalty = 1.0
 
@@ -585,6 +604,8 @@ export function computeRaceProjection(
 
         missionOnePenalty = Math.min(missionOnePenalty, 1.10)
         const t = baseTimeS * missionOnePenalty
+        // Secondes réellement ajoutées par la fatigue globale (diagnostic seul).
+        globalClimbFatigueSecondsAdded += baseTimeNoFatigueS * (climbFatigue - 1) * missionOnePenalty
         sectionTimes.push(t)
         estTimeS += t
         usedVamForSections = true
@@ -1132,5 +1153,8 @@ export function computeRaceProjection(
     personal_fade_distinct_activity_count: personalFade.distinctActivityCount,
     personal_fade_spread_ratio: personalFade.spreadRatio,
     personal_fade_reason: personalFade.reason,
+    global_climb_fatigue_active: globalClimbFatigueActive,
+    global_climb_fatigue_max_multiplier: +globalClimbFatigueMaxMultiplier.toFixed(4),
+    global_climb_fatigue_seconds_added: Math.round(globalClimbFatigueSecondsAdded),
   }
 }

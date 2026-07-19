@@ -514,6 +514,124 @@ export function bestClimb(climbs: ClimbEffort[]): ClimbEffort | null {
   return climbs.reduce<ClimbEffort | null>((best, c) => (!best || c.vamMh > best.vamMh ? c : best), null)
 }
 
+// ── Courbe VERTICALE (Étape §11) : meilleure ascension par PALIER de dénivelé ─────────
+// Fondation d'une future « courbe verticale » (équivalent mean-max, mais en D+). On extrait
+// le temps MINIMAL pour grimper 100 / 300 / 500 / 1000 m de D+ cumulé (→ VAM la plus haute
+// tenue sur ce dénivelé). PAS branché sur la projection centrale (cf. §11) : donnée
+// explicative + tests uniquement.
+
+/** Paliers de dénivelé positif (m) pour la courbe verticale. */
+export const VERTICAL_ASCENT_TIERS_M = [100, 300, 500, 1000] as const
+
+export interface VerticalEffort {
+  /** Palier visé (m de D+). */
+  targetAscentM: number
+  /** Dénivelé positif réellement couvert (≥ palier). */
+  ascentM: number
+  /** Durée de l'effort (s). */
+  durationS: number
+  /** Distance horizontale parcourue (m). */
+  distM: number
+  /** VAM = vitesse ascensionnelle moyenne (m/h). */
+  vamMh: number
+  /** Pente moyenne de l'effort (%). */
+  avgGradePct: number
+  /** Provenance anonymisable (si `sourceMeta` fourni). */
+  source?: BestEffortSource
+  /** L'activité présente-t-elle un gros trou temporel ? (qualité). */
+  hasTimeGap?: boolean
+}
+
+/**
+ * Extrait, pour chaque palier de D+, l'ascension la plus RAPIDE (VAM max) d'UNE activité,
+ * par fenêtre glissante sur le dénivelé positif cumulé (altitude lissée). Rejette les
+ * fenêtres à VAM invraisemblable (> 3000 m/h ≈ artefact baro/GPS).
+ */
+export function extractVerticalEfforts(
+  streams: BestEffortStreams,
+  sourceMeta?: BestEffortSourceMeta,
+): VerticalEffort[] {
+  const time = toNumArray(streams.time)
+  const distance = toNumArray(streams.distance)
+  const rawAlt = toNumArray(streams.altitude)
+  const n = Math.min(time.length, distance.length, rawAlt.length)
+  if (n < 5 || !rawAlt.slice(0, n).every((x) => Number.isFinite(x))) return []
+  if (!(time[n - 1] > time[0])) return []
+  const alt = smooth(rawAlt.slice(0, n), ELEV_SMOOTH_HALF)
+
+  // Dénivelé positif CUMULÉ (monotone non décroissant).
+  const cumUp = new Array<number>(n)
+  cumUp[0] = 0
+  for (let i = 1; i < n; i++) {
+    const dUp = alt[i] - alt[i - 1]
+    cumUp[i] = cumUp[i - 1] + (dUp > 0 ? dUp : 0)
+  }
+  const totalUp = cumUp[n - 1]
+
+  let hasTimeGap = false
+  for (let i = 1; i < n; i++) {
+    if (time[i] - time[i - 1] > 20) { hasTimeGap = true; break }
+  }
+
+  const VAM_HARD_MAX = 3000 // m/h — au-delà = artefact
+  const out: VerticalEffort[] = []
+  for (const A of VERTICAL_ASCENT_TIERS_M) {
+    if (totalUp < A) continue
+    let bestDur = Infinity
+    let bestI = -1
+    let bestJ = -1
+    let j = 0
+    for (let i = 0; i < n; i++) {
+      if (j < i) j = i
+      while (j < n && cumUp[j] - cumUp[i] < A) j++
+      if (j >= n) break
+      const dur = time[j] - time[i]
+      if (dur > 0 && dur < bestDur) { bestDur = dur; bestI = i; bestJ = j }
+    }
+    if (bestI < 0 || bestJ < 0 || !(bestDur > 0)) continue
+    const ascentM = cumUp[bestJ] - cumUp[bestI]
+    const distM = Math.max(0, distance[bestJ] - distance[bestI])
+    const vamMh = (ascentM * 3600) / bestDur
+    if (vamMh > VAM_HARD_MAX) continue // artefact
+    const avgGradePct = distM > 0 ? (ascentM / distM) * 100 : 0
+    const effort: VerticalEffort = {
+      targetAscentM: A,
+      ascentM: Math.round(ascentM),
+      durationS: Math.round(bestDur),
+      distM: Math.round(distM),
+      vamMh: Math.round(vamMh),
+      avgGradePct: +avgGradePct.toFixed(1),
+      hasTimeGap,
+    }
+    if (sourceMeta) {
+      effort.source = {
+        activityId: sourceMeta.activityId,
+        activityDate: sourceMeta.activityDate ?? '',
+        sportType: String(sourceMeta.sportType ?? ''),
+        rawTimeSec: Math.round(bestDur),
+        gapTimeSec: Math.round(bestDur),
+        suspectDownhill: false,
+        hasTimeGap,
+        altitudeCoveragePct: 100,
+      }
+    }
+    out.push(effort)
+  }
+  return out
+}
+
+/** Meilleur effort vertical par palier (VAM max), fusionné sur plusieurs activités. */
+export function mergeVerticalEfforts(perActivity: VerticalEffort[][]): Record<number, VerticalEffort> {
+  const best: Record<number, VerticalEffort> = {}
+  for (const list of perActivity) {
+    for (const e of list) {
+      const cur = best[e.targetAscentM]
+      if (!cur || e.vamMh > cur.vamMh) best[e.targetAscentM] = e
+    }
+  }
+  return best
+}
+
 /** Familles course à pied / trail (records extraits uniquement de ces activités). */
 const RUN_SPORTS_LC = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
 
@@ -532,6 +650,8 @@ export interface AthleteBestEfforts {
   criticalSpeed: CriticalSpeedResult | null
   /** Meilleure ascension (VAM la plus élevée) sur l'ensemble des sorties (trail). */
   bestClimb: ClimbEffort | null
+  /** Courbe verticale : meilleure ascension par palier de D+ (100/300/500/1000 m). §11 */
+  bestClimbByTier: Record<number, VerticalEffort>
   /** Nombre d'activités running réellement exploitées (avec streams). */
   activitiesUsed: number
 }
@@ -551,6 +671,7 @@ export function buildAthleteBestEfforts(
   // toutes activités confondues (la courbe mean-max « longue mémoire »).
   const bestDistByDuration = new Map<number, number>()
   let bestClimbOverall: ClimbEffort | null = null
+  const perActivityVertical: VerticalEffort[][] = []
   let used = 0
 
   for (const a of activities) {
@@ -558,11 +679,12 @@ export function buildAthleteBestEfforts(
     if (!RUN_SPORTS_LC.has(sport)) continue
     const streams = streamsById[String(a.strava_activity_id)]
     if (!streams) continue
-    const ext = extractBestEfforts(streams, {
+    const sourceMeta: BestEffortSourceMeta = {
       activityId: a.strava_activity_id,
       activityDate: a.start_date ?? null,
       sportType: a.sport_type ?? a.type ?? null,
-    })
+    }
+    const ext = extractBestEfforts(streams, sourceMeta)
     if (!ext) continue
     used++
     perActivityRecords.push(ext.records)
@@ -572,6 +694,7 @@ export function buildAthleteBestEfforts(
     }
     const climb = bestClimb(detectClimbs(streams))
     if (climb && (!bestClimbOverall || climb.vamMh > bestClimbOverall.vamMh)) bestClimbOverall = climb
+    perActivityVertical.push(extractVerticalEfforts(streams, sourceMeta))
   }
 
   const merged = mergeBestEfforts(perActivityRecords)
@@ -583,5 +706,7 @@ export function buildAthleteBestEfforts(
     .map(([T, distM]) => ({ distM, timeSec: T }))
   const criticalSpeed = computeCriticalSpeed(csEfforts)
 
-  return { records, criticalSpeed, bestClimb: bestClimbOverall, activitiesUsed: used }
+  const bestClimbByTier = mergeVerticalEfforts(perActivityVertical)
+
+  return { records, criticalSpeed, bestClimb: bestClimbOverall, bestClimbByTier, activitiesUsed: used }
 }

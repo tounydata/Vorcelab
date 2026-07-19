@@ -8,8 +8,11 @@ import {
   mergeBestEfforts,
   detectClimbs,
   bestClimb,
+  extractVerticalEfforts,
+  mergeVerticalEfforts,
   type BestEffortRecord,
   type ClimbEffort,
+  type VerticalEffort,
 } from './bestEfforts'
 import { computeCriticalSpeed, type Effort } from './criticalSpeed'
 import { fetchActivityWeather } from './weather'
@@ -97,6 +100,7 @@ export async function buildRunnerProfile(
   const bestEffortRecordsPerAct: BestEffortRecord[][] = []
   const bestDistByDuration = new Map<number, number>()
   let bestClimbOverall: ClimbEffort | null = null
+  const verticalEffortsPerAct: VerticalEffort[][] = []
 
   for (let i = 0; i < runs.length; i++) {
     const act = runs[i]
@@ -129,6 +133,11 @@ export async function buildRunnerProfile(
       }
       const climb = bestClimb(detectClimbs(streams))
       if (climb && (!bestClimbOverall || climb.vamMh > bestClimbOverall.vamMh)) bestClimbOverall = climb
+      verticalEffortsPerAct.push(extractVerticalEfforts(streams, {
+        activityId: act.strava_activity_id,
+        activityDate: act.start_date ?? null,
+        sportType: act.sport_type ?? act.type ?? null,
+      }))
     }
 
     const n = time.length
@@ -779,6 +788,7 @@ export async function buildRunnerProfile(
     bestEfforts,
     criticalSpeed,
     bestClimb: bestClimbOverall,
+    bestClimbByTier: mergeVerticalEfforts(verticalEffortsPerAct),
     fcMax,
     totalStreamSeconds,
     streamCoverage: totalActivitySeconds > 0 ? totalStreamSeconds / totalActivitySeconds : 0,
