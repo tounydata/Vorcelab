@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { RacePromptResult } from '../../lib/racePrompt'
+import { useDialogA11y } from '../../lib/useDialogA11y'
 
 /**
  * Pop-up « Comment s'est passée ta course ? » — proposé le jour J (ou à la première
@@ -19,6 +20,8 @@ export default function PostRaceModal({
   onDismiss: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogA11y({ open: true, onClose: onDismiss, containerRef: dialogRef })
   const { race, suggestion } = prompt
   const km = race.distance != null ? `${race.distance} km` : ''
   const sugKm = suggestion?.distance != null ? (suggestion.distance / 1000).toFixed(1) : null
@@ -31,7 +34,6 @@ export default function PostRaceModal({
 
   return (
     <div
-      role="dialog" aria-modal="true"
       onClick={onDismiss}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center',
@@ -39,6 +41,8 @@ export default function PostRaceModal({
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-label="Comment s'est passée ta course ?"
         onClick={(e) => e.stopPropagation()}
         className="card"
         style={{ width: '100%', maxWidth: 420, padding: '22px 22px 18px', borderRadius: 'var(--vl-r)', border: '1px solid var(--vl-line)' }}
