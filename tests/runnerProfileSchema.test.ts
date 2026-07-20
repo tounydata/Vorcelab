@@ -3,6 +3,7 @@ import {
   RUNNER_PROFILE_SCHEMA_VERSION,
   isRunnerProfileCompatible,
   buildProfileSchemaMeta,
+  shouldRebuildRunnerProfile,
 } from '../src/lib/runnerProfileSchema'
 import {
   RUNNER_PROFILE_SCHEMA_VERSION as MOBILE_VERSION,
@@ -65,6 +66,24 @@ describe('runner profile schema — compatibilité (§2)', () => {
     const p = currentProfile()
     expect(mobileCompatible(p)).toBe(isRunnerProfileCompatible(p))
     expect(mobileCompatible(null)).toBe(isRunnerProfileCompatible(null))
+  })
+
+  it('shouldRebuildRunnerProfile : reconstruit un profil absent / incompatible / périmé / sans streams', () => {
+    // Profil courant complet, calculé récemment, bien couvert → PAS de recalcul.
+    const fresh = { ...currentProfile(), _computedAt: '2026-06-01T00:00:00Z', streamCoverage: 0.8 }
+    expect(shouldRebuildRunnerProfile(fresh, { latestActivityAt: '2026-05-01T00:00:00Z' })).toBe(false)
+
+    // Absent → recalcul.
+    expect(shouldRebuildRunnerProfile(null)).toBe(true)
+
+    // Ancien schéma (pas de schemaVersion) mais avec _computedAt → INCOMPATIBLE → recalcul.
+    expect(shouldRebuildRunnerProfile({ _computedAt: '2026-06-01T00:00:00Z', streamCoverage: 0.8, buckets: {} })).toBe(true)
+
+    // Périmé : activité plus récente que le calcul → recalcul.
+    expect(shouldRebuildRunnerProfile(fresh, { latestActivityAt: '2026-07-01T00:00:00Z' })).toBe(true)
+
+    // Couverture de streams quasi nulle → recalcul.
+    expect(shouldRebuildRunnerProfile({ ...currentProfile(), _computedAt: '2026-06-01T00:00:00Z', streamCoverage: 0 })).toBe(true)
   })
 
   it('buildProfileSchemaMeta expose la version et les deux fenêtres', () => {

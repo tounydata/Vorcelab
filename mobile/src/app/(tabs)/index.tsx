@@ -13,6 +13,7 @@ import {
   type ActivityForLoad, type PMCDay,
 } from '@/lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '@/lib/buildRunnerProfile'
+import { shouldRebuildRunnerProfile } from '@/lib/runnerProfileSchema'
 import type { RunnerProfileComputed } from '@/lib/runnerProfile'
 import { useRaceProjection } from '@/lib/useRaceProjection'
 import { fmtRaceTimeS } from '@/lib/raceStrategyView'
@@ -346,9 +347,8 @@ export default function Dashboard() {
   // Recalcul silencieux du profil coureur si activité plus récente / sans streams.
   useEffect(() => {
     if (!userId || !activities.length || profileTriggeredRef.current) return
-    const computedAt = profileData?.runner_profile?._computedAt
-    const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 0
-    if (computedAt && new Date(activities[0].start_date) <= new Date(computedAt) && streamCoverage >= 0.01) return
+    // Recalcul auto si profil absent, INCOMPATIBLE (ancien schéma), périmé, ou sans streams.
+    if (!shouldRebuildRunnerProfile(profileData?.runner_profile ?? null, { latestActivityAt: activities[0].start_date })) return
     profileTriggeredRef.current = true
     ;(async () => {
       try {

@@ -61,6 +61,28 @@ export function isRunnerProfileCompatible(profile: unknown): boolean {
 }
 
 /**
+ * Décide si le profil coureur doit être RECONSTRUIT automatiquement (recalcul silencieux
+ * en tâche de fond, côté client). Vrai si : absent, INCOMPATIBLE (ancien schéma), périmé
+ * (activité plus récente que le calcul), ou couverture de streams quasi nulle. Pur → même
+ * décision web/mobile, testable. AUCUNE écriture de masse : chaque profil se répare seul à
+ * la première visite de son propriétaire.
+ */
+export function shouldRebuildRunnerProfile(
+  profile: unknown,
+  opts: { latestActivityAt?: string | null; minStreamCoverage?: number } = {},
+): boolean {
+  const p = profile && typeof profile === 'object' ? (profile as Record<string, unknown>) : null
+  const computedAt = typeof p?._computedAt === 'string' ? (p._computedAt as string) : null
+  const streamCoverage = typeof p?.streamCoverage === 'number' ? (p.streamCoverage as number) : 0
+  const minCov = opts.minStreamCoverage ?? 0.01
+  if (!computedAt) return true
+  if (!isRunnerProfileCompatible(profile)) return true
+  if (opts.latestActivityAt && new Date(opts.latestActivityAt).getTime() > new Date(computedAt).getTime()) return true
+  if (streamCoverage < minCov) return true
+  return false
+}
+
+/**
  * Métadonnées de schéma à apposer sur tout profil fraîchement calculé. Centralisé ici
  * pour que web, mobile, benchmark et Edge Function produisent EXACTEMENT le même en-tête.
  */
