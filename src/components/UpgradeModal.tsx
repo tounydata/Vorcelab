@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
+import { useDialogA11y } from '../lib/useDialogA11y'
 import { predictRaceTimeS, fmtRaceTime, estimateVdotGainRange } from '../lib/raceTimeProjection'
 import { useVLStore } from '../store/vlStore'
 import { useTrackEvent } from '../lib/useTrackEvent'
@@ -58,6 +59,8 @@ export default function UpgradeModal() {
   const track = useTrackEvent()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
   const [mounted, setMounted] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogA11y({ open, onClose: closeModal, containerRef: dialogRef })
 
   useEffect(() => {
     if (open) {
@@ -114,6 +117,10 @@ export default function UpgradeModal() {
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Passer à Vorcelab PRO"
         style={{
           width: '100%',
           maxWidth: 520,

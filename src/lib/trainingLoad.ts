@@ -324,7 +324,7 @@ export function getTsbZone(tsb: number): TsbZone {
   if (tsb < -10) return { key: 'optimal', label: 'OPTIMAL', sub: 'tu progresses', color: 'var(--vl-status-prod)' }
   if (tsb <= 5)  return { key: 'maintien', label: 'MAINTIEN', sub: 'forme stable', color: 'var(--vl-status-watch)' }
   if (tsb <= 25) return { key: 'recuperation', label: 'RÉCUPÉRATION', sub: 'frais & reposé', color: 'var(--vl-status-rest)' }
-  return { key: 'desentrainement', label: 'DÉSENTRAÎNEMENT', sub: 'tu perds en forme', color: 'var(--vl-status-load)' }
+  return { key: 'desentrainement', label: 'FORME EN BAISSE', sub: 'tu perds en forme', color: 'var(--vl-status-load)' }
 }
 
 // ── ACWR multi-sport (Gabbett 2016) — aigu 7j / chronique 28j ───────────────────

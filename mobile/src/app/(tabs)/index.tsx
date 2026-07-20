@@ -63,15 +63,15 @@ function computeMultiStatus(pmc: PMCDay[], acwr: ReturnType<typeof computeACWR>,
   const efTrend = efRecent != null && efBase != null && efBase > 0 ? (efRecent - efBase) / efBase : null
   const hardDays = pmc.slice(-7).filter((d) => d.ctl > 0 && d.totalLoad > 1.3 * d.ctl).length
   if (ratio != null && ratio > 1.5) {
-    if (hardDays >= 3) return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: ST.over }
+    if (hardDays >= 3) return { label: 'CHARGE PROLONGÉE', sub: 'charge élevée prolongée — pense à récupérer', color: ST.over }
     return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: ST.load }
   }
   if (ratio != null && ratio < 0.8) {
-    if (ctlTrendPct < -0.05) return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: ST.load }
+    if (ctlTrendPct < -0.05) return { label: 'FORME EN BAISSE', sub: 'charge faible + fitness en baisse', color: ST.load }
     if (today.ctl > 40 && (efTrend == null || efTrend >= 0)) return { label: 'PIC', sub: 'affûtage — forme optimale', color: ST.peak }
     return { label: 'RÉCUPÉRATION', sub: 'repos voulu — charge légère', color: ST.rest }
   }
-  if (efTrend != null && efTrend < -0.05 && ctlTrendPct <= 0.03) return { label: 'IMPRODUCTIF', sub: 'charge sans progression cardio', color: ST.watch }
+  if (efTrend != null && efTrend < -0.05 && ctlTrendPct <= 0.03) return { label: 'PROGRESSION EN PAUSE', sub: 'charge sans progression cardio', color: ST.watch }
   if (ctlTrendPct > 0.05 && (efTrend == null || efTrend >= -0.03)) return { label: 'PRODUCTIF', sub: 'tu progresses', color: ST.prod }
   return { label: 'MAINTIEN', sub: 'forme stable', color: ST.watch }
 }

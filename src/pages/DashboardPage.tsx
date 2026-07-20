@@ -134,18 +134,18 @@ function computeMultiStatus(
   // Table de décision — priorité décroissante
   if (ratio != null && ratio > 1.5) {
     if (hardDays >= 3)
-      return { label: 'SURMENAGE', sub: 'charge élevée prolongée — pense à récupérer', color: 'var(--vl-status-over)', key: 'surmenage' }
+      return { label: 'CHARGE PROLONGÉE', sub: 'charge élevée prolongée — pense à récupérer', color: 'var(--vl-status-over)', key: 'surmenage' }
     return { label: 'CHARGE ÉLEVÉE', sub: 'pic ponctuel — récupération conseillée', color: 'var(--vl-status-load)', key: 'charge_elevee' }
   }
   if (ratio != null && ratio < 0.8) {
     if (ctlTrendPct < -0.05)
-      return { label: 'DÉSENTRAÎNEMENT', sub: 'charge faible + fitness en baisse', color: 'var(--vl-status-load)', key: 'desentrainement' }
+      return { label: 'FORME EN BAISSE', sub: 'charge faible + fitness en baisse', color: 'var(--vl-status-load)', key: 'desentrainement' }
     if (today.ctl > 40 && (efTrend == null || efTrend >= 0))
       return { label: 'PIC', sub: 'affûtage — forme optimale', color: 'var(--vl-status-peak)', key: 'pic' }
     return { label: 'RÉCUPÉRATION', sub: 'repos voulu — charge légère', color: 'var(--vl-status-rest)', key: 'recuperation' }
   }
   if (efTrend != null && efTrend < -0.05 && ctlTrendPct <= 0.03)
-    return { label: 'IMPRODUCTIF', sub: 'charge sans progression cardio', color: 'var(--vl-status-watch)', key: 'improductif' }
+    return { label: 'PROGRESSION EN PAUSE', sub: 'charge sans progression cardio', color: 'var(--vl-status-watch)', key: 'improductif' }
   if (ctlTrendPct > 0.05 && (efTrend == null || efTrend >= -0.03))
     return { label: 'PRODUCTIF', sub: 'tu progresses', color: 'var(--vl-status-prod)', key: 'productif' }
   return { label: 'MAINTIEN', sub: 'forme stable', color: 'var(--vl-status-watch)', key: 'maintien' }
