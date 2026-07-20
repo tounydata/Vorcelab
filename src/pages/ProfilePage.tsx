@@ -28,7 +28,7 @@ import {
   type RecoveryBucketStats,
   type ConditionPenalties,
 } from '../lib/runnerProfile'
-import { buildRunnerProfile, fetchActivitiesForProfile, fillMissingWeather, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import { recomputeRunnerProfileServer } from '../lib/recomputeRunnerProfile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -535,21 +535,15 @@ export default function ProfilePage() {
 
   async function handleComputeProfile() {
     if (!user) return
+    // §1 : recalcul CÔTÉ SERVEUR uniquement (compute-runner-profile) — source unique de
+    // vérité. Plus de build local sur 50 activités tronquées. Le serveur opère sur la fenêtre
+    // moteur complète (183 j) puis persiste ; on relit ensuite le profil serveur.
     setComputing(true)
-    setComputeProgress(0)
-    setComputeLabel('Chargement des activités…')
+    setComputeProgress(15)
+    setComputeLabel('Recalcul du profil côté serveur…')
     try {
-      const acts = await fetchActivitiesForProfile(user.id, 50)
-      setComputeLabel('Synchronisation météo manquante…')
-      await fillMissingWeather(user.id, acts, (done, total) => {
-        setComputeLabel(`Météo ${done}/${total}…`)
-      })
-      const rpNew = await buildRunnerProfile(
-        acts,
-        profileRow?.fc_max ?? 185,
-        (pct, label) => { setComputeProgress(pct); setComputeLabel(label) },
-      )
-      await saveRunnerProfile(user.id, rpNew)
+      await recomputeRunnerProfileServer()
+      setComputeProgress(100)
       await queryClient.invalidateQueries({ queryKey: ['profile-full', user.id] })
     } catch (e) {
       console.error('[VL] compute profile error:', e)

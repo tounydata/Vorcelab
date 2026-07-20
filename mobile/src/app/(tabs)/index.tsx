@@ -12,7 +12,7 @@ import {
   computeActivityLoad, computeDailyPMC, getTsbZone, computeACWR, classifySport,
   type ActivityForLoad, type PMCDay,
 } from '@/lib/trainingLoad'
-import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '@/lib/buildRunnerProfile'
+import { recomputeRunnerProfileServer } from '@/lib/recomputeRunnerProfile'
 import { shouldRebuildRunnerProfile } from '@/lib/runnerProfileSchema'
 import type { RunnerProfileComputed } from '@/lib/runnerProfile'
 import { useRaceProjection } from '@/lib/useRaceProjection'
@@ -352,9 +352,8 @@ export default function Dashboard() {
     profileTriggeredRef.current = true
     ;(async () => {
       try {
-        const acts = await fetchActivitiesForProfile(userId, 50)
-        const rp = await buildRunnerProfile(acts, profileData?.fc_max ?? 185)
-        await saveRunnerProfile(userId, rp)
+        // §1 : recalcul CÔTÉ SERVEUR (compute-runner-profile) — source unique.
+        await recomputeRunnerProfileServer()
         load()
       } catch (e) { console.warn('[VL] background profile recompute failed:', e); profileTriggeredRef.current = false }
     })()

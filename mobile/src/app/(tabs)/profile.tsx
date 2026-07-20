@@ -15,7 +15,7 @@ const appVersion = Constants.expoConfig?.version ?? '1.0.0'
 import PaceZonesCard from '@/components/PaceZonesCard'
 import HrZonesCard from '@/components/HrZonesCard'
 import type { HrZoneConfig } from '@/lib/hrZones'
-import { buildRunnerProfile, fetchActivitiesForProfile, fillMissingWeather, saveRunnerProfile } from '@/lib/buildRunnerProfile'
+import { recomputeRunnerProfileServer } from '@/lib/recomputeRunnerProfile'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -392,13 +392,12 @@ export default function ProfileScreen() {
 
   async function handleComputeProfile() {
     if (!user) return
-    setComputing(true); setComputeProgress(0); setComputeLabel('Chargement des activités…')
+    // §1 : recalcul CÔTÉ SERVEUR uniquement (compute-runner-profile) — source unique de
+    // vérité (fenêtre moteur complète). Plus de build local sur 50 activités tronquées.
+    setComputing(true); setComputeProgress(15); setComputeLabel('Recalcul du profil côté serveur…')
     try {
-      const acts = await fetchActivitiesForProfile(user.id, 50)
-      setComputeLabel('Synchronisation météo manquante…')
-      await fillMissingWeather(user.id, acts, (done, total) => setComputeLabel(`Météo ${done}/${total}…`))
-      const rpNew = await buildRunnerProfile(acts, row?.fc_max ?? 185, (pct, label) => { setComputeProgress(pct); setComputeLabel(label) })
-      await saveRunnerProfile(user.id, rpNew)
+      await recomputeRunnerProfileServer()
+      setComputeProgress(100)
       await load()
     } catch (e) {
       console.error('[VL] compute profile error:', e)
