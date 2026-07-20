@@ -10,7 +10,7 @@ import { resolve, join } from 'node:path'
 export const CORE_FILES = [
   'buildRunnerProfileCore', 'runnerProfileAtDate', 'bestEfforts', 'criticalSpeed',
   'gpxCore', 'runnerProfile', 'runnerProfileSchema', 'engineHistory',
-  'elevationSmoothing', 'raceValidation',
+  'elevationSmoothing', 'raceValidation', 'projectionSnapshot',
 ]
 
 const MOD_TS = `// Point d'entrée runner-core — GÉNÉRÉ par scripts/sync-runner-core.mjs (ne pas éditer).

@@ -152,6 +152,72 @@ export function computeInputFingerprint(input: FingerprintInput): string {
   return sha256Hex(canonicalStringify(norm))
 }
 
+// ── Manifeste COMPLET des entrées (§4) ──────────────────────────────────────────────
+// Le fingerprint historique ne couvrait qu'un COMPTE d'activités (`activityCount`). Pour une
+// preuve prospective vraiment auditable, on fige le MANIFESTE : la liste exacte des activités
+// (agrégats uniquement, jamais de GPS brut) qui ont alimenté la projection. N'importe qui peut
+// recalculer l'empreinte depuis le manifeste stocké → preuve qu'aucune entrée n'a bougé.
+
+export interface ActivityManifestEntry {
+  activityId: number
+  startDate: string
+  movingTimeS: number
+  distanceM: number
+  dplusM: number
+}
+
+/** Normalise le manifeste : arrondis stables + tri par activityId → déterministe. */
+export function normalizeManifest(entries: ActivityManifestEntry[]): ActivityManifestEntry[] {
+  return entries
+    .map((e) => ({
+      activityId: Number(e.activityId),
+      startDate: e.startDate,
+      movingTimeS: Math.round(e.movingTimeS),
+      distanceM: Math.round(e.distanceM),
+      dplusM: Math.round(e.dplusM),
+    }))
+    .sort((a, b) => a.activityId - b.activityId)
+}
+
+export interface SnapshotFingerprintInput {
+  engineVersion: string
+  profileVersion: string
+  profileSchemaVersion: string
+  raceDistanceM: number
+  raceDplusM: number
+  historyStartAt: string
+  historyEndAt: string
+  predictionCentralS: number
+  usedPersonalFade: boolean
+  usedSteepnessCalibration: boolean
+  usedFallback: boolean
+  fallbackSources: string[]
+  manifest: ActivityManifestEntry[]
+}
+
+/**
+ * Empreinte déterministe couvrant le MANIFESTE COMPLET (§4). Recalculable depuis les données
+ * figées (manifeste + versions + prédiction) → toute altération d'une entrée change l'empreinte.
+ */
+export function computeSnapshotFingerprint(input: SnapshotFingerprintInput): string {
+  const norm = {
+    engineVersion: input.engineVersion,
+    profileVersion: input.profileVersion,
+    profileSchemaVersion: input.profileSchemaVersion,
+    raceDistanceM: Math.round(input.raceDistanceM),
+    raceDplusM: Math.round(input.raceDplusM),
+    historyStartAt: input.historyStartAt,
+    historyEndAt: input.historyEndAt,
+    predictionCentralS: Math.round(input.predictionCentralS),
+    usedPersonalFade: input.usedPersonalFade,
+    usedSteepnessCalibration: input.usedSteepnessCalibration,
+    usedFallback: input.usedFallback,
+    fallbackSources: [...input.fallbackSources].sort(),
+    manifest: normalizeManifest(input.manifest),
+  }
+  return sha256Hex(canonicalStringify(norm))
+}
+
 export interface BuildSnapshotInput {
   id: string
   userId: string

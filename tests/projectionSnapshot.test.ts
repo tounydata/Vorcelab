@@ -2,12 +2,15 @@ import { describe, it, expect } from 'vitest'
 import {
   buildProjectionSnapshot,
   computeInputFingerprint,
+  computeSnapshotFingerprint,
+  normalizeManifest,
   canonicalStringify,
   snapshotToDbRow,
   isSnapshotLockedAt,
   sha256Hex,
   type BuildSnapshotInput,
   type FingerprintInput,
+  type ActivityManifestEntry,
 } from '../src/lib/projectionSnapshot'
 import {
   buildProjectionSnapshot as mobileBuild,
@@ -127,5 +130,33 @@ describe('buildProjectionSnapshot (§14)', () => {
   it('parité web/mobile (empreinte + snapshot)', () => {
     expect(mobileFingerprint(fpInput)).toBe(computeInputFingerprint(fpInput))
     expect(mobileBuild(buildInput)).toEqual(buildProjectionSnapshot(buildInput))
+  })
+
+  // ── Manifeste complet (§4) ──────────────────────────────────────────────────────
+  const manifest: ActivityManifestEntry[] = [
+    { activityId: 2, startDate: '2026-05-02T07:00:00Z', movingTimeS: 3600.4, distanceM: 10000.7, dplusM: 120.9 },
+    { activityId: 1, startDate: '2026-05-01T07:00:00Z', movingTimeS: 1800, distanceM: 5000, dplusM: 50 },
+  ]
+  const fp2 = (m: ActivityManifestEntry[]) =>
+    computeSnapshotFingerprint({
+      engineVersion: '2026.07-7', profileVersion: 'p', profileSchemaVersion: 's',
+      raceDistanceM: 21097, raceDplusM: 400, historyStartAt: 'a', historyEndAt: 'b',
+      predictionCentralS: 6000, usedPersonalFade: false, usedSteepnessCalibration: false,
+      usedFallback: false, fallbackSources: [], manifest: m,
+    })
+
+  it('normalizeManifest : arrondit et trie par activityId (déterministe)', () => {
+    const n = normalizeManifest(manifest)
+    expect(n.map((e) => e.activityId)).toEqual([1, 2])
+    expect(n[1]).toEqual({ activityId: 2, startDate: '2026-05-02T07:00:00Z', movingTimeS: 3600, distanceM: 10001, dplusM: 121 })
+  })
+
+  it('computeSnapshotFingerprint : indépendant de l’ordre du manifeste', () => {
+    expect(fp2([...manifest].reverse())).toBe(fp2(manifest))
+  })
+
+  it('computeSnapshotFingerprint : change si une entrée change', () => {
+    const altered = [{ ...manifest[0], distanceM: 9999 }, manifest[1]]
+    expect(fp2(altered)).not.toBe(fp2(manifest))
   })
 })
