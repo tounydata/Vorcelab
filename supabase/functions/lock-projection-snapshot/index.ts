@@ -21,6 +21,7 @@ import {
   computeSnapshotFingerprint,
   type ActivityManifestEntry,
 } from '../_shared/runner-core/projectionSnapshot.ts'
+import { classifyDataSplit } from '../_shared/runner-core/validationPolicy.ts'
 
 interface LockBody {
   raceId?: string
@@ -177,6 +178,8 @@ Deno.serve(async (req: Request) => {
         fallback_sources: fallbackSources,
         input_fingerprint: inputFingerprint,
         input_manifest: manifest,
+        // §9 : dev/validation décidé SERVEUR (version gelée + course après début de campagne).
+        data_split: classifyDataSplit({ engineVersion, raceStartAtMs: raceStartMs }),
         status: 'locked',
       })
       .select('id')

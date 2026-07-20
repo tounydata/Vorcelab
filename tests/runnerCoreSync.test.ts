@@ -27,8 +27,8 @@ describe('runner-core : source unique src/lib → artefacts Deno (§1, option B)
     expect(edge).not.toContain('function processStreams')
   })
 
-  it('couvre bien les 11 fichiers du cœur', () => {
-    expect(CORE_FILES).toHaveLength(11)
+  it('couvre bien les 12 fichiers du cœur', () => {
+    expect(CORE_FILES).toHaveLength(12)
     expect(CORE_FILES).toContain('buildRunnerProfileCore')
     expect(CORE_FILES).toContain('projectionSnapshot')
   })
