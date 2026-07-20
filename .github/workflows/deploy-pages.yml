@@ -1,7 +1,12 @@
 name: Deploy Pages
 
+# §7 : le déploiement DÉPEND du succès de la CI. Au lieu de partir en parallèle sur chaque
+# push `main`, ce workflow se déclenche APRÈS la fin de la CI (`workflow_run`) et ne construit
+# que si elle a RÉUSSI (garde `if` ci-dessous) → plus de mise en prod d'un `main` rouge.
 on:
-  push:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -19,6 +24,8 @@ jobs:
   # `deploy` (ex. après une erreur transitoire de l'API Pages) ne ré-uploade PAS
   # l'artifact — ce qui évitait l'erreur « Multiple artifacts named github-pages ».
   build:
+    # Ne déploie que si la CI a réussi (ou déclenchement manuel explicite).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

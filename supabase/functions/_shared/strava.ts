@@ -1,4 +1,11 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Client Supabase « permissif ». Sans types de base générés, un client typé par défaut
+// paramètre le schéma en `never`, ce qui faisait résoudre `.from(...).upsert({...})` en `never`
+// (→ TS2353/TS2345 sous `deno check` strict, cf. §7). `any` sur le schéma laisse les requêtes
+// se typer normalement — parité avec ce que bundle/déploie réellement `supabase functions deploy`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/api/v3/athlete/activities'
@@ -8,7 +15,7 @@ const STRAVA_DEAUTH_URL = 'https://www.strava.com/oauth/deauthorize'
 // ─── Token management ────────────────────────────────────────────────────────
 
 export async function getValidStravaAccessToken(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string
 ): Promise<string> {
   const { data: row, error } = await supabase
@@ -27,7 +34,7 @@ export async function getValidStravaAccessToken(
 }
 
 export async function refreshStravaToken(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   currentRefreshToken: string
 ): Promise<string> {
@@ -156,7 +163,7 @@ export type CacheStreamResult = 'cached' | 'empty' | 'not_found' | 'rate_limited
  * - 404 / vide → on écrit un marqueur `{}` pour ne PAS re-télécharger en boucle.
  */
 export async function fetchAndCacheActivityStreams(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   accessToken: string,
   activityId: number | bigint,
@@ -212,7 +219,7 @@ export interface SyncOptions {
 }
 
 export async function syncStravaActivitiesForUser(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   accessToken: string,
   options: SyncOptions = {}
@@ -262,7 +269,7 @@ export async function syncStravaActivitiesForUser(
 }
 
 export async function upsertStravaActivity(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   act: StravaRawActivity,
   athleteId?: number

@@ -1077,11 +1077,16 @@ function toBaselineInputs(rows: BacktestRow[]): BaselineRaceInput[] {
   return rows.map((r) => ({
     athleteId: r.athlete_id,
     raceId: r.race_id,
+    raceDateMs: Date.parse(r.as_of_at ?? r.date),
     distanceKm: r.distance_km,
     dplusM: r.dplus_m,
     actualMovingS: r.actual_moving_s,
     actualElapsedS: r.actual_elapsed_s,
-    predictedNoBeS: r.predicted_s_no_be,
+    ablationNoBestEffortsS: r.predicted_s_no_be,
+    // Pas encore de version antérieure figée rejouée sur le banc (cf. §9 : geler une version
+    // moteur pendant la collecte). null ⇒ baseline `previous_engine_version` non couverte,
+    // honnêtement, plutôt qu'un proxy fabriqué.
+    previousVersionPredictedS: null,
   }))
 }
 
