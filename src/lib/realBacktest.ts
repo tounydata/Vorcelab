@@ -196,6 +196,16 @@ export interface BacktestRow {
   used_personal_fade: boolean
   /** Exposant d'endurance personnel appliqué (ou null). */
   personal_fade_exponent: number | null
+  /** Diagnostics de durabilité (remontés du moteur, §6). */
+  personal_fade_r2: number | null
+  personal_fade_confidence: string
+  personal_fade_distinct_activity_count: number
+  personal_fade_spread_ratio: number
+  personal_fade_reason: string
+  /** Diagnostics de fatigue globale de montée (§10). */
+  global_climb_fatigue_active: boolean
+  global_climb_fatigue_max_multiplier: number
+  global_climb_fatigue_seconds_added: number
   /** Meilleure VAM détectée (m/h) sur les sorties de l'athlète (record de trail), ou null. */
   best_climb_vam_mh: number | null
   /** Temps projeté SANS records/durabilité auto (contrefactuel A/B) — = predicted_s si non utilisés. */
@@ -557,6 +567,14 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     used_stream_best_efforts: proj.used_stream_best_efforts,
     used_personal_fade: proj.used_personal_fade,
     personal_fade_exponent: proj.personal_fade_exponent,
+    personal_fade_r2: proj.personal_fade_r2,
+    personal_fade_confidence: proj.personal_fade_confidence,
+    personal_fade_distinct_activity_count: proj.personal_fade_distinct_activity_count,
+    personal_fade_spread_ratio: proj.personal_fade_spread_ratio,
+    personal_fade_reason: proj.personal_fade_reason,
+    global_climb_fatigue_active: proj.global_climb_fatigue_active,
+    global_climb_fatigue_max_multiplier: proj.global_climb_fatigue_max_multiplier,
+    global_climb_fatigue_seconds_added: proj.global_climb_fatigue_seconds_added,
     best_climb_vam_mh: athleteBest.bestClimb?.vamMh ?? null,
     predicted_s_no_be: predictedNoBe,
     used_fallback: proj.usedFallback,

@@ -26,10 +26,15 @@ function longRun(daysAgo: number): Record<string, unknown> {
 const activities = [longRun(7), longRun(14), longRun(21)]
 
 // Records suivant T = a·D^b → impose l'exposant d'endurance appris.
+// Records avec provenance DISTINCTE (une activité par distance) : condition d'un vrai profil.
 function recordsWithExponent(a: number, b: number): MergedBestEffort[] {
-  return [5000, 10000, 21097].map((D) => {
+  return [5000, 10000, 21097].map((D, i) => {
     const t = Math.round(a * D ** b)
-    return { distanceM: D, rawTimeSec: t, rawFromDownhill: false, gapTimeSec: t }
+    const src = {
+      activityId: `act-${i}`, activityDate: '2026-05-01', sportType: 'Run',
+      rawTimeSec: t, gapTimeSec: t, suspectDownhill: false, hasTimeGap: false, altitudeCoveragePct: 100,
+    }
+    return { distanceM: D, rawTimeSec: t, rawFromDownhill: false, gapTimeSec: t, rawSource: src, gapSource: src }
   })
 }
 

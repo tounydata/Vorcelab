@@ -5,6 +5,7 @@ import {
   canonicalStringify,
   snapshotToDbRow,
   isSnapshotLockedAt,
+  sha256Hex,
   type BuildSnapshotInput,
   type FingerprintInput,
 } from '../src/lib/projectionSnapshot'
@@ -52,6 +53,13 @@ const buildInput: BuildSnapshotInput = {
   createdAt: '2026-07-15T10:00:00.000Z',
 }
 
+describe('SHA-256 pur', () => {
+  it('vecteurs de test connus (FIPS 180-4)', () => {
+    expect(sha256Hex('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+    expect(sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+  })
+})
+
 describe('empreinte déterministe (§14)', () => {
   it('mêmes entrées → même empreinte (déterminisme)', () => {
     expect(computeInputFingerprint(fpInput)).toBe(computeInputFingerprint({ ...fpInput }))
@@ -78,10 +86,10 @@ describe('empreinte déterministe (§14)', () => {
 })
 
 describe('buildProjectionSnapshot (§14)', () => {
-  it('produit un snapshot verrouillé avec empreinte et sans GPS', () => {
+  it('produit un snapshot verrouillé avec empreinte SHA-256 et sans GPS', () => {
     const s = buildProjectionSnapshot(buildInput)
     expect(s.status).toBe('locked')
-    expect(s.inputFingerprint).toMatch(/^[0-9a-f]{16}$/)
+    expect(s.inputFingerprint).toMatch(/^[0-9a-f]{64}$/)
     // Aucune clé de type GPS/points/latlng dans le snapshot.
     const keys = Object.keys(s).join(',').toLowerCase()
     expect(keys).not.toMatch(/gps|latlng|points|coord|geojson/)

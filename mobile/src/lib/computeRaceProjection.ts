@@ -266,8 +266,9 @@ export function computeRaceProjection(
   // laisser activer la durabilité personnelle. Filtrage sur l'éligibilité, provenance
   // conservée pour compter les activités DISTINCTES.
   const eligibleFadeEfforts = streamBestEfforts
-    .filter((r) => assessBestEffortQuality(r).eligibleForFade)
-    .map((r) => ({ distM: r.distanceM, timeSec: r.gapTimeSec, activityId: r.gapSource?.activityId }))
+    .map((r) => ({ r, q: assessBestEffortQuality(r) }))
+    .filter(({ q }) => q.weight > 0) // on écarte seulement les artefacts (vitesse invraisemblable, hors running)
+    .map(({ r, q }) => ({ distM: r.distanceM, timeSec: r.gapTimeSec, activityId: r.gapSource?.activityId, weight: q.weight }))
   const personalFade = fitFadeExponent(eligibleFadeEfforts)
   // Le moteur n'utilise l'exposant personnel QUE pour une confiance medium ou high (§6).
   const usePersonalFade = personalFade.confidence === 'medium' || personalFade.confidence === 'high'

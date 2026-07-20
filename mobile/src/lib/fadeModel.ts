@@ -19,10 +19,16 @@ export interface FadeEffort {
   /**
    * Provenance : identifiant (pseudonymisé) de l'activité source. Sert à compter les
    * activités DISTINCTES — trois distances extraites d'UNE SEULE sortie ne prouvent pas
-   * une vraie courbe d'endurance (cf. `distinctActivityCount`). Absent → l'effort est
-   * compté comme provenant d'une activité distincte (provenance inconnue).
+   * une vraie courbe d'endurance (cf. `distinctActivityCount`). Provenance ABSENTE =
+   * NON FIABLE : l'effort ne compte PAS comme activité distincte (garde-fou conservateur).
    */
   activityId?: string | number
+  /**
+   * Poids robuste (0..1) de qualité du record (cf. assessBestEffortQuality). Utilisé en
+   * régression PONDÉRÉE : un record douteux (descente, pause, altitude incomplète) pèse
+   * moins qu'un record propre, au lieu d'un filtrage binaire. Défaut 1.
+   */
+  weight?: number
 }
 
 /** Niveau de confiance du modèle de durabilité (garde-fou d'activation). */
@@ -86,10 +92,14 @@ export const FADE_CONFIDENCE_RULES = {
   medium: { minEfforts: 3, minDistinctActivities: 2, minSpreadRatio: 1.8, minR2: 0.9 },
 } as const
 
-/** Compte les activités distinctes (provenance inconnue = comptée comme distincte). */
+/**
+ * Compte les activités DISTINCTES à provenance CONNUE. La provenance absente est
+ * considérée NON FIABLE (conservateur) : elle ne peut pas prouver une activité distincte,
+ * donc elle ne compte pas. Trois distances sans provenance → 0 activité distincte prouvée.
+ */
 function countDistinctActivities(pts: FadeEffort[]): number {
   const seen = new Set<string>()
-  pts.forEach((e, i) => seen.add(e.activityId != null ? `id:${e.activityId}` : `idx:${i}`))
+  for (const e of pts) if (e.activityId != null) seen.add(`id:${e.activityId}`)
   return seen.size
 }
 
@@ -120,16 +130,24 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
     return { ...base, exponent: o.defaultExponent, n: pts.length, r2: 0, spreadRatio: +sr.toFixed(2), confidence: 'none', reason: 'insufficient_spread' }
   }
 
+  // Régression log-log PONDÉRÉE (§8) : chaque effort pèse selon sa qualité (weight ∈ [0,1],
+  // défaut 1). Un record douteux (descente, pause, altitude incomplète) pèse moins qu'un
+  // record propre — dépondération robuste plutôt que filtrage binaire.
   const xs = pts.map((e) => Math.log(e.distM))
   const ys = pts.map((e) => Math.log(e.timeSec))
+  const ws = pts.map((e) => (typeof e.weight === 'number' ? clamp(e.weight, 0, 1) : 1))
   const n = pts.length
-  const xbar = mean(xs)
-  const ybar = mean(ys)
+  const wsum = ws.reduce((s, w) => s + w, 0)
+  if (wsum <= 0) {
+    return { ...base, exponent: o.defaultExponent, n, r2: 0, spreadRatio: +sr.toFixed(2), confidence: 'none', reason: 'low_r2' }
+  }
+  const xbar = ws.reduce((s, w, i) => s + w * xs[i], 0) / wsum
+  const ybar = ws.reduce((s, w, i) => s + w * ys[i], 0) / wsum
   let sxx = 0
   let sxy = 0
   for (let i = 0; i < n; i++) {
-    sxx += (xs[i] - xbar) ** 2
-    sxy += (xs[i] - xbar) * (ys[i] - ybar)
+    sxx += ws[i] * (xs[i] - xbar) ** 2
+    sxy += ws[i] * (xs[i] - xbar) * (ys[i] - ybar)
   }
   if (sxx <= 0) {
     return { ...base, exponent: o.defaultExponent, n, r2: 0, spreadRatio: +sr.toFixed(2), confidence: 'none', reason: 'insufficient_spread' }
@@ -137,25 +155,29 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
   const slope = sxy / sxx
   const fittedExponent = +clamp(slope, o.minExponent, o.maxExponent).toFixed(4)
 
-  // R² : garde-fou de qualité de la régression (auparavant calculé mais inutilisé).
+  // R² PONDÉRÉ : garde-fou de qualité de la régression.
   let ssTot = 0
   let ssRes = 0
   const intercept = ybar - slope * xbar
   for (let i = 0; i < n; i++) {
     const pred = intercept + slope * xs[i]
-    ssRes += (ys[i] - pred) ** 2
-    ssTot += (ys[i] - ybar) ** 2
+    ssRes += ws[i] * (ys[i] - pred) ** 2
+    ssTot += ws[i] * (ys[i] - ybar) ** 2
   }
   const r2 = +(ssTot > 0 ? Math.max(0, 1 - ssRes / ssTot) : 0).toFixed(3)
   const srRounded = +sr.toFixed(2)
 
   // Confiance : deux paliers (high/medium) ; sinon on n'active PAS la durabilité perso.
+  // On utilise le nombre d'efforts EFFECTIF (somme des poids de qualité) : trois records
+  // tous douteux (poids 0.3) ne pèsent QUE ~0.9 effort → n'atteignent aucun palier, même si
+  // leur courbe est bien ajustée (§8/§19.4 : dépondération robuste, pas seulement filtrage).
+  const effectiveN = wsum
   const H = FADE_CONFIDENCE_RULES.high
   const M = FADE_CONFIDENCE_RULES.medium
   let confidence: FadeConfidence
-  if (n >= H.minEfforts && distinctActivityCount >= H.minDistinctActivities && sr >= H.minSpreadRatio && r2 >= H.minR2) {
+  if (effectiveN >= H.minEfforts && distinctActivityCount >= H.minDistinctActivities && sr >= H.minSpreadRatio && r2 >= H.minR2) {
     confidence = 'high'
-  } else if (n >= M.minEfforts && distinctActivityCount >= M.minDistinctActivities && sr >= M.minSpreadRatio && r2 >= M.minR2) {
+  } else if (effectiveN >= M.minEfforts && distinctActivityCount >= M.minDistinctActivities && sr >= M.minSpreadRatio && r2 >= M.minR2) {
     confidence = 'medium'
   } else {
     confidence = 'low'
@@ -168,7 +190,8 @@ export function fitFadeExponent(efforts: FadeEffort[], options?: FadeModelOption
   // Confiance insuffisante → exposant par défaut, aucune activation personnelle.
   // On expose la vraie raison dominante pour l'explicabilité/diagnostic.
   const reason: FadeModelResult['reason'] =
-    r2 < M.minR2 ? 'low_r2'
+    effectiveN < M.minEfforts ? 'insufficient_data'
+    : r2 < M.minR2 ? 'low_r2'
     : distinctActivityCount < M.minDistinctActivities ? 'insufficient_activities'
     : 'insufficient_spread'
   return { ...base, exponent: o.defaultExponent, n, r2, spreadRatio: srRounded, confidence, reason }
@@ -206,9 +229,6 @@ export function durabilityScore(exponent: number, decouplingPct: number | null):
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────
-function mean(xs: number[]): number {
-  return xs.reduce((s, x) => s + x, 0) / xs.length
-}
 function spread(pts: FadeEffort[]): number {
   if (pts.length < 2) return 1
   const ds = pts.map((e) => e.distM)

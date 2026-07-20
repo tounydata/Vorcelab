@@ -77,11 +77,13 @@ function statsOf(points: BootstrapPoint[]): Stats {
   }
 }
 
-function ci(values: number[], level: number): BootstrapCI {
+// L'estimation ponctuelle est la statistique OBSERVÉE sur l'échantillon complet (non biaisée),
+// pas la médiane des rééchantillons ; le bootstrap ne fournit que les bornes de l'IC.
+function ci(values: number[], level: number, observed: number): BootstrapCI {
   const sorted = [...values].sort((a, b) => a - b)
   const alpha = (1 - level) / 2
   return {
-    point: percentile(sorted, 50),
+    point: observed,
     lo: percentile(sorted, alpha * 100),
     hi: percentile(sorted, (1 - alpha) * 100),
   }
@@ -148,9 +150,9 @@ export function clusteredBootstrap(
     iterations,
     seed,
     level,
-    mapePct: ci(mape, level),
-    maeS: ci(mae, level),
-    biasS: ci(bias, level),
-    coverage: hasCoverage && cov.length > 0 ? ci(cov, level) : null,
+    mapePct: ci(mape, level, base.mapePct),
+    maeS: ci(mae, level, base.maeS),
+    biasS: ci(bias, level, base.biasS),
+    coverage: hasCoverage && cov.length > 0 ? ci(cov, level, base.coverage as number) : null,
   }
 }
