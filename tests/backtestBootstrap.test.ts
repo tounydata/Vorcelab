@@ -50,6 +50,18 @@ describe('backtestBootstrap (§17)', () => {
     expect(res.mapePct.hi).toBeCloseTo(0, 5)
   })
 
+  it('le point estimé est la statistique OBSERVÉE, pas la médiane des rééchantillons (§17)', () => {
+    const data = pts([
+      ['A', 3200, 3000], ['A', 6100, 5800], ['B', 4300, 4000], ['B', 8200, 7600], ['C', 5100, 5000],
+    ])
+    const res = clusteredBootstrap(data, { iterations: 800, seed: 5 })
+    // MAPE observé sur l'échantillon complet.
+    const obsMape = (data.reduce((s, p) => s + Math.abs(p.predictedS - p.actualS) / p.actualS, 0) / data.length) * 100
+    expect(res.mapePct.point).toBeCloseTo(obsMape, 6)
+    const obsBias = data.reduce((s, p) => s + (p.predictedS - p.actualS), 0) / data.length
+    expect(res.biasS.point).toBeCloseTo(obsBias, 6)
+  })
+
   it('gère un échantillon vide sans planter', () => {
     const res = clusteredBootstrap([], { iterations: 100 })
     expect(res.clusters).toBe(0)

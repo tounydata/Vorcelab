@@ -10,6 +10,7 @@ import {
   type ActivityForLoad, type PMCDay,
 } from '../lib/trainingLoad'
 import { buildRunnerProfile, fetchActivitiesForProfile, saveRunnerProfile } from '../lib/buildRunnerProfile'
+import { shouldRebuildRunnerProfile } from '../lib/runnerProfileSchema'
 import CoachCard from '../components/CoachCard'
 import ProUpgradeCard from '../components/ProUpgradeCard'
 import { useRaceProjection } from '../lib/useRaceProjection'
@@ -719,12 +720,9 @@ export default function DashboardPage() {
     // FC max de l'athlète. (Le hook se relance quand profileData arrive.)
     if (profileData === undefined) return
     const latestActivityDate = activities[0].start_date
-    const computedAt = profileData?.runner_profile?._computedAt
-    const streamCoverage = profileData?.runner_profile?.streamCoverage ?? 0
-    const needsRecompute =
-      !computedAt ||
-      new Date(latestActivityDate) > new Date(computedAt) ||
-      streamCoverage < 0.01
+    // Recalcul auto si profil absent, INCOMPATIBLE (ancien schéma), périmé, ou sans streams.
+    // Aucune intervention manuelle ; chaque profil se répare à la 1re visite de son propriétaire.
+    const needsRecompute = shouldRebuildRunnerProfile(profileData?.runner_profile ?? null, { latestActivityAt: latestActivityDate })
     if (!needsRecompute) return
 
     profileTriggeredRef.current = true

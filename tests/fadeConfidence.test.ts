@@ -60,15 +60,44 @@ describe('durabilité personnelle — garde-fous de confiance (§6/§19)', () =>
     expect(res.reason).toBe('personal')
   })
 
-  it('provenance inconnue (pas d’activityId) → chaque effort compté comme distinct', () => {
-    const efforts = riegel(0.2, 1.06, [5000, 10000, 21097, 42195])
+  it('provenance inconnue (pas d’activityId) → NON fiable : 0 activité distincte, pas d’activation', () => {
+    const efforts = riegel(0.2, 1.06, [5000, 10000, 21097, 42195]) // sans activityId
     const res = fitFadeExponent(efforts)
-    expect(res.distinctActivityCount).toBe(4)
+    expect(res.distinctActivityCount).toBe(0)
+    expect(res.confidence === 'none' || res.confidence === 'low').toBe(true)
+    expect(res.reason).not.toBe('personal')
   })
 
   it('deux exécutions avec les mêmes entrées sont déterministes', () => {
     const efforts = riegel(0.2, 1.09, [5000, 10000, 21097, 42195], undefined)
     expect(fitFadeExponent(efforts)).toEqual(fitFadeExponent(efforts))
+  })
+
+  it('régression PONDÉRÉE : un point aberrant fortement dépondéré influence peu l’exposant (§8)', () => {
+    // Courbe propre à b=1.10 (≠ exposant par défaut 1.06) sur 5 activités distinctes.
+    const B = 1.1
+    const clean = [5000, 8000, 12000, 21097, 42195].map((D, i) => ({ distM: D, timeSec: 0.2 * D ** B, activityId: `c${i}` }))
+    // Point légèrement aberrant (8 % trop lent) : plein poids vs poids ~0.
+    const outlier = { distM: 15000, timeSec: 0.2 * 15000 ** B * 1.08, activityId: 'out' }
+    const full = fitFadeExponent([...clean, { ...outlier, weight: 1 }])
+    const damped = fitFadeExponent([...clean, { ...outlier, weight: 0.02 }])
+    const cleanOnly = fitFadeExponent(clean)
+    // Garde-fous : les trois restent des ajustements personnels exploitables.
+    expect(cleanOnly.reason).toBe('personal')
+    expect(full.reason).toBe('personal')
+    expect(damped.reason).toBe('personal')
+    // Le point dépondéré tire l'exposant BEAUCOUP moins que le point à plein poids.
+    expect(Math.abs(damped.exponent - cleanOnly.exponent)).toBeLessThan(Math.abs(full.exponent - cleanOnly.exponent))
+  })
+
+  it('trois records tous douteux (poids 0.3) → nombre d’efforts effectif trop bas, pas d’activation (§19.4)', () => {
+    const efforts = [
+      { distM: 5000, timeSec: 0.2 * 5000 ** 1.06, activityId: 'a', weight: 0.3 },
+      { distM: 10000, timeSec: 0.2 * 10000 ** 1.06, activityId: 'b', weight: 0.3 },
+      { distM: 21097, timeSec: 0.2 * 21097 ** 1.06, activityId: 'c', weight: 0.3 },
+    ]
+    const res = fitFadeExponent(efforts)
+    expect(res.confidence === 'none' || res.confidence === 'low').toBe(true)
   })
 
   it('parité web/mobile sur la confiance et l’exposant', () => {

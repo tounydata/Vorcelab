@@ -10,8 +10,10 @@ import { fitFadeExponent as mobileFit } from '../mobile/src/lib/fadeModel'
 
 // Génère des efforts suivant EXACTEMENT une loi de Riegel T = a·D^b (pour vérifier
 // qu'on retrouve b).
+// Chaque effort porte une provenance DISTINCTE (activité connue) — condition normale d'un
+// vrai profil : sans provenance, la durabilité personnelle ne s'active pas (garde-fou §6).
 function riegelEfforts(a: number, b: number, dists: number[]): FadeEffort[] {
-  return dists.map((D) => ({ distM: D, timeSec: a * D ** b }))
+  return dists.map((D, i) => ({ distM: D, timeSec: a * D ** b, activityId: `act-${i}` }))
 }
 
 describe('fitFadeExponent — apprend l’exposant d’endurance', () => {

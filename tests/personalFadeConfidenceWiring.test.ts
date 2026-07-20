@@ -55,14 +55,16 @@ describe('branchement des garde-fous de durabilité dans la projection (§6/§19
     expect(proj.personal_fade_reason).toBe('personal')
   })
 
-  it('les records en descente suspecte sont exclus de l’activation (§19.4)', () => {
+  it('les records en descente suspecte sont DÉPONDÉRÉS → n’activent pas la durabilité (§19.4)', () => {
     const recs = records(0.2, 1.08, ['a', 'b', 'c'])
-    // Marque toutes les sources comme descente suspecte → exclues → plus assez d'efforts.
+    // Toutes les sources en descente suspecte → poids faible (0.3). Elles participent (n>0)
+    // mais leur nombre d'efforts EFFECTIF (~0.9) est trop bas pour activer (dépondération).
     for (const r of recs) { r.rawFromDownhill = true; if (r.gapSource) r.gapSource.suspectDownhill = true }
     const profile = { fc_max: 185, runner_profile: { bestEfforts: recs } }
     const proj = computeRaceProjection(longRoad(), activities, profile, raceRoad, null, ctx)
     expect(proj.used_personal_fade).toBe(false)
-    expect(proj.personal_fade_effort_count).toBe(0)
+    expect(proj.personal_fade_effort_count).toBeGreaterThan(0) // dépondérés, pas exclus
+    expect(proj.personal_fade_confidence === 'none' || proj.personal_fade_confidence === 'low').toBe(true)
   })
 
   it('les diagnostics de durabilité sont toujours exposés', () => {

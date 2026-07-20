@@ -7,6 +7,8 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from '@/lib/computeRaceProjection'
+import { maybeLockProjectionSnapshot } from '@/lib/saveProjectionSnapshot'
+import { RUNNER_PROFILE_SCHEMA_VERSION } from '@/lib/runnerProfileSchema'
 import { fetchRaceForecast, computeWeatherImpact } from '@/lib/raceWeather'
 import type { ConditionPenalties } from '@/lib/runnerProfile'
 import { computeNutritionPlan } from '@/lib/nutritionPlan'
@@ -99,6 +101,20 @@ export default function RaceStrategyScreen() {
         const result = computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, terrain ?? null, { smoothElevation: true })
         setProjection(result)
         if (!terrain) setBaseEstTimeS(result.estTimeS)
+        // Snapshot PROSPECTIF (§14) : fige une preuve immuable pour une course FUTURE.
+        const raceStartAtMs = race?.date ? Date.parse(`${race.date.slice(0, 10)}T${race.start_time || '08:00'}`) : NaN
+        if (race && raceId && Number.isFinite(raceStartAtMs) && raceStartAtMs > Date.now()) {
+          const schemaVersion = (profileData?.runner_profile as { schemaVersion?: string } | undefined)?.schemaVersion ?? RUNNER_PROFILE_SCHEMA_VERSION
+          void maybeLockProjectionSnapshot({
+            raceId, raceStartAtMs,
+            predictionCentralS: result.estTimeS, predictionPrudentS: result.timeMax, predictionAggressiveS: result.timeMin,
+            raceDistanceM: (race.distance ?? 0) * 1000, raceDplusM: race.elevation ?? 0,
+            activityCount: (activitiesData ?? []).length,
+            usedPersonalFade: result.used_personal_fade, usedSteepnessCalibration: result.steepness_calibration_active,
+            usedFallback: result.usedFallback, fallbackSources: result.fallbackSources ?? [],
+            profileVersion: schemaVersion, profileSchemaVersion: schemaVersion,
+          })
+        }
         const fresh = { cible: Math.round(result.estTimeS), prudent: Math.round(result.timeMax), agressif: Math.round(result.timeMin), confidence: result.confidence, computedAt: new Date().toISOString() }
         const stored = race.last_projection as typeof fresh | null
         const drifted = !stored || stored.cible !== fresh.cible || stored.prudent !== fresh.prudent || stored.agressif !== fresh.agressif || stored.confidence !== fresh.confidence
