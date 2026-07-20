@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from '../lib/computeRaceProjection'
+import { maybeLockProjectionSnapshot } from '../lib/saveProjectionSnapshot'
+import { RUNNER_PROFILE_SCHEMA_VERSION } from '../lib/runnerProfileSchema'
 import { fetchRaceForecast, computeWeatherImpact } from '../lib/raceWeather'
 import type { ConditionPenalties } from '../lib/runnerProfile'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
@@ -255,6 +257,29 @@ export default function RaceStrategyPage() {
         // Fixe l'estTimeS de base une seule fois (passe sans terrain) pour que
         // la clé météo reste stable et corresponde à celle de useRaceProjection.
         if (!terrain) setBaseEstTimeS(result.estTimeS)
+
+        // Snapshot PROSPECTIF (§14) : pour une course FUTURE, on fige une preuve immuable
+        // de la projection (prédiction + empreinte SHA-256). Idempotent, fire-and-forget.
+        const raceStartAtMs = race?.date ? Date.parse(`${race.date.slice(0, 10)}T${race.start_time || '08:00'}`) : NaN
+        if (race && raceId && Number.isFinite(raceStartAtMs) && raceStartAtMs > Date.now()) {
+          const schemaVersion = (profileData?.runner_profile as { schemaVersion?: string } | undefined)?.schemaVersion ?? RUNNER_PROFILE_SCHEMA_VERSION
+          void maybeLockProjectionSnapshot({
+            raceId,
+            raceStartAtMs,
+            predictionCentralS: result.estTimeS,
+            predictionPrudentS: result.timeMax,
+            predictionAggressiveS: result.timeMin,
+            raceDistanceM: (race.distance ?? 0) * 1000,
+            raceDplusM: race.elevation ?? 0,
+            activityCount: (activitiesData ?? []).length,
+            usedPersonalFade: result.used_personal_fade,
+            usedSteepnessCalibration: result.steepness_calibration_active,
+            usedFallback: result.usedFallback,
+            fallbackSources: result.fallbackSources ?? [],
+            profileVersion: schemaVersion,
+            profileSchemaVersion: schemaVersion,
+          })
+        }
 
         const fresh = {
           cible:      Math.round(result.estTimeS),
