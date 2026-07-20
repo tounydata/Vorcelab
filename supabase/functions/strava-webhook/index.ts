@@ -1,10 +1,15 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   fetchAndCacheActivityStreams,
   fetchStravaActivityById,
   getValidStravaAccessToken,
   upsertStravaActivity,
 } from '../_shared/strava.ts'
+
+// Client « permissif » (§7) : sans types de base générés, le schéma se paramètre en `never`
+// et `.from(...).upsert({...})` ne type-check plus. `any` rétablit un typage exploitable.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>
 
 // Strava webhook — no CORS needed (server-to-server)
 // Per Strava docs: https://developers.strava.com/docs/webhooks/
@@ -57,25 +62,28 @@ Deno.serve(async (req: Request) => {
       return new Response('OK', { status: 200 })
     }
 
-    // Store event for processing — respond immediately
-    supabase
-      .from('strava_webhook_events')
-      .insert({
-        object_type: event.object_type,
-        object_id: event.object_id,
-        aspect_type: event.aspect_type,
-        owner_id: event.owner_id,
-        subscription_id: event.subscription_id,
-        event_time: event.event_time,
-        payload: event as unknown as Record<string, unknown>,
-      })
-      .then(() => {
-        // Process in background after responding
-        processWebhookEvent(supabase, event).catch((e) =>
-          console.error('Webhook processing error:', (e as Error).message)
-        )
-      })
-      .catch((e) => console.error('Webhook insert error:', (e as Error).message))
+    // Store event for processing — respond immediately (fire-and-forget en tâche de fond).
+    void (async () => {
+      const { error } = await supabase
+        .from('strava_webhook_events')
+        .insert({
+          object_type: event.object_type,
+          object_id: event.object_id,
+          aspect_type: event.aspect_type,
+          owner_id: event.owner_id,
+          subscription_id: event.subscription_id,
+          event_time: event.event_time,
+          payload: event as unknown as Record<string, unknown>,
+        })
+      if (error) {
+        console.error('Webhook insert error:', error.message)
+        return
+      }
+      // Process in background after responding
+      await processWebhookEvent(supabase, event).catch((e) =>
+        console.error('Webhook processing error:', (e as Error).message)
+      )
+    })()
 
     return new Response('OK', { status: 200 })
   }
@@ -84,7 +92,7 @@ Deno.serve(async (req: Request) => {
 })
 
 async function processWebhookEvent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   event: {
     object_type: string
     object_id: number
@@ -228,7 +236,7 @@ function inferRenfoFocus(
 }
 
 async function syncRenfoActivity(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   activity: {
     id: number
@@ -274,7 +282,7 @@ async function syncRenfoActivity(
 }
 
 async function syncActivityWeather(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
   activity: { id: number; start_date: string; start_latlng?: [number, number] | [] },
 ): Promise<void> {

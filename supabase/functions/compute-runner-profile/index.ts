@@ -19,6 +19,7 @@ import {
   ENGINE_HISTORY_DAYS,
   type RawStreamSet,
 } from '../_shared/runner-core/mod.ts'
+import { isRunningActivity } from '../_shared/runner-core/engineHistory.ts'
 
 const STRAVA_STREAMS_URL = 'https://www.strava.com/api/v3/activities'
 
@@ -67,18 +68,13 @@ Deno.serve(async (req: Request) => {
 
     // Activités running/trail sur la fenêtre MOTEUR (183 j). Le cœur applique 56 j pour le
     // profil détaillé par pente et 183 j pour les records — on charge donc la fenêtre large.
-    const HARD_CAP = 400
-    const sinceISO = new Date(Date.now() - ENGINE_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-    const { data: activitiesRaw } = await supabase
-      .from('strava_activities')
-      .select('strava_activity_id,start_date,moving_time,type,sport_type,total_elevation_gain,distance,average_heartrate,average_speed')
-      .eq('user_id', user.id)
-      .in('sport_type', ['Run', 'TrailRun', 'Trail Run', 'Running'])
-      .gte('start_date', sinceISO)
-      .order('start_date', { ascending: false })
-      .limit(HARD_CAP)
-
-    const activities = (activitiesRaw ?? []) as Array<{
+    //
+    // §2 : plus de limite fixe (l'ancien HARD_CAP = 400 tronquait silencieusement les gros
+    // volumes). On PAGINE toute la fenêtre. Bornes STRICTES en haut (activités futures ou
+    // horodatées « maintenant » exclues), inclusives en bas. Activités supprimées écartées
+    // (`deleted_at IS NULL`). Présélection SQL large sur `type` ET `sport_type`, puis filtre
+    // running EXACT via le cœur (`isRunningActivity`) → parité totale avec le moteur.
+    type ActivityRow = {
       strava_activity_id: number
       start_date: string
       moving_time: number | null
@@ -88,7 +84,36 @@ Deno.serve(async (req: Request) => {
       distance: number | null
       average_heartrate: number | null
       average_speed: number | null
-    }>
+    }
+    const nowISO = new Date().toISOString()
+    const sinceISO = new Date(Date.now() - ENGINE_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    // Présélection SQL : familles running/trail sur les DEUX colonnes (valeurs Strava
+    // usuelles ; le filtre exact ci-dessous rattrape la casse et les variantes).
+    const RUN_VALUES = ['Run', 'TrailRun', 'VirtualRun', 'Running', 'Trail Run']
+    const inList = RUN_VALUES.map((v) => (v.includes(' ') ? `"${v}"` : v)).join(',')
+    const runFilter = `type.in.(${inList}),sport_type.in.(${inList})`
+    const PAGE = 200
+    const activitiesRaw: ActivityRow[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await supabase
+        .from('strava_activities')
+        .select('strava_activity_id,start_date,moving_time,type,sport_type,total_elevation_gain,distance,average_heartrate,average_speed')
+        .eq('user_id', user.id)
+        .or(runFilter)
+        .is('deleted_at', null)
+        .gte('start_date', sinceISO)
+        .lt('start_date', nowISO)
+        .order('start_date', { ascending: false })
+        .range(from, from + PAGE - 1)
+      if (error) throw new Error(`activities query failed: ${error.message}`)
+      const rows = (page ?? []) as ActivityRow[]
+      activitiesRaw.push(...rows)
+      if (rows.length < PAGE) break
+    }
+
+    // Filtre running EXACT (casse + `sport_type ?? type`) — même prédicat que le moteur.
+    const activities = activitiesRaw.filter((a) =>
+      isRunningActivity({ type: a.type, sport_type: a.sport_type }))
 
     if (activities.length === 0) {
       return new Response(JSON.stringify({ error: 'No run activities found' }), {

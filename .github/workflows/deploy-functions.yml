@@ -26,7 +26,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # §7 : `deno check` sur TOUTES les Edge Functions AVANT tout déploiement. Le déploiement
+  # (job `deploy`) en dépend (`needs: check`) → une fonction qui ne type-check pas n'est
+  # jamais déployée (garde-fou contre la dérive prod introduite par l'Edge Function).
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: deno check (Edge Functions)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          entries=(supabase/functions/*/index.ts)
+          if [ ${#entries[@]} -eq 0 ]; then
+            echo "::error::Aucune Edge Function trouvée sous supabase/functions/*/index.ts"
+            exit 1
+          fi
+          echo "Type-check de ${#entries[@]} fonction(s) :"
+          printf '  - %s\n' "${entries[@]}"
+          deno check "${entries[@]}"
+
   deploy:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

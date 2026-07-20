@@ -148,9 +148,12 @@ façon non vérifiée :
 ## 8. Validation scientifique du benchmark (§15, §16, §17, §18) — LIVRÉ
 
 - **§15 baselines** (`backtestBaselines.ts`, pur+testé) : `kilometre_effort`,
-  `riegel_distance_only`, `riegel_with_dplus`, `recent_average_pace`,
-  `best_similar_past_race`, `previous_engine_version` (= `predicted_s_no_be`). Référence
-  par athlète en leave-one-out (anti-fuite). Table comparative dans le rapport.
+  `riegel_distance_only`, `riegel_with_dplus`, `flat_pace_median`,
+  `best_similar_past_race`, `vorcelab_no_best_efforts` (ablation A/B interne = même moteur
+  sans records/durabilité) et `previous_engine_version` (**vraie** version antérieure figée ;
+  null tant qu'aucune n'a été rejouée — jamais de proxy). Référence par athlète en leave-one-out
+  **temporel** : uniquement les courses STRICTEMENT antérieures à la cible (§3, anti-fuite
+  temporelle). Chaque entrée porte sa date. Table comparative dans le rapport.
 - **§16 `evaluation_type`** : le lot rétrospectif est marqué `development_sample` (aucune
   généralisation annoncée) ; `prospective_locked` réservé aux snapshots verrouillés.
 - **§17 intervalles de confiance** (`backtestBootstrap.ts`, pur+testé) : bootstrap
