@@ -70,3 +70,8 @@ playwright/.auth/*.json
 artifacts/engine-backtest/
 # Fixtures de banc contenant des données réelles (coordonnées GPS, etc.)
 *.backtest-fixture.json
+
+# Archives de médias achetés (GymVisual…) — jamais dans le dépôt (voir raw-media/README.md)
+/*.zip
+/*.ZIP
+/*.gif

@@ -10,12 +10,13 @@ vers une course cible.
 
 ## Stack
 
-- **Frontend** : React 19 + TypeScript + Vite 6 (PWA via `vite-plugin-pwa`)
+- **Frontend** : React 19 + TypeScript + Vite 8 (PWA via `vite-plugin-pwa`)
 - **État / data** : Zustand (session) + TanStack Query (cache serveur)
-- **Routing** : React Router 7 (`HashRouter`)
+- **Routing** : React Router 8 (`HashRouter`)
 - **Backend** : Supabase — Auth, Postgres (RLS), Edge Functions
-- **Cartographie** : Leaflet
+- **Cartographie** : Leaflet (2D) + MapLibre GL (carte 3D stratégie)
 - **Tests** : Vitest (unitaire) + Playwright (e2e)
+- **Mobile** : Expo (React Native) dans `mobile/` — voir `docs/app-store-submission.md`
 
 Le frontend de production est l'app React (`index.html` → `src/main.tsx`).
 `legacy.html` + les `.js` à la racine sont l'ancien monolithe, conservé comme

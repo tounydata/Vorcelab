@@ -13,7 +13,7 @@ import Svg, { Path } from 'react-native-svg'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { signInWithStravaMobile } from '@/lib/strava'
-import { APPLE_ENABLED, signInWithSupabaseOAuthMobile } from '@/lib/socialAuth'
+import { APPLE_ENABLED, signInWithAppleMobile } from '@/lib/socialAuth'
 import { LEGAL, openLegal } from '@/lib/legal'
 import { colors, radius, space } from '@/lib/theme'
 
@@ -52,7 +52,7 @@ export default function LoginScreen() {
 
   async function onApple() {
     setLoading(true); setError(null)
-    const res = await signInWithSupabaseOAuthMobile('apple')
+    const res = await signInWithAppleMobile()
     setLoading(false)
     if (res === 'error') setError('La connexion avec Apple a échoué. Réessaie.')
   }
