@@ -46,3 +46,8 @@ verify_jwt = false
 
 [functions.compute-runner-profile]
 verify_jwt = false
+
+# Auth manuelle via requireAuth (comme compute-runner-profile) : verify_jwt=false au
+# gateway, la fonction valide elle-même le JWT.
+[functions.lock-projection-snapshot]
+verify_jwt = false
