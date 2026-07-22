@@ -6,7 +6,7 @@ import { Linking } from 'react-native'
 export const LEGAL = {
   privacy: 'https://vorcelab.app/legal/confidentialite',
   terms: 'https://vorcelab.app/legal/cgu',
-  supportEmail: 'hello@vorcelab.com',
+  supportEmail: 'vorcelab@gmail.com',
 } as const
 
 /** Ouvre une URL légale dans le navigateur système. */

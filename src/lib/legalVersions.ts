@@ -6,24 +6,22 @@
 export type LegalDoc = 'cgu' | 'privacy'
 
 export const CURRENT_LEGAL_VERSIONS: Record<LegalDoc, string> = {
-  cgu: '2026-07-02',
-  privacy: '2026-07-02',
+  cgu: '2026-07-21',
+  privacy: '2026-07-21',
 }
 
 export const LEGAL_DOCS: LegalDoc[] = ['cgu', 'privacy']
 
-// Informations légales OBLIGATOIRES encore manquantes (à compléter avant toute
-// ouverture commerciale publique). Tant que la liste n'est pas vide, l'application
-// ne doit pas se présenter comme commercialement ouverte : LEGAL_INFO_COMPLETE
-// reste false et le gate d'acceptation reste inerte (ne nuit pas au développement),
-// tandis que le parcours de paiement peut être verrouillé (voir canOpenCommercially).
+// Informations obligatoires encore manquantes avant l'ouverture des paiements réels.
+// Tant que la liste n'est pas vide, le parcours commercial doit rester verrouillé.
 export const MISSING_LEGAL_INFO: string[] = [
-  'Forme juridique de l’éditeur',
+  'Immatriculation de l’entreprise individuelle / micro-entreprise',
   'SIREN / SIRET',
-  'Adresse postale de l’éditeur',
-  'Directeur de la publication',
-  'Médiateur de la consommation',
-  'Validation des CGU / politique de confidentialité par un professionnel du droit',
+  'Adresse professionnelle publique',
+  'Numéro de téléphone professionnel',
+  'Coordonnées du médiateur de la consommation après adhésion',
+  'Identité complète de l’hébergeur web commercial définitif',
+  'Validation finale des textes et du parcours de paiement avant lancement',
 ]
 
 /** True uniquement quand toutes les mentions légales obligatoires sont fournies. */
