@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -80,7 +80,7 @@ export default function SettingsScreen() {
   const [nutritionSaved, setNutritionSaved] = useState(false)
   const [openBrand, setOpenBrand] = useState<string | null>(null)
 
-  function loadRow() {
+  const loadRow = useCallback(() => {
     if (!userId) return
     supabase.from('profiles')
       .select('coach_motivation,coach_days_per_week,renfo_weekly_target,nutrition_products,nutrition_no_caffeine')
@@ -90,8 +90,8 @@ export default function SettingsScreen() {
         setRow(r)
         if (!nutritionLoaded) { setProducts(r.nutrition_products ?? []); setNutritionLoaded(true) }
       })
-  }
-  useEffect(() => { loadRow() }, [userId])
+  }, [userId, nutritionLoaded])
+  useEffect(() => { loadRow() }, [loadRow])
 
   async function patch(p: Record<string, unknown>) {
     if (!userId) return

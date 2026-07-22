@@ -221,8 +221,10 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
 
 function NextRaceWidget({ race }: { race: NextRace }) {
   const router = useRouter()
+  // « maintenant » figé au montage : évite l'appel impur Date.now() au rendu (react-hooks/purity).
+  const [nowMs] = useState(() => Date.now())
   const raceDate = new Date(race.date)
-  const daysLeft = Math.ceil((raceDate.getTime() - Date.now()) / 86400000)
+  const daysLeft = Math.ceil((raceDate.getTime() - nowMs) / 86400000)
   const phase = getPhase(daysLeft)
   const dStr = `${raceDate.getDate()} ${['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][raceDate.getMonth()]} ${raceDate.getFullYear()}`
   const gpxPts = Array.isArray(race.gpx_data) && race.gpx_data.length > 4 ? race.gpx_data : null

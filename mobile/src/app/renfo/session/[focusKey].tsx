@@ -506,8 +506,11 @@ export default function RenfoSessionScreen() {
 
   // ── Done ───────────────────────────────────────────────────────────────────
   const uniqueExos = new Set(setLogs.map((l) => l.exercise_id)).size
-  const dateChoices: string[] = []
-  for (let i = 6; i >= 0; i--) dateChoices.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10))
+  // « aujourd'hui » figé au montage (évite Date.now() au rendu — react-hooks/purity).
+  const [dateChoices] = useState(() => {
+    const now = Date.now()
+    return Array.from({ length: 7 }, (_, k) => new Date(now - (6 - k) * 86400000).toISOString().slice(0, 10))
+  })
 
   return wrap(
     <>
