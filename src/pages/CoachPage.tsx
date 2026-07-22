@@ -24,7 +24,7 @@ const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
   build: 'var(--vl-amber)',
   specific: 'var(--vl-ember)',
-  taper: '#3B82F6',
+  taper: 'var(--vl-status-rest)', // audit 21/07 : bleu hors-thème → ton rest du thème
   race: 'var(--vl-text)',
 }
 
@@ -444,7 +444,7 @@ export default function CoachPage() {
                   const lbl = p === 'A' ? 'Principal' : p === 'B' ? 'Secondaire' : 'Rodage'
                   return (
                     <button key={p} title={lbl} onClick={() => !on && priorityMut.mutate({ id: targetRace.id, p })}
-                      style={{ border: 'none', cursor: on ? 'default' : 'pointer', padding: '4px 10px',
+                      style={{ border: 'none', cursor: on ? 'default' : 'pointer', padding: '10px 12px', minHeight: 36,
                         background: on ? 'var(--vl-ember)' : 'var(--vl-surf-2)', color: on ? 'var(--vl-ink)' : 'var(--vl-text-2)',
                         fontFamily: 'var(--vl-mono)', fontWeight: 700, fontSize: 9.5, letterSpacing: '.06em' }}>
                       {p} · {lbl}
@@ -452,6 +452,10 @@ export default function CoachPage() {
                   )
                 })}
               </div>
+            </div>
+            {/* Concept expliqué (audit 21/07 : notion coureur-expert) */}
+            <div style={{ fontSize: 10, color: 'var(--vl-text-2)', lineHeight: 1.5, marginTop: 4, maxWidth: 420 }}>
+              A = objectif majeur (le plan vise cette course) · B = test en conditions réelles · C = entraînement déguisé.
             </div>
           </div>
           <div className="coach-cd">

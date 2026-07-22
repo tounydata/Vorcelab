@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router'
 import { TabIcon, type TabName } from '@/components/TabIcon'
-import { colors } from '@/lib/theme'
+import { colors, font } from '@/lib/theme'
 
 // Barre d'onglets — même ordre et mêmes libellés que le web (Layout.tsx).
 export default function TabsLayout() {
@@ -17,7 +17,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 9,
-          fontWeight: '700',
+          fontFamily: font.monoSemiBold,
           letterSpacing: 0.8,
           textTransform: 'uppercase',
         },

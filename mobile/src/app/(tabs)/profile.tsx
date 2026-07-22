@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { GearIcon, PencilIcon, SaveIcon } from '@/components/coach/CoachIcons'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { colors, radius, space } from '@/lib/theme'
+import { colors, font, radius, space } from '@/lib/theme'
 import CoachEngine from '@/components/profile/CoachEngine'
 import CalibrationCard from '@/components/profile/CalibrationCard'
 import Constants from 'expo-constants'
@@ -71,9 +72,9 @@ function prToStr(v: unknown): string {
 
 // ─── Styles communs ───────────────────────────────────────────────────────────
 const cardS = { backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: space.lg, marginBottom: space.md } as const
-const clabel = { color: colors.text3, fontSize: 11, fontWeight: '700' as const, letterSpacing: 1.2 }
-const mlabel = { color: colors.text3, fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.8 }
-const fieldLabel = { color: colors.text3, fontSize: 10, fontWeight: '700' as const, letterSpacing: 1, marginBottom: 5 }
+const clabel = { color: colors.text3, fontSize: 11, fontFamily: font.monoSemiBold, letterSpacing: 1.2 }
+const mlabel = { color: colors.text3, fontSize: 11, fontFamily: font.monoSemiBold, letterSpacing: 0.8 }
+const fieldLabel = { color: colors.text3, fontSize: 10, fontFamily: font.monoSemiBold, letterSpacing: 1, marginBottom: 5 }
 const input = { backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, paddingHorizontal: space.md, paddingVertical: 10, color: colors.text, fontSize: 15 } as const
 
 function Badge({ label, color, fontSize = 10 }: { label: string; color: string; fontSize?: number }) {
@@ -419,12 +420,12 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }}>
-        <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800', letterSpacing: 1, marginBottom: space.md }}>MON PROFIL</Text>
+        <Text style={{ color: colors.text, fontSize: 24, fontFamily: font.display, letterSpacing: 1, marginBottom: space.md }}>MON PROFIL</Text>
 
         {/* Identité */}
         <View style={[cardS, { flexDirection: 'row', alignItems: 'center', gap: space.md }]}>
           <View style={{ width: 48, height: 48, borderRadius: 999, backgroundColor: colors.surf3, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.ember, fontSize: 20, fontWeight: '800' }}>{(name || 'Coureur').trim().charAt(0).toUpperCase()}</Text>
+            <Text style={{ color: colors.ember, fontSize: 20, fontFamily: font.display }}>{(name || 'Coureur').trim().charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }} numberOfLines={1}>{name || 'Coureur'}</Text>
@@ -489,14 +490,14 @@ export default function ProfileScreen() {
                 <TextInput value={lactatePace} onChangeText={setLactatePace} placeholder="4:50" placeholderTextColor={colors.text3} style={input} />
               </View>
               <Pressable onPress={handleSave} style={({ pressed }) => ({ backgroundColor: colors.ember, borderRadius: radius.sm, paddingVertical: 12, alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>💾 Sauvegarder</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><SaveIcon size={12} color="#fff" /><Text style={{ color: '#fff', fontWeight: '700' }}>Sauvegarder</Text></View>
               </Pressable>
               {saveMsg ? <Text style={{ marginTop: 6, fontSize: 11, color: colors.growth }}>{saveMsg}</Text> : null}
             </View>
 
             <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
               <View style={{ flex: 1 }}>
-                <Text style={[clabel, { marginBottom: 6 }]}>⚙️  RÉGLAGES DE L'APP</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}><GearIcon size={12} color={colors.text3} /><Text style={clabel}>RÉGLAGES DE L'APP</Text></View>
                 <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Strava, orientation du coach, jours de course, renfo, 1RM, nutrition, compte.</Text>
               </View>
               <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
@@ -547,8 +548,9 @@ export default function ProfileScreen() {
                   const flat: Record<string, string> = {}
                   for (const k of ['5K', '10K', '15K', 'Semi', 'Marathon', 'Ultra']) flat[k] = prToStr(raw[k])
                   setPrsEdit(flat); setPrsMode('edit')
-                }} style={{ borderWidth: 1, borderColor: colors.line2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 }}>
-                  <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>✏ Modifier</Text>
+                }} hitSlop={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.line2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <PencilIcon size={10} color={colors.text3} />
+                  <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>Modifier</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -573,7 +575,7 @@ export default function ProfileScreen() {
                       if (!error) { await load(); setPrsMode('view'); setPrsSaveMsg('Sauvegardé ✓'); setTimeout(() => setPrsSaveMsg(''), 2000) }
                       else setPrsSaveMsg(`⚠ Échec de la sauvegarde : ${error.message}`)
                     }}>
-                    <Text style={{ color: '#fff', fontWeight: '700' }}>💾 Sauvegarder</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><SaveIcon size={12} color="#fff" /><Text style={{ color: '#fff', fontWeight: '700' }}>Sauvegarder</Text></View>
                   </Pressable>
                   <Pressable style={({ pressed }) => ({ flex: 1, borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center', opacity: pressed ? 0.7 : 1 })} onPress={() => setPrsMode('view')}>
                     <Text style={{ color: colors.text2, fontWeight: '700' }}>Annuler</Text>
@@ -593,7 +595,7 @@ export default function ProfileScreen() {
                   ))}
                 </View>
               ) : (
-                <Text style={{ color: colors.text3, fontSize: 13 }}>Aucun record enregistré. Touche ✏ Modifier pour les saisir.</Text>
+                <Text style={{ color: colors.text3, fontSize: 13 }}>Aucun record enregistré. Touche « Modifier » pour les saisir.</Text>
               )
             })()}
           </View>
@@ -628,8 +630,8 @@ export default function ProfileScreen() {
                     Mis à jour le {new Date(rp._computedAt).toLocaleDateString('fr-FR')} · FCmax {row?.fc_max ?? rp.fcMax} bpm{!row?.fc_max ? ' (défaut)' : ''}
                     {rp.analyzedRuns != null ? ` · ${rp.analyzedRuns} sorties` : ''} · {Math.round(rp.totalStreamSeconds / 3600)}h analysées
                   </Text>
-                  <Pressable onPress={() => !computing && handleComputeProfile()} disabled={computing} style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 }}>
-                    <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>↺ Recalculer</Text>
+                  <Pressable onPress={() => !computing && handleComputeProfile()} disabled={computing} hitSlop={12} style={{ minHeight: 32, justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 10, paddingVertical: 3 }}>
+                    <Text style={{ color: colors.text2, fontSize: 10, letterSpacing: 0.4 }}>↺ Recalculer</Text>
                   </Pressable>
                 </View>
                 {!row?.fc_max ? (

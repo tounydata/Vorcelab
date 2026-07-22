@@ -22,7 +22,8 @@ import BrandedLoader from '@/components/BrandedLoader'
 import PostRaceModal from '@/components/races/PostRaceModal'
 import { pickRacePrompt, type RaceCalendarRow } from '@/lib/racePrompt'
 import { linkRaceResult } from '@/lib/linkRaceResult'
-import { colors, radius, space } from '@/lib/theme'
+import { CaretDownIcon, CaretUpIcon, CheckIcon, ReorderIcon } from '@/components/coach/CoachIcons'
+import { colors, font, radius, space } from '@/lib/theme'
 
 interface SessionLog2 extends SessionLog { source?: string | null }
 interface Activity2 {
@@ -38,7 +39,7 @@ interface NextRace {
 }
 
 const card = { backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg } as const
-const clabel = { fontSize: 10.5, color: colors.text3, textTransform: 'uppercase' as const, letterSpacing: 1.68, fontWeight: '600' as const }
+const clabel = { fontSize: 10.5, color: colors.text3, textTransform: 'uppercase' as const, letterSpacing: 1.68, fontFamily: font.monoSemiBold }
 
 function formatTime(seconds: number) { const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}min` }
 function formatPaceShort(distM: number, timeS: number): string { if (!distM || !timeS) return '—'; const s = Math.round(timeS / (distM / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
@@ -125,19 +126,19 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
       <Text style={[clabel, { marginBottom: 10 }]}>Statut d'entraînement</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: `${status.color}1f`, borderLeftWidth: 4, borderLeftColor: status.color, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 24, fontWeight: '800', color: status.color, letterSpacing: 0.24 }}>{status.label}</Text>
+          <Text style={{ fontSize: 24, fontFamily: font.display, color: status.color, letterSpacing: 0.24 }}>{status.label}</Text>
           <Text style={{ fontSize: 10, color: colors.text2, marginTop: 4 }}>{status.sub}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text2 }}>{today.tsb > 0 ? `+${today.tsb}` : today.tsb}</Text>
-          <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>FRAÎCHEUR</Text>
+          <Text style={{ fontSize: 22, fontFamily: font.display, color: colors.text2 }}>{today.tsb > 0 ? `+${today.tsb}` : today.tsb}</Text>
+          <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.text3, marginTop: 2 }}>FRAÎCHEUR</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', marginBottom: 12 }}>
         {[{ l: 'FORME', w: formeWord, c: ST.prod, sub: `fond ${today.ctl}` }, { l: 'FATIGUE', w: fatigueWord, c: fatigueColor, sub: `récente ${today.atl}` }, { l: 'ÉQUILIBRE', w: equil.word, c: equil.color, sub: acwr.ratio != null ? `charge ×${acwr.ratio.toFixed(2)}` : 'calibrage' }].map((t) => (
           <View key={t.l} style={{ flex: 1 }}>
-            <Text style={{ fontSize: 10, color: colors.text3, letterSpacing: 1 }}>{t.l}</Text>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: t.c, marginTop: 3 }}>{t.w}</Text>
+            <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.text3, letterSpacing: 1 }}>{t.l}</Text>
+            <Text style={{ fontSize: 18, fontFamily: font.display, color: t.c, marginTop: 3 }}>{t.w}</Text>
             <Text style={{ fontSize: 10, color: colors.text3, marginTop: 3 }}>{t.sub}</Text>
           </View>
         ))}
@@ -234,32 +235,32 @@ function NextRaceWidget({ race }: { race: NextRace }) {
   return (
     <Pressable onPress={() => router.push(`/race/${race.id}` as never)} style={[card, { marginBottom: 24, overflow: 'hidden' }]}>
       <View style={{ paddingHorizontal: 14, paddingTop: 10 }}>
-        <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.6, color: colors.text3 }}>STRATÉGIE DE COURSE</Text>
+        <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, letterSpacing: 1.6, color: colors.text3 }}>STRATÉGIE DE COURSE</Text>
       </View>
       <View style={{ flexDirection: 'row' }}>
         <View style={{ flex: 1.1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 14, position: 'relative' }}>
           {gpxPts ? <View style={{ position: 'absolute', top: 4, left: 0, right: 0, bottom: 72, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none"><GpxTrace gpxData={gpxPts} /></View> : null}
-          <Text style={{ fontSize: 10, color: colors.ember, letterSpacing: 1.8, marginBottom: 4 }}>{(race.type ?? 'COURSE').toUpperCase()} · COURSE VISÉE</Text>
-          <Text style={{ fontSize: 28, fontWeight: '800', letterSpacing: 0.56, textTransform: 'uppercase', lineHeight: 27, marginBottom: 6, color: colors.text }}>{race.name}</Text>
+          <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.ember, letterSpacing: 1.8, marginBottom: 4 }}>{(race.type ?? 'COURSE').toUpperCase()} · COURSE VISÉE</Text>
+          <Text style={{ fontSize: 28, fontFamily: font.display, letterSpacing: 0.56, textTransform: 'uppercase', lineHeight: 27, marginBottom: 6, color: colors.text }}>{race.name}</Text>
           <Text style={{ fontSize: 11, color: colors.text2, marginBottom: 10 }}>{dStr}{race.distance ? ` · ${race.distance} km` : ''}{race.elevation ? ` · D+ ${race.elevation} m` : ''}</Text>
-          <Text style={{ fontSize: 56, fontWeight: '800', color: colors.ember, lineHeight: 50, letterSpacing: -1.5 }}>{daysLeft}</Text>
-          <Text style={{ fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.6, marginTop: 4 }}>JOURS</Text>
-          <Text style={{ fontSize: 10, color: phase.color, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600', marginTop: 4, marginBottom: 12 }}>{phase.label}</Text>
-          <Text style={{ backgroundColor: colors.ember, color: colors.bg, borderRadius: radius.sm, paddingVertical: 9, paddingHorizontal: 14, fontSize: 13, fontWeight: '700', letterSpacing: 1, textAlign: 'center', overflow: 'hidden' }}>OUVRIR LA STRATÉGIE →</Text>
+          <Text style={{ fontSize: 56, fontFamily: font.displayBlack, color: colors.ember, lineHeight: 50 }}>{daysLeft}</Text>
+          <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.6, marginTop: 4 }}>JOURS</Text>
+          <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, color: phase.color, letterSpacing: 1, textTransform: 'uppercase', marginTop: 4, marginBottom: 12 }}>{phase.label}</Text>
+          <Text style={{ backgroundColor: colors.ember, color: colors.bg, borderRadius: radius.sm, paddingVertical: 9, paddingHorizontal: 14, fontSize: 13, fontFamily: font.displayBold, letterSpacing: 1, textAlign: 'center', overflow: 'hidden' }}>OUVRIR LA STRATÉGIE →</Text>
         </View>
         <View style={{ width: '44%', borderLeftWidth: 1, borderLeftColor: colors.line2 }}>
           {proj ? (
             <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
-              <Text style={{ fontSize: 10, color: colors.text2, letterSpacing: 1.6, marginBottom: 5, textTransform: 'uppercase', fontWeight: '700' }}>
+              <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, color: colors.text2, letterSpacing: 1.6, marginBottom: 5, textTransform: 'uppercase' }}>
                 PROJECTION VORCELAB{isSnapshot && race.last_projection?.computedAt ? <Text style={{ color: colors.text3, fontWeight: '400' }}> · du {new Date(race.last_projection.computedAt).getDate()}/{new Date(race.last_projection.computedAt).getMonth() + 1}</Text> : null}
               </Text>
-              <Text style={{ fontSize: 30, fontWeight: '800', color: colors.growth2, letterSpacing: -1, lineHeight: 28 }}>{fmtRaceTimeS(proj.cible)}</Text>
+              <Text style={{ fontSize: 30, fontFamily: font.display, color: colors.growth2, lineHeight: 28 }}>{fmtRaceTimeS(proj.cible)}</Text>
               <Text style={{ fontSize: 11, letterSpacing: 2, marginTop: 6 }}>{Array.from({ length: 5 }, (_, i) => <Text key={i} style={{ color: i < confFilled ? confColor : colors.text3 }}>{i < confFilled ? '●' : '○'}</Text>)}</Text>
               {proj.prudent && proj.agressif ? (
                 <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                  <Text style={{ fontSize: 10, color: colors.text3 }}>PRUDENT <Text style={{ color: colors.text2 }}>{fmtRaceTimeS(proj.prudent)}</Text></Text>
-                  <Text style={{ fontSize: 10, color: colors.growth2, fontWeight: '700' }}>CIBLE {fmtRaceTimeS(proj.cible)}</Text>
-                  <Text style={{ fontSize: 10, color: colors.text3 }}>AGRESSIF <Text style={{ color: colors.text2 }}>{fmtRaceTimeS(proj.agressif)}</Text></Text>
+                  <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.text3 }}>PRUDENT <Text style={{ color: colors.text2 }}>{fmtRaceTimeS(proj.prudent)}</Text></Text>
+                  <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, color: colors.growth2 }}>CIBLE {fmtRaceTimeS(proj.cible)}</Text>
+                  <Text style={{ fontSize: 10, fontFamily: font.mono, color: colors.text3 }}>AGRESSIF <Text style={{ color: colors.text2 }}>{fmtRaceTimeS(proj.agressif)}</Text></Text>
                 </View>
               ) : null}
             </View>
@@ -397,20 +398,20 @@ export default function Dashboard() {
       <View style={[card, { marginBottom: 24, padding: space.lg }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={clabel}>CE MOIS</Text>
-          <Pressable onPress={() => router.push('/activities')}><Text style={{ color: colors.ember, fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>VOIR TOUT →</Text></Pressable>
+          <Pressable onPress={() => router.push('/activities')} hitSlop={12}><Text style={{ color: colors.ember, fontSize: 10, fontFamily: font.monoSemiBold, letterSpacing: 1 }}>VOIR TOUT →</Text></Pressable>
         </View>
         <View style={{ flexDirection: 'row', marginBottom: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: colors.ember, lineHeight: 26 }}>{(kmMonth / 1000).toFixed(1)}</Text>
+            <Text style={{ fontSize: 26, fontFamily: font.display, color: colors.ember, lineHeight: 26 }}>{(kmMonth / 1000).toFixed(1)}</Text>
             <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>km COURSE</Text>
             {deltaKmPct != null ? <Text style={{ alignSelf: 'flex-start', marginTop: 4, backgroundColor: colors.surf2, borderRadius: 3, paddingVertical: 2, paddingHorizontal: 6, fontSize: 10, color: deltaKmPct >= 0 ? colors.growth : colors.ember, overflow: 'hidden' }}>{deltaKmPct >= 0 ? '+' : ''}{deltaKmPct}% · vs M-1</Text> : null}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: colors.growth, lineHeight: 26 }}>{Math.round(elevMonth)}</Text>
+            <Text style={{ fontSize: 26, fontFamily: font.display, color: colors.growth, lineHeight: 26 }}>{Math.round(elevMonth)}</Text>
             <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>m D+</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: colors.violet, lineHeight: 26 }}>{renfoMonthCount}</Text>
+            <Text style={{ fontSize: 26, fontFamily: font.display, color: colors.violet, lineHeight: 26 }}>{renfoMonthCount}</Text>
             <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>sess. RENFO</Text>
           </View>
         </View>
@@ -420,10 +421,10 @@ export default function Dashboard() {
           <Pressable key={a.id} onPress={() => router.push(`/activities/${a.id}` as never)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line }}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <Text style={{ color: colors.text, fontSize: 13, fontWeight: '700', textTransform: 'uppercase' }} numberOfLines={1}>{a.name}</Text>
-              <Text style={{ color: colors.text3, fontSize: 11, marginTop: 2 }}>{(a.distance / 1000).toFixed(1)} km · {formatTime(a.moving_time)} · D+ {Math.round(a.total_elevation_gain ?? 0)}m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}</Text>
+              <Text style={{ color: colors.text2, fontSize: 11, marginTop: 2 }}>{(a.distance / 1000).toFixed(1)} km · {formatTime(a.moving_time)} · D+ {Math.round(a.total_elevation_gain ?? 0)}m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ember, lineHeight: 24 }}>{formatPaceShort(a.distance, a.moving_time)}</Text>
+              <Text style={{ fontSize: 24, fontFamily: font.display, color: colors.ember, lineHeight: 24 }}>{formatPaceShort(a.distance, a.moving_time)}</Text>
               <Text style={{ fontSize: 10, color: colors.text3, marginTop: 2 }}>/KM · {formatDateShort(a.start_date)}</Text>
             </View>
           </Pressable>
@@ -444,9 +445,10 @@ export default function Dashboard() {
       ) : null}
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load().finally(() => setRefreshing(false)) }} tintColor={colors.ember} />}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
-          <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: 1, color: colors.text }}>DASHBOARD</Text>
-          <Pressable onPress={() => setArranging((a) => !a)} style={{ borderWidth: 1, borderColor: arranging ? colors.ember : colors.line2, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 11 }}>
-            <Text style={{ fontSize: 10, fontWeight: '600', letterSpacing: 0.8, color: arranging ? colors.ember : colors.text2 }}>{arranging ? '✓ TERMINÉ' : '⇅ RÉORGANISER'}</Text>
+          <Text style={{ fontSize: 24, fontFamily: font.display, letterSpacing: 1, color: colors.text }}>DASHBOARD</Text>
+          <Pressable onPress={() => setArranging((a) => !a)} hitSlop={8} style={{ borderWidth: 1, borderColor: arranging ? colors.ember : colors.line2, borderRadius: radius.sm, minHeight: 32, paddingVertical: 4, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            {arranging ? <CheckIcon size={11} color={colors.ember} /> : <ReorderIcon size={11} color={colors.text2} />}
+            <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, letterSpacing: 0.8, color: arranging ? colors.ember : colors.text2 }}>{arranging ? 'TERMINÉ' : 'RÉORGANISER'}</Text>
           </Pressable>
         </View>
 
@@ -456,8 +458,9 @@ export default function Dashboard() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', borderRadius: 6 }}>
                 <Text style={{ fontSize: 10.5, color: colors.text3, letterSpacing: 1, fontWeight: '700' }}>{SECTION_LABELS[key]}</Text>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
-                  <Pressable disabled={idx === 0} onPress={() => moveSection(key, -1)} style={{ paddingVertical: 2, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, opacity: idx === 0 ? 0.35 : 1 }}><Text style={{ color: colors.text2 }}>▲</Text></Pressable>
-                  <Pressable disabled={idx === sectionOrder.length - 1} onPress={() => moveSection(key, 1)} style={{ paddingVertical: 2, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, opacity: idx === sectionOrder.length - 1 ? 0.35 : 1 }}><Text style={{ color: colors.text2 }}>▼</Text></Pressable>
+                  {/* Cibles tactiles ≥ 44 pt (audit transverse) — hitSlop compense la hauteur visuelle. */}
+                  <Pressable disabled={idx === 0} onPress={() => moveSection(key, -1)} hitSlop={10} style={{ minWidth: 44, minHeight: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, opacity: idx === 0 ? 0.35 : 1 }}><CaretUpIcon size={14} color={colors.text2} /></Pressable>
+                  <Pressable disabled={idx === sectionOrder.length - 1} onPress={() => moveSection(key, 1)} hitSlop={10} style={{ minWidth: 44, minHeight: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line2, borderRadius: radius.sm, opacity: idx === sectionOrder.length - 1 ? 0.35 : 1 }}><CaretDownIcon size={14} color={colors.text2} /></Pressable>
                 </View>
               </View>
             ) : null}

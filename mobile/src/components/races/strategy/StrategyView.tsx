@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CaretDownIcon, CaretUpIcon } from '@/components/coach/CoachIcons'
 import { Pressable, Text, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import type { ProjectionResult } from '@/lib/computeRaceProjection'
@@ -338,7 +339,7 @@ function Accordion({ label, meta, children }: { label: string; meta?: string; ch
           <Text style={{ fontSize: 11.5, color: colors.text, letterSpacing: 1.2, fontWeight: '600' }}>{label}</Text>
           {meta ? <Text style={{ fontSize: 10.5, color: colors.text3 }}>{meta}</Text> : null}
         </View>
-        <Text style={{ color: colors.text3, fontSize: 12 }}>{open ? '▲' : '▼'}</Text>
+        {open ? <CaretUpIcon size={13} color={colors.text3} /> : <CaretDownIcon size={13} color={colors.text3} />}
       </Pressable>
       {open ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 18 }}>{children}</View> : null}
     </View>

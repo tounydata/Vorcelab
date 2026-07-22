@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { MountainIcon } from '@/components/coach/CoachIcons'
 import { colors, radius, space } from '@/lib/theme'
 
 // Création d'une course (objectif) → insertion dans race_calendar. Porté de
@@ -96,7 +97,7 @@ export default function AddRaceScreen() {
                   <Pressable key={t} onPress={() => setType(t)}
                     style={{ flex: 1, padding: 10, borderRadius: radius.sm, borderWidth: 1, alignItems: 'center',
                       borderColor: on ? colors.ember : colors.line, backgroundColor: on ? colors.ember : colors.surf2 }}>
-                    <Text style={{ fontWeight: '700', fontSize: 14, color: on ? colors.bg : colors.text2 }}>{t === 'Trail' ? '⛰ Trail' : '→ Route'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>{t === 'Trail' ? <MountainIcon size={13} color={on ? colors.bg : colors.text2} /> : null}<Text style={{ fontWeight: '700', fontSize: 14, color: on ? colors.bg : colors.text2 }}>{t === 'Trail' ? 'Trail' : '→ Route'}</Text></View>
                   </Pressable>
                 )
               })}

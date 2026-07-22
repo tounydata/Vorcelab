@@ -23,6 +23,7 @@ import StrategyView from '@/components/races/strategy/StrategyView'
 import RaceResult from '@/components/races/RaceResult'
 import BrandedLoader from '@/components/BrandedLoader'
 import { Card, CLabel, MLabel, HButton, PrimaryButton, BackLink, colors, radius, space } from '@/components/coach/ui'
+import { GearIcon } from '@/components/coach/CoachIcons'
 
 interface Race {
   id: string; name: string; date: string; distance: number | null; elevation: number | null; type: string | null
@@ -252,7 +253,7 @@ export default function RaceStrategyScreen() {
             </Text>
           </View>
           <Pressable onPress={() => setMenuOpen(true)} style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 8 }}>
-            <Text style={{ color: colors.text2, fontSize: 16 }}>⚙</Text>
+            <GearIcon size={16} color={colors.text2} />
           </Pressable>
         </View>
 

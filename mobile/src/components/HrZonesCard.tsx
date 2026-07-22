@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { PencilIcon, SaveIcon } from '@/components/coach/CoachIcons'
 import { Pressable, Text, TextInput, View } from 'react-native'
 import {
   computeHrZones, defaultZoneConfig, sanitizeBounds, missingInputFor,
   MODEL_LABEL, DEFAULT_BOUNDS,
   type HrZoneConfig, type HrZoneModel, type HrZoneInputs,
 } from '@/lib/hrZones'
-import { Card, HButton, colors, radius } from '@/components/coach/ui'
+import { Card, HButton, hbtnTextStyle, colors, radius } from '@/components/coach/ui'
 
 const MODELS: HrZoneModel[] = ['fcmax', 'hrr', 'lthr']
 const MISSING_LABEL: Record<'fcMax' | 'restingHr' | 'lthr', string> = {
@@ -51,8 +52,9 @@ export default function HrZonesCard({ config, inputs, saving, onSave }: {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 10.5, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.68, fontWeight: '600' }}>ZONES FC · {MODEL_LABEL[previewCfg.model]}</Text>
         {!editing ? (
-          <Pressable onPress={startEdit} style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 2 }}>
-            <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>✏ Modifier</Text>
+          <Pressable onPress={startEdit} hitSlop={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 2 }}>
+            <PencilIcon size={10} color={colors.text3} />
+            <Text style={{ color: colors.text3, fontSize: 10, letterSpacing: 0.4 }}>Modifier</Text>
           </Pressable>
         ) : null}
       </View>
@@ -108,7 +110,10 @@ export default function HrZonesCard({ config, inputs, saving, onSave }: {
 
       {editing ? (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-          <HButton label={saving ? 'Enregistrement…' : '💾 Enregistrer'} disabled={saving} onPress={() => { onSave(buildConfig()); setEditing(false) }} style={{ flex: 1, backgroundColor: colors.ember, borderColor: colors.ember, opacity: saving ? 0.6 : 1 }} textStyle={{ color: colors.bg }} />
+          <HButton disabled={saving} onPress={() => { onSave(buildConfig()); setEditing(false) }} style={{ flex: 1, backgroundColor: colors.ember, borderColor: colors.ember, opacity: saving ? 0.6 : 1, gap: 5 }}>
+            <SaveIcon size={11} color={colors.bg} />
+            <Text style={[hbtnTextStyle, { color: colors.bg }]}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Text>
+          </HButton>
           <HButton label="↺ Défaut" onPress={() => pickModel(model)} style={{ flex: 1 }} />
           <HButton label="Annuler" onPress={() => setEditing(false)} style={{ flex: 1 }} />
         </View>

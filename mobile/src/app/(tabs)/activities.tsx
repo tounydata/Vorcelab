@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { colors, radius, space } from '@/lib/theme'
+import { colors, font, radius, space } from '@/lib/theme'
 
 interface Activity {
   id: string
@@ -136,7 +136,7 @@ export default function Activities() {
                   )}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                  <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ember }}>
+                  <Text style={{ fontSize: 24, fontFamily: font.display, color: colors.ember }}>
                     {p.km.toFixed(p.km >= 100 ? 0 : 1)}
                     <Text style={{ fontSize: 13, color: colors.text3 }}> km</Text>
                   </Text>
@@ -231,4 +231,4 @@ const card = {
   borderRadius: radius.md,
   padding: space.md,
 } as const
-const mlabel = { color: colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 } as const
+const mlabel = { color: colors.text3, fontSize: 11, fontFamily: font.monoSemiBold, letterSpacing: 1 } as const

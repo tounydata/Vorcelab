@@ -17,13 +17,13 @@ import WeekProgram, { type HistoryWeek } from '@/components/WeekProgram'
 import SessionAdaptationSplash from '@/components/SessionAdaptationSplash'
 import BrandedLoader from '@/components/BrandedLoader'
 import { Card } from '@/components/coach/ui'
-import { colors, radius, space } from '@/lib/theme'
+import { colors, font, radius, space } from '@/lib/theme'
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: colors.growth,
   build: colors.amber,
   specific: colors.ember,
-  taper: '#3B82F6',
+  taper: colors.status.rest, // audit 21/07 : bleu hors-thème → ton rest du thème
   race: colors.text,
 }
 
@@ -296,7 +296,7 @@ export default function CoachScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }}>
-          <Text style={{ fontSize: 29, fontWeight: '700', color: colors.text, marginBottom: 16 }}>Coach</Text>
+          <Text style={{ fontSize: 30, fontFamily: font.display, letterSpacing: 0.5, color: colors.text, marginBottom: 16 }}>COACH</Text>
           <Card style={{ alignItems: 'center' }}>
             <Text style={{ fontSize: 10.5, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.68, fontWeight: '600', marginBottom: 12 }}>Aucune course à venir</Text>
             <Text style={{ color: colors.text2, fontSize: 14, marginBottom: 16, textAlign: 'center', lineHeight: 20 }}>
@@ -336,7 +336,7 @@ export default function CoachScreen() {
         {replanSplash ? <SessionAdaptationSplash message="Je régénère ton plan selon ta charge réelle…" onDone={() => setReplanSplash(false)} /> : null}
 
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          <Text style={{ fontSize: 29, fontWeight: '700', color: colors.text }}>Coach</Text>
+          <Text style={{ fontSize: 30, fontFamily: font.display, letterSpacing: 0.5, color: colors.text }}>COACH</Text>
           <Text style={{ fontSize: 10, color: colors.text3 }}>
             {plan.weeksToRace} semaine{plan.weeksToRace > 1 ? 's' : ''} avant le jour J
           </Text>
@@ -355,11 +355,11 @@ export default function CoachScreen() {
                   onPress={() => setRacePickerOpen(true)}
                   style={{ marginVertical: 6, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line2, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
                 >
-                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 22, fontWeight: '800', letterSpacing: 0.2, textTransform: 'uppercase', color: colors.text }}>{targetRace.name}</Text>
+                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 22, fontFamily: font.display, letterSpacing: 0.2, textTransform: 'uppercase', color: colors.text }}>{targetRace.name}</Text>
                   <Text style={{ color: colors.text2, fontSize: 16 }}>▾</Text>
                 </Pressable>
               ) : (
-                <Text style={{ fontSize: 34, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.34, marginVertical: 8, color: colors.text }}>{targetRace.name}</Text>
+                <Text style={{ fontSize: 34, fontFamily: font.displayBlack, textTransform: 'uppercase', letterSpacing: 0.34, marginVertical: 8, color: colors.text }}>{targetRace.name}</Text>
               )}
               <Text style={{ fontSize: 11, color: colors.text2, letterSpacing: 0.33 }}>{metaLine}</Text>
 
@@ -374,19 +374,23 @@ export default function CoachScreen() {
                       <Pressable
                         key={p}
                         onPress={() => { if (!on && !savingPriority) setPriority(targetRace.id, p) }}
-                        style={{ paddingVertical: 4, paddingHorizontal: 10, backgroundColor: on ? colors.ember : colors.surf2 }}
+                        hitSlop={6}
+                        style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 4, paddingHorizontal: 12, backgroundColor: on ? colors.ember : colors.surf2 }}
                       >
-                        <Text style={{ color: on ? colors.bg : colors.text2, fontWeight: '700', fontSize: 9.5, letterSpacing: 0.57 }}>{p} · {lbl}</Text>
+                        <Text style={{ color: on ? colors.bg : colors.text2, fontFamily: font.monoSemiBold, fontSize: 10, letterSpacing: 0.57 }}>{p} · {lbl}</Text>
                       </Pressable>
                     )
                   })}
                 </View>
+                <Text style={{ fontSize: 10, color: colors.text2, lineHeight: 15, marginTop: 4, maxWidth: 300 }}>
+                  A = objectif majeur (le plan vise cette course) · B = test en conditions réelles · C = entraînement déguisé.
+                </Text>
               </View>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 56, fontWeight: '900', color: colors.ember, letterSpacing: -1 }}>{daysLeft}</Text>
-              <Text style={{ fontSize: 9.5, letterSpacing: 1.7, textTransform: 'uppercase', color: colors.text3, fontWeight: '600', marginTop: 2 }}>jours</Text>
-              <Text style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '700', marginTop: 8, color: currentPhaseColor }}>▸ {currentPhaseLabel}</Text>
+              <Text style={{ fontSize: 56, fontFamily: font.displayBlack, color: colors.ember }}>{daysLeft}</Text>
+              <Text style={{ fontSize: 9.5, fontFamily: font.monoSemiBold, letterSpacing: 1.7, textTransform: 'uppercase', color: colors.text3, marginTop: 2 }}>jours</Text>
+              <Text style={{ fontSize: 10, fontFamily: font.monoSemiBold, letterSpacing: 1, textTransform: 'uppercase', marginTop: 8, color: currentPhaseColor }}>▸ {currentPhaseLabel}</Text>
             </View>
           </View>
 
@@ -418,7 +422,7 @@ export default function CoachScreen() {
               {' — '}{modulation.reason}.{' '}
               <Text style={{ fontSize: 11, color: colors.text }}>{modulation.summary}</Text>
             </Text>
-            <Pressable onPress={cancelModulation} style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line2, backgroundColor: colors.surf2 }}>
+            <Pressable onPress={cancelModulation} hitSlop={12} style={{ minHeight: 32, justifyContent: 'center', paddingVertical: 3, paddingHorizontal: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line2, backgroundColor: colors.surf2 }}>
               <Text style={{ color: colors.text2, fontSize: 10, fontWeight: '600', letterSpacing: 0.8 }}>Annuler</Text>
             </Pressable>
           </Card>

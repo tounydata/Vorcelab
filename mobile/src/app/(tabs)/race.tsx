@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { colors, radius, space } from '@/lib/theme'
+import { MountainIcon, PlusRingIcon } from '@/components/coach/CoachIcons'
+import { colors, font, radius, space } from '@/lib/theme'
 
 interface Race {
   id: string
@@ -131,7 +132,7 @@ export default function RaceCalendar() {
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }}>
         {/* En-tête */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.lg }}>
-          <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800' }}>Calendrier</Text>
+          <Text style={{ color: colors.text, fontSize: 28, fontFamily: font.display, letterSpacing: 0.5 }}>CALENDRIER</Text>
           <Pressable onPress={() => router.push('/race/add')} style={{ backgroundColor: colors.ember, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 7 }}>
             <Text style={{ color: colors.bg, fontWeight: '800', fontSize: 12 }}>+ Ajouter</Text>
           </Pressable>
@@ -183,7 +184,7 @@ export default function RaceCalendar() {
                     → {(a.distance / 1000).toFixed(1)}k
                   </Text>
                 ))}
-                {renfoByDate[c.dateStr] && <Text style={{ color: colors.violet, fontSize: 8.5 }}>⊕⊕</Text>}
+                {renfoByDate[c.dateStr] && <View style={{ flexDirection: 'row', gap: 1 }}><PlusRingIcon size={8} color={colors.violet} /><PlusRingIcon size={8} color={colors.violet} /></View>}
                 {dayRace && (
                   <View style={{ backgroundColor: colors.ember, borderRadius: 3, paddingHorizontal: 3, paddingVertical: 1, marginTop: 1 }}>
                     <Text style={{ color: colors.bg, fontSize: 8 }} numberOfLines={1}>
@@ -202,9 +203,9 @@ export default function RaceCalendar() {
             <Text style={mlabel}>PROCHAINES COURSES</Text>
             {upcoming.map((race) => (
               <Pressable key={race.id} onPress={() => router.push(`/race/${race.id}` as never)} style={row}>
-                <Text style={{ color: race.type === 'trail' ? colors.ember : colors.growth, fontSize: 16 }}>
-                  {race.type === 'trail' ? '⛰' : '→'}
-                </Text>
+                {race.type === 'trail'
+                  ? <MountainIcon size={16} color={colors.ember} />
+                  : <Text style={{ color: colors.growth, fontSize: 16 }}>→</Text>}
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{race.name}</Text>
                   <Text style={{ color: colors.text3, fontSize: 10, marginTop: 2 }}>
@@ -213,7 +214,7 @@ export default function RaceCalendar() {
                     {race.elevation ? ` · ${race.elevation}m D+` : ''}
                   </Text>
                 </View>
-                <Text style={{ color: colors.ember, fontSize: 15, fontWeight: '800' }}>
+                <Text style={{ color: colors.ember, fontSize: 16, fontFamily: font.display }}>
                   {daysLeft(race.date) === 0 ? "Auj." : `${daysLeft(race.date)}j`}
                 </Text>
               </Pressable>
@@ -227,7 +228,7 @@ export default function RaceCalendar() {
             <Text style={mlabel}>COURSES PASSÉES</Text>
             {past.map((race) => (
               <Pressable key={race.id} onPress={() => router.push(`/race/${race.id}` as never)} style={row}>
-                <Text style={{ color: colors.text3, fontSize: 16 }}>{race.type === 'trail' ? '⛰' : '→'}</Text>
+                {race.type === 'trail' ? <MountainIcon size={16} color={colors.text3} /> : <Text style={{ color: colors.text3, fontSize: 16 }}>→</Text>}
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text2, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{race.name}</Text>
                   <Text style={{ color: colors.text3, fontSize: 10, marginTop: 2 }}>
@@ -249,7 +250,7 @@ export default function RaceCalendar() {
   )
 }
 
-const mlabel = { color: colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1.4, marginBottom: space.sm } as const
+const mlabel = { color: colors.text3, fontSize: 11, fontFamily: font.monoSemiBold, letterSpacing: 1.4, marginBottom: space.sm } as const
 const row = {
   flexDirection: 'row' as const,
   alignItems: 'center' as const,
