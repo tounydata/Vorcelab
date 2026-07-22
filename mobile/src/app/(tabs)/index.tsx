@@ -123,7 +123,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
 
   return (
     <View style={[card, { marginBottom: 24, padding: 14, overflow: 'hidden' }]}>
-      <Text style={[clabel, { marginBottom: 10 }]}>Statut d'entraînement</Text>
+      <Text style={[clabel, { marginBottom: 10 }]}>Statut d’entraînement</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: `${status.color}1f`, borderLeftWidth: 4, borderLeftColor: status.color, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 24, fontFamily: font.display, color: status.color, letterSpacing: 0.24 }}>{status.label}</Text>
@@ -221,8 +221,10 @@ function MiniAlti({ gpxData }: { gpxData: { lat: number; lon: number; ele: numbe
 
 function NextRaceWidget({ race }: { race: NextRace }) {
   const router = useRouter()
+  // « maintenant » figé au montage : évite l'appel impur Date.now() au rendu (react-hooks/purity).
+  const [nowMs] = useState(() => Date.now())
   const raceDate = new Date(race.date)
-  const daysLeft = Math.ceil((raceDate.getTime() - Date.now()) / 86400000)
+  const daysLeft = Math.ceil((raceDate.getTime() - nowMs) / 86400000)
   const phase = getPhase(daysLeft)
   const dStr = `${raceDate.getDate()} ${['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][raceDate.getMonth()]} ${raceDate.getFullYear()}`
   const gpxPts = Array.isArray(race.gpx_data) && race.gpx_data.length > 4 ? race.gpx_data : null
@@ -319,6 +321,7 @@ export default function Dashboard() {
     }
   }, [userId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
   // Ordre des sections : AsyncStorage (cache) puis serveur (fait foi).
@@ -338,6 +341,7 @@ export default function Dashboard() {
     const sl = profileData?.dashboard_layout
     if (!sl?.length) return
     const next = sanitizeOrder(sl)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setSectionOrder((prev) => (next.join(',') !== prev.join(',') ? next : prev))
     AsyncStorage.setItem('vl-dash-order', JSON.stringify(next))
   }, [profileData?.dashboard_layout])

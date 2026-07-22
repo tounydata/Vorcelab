@@ -102,6 +102,45 @@ function Stepper({ value, min, max, step, unit, onChange }: {
   )
 }
 
+// Bloc matériel (maison/salle) — composant hoisté ; l'état et les setters du
+// formulaire arrivent en props (identité stable → react-hooks/static-components).
+function EquipmentBlock({ setKey, title, subtitle, eq, onToggle, onSetNum }: {
+  setKey: 'equipment_home' | 'equipment_gym'; title: string; subtitle: string
+  eq: Equipment
+  onToggle: (set: 'equipment_home' | 'equipment_gym', field: keyof Equipment, val: boolean) => void
+  onSetNum: (set: 'equipment_home' | 'equipment_gym', field: keyof Equipment, val: number) => void
+}) {
+  return (
+    <Card style={{ marginBottom: space.lg }}>
+      <FL style={{ marginBottom: 4 }}>{title}</FL>
+      <Text style={{ color: colors.text3, fontSize: 12, lineHeight: 18, marginBottom: 12 }}>{subtitle}</Text>
+      {EQUIP_KEYS.map(({ key, label }) => {
+        const on = !!(eq as Record<string, unknown>)[key]
+        return (
+          <Pressable
+            key={key}
+            onPress={() => onToggle(setKey, key, !on)}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}
+          >
+            <Check on={on} />
+            <Text style={{ color: colors.text2, fontSize: 14 }}>{label}</Text>
+          </Pressable>
+        )
+      })}
+      <View style={{ marginTop: 12 }}>
+        <FL>Haltères (poids max disponible)</FL>
+        <Stepper value={eq.dumbbells_max_kg ?? 0} min={0} max={50} step={2} unit="kg"
+          onChange={(v) => onSetNum(setKey, 'dumbbells_max_kg', v)} />
+      </View>
+      <View style={{ marginTop: 12 }}>
+        <FL>Kettlebell (poids max)</FL>
+        <Stepper value={eq.kettlebell_max_kg ?? 0} min={0} max={40} step={2} unit="kg"
+          onChange={(v) => onSetNum(setKey, 'kettlebell_max_kg', v)} />
+      </View>
+    </Card>
+  )
+}
+
 export default function RenfoEquipmentScreen() {
   const { session } = useAuth()
   const userId = session?.user.id ?? null
@@ -149,40 +188,6 @@ export default function RenfoEquipmentScreen() {
     }
   }
 
-  function EquipmentBlock({ setKey, title, subtitle }: {
-    setKey: 'equipment_home' | 'equipment_gym'; title: string; subtitle: string
-  }) {
-    const eq = form[setKey]
-    return (
-      <Card style={{ marginBottom: space.lg }}>
-        <FL style={{ marginBottom: 4 }}>{title}</FL>
-        <Text style={{ color: colors.text3, fontSize: 12, lineHeight: 18, marginBottom: 12 }}>{subtitle}</Text>
-        {EQUIP_KEYS.map(({ key, label }) => {
-          const on = !!(eq as Record<string, unknown>)[key]
-          return (
-            <Pressable
-              key={key}
-              onPress={() => toggleEq(setKey, key, !on)}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}
-            >
-              <Check on={on} />
-              <Text style={{ color: colors.text2, fontSize: 14 }}>{label}</Text>
-            </Pressable>
-          )
-        })}
-        <View style={{ marginTop: 12 }}>
-          <FL>Haltères (poids max disponible)</FL>
-          <Stepper value={eq.dumbbells_max_kg ?? 0} min={0} max={50} step={2} unit="kg"
-            onChange={(v) => setEqNum(setKey, 'dumbbells_max_kg', v)} />
-        </View>
-        <View style={{ marginTop: 12 }}>
-          <FL>Kettlebell (poids max)</FL>
-          <Stepper value={eq.kettlebell_max_kg ?? 0} min={0} max={40} step={2} unit="kg"
-            onChange={(v) => setEqNum(setKey, 'kettlebell_max_kg', v)} />
-        </View>
-      </Card>
-    )
-  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
@@ -211,9 +216,11 @@ export default function RenfoEquipmentScreen() {
 
         {/* Matériel par lieu */}
         <EquipmentBlock setKey="equipment_home" title="Mon matériel — Maison"
-          subtitle="Ce que tu as chez toi. Sélectionné quand tu lances une séance « Maison »." />
+          subtitle="Ce que tu as chez toi. Sélectionné quand tu lances une séance « Maison »."
+          eq={form.equipment_home} onToggle={toggleEq} onSetNum={setEqNum} />
         <EquipmentBlock setKey="equipment_gym" title="Mon matériel — Salle"
-          subtitle="Ce que ta salle propose (pré-rempli salle complète — décoche ce qui manque)." />
+          subtitle="Ce que ta salle propose (pré-rempli salle complète — décoche ce qui manque)."
+          eq={form.equipment_gym} onToggle={toggleEq} onSetNum={setEqNum} />
 
         <PrimaryButton label={saving ? 'SAUVEGARDE…' : 'ENREGISTRER LE MATÉRIEL'} onPress={save} disabled={saving} />
         {saved ? <MLabel style={{ color: colors.growth, marginTop: 8, textAlign: 'center' }}>Matériel sauvegardé</MLabel> : null}

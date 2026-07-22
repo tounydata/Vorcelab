@@ -12,7 +12,7 @@ import { surfaceInfo } from '@/lib/terrain'
 import RouteMap3D from './RouteMap3D'
 import { colors, radius } from '@/lib/theme'
 
-const GROWTH2 = colors.growth2, OVER = colors.ember2, INK = colors.bg
+const GROWTH2 = colors.growth2, OVER = colors.ember2
 
 interface RaceMeta { name: string; date: string; type?: string | null; goal_time?: string | null; start_time?: string | null }
 interface Props {
@@ -23,6 +23,25 @@ interface Props {
   ravitos: RavitoPoint[]
   forecast: RaceConditions | null
   weather: WeatherImpact | null
+}
+
+// Composants hoistés (identité stable — react-hooks/static-components).
+function Row({ color, label, detail }: { color: string; label: string; detail: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 9 }}>
+      <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color, alignSelf: 'center' }} />
+      <Text style={{ fontWeight: '600', color: colors.text, fontSize: 12.5 }}>{label}</Text>
+      <Text style={{ color: colors.text3, fontSize: 12.5, flex: 1 }}>{detail}</Text>
+    </View>
+  )
+}
+function Legend({ c, label }: { c: string; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: c }} />
+      <Text style={{ fontSize: 10, color: colors.text2 }}>{label}</Text>
+    </View>
+  )
 }
 
 function Eyebrow({ children, style }: { children: React.ReactNode; style?: object }) {
@@ -174,13 +193,6 @@ function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: W
   const hasWeather = !!weather && weather.totalPct !== 0
   const weatherFirm = !!forecast?.available && forecast.daysToRace <= 3
   if (!rows.length && !hasWeather) return null
-  const Row = ({ color, label, detail }: { color: string; label: string; detail: string }) => (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 9 }}>
-      <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: color, alignSelf: 'center' }} />
-      <Text style={{ fontWeight: '600', color: colors.text, fontSize: 12.5 }}>{label}</Text>
-      <Text style={{ color: colors.text3, fontSize: 12.5, flex: 1 }}>{detail}</Text>
-    </View>
-  )
   return (
     <View style={{ paddingHorizontal: 18, paddingBottom: 16 }}>
       <Eyebrow style={{ marginBottom: 8 }}>POURQUOI CE TEMPS</Eyebrow>
@@ -363,12 +375,6 @@ function sectionAction(s: { type: 'up' | 'down' | 'flat'; grade: number; technic
 }
 
 function AllSectionsTable({ p, passageHM }: { p: ProjectionResult; passageHM: (km: number) => string }) {
-  const Legend = ({ c, label }: { c: string; label: string }) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: c }} />
-      <Text style={{ fontSize: 10, color: colors.text2 }}>{label}</Text>
-    </View>
-  )
   return (
     <View>
       <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.line }}>

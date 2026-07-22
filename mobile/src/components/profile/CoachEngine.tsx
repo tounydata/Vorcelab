@@ -34,7 +34,7 @@ export default function CoachEngine() {
     <View style={{ marginBottom: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
         <Text style={{ fontSize: 19, fontWeight: '800', letterSpacing: 0.38, textTransform: 'uppercase', color: colors.text }}>Ton moteur</Text>
-        <Text style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: colors.text3 }}>Ce que l'algo lit de toi</Text>
+        <Text style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: colors.text3 }}>Ce que l’algo lit de toi</Text>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.line, gap: 1 }}>
         {engine.map((c) => (

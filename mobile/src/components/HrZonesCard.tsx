@@ -6,7 +6,7 @@ import {
   MODEL_LABEL, DEFAULT_BOUNDS,
   type HrZoneConfig, type HrZoneModel, type HrZoneInputs,
 } from '@/lib/hrZones'
-import { Card, HButton, hbtnTextStyle, colors, radius } from '@/components/coach/ui'
+import { Card, HButton, hbtnTextStyle, colors } from '@/components/coach/ui'
 
 const MODELS: HrZoneModel[] = ['fcmax', 'hrr', 'lthr']
 const MISSING_LABEL: Record<'fcMax' | 'restingHr' | 'lthr', string> = {

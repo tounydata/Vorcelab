@@ -239,7 +239,7 @@ function RunDetail({ item, vdot, fcMax, activities, isCurrent, weekStartISO, wee
       ) : null}
       {effortMode === 'rpe' ? (
         <Text style={{ marginBottom: 12, fontSize: 11.5, color: colors.text3, lineHeight: 17 }}>
-          Séance trail/côte : pilote à l'<Text style={{ color: colors.text2, fontWeight: '700' }}>effort (RPE)</Text>, pas à l'allure — le D+ et le terrain la faussent.
+          Séance trail/côte : pilote à l’<Text style={{ color: colors.text2, fontWeight: '700' }}>effort (RPE)</Text>, pas à l’allure — le D+ et le terrain la faussent.
         </Text>
       ) : null}
       <SessionProfile workout={workout} effortMode={effortMode} />

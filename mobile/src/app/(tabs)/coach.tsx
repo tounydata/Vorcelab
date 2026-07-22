@@ -222,6 +222,7 @@ export default function CoachScreen() {
     setSessionLogs(await listSessionLog(120))
   }, [userId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { loadLogs() }, [loadLogs])
 
   function onSessionSaved() { loadLogs() }
@@ -250,6 +251,7 @@ export default function CoachScreen() {
 
   const [dismissed, setDismissed] = useState(false)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (!latestVerdict) { setDismissed(false); return }
     AsyncStorage.getItem('vl-modul-dismiss').then((v) => setDismissed(v === latestVerdict.id))
   }, [latestVerdict])
@@ -456,7 +458,7 @@ export default function CoachScreen() {
             <Text style={{ fontFamily: font.monoSemiBold, fontSize: 10, letterSpacing: 1.2, color: colors.ember, marginBottom: 6 }}>PLAN COMPLET · VORCELAB PRO</Text>
             <Text style={{ fontSize: 13, lineHeight: 19, color: colors.text2 }}>
               {displayWeeks.length - FREE_WEEKS} semaine{displayWeeks.length - FREE_WEEKS > 1 ? 's' : ''} de plan verrouillée{displayWeeks.length - FREE_WEEKS > 1 ? 's' : ''} —
-              le plan gratuit couvre les {FREE_WEEKS} premières semaines. Vorcelab PRO déverrouille la périodisation complète jusqu'au jour J.
+              le plan gratuit couvre les {FREE_WEEKS} premières semaines. Vorcelab PRO déverrouille la périodisation complète jusqu’au jour J.
             </Text>
           </Card>
         ) : null}

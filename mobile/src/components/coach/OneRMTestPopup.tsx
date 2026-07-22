@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { estimate1RM, workingLoad, FORCE_MAX_SCHEME } from '@/lib/oneRepMax'
-import { colors, radius } from '@/lib/theme'
+import { colors } from '@/lib/theme'
 import { Card, HButton, MLabel } from './ui'
 
 // Test de force 1RM GUIDÉ et SÛR : jamais un vrai 1RM brut. On guide l'athlète pas
@@ -46,6 +46,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
 
   // Réinitialise à chaque ouverture.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (open) { setStep('setup'); setWuIdx(0); setRest(null); setWeight(''); setReps('5'); setSavedRm(null) }
   }, [open])
 
@@ -60,6 +61,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
   // Minuteur de repos d'échauffement → auto-avance à la fin.
   useEffect(() => {
     if (rest == null) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (rest <= 0) { setRest(null); advanceWarmup(); return }
     timer.current = setTimeout(() => setRest((r) => (r == null ? null : r - 1)), 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
@@ -182,7 +184,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
                     ))}
                   </View>
                   {savedRm === oneRm ? (
-                    <Text style={{ marginTop: 12, fontSize: 12.5, color: colors.growth }}>✓ Enregistré. Tes séances de force lourde s'en serviront.</Text>
+                    <Text style={{ marginTop: 12, fontSize: 12.5, color: colors.growth }}>✓ Enregistré. Tes séances de force lourde s’en serviront.</Text>
                   ) : (
                     <HButton label={saving ? 'Enregistrement…' : 'Enregistrer ce 1RM'} disabled={saving} onPress={() => save(oneRm)}
                       style={{ marginTop: 14, backgroundColor: colors.ember, borderColor: colors.ember, opacity: saving ? 0.6 : 1 }} textStyle={{ color: colors.bg }} />

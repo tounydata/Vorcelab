@@ -76,13 +76,13 @@ export default function CoachCard({ renfoLogs, renfoWeeklyTarget }: { renfoLogs:
       ) : !targetRace || !plan ? (
         <Pressable onPress={() => go('/race/add')}>
           <Text style={{ fontSize: 22, fontWeight: '800', lineHeight: 25, marginBottom: 4, color: colors.text }}>Donne un cap à ton entraînement</Text>
-          <Text style={{ fontSize: 13, color: colors.text2, lineHeight: 19, marginBottom: 8 }}>Ajoute ta course cible : le Coach construit ton plan jusqu'au jour J.</Text>
+          <Text style={{ fontSize: 13, color: colors.text2, lineHeight: 19, marginBottom: 8 }}>Ajoute ta course cible : le Coach construit ton plan jusqu’au jour J.</Text>
           <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1, color: colors.ember }}>DÉFINIR MA COURSE CIBLE →</Text>
         </Pressable>
       ) : isRaceDay ? (
         <Pressable onPress={() => go(`/race/${targetRace.id}`)}>
           <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: colors.ember, marginBottom: 6 }}>JOUR J · {dateLabel}</Text>
-          <Text style={{ fontSize: 27, fontWeight: '800', lineHeight: 28, marginBottom: 4, color: colors.text }}>C'est aujourd'hui.</Text>
+          <Text style={{ fontSize: 27, fontWeight: '800', lineHeight: 28, marginBottom: 4, color: colors.text }}>C’est aujourd’hui.</Text>
           <Text style={{ fontSize: 13.5, color: colors.text, lineHeight: 20, marginBottom: 10 }}>{targetRace.name} — fais-toi confiance, le plan est derrière toi.</Text>
           <Text style={{ alignSelf: 'flex-start', backgroundColor: colors.ember, color: colors.bg, borderRadius: radius.sm, paddingVertical: 8, paddingHorizontal: 14, fontSize: 13, fontWeight: '700', letterSpacing: 0.78, overflow: 'hidden' }}>VOIR MA STRATÉGIE →</Text>
         </Pressable>

@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { MountainIcon, PlusRingIcon } from '@/components/coach/CoachIcons'
-import { colors, font, radius, space } from '@/lib/theme'
+import { colors, font, space } from '@/lib/theme'
 
 interface Race {
   id: string
@@ -81,6 +81,7 @@ export default function RaceCalendar() {
   }, [year, month, uid])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     loadMonth()
   }, [loadMonth])
 

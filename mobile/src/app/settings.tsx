@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -80,7 +80,7 @@ export default function SettingsScreen() {
   const [nutritionSaved, setNutritionSaved] = useState(false)
   const [openBrand, setOpenBrand] = useState<string | null>(null)
 
-  function loadRow() {
+  const loadRow = useCallback(() => {
     if (!userId) return
     supabase.from('profiles')
       .select('coach_motivation,coach_days_per_week,renfo_weekly_target,nutrition_products,nutrition_no_caffeine')
@@ -90,8 +90,8 @@ export default function SettingsScreen() {
         setRow(r)
         if (!nutritionLoaded) { setProducts(r.nutrition_products ?? []); setNutritionLoaded(true) }
       })
-  }
-  useEffect(() => { loadRow() }, [userId])
+  }, [userId, nutritionLoaded])
+  useEffect(() => { loadRow() }, [loadRow])
 
   async function patch(p: Record<string, unknown>) {
     if (!userId) return
@@ -158,7 +158,7 @@ export default function SettingsScreen() {
             <Card style={{ marginBottom: space.lg }}>
               <FL style={{ marginBottom: 4 }}>Orientation coach</FL>
               <Text style={{ fontSize: 12, color: colors.text3, lineHeight: 18, marginBottom: 12 }}>
-                Comment tu veux t'entraîner — ça ajuste le volume et l'intensité de ton plan.
+                Comment tu veux t’entraîner — ça ajuste le volume et l’intensité de ton plan.
               </Text>
               <Segmented
                 options={['plaisir', 'mix', 'performance'] as CoachMotivation[]}
@@ -188,7 +188,7 @@ export default function SettingsScreen() {
               </Text>
               <Segmented options={[2, 3, 4, 5] as const} value={renfoTarget} onChange={(n) => patch({ renfo_weekly_target: n })} fmt={(n) => `${n}/sem`} />
               <Pressable onPress={() => router.push('/renfo/library')} hitSlop={6}>
-                <MLabel style={{ color: colors.ember, marginTop: 14, fontSize: 11 }}>Bibliothèque d'exercices →</MLabel>
+                <MLabel style={{ color: colors.ember, marginTop: 14, fontSize: 11 }}>Bibliothèque d’exercices →</MLabel>
               </Pressable>
             </Card>
 
@@ -200,7 +200,7 @@ export default function SettingsScreen() {
               <Card style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
                   <FL style={{ marginBottom: 4, color: colors.violet }}>Matériel renfo — Maison / Salle</FL>
-                  <Text style={{ fontSize: 12, color: colors.text3, lineHeight: 18 }}>Détermine les variantes d'exercices proposées en séance.</Text>
+                  <Text style={{ fontSize: 12, color: colors.text3, lineHeight: 18 }}>Détermine les variantes d’exercices proposées en séance.</Text>
                 </View>
                 <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
               </Card>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, Vibration, View } from 'react-native'
+import { ScrollView, Text, TextInput, Vibration, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -66,6 +66,9 @@ export default function RenfoSessionScreen() {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([])
   const [maxLifts, setMaxLifts] = useState<{ exercise_id: string; one_rm: number }[]>([])
   const [maxLiftsFetched, setMaxLiftsFetched] = useState(false)
+  // « aujourd'hui » figé au montage (Date.now() hors rendu — react-hooks/purity),
+  // au niveau des hooks (pas après un return conditionnel — rules-of-hooks).
+  const [todayMs] = useState(() => Date.now())
 
   useEffect(() => {
     if (!userId) return
@@ -85,6 +88,7 @@ export default function RenfoSessionScreen() {
   const [oneRmSeen, setOneRmSeen] = useState(false)
   useEffect(() => {
     if (focusKey === 'force_lourde' && maxLiftsFetched && maxLifts.length === 0 && !oneRmSeen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
       setShow1rm(true)
       setOneRmSeen(true)
     }
@@ -154,6 +158,7 @@ export default function RenfoSessionScreen() {
     if (!exo) return
     const exoLogs = logsByExo[exo.exercise_id] ?? []
     const suggested = computeNextLoad(exoLogs)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setLoad(suggested !== null ? suggested : '')
     // Exos chargés → reps = cible (la progression passe par la charge). Non chargés → reps/durée.
     const isLoadExo = exo.load_type === 'external_kg'
@@ -278,7 +283,7 @@ export default function RenfoSessionScreen() {
   // Sélecteur de lieu (intro de séance) — pilote le matériel → les variantes.
   const locationToggle = (
     <Card style={{ marginBottom: 16 }}>
-      <FL style={{ marginBottom: 8 }}>Où t'entraînes-tu aujourd'hui ?</FL>
+      <FL style={{ marginBottom: 8 }}>Où t’entraînes-tu aujourd’hui ?</FL>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(['maison', 'salle'] as const).map((loc) => {
           const on = location === loc
@@ -309,7 +314,7 @@ export default function RenfoSessionScreen() {
         <Card style={{ borderLeftWidth: 3, borderLeftColor: colors.ember }}>
           <MLabel style={{ color: colors.ember, marginBottom: 4 }}>Aucun exercice disponible</MLabel>
           <Text style={{ fontSize: 10.5, color: colors.text3, marginTop: 4 }}>
-            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l'autre lieu, ou ajoute du matériel dans{' '}
+            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l’autre lieu, ou ajoute du matériel dans{' '}
             <Text style={{ color: colors.ember, textDecorationLine: 'underline' }} onPress={() => router.push('/renfo/equipment')}>Réglages équipement</Text>.
           </Text>
           {sessionPlan._buildError ? (
@@ -506,8 +511,7 @@ export default function RenfoSessionScreen() {
 
   // ── Done ───────────────────────────────────────────────────────────────────
   const uniqueExos = new Set(setLogs.map((l) => l.exercise_id)).size
-  const dateChoices: string[] = []
-  for (let i = 6; i >= 0; i--) dateChoices.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10))
+  const dateChoices = Array.from({ length: 7 }, (_, k) => new Date(todayMs - (6 - k) * 86400000).toISOString().slice(0, 10))
 
   return wrap(
     <>

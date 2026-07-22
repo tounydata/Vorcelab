@@ -90,6 +90,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
 
   useEffect(() => {
     let alive = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setIsLoading(true)
     load().finally(() => { if (alive) setIsLoading(false) })
     return () => { alive = false }

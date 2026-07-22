@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Pressable, Text, TextInput, View } from 'react-native'
+import { Text, TextInput, View } from 'react-native'
 import type { ProjectionResult } from '@/lib/computeRaceProjection'
 import type { NutritionRow } from '@/lib/nutritionPlan'
 import type { RavitoPoint, UnclassifiedWaypoint, CrewCheckpoint } from '@/lib/crewPlan'
 import { generateCrewPlan } from '@/lib/crewPlan'
-import { Card, CLabel, MLabel, HButton, colors, radius } from '@/components/coach/ui'
+import { Card, CLabel, MLabel, HButton, colors } from '@/components/coach/ui'
 
 interface Props {
   projection: ProjectionResult
@@ -96,7 +96,7 @@ export default function CrewPlan({ projection, nutritionRows, ravitos, unclassif
           <CLabel style={{ marginBottom: hasClock ? 6 : 12 }}>PLAN ASSISTANCE — {athleteName.toUpperCase()}</CLabel>
           {hasClock ? (
             <Text style={{ fontSize: 11, color: colors.text3, marginBottom: 12, lineHeight: 16 }}>
-              Heure d'arrivée estimée au ravito — fourchette agressif → prudent. Temps écoulé indiqué en dessous.
+              Heure d’arrivée estimée au ravito — fourchette agressif → prudent. Temps écoulé indiqué en dessous.
             </Text>
           ) : null}
           {checkpoints.map((cp, i) => (

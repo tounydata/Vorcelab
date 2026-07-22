@@ -14,6 +14,11 @@ import { colors, radius, space } from '@/lib/theme'
 type RaceType = 'Route' | 'Trail'
 type Priority = 'A' | 'B' | 'C'
 
+// Libellé de champ — composant hoisté (identité stable entre rendus).
+function Label({ children }: { children: React.ReactNode }) {
+  return <Text style={{ fontSize: 10, letterSpacing: 0.8, color: colors.text3, textTransform: 'uppercase', marginBottom: 6 }}>{children}</Text>
+}
+
 const PRIORITIES: { value: Priority; label: string; note: string }[] = [
   { value: 'A', label: 'A — Objectif majeur', note: 'la prépa s’oriente entièrement vers cette course' },
   { value: 'B', label: 'B — Important', note: 'mini-affûtage, sans casser le bloc' },
@@ -62,9 +67,6 @@ export default function AddRaceScreen() {
     width: '100%' as const, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line,
     borderRadius: radius.sm, paddingVertical: 10, paddingHorizontal: 12, color: colors.text, fontSize: 15,
   }
-  const Label = ({ children }: { children: React.ReactNode }) => (
-    <Text style={{ fontSize: 10, letterSpacing: 0.8, color: colors.text3, textTransform: 'uppercase', marginBottom: 6 }}>{children}</Text>
-  )
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Text, TextInput, View } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import OneRMTestPopup from '@/components/coach/OneRMTestPopup'
-import { Card, FL, HButton, colors, radius } from '@/components/coach/ui'
+import { Card, FL, HButton, colors } from '@/components/coach/ui'
 
 // Vue + saisie des 1RM (force) dans les Réglages — porté de
 // `src/components/coach/OneRMSettingsCard.tsx`. Saisie directe (is_estimated=false)
@@ -25,12 +25,12 @@ export default function OneRMSettingsCard() {
   const [lifts, setLifts] = useState<MaxLift[]>([])
   const [edits, setEdits] = useState<Record<string, string>>({})
 
-  function load() {
+  const load = useCallback(() => {
     if (!userId) return
     supabase.from('renfo_max_lifts').select('exercise_id,one_rm,is_estimated').eq('user_id', userId)
       .then(({ data }) => setLifts((data ?? []) as MaxLift[]))
-  }
-  useEffect(() => { load() }, [userId])
+  }, [userId])
+  useEffect(() => { load() }, [load])
 
   const byId = Object.fromEntries(lifts.map((l) => [l.exercise_id, l]))
 

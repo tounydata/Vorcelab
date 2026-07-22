@@ -123,7 +123,7 @@ export default function SessionFeedback({ link, onSaved }: { link?: SessionLinkC
   return (
     <Card style={{ marginTop: 12 }}>
       {splash ? <SessionAdaptationSplash onDone={() => setSplash(false)} /> : null}
-      <CLabel style={{ marginBottom: 8 }}>Comment c'était ?</CLabel>
+      <CLabel style={{ marginBottom: 8 }}>Comment c’était ?</CLabel>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {FEELINGS.map((f) => {
@@ -157,7 +157,7 @@ export default function SessionFeedback({ link, onSaved }: { link?: SessionLinkC
 
       {feeling && !NO_ISSUE.includes(feeling) ? (
         <View style={{ marginTop: 10 }}>
-          <MLabel style={{ marginBottom: 6 }}>Qu'est-ce qui a coincé ? (optionnel)</MLabel>
+          <MLabel style={{ marginBottom: 6 }}>Qu’est-ce qui a coincé ? (optionnel)</MLabel>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {REASONS.map((r) => (
               <Pressable

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -38,6 +38,16 @@ interface Race {
 const FR_MON = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 function formatDate(iso: string) { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')} ${FR_MON[d.getMonth()]} ${d.getFullYear()}` }
 function uuid() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; const v = c === 'x' ? r : (r & 0x3) | 0x8; return v.toString(16) }) }
+
+// Entrée de menu d'actions — composant hoisté (les callbacks sont des props,
+// pas des accès ref pendant le rendu → react-hooks/refs satisfait).
+function MenuItem({ label, onPress, color = colors.text2 }: { label: string; onPress: () => void; color?: string }) {
+  return (
+    <Pressable onPress={onPress} style={{ paddingVertical: 11, paddingHorizontal: 14 }}>
+      <Text style={{ color, fontSize: 13 }}>{label}</Text>
+    </Pressable>
+  )
+}
 
 export default function RaceStrategyScreen() {
   const { raceId } = useLocalSearchParams<{ raceId: string }>()
@@ -81,6 +91,7 @@ export default function RaceStrategyScreen() {
     setRaceLoading(false)
   }, [raceId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { loadRace() }, [loadRace])
 
   // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
@@ -100,6 +111,7 @@ export default function RaceStrategyScreen() {
     { const { asOfISO, sinceISO } = engineHistoryBounds()
       supabase.from('strava_activities').select(ENGINE_COLUMNS_SELECT).lt('start_date', asOfISO).gte('start_date', sinceISO).is('deleted_at', null).order('start_date', { ascending: false }).then(({ data }) => setActivitiesData((data ?? []) as unknown as Record<string, unknown>[])) }
     if (userId) supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfileData((data ?? {}) as Record<string, unknown>))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     else setProfileData({})
   }, [userId])
 
@@ -150,6 +162,7 @@ export default function RaceStrategyScreen() {
     if (!race?.gpx_data || !activitiesData || !profileData || projection) return
     const pts = race.gpx_data as GpxPoint[]
     if (!Array.isArray(pts) || pts.length < 2) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     runAnalysis(pts, false, true)
   }, [race, activitiesData, profileData, projection, runAnalysis])
 
@@ -253,9 +266,6 @@ export default function RaceStrategyScreen() {
     ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, profileData?.nutrition_level as string | undefined, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true)
     : []
 
-  const menuItem = (label: string, onPress: () => void, color: string = colors.text2) => (
-    <Pressable onPress={onPress} style={{ paddingVertical: 11, paddingHorizontal: 14 }}><Text style={{ color, fontSize: 13 }}>{label}</Text></Pressable>
-  )
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
@@ -328,13 +338,13 @@ export default function RaceStrategyScreen() {
       <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable onPress={() => setMenuOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 70, paddingRight: 16 }}>
           <Pressable onPress={() => {}} style={{ minWidth: 230, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line, borderRadius: 10, overflow: 'hidden' }}>
-            {isPast && projection ? <>{menuItem("Lier l'activité réalisée", () => { setTab('resultat'); setMenuOpen(false) }, colors.ember)}<View style={{ height: 1, backgroundColor: colors.line }} /></> : null}
-            {menuItem('Modifier la course', openEdit)}
+            {isPast && projection ? <><MenuItem label="Lier l'activité réalisée" onPress={() => { setTab('resultat'); setMenuOpen(false) }} color={colors.ember} /><View style={{ height: 1, backgroundColor: colors.line }} /></> : null}
+            <MenuItem label="Modifier la course" onPress={openEdit} />
             <View style={{ height: 1, backgroundColor: colors.line }} />
-            {!projection && isGated ? null : menuItem(projection ? 'Changer de GPX' : 'Importer un GPX', importGpx)}
-            {projection ? menuItem('Supprimer le GPX', handleRemoveGpx, colors.ember) : null}
+            {!projection && isGated ? null : <MenuItem label={projection ? 'Changer de GPX' : 'Importer un GPX'} onPress={() => importGpx()} />}
+            {projection ? <MenuItem label="Supprimer le GPX" onPress={() => handleRemoveGpx()} color={colors.ember} /> : null}
             <View style={{ height: 1, backgroundColor: colors.line }} />
-            {race.share_token ? <>{menuItem('Partager le lien', toggleShare, colors.growth)}{menuItem('Arrêter le partage', stopShare)}</> : menuItem('Partager cette stratégie', toggleShare)}
+            {race.share_token ? <><MenuItem label="Partager le lien" onPress={toggleShare} color={colors.growth} /><MenuItem label="Arrêter le partage" onPress={stopShare} /></> : <MenuItem label="Partager cette stratégie" onPress={toggleShare} />}
           </Pressable>
         </Pressable>
       </Modal>

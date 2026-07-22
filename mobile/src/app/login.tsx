@@ -151,7 +151,7 @@ export default function LoginScreen() {
               Ton temps de course.{'\n'}<Text style={{ color: colors.ember }}>Prédit.</Text>
             </Text>
             <Text style={{ marginTop: 12, fontSize: 14, lineHeight: 21, color: colors.text2, maxWidth: 300 }}>
-              Projection d'arrivée avec intervalle de confiance, stratégie d'allure pente par pente, coach adaptatif jusqu'au jour J.
+              Projection d’arrivée avec intervalle de confiance, stratégie d’allure pente par pente, coach adaptatif jusqu’au jour J.
             </Text>
           </View>
 
