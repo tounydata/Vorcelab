@@ -1,0 +1,60 @@
+# Build de l'app mobile SANS RIEN INSTALLER — déclenché à la main depuis le
+# navigateur (onglet Actions → « Run workflow »). Expo compile sur ses serveurs
+# et publie une page avec un QR code pour installer l'app sur le téléphone.
+#
+# Pré-requis (une seule fois) :
+#   1. Compte Expo gratuit (expo.dev).
+#   2. Un « Access token » Expo (expo.dev → Account settings → Access tokens).
+#   3. Le coller dans GitHub → Settings → Secrets and variables → Actions →
+#      New repository secret, nommé EXPO_TOKEN.
+#
+# Android (profil preview) = APK installable directement via QR, aucun compte
+# payant. iOS = nécessite un compte Apple Developer (credentials gérés par EAS).
+name: Build app (EAS) — QR à scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Plateforme à construire"
+        type: choice
+        default: android
+        options:
+          - android
+          - ios
+          - all
+      profile:
+        description: "Profil EAS (preview = interne/QR)"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install mobile dependencies
+        run: npm ci
+        working-directory: mobile
+
+      - name: Lancer le build EAS (non bloquant — le QR apparaît sur expo.dev)
+        run: eas build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive --no-wait
+        working-directory: mobile
