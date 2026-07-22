@@ -145,9 +145,11 @@ jobs:
           path: test-results
           retention-days: 7
 
-  # TypeScript mobile + tests de logique mobile (§7) : la logique pure de `mobile/src/lib`
-  # (charge, zones de forme, empreinte snapshot, parité web) est désormais couverte par la
-  # suite `npm run test` (job `verify`, cf. tests/mobile*.test.ts). Ce job garde le typecheck.
+  # TypeScript mobile + LINT mobile + tests de logique mobile (§7) : la logique pure
+  # de `mobile/src/lib` (charge, zones de forme, empreinte snapshot, parité web) est
+  # couverte par la suite `npm run test` (job `verify`, cf. tests/mobile*.test.ts).
+  # Ce job garde le typecheck ET le lint strict (audit 22/07, Phase 2 — `expo lint`
+  # n'ignorait plus aucun fichier, `--max-warnings=0` : la CI échoue au moindre avert.).
   mobile-typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -162,6 +164,9 @@ jobs:
         working-directory: mobile
       - name: Typecheck
         run: npx tsc --noEmit
+        working-directory: mobile
+      - name: Lint (strict, 0 warning)
+        run: npm run lint
         working-directory: mobile
 
   # Chaîne d'approvisionnement : scan de secrets déterministe (bloquant) + audit
