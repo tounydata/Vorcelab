@@ -57,7 +57,7 @@ export default function RaceStrategyPage() {
   // cache avec useRaceProjection (qui utilise également baseProjection.estTimeS).
   const [baseEstTimeS, setBaseEstTimeS] = useState<number | undefined>()
   const [isComputing, setIsComputing] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'denied'>('idle')
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'strategie' | 'assistance' | 'resultat'>('strategie')
   const [ravitos, setRavitos] = useState<RavitoPoint[]>([])
@@ -307,7 +307,14 @@ export default function RaceStrategyPage() {
             .from('race_calendar')
             .update({ gpx_data: pts, last_projection: fresh })
             .eq('id', raceId!)
-            .then(() => {
+            .then(({ error }) => {
+              // Quota gratuit désormais appliqué PAR LA BASE (audit 22/07, P0.4) :
+              // un refus serveur est journalisé et affiché, jamais silencieux.
+              if (error) {
+                if (!silentSync) setSaveStatus('denied')
+                track('gpx_quota_denied', { race_id: raceId, source: 'server' })
+                return
+              }
               if (!silentSync) setSaveStatus('saved')
               // Le dashboard relira la projection à jour.
               queryClient.invalidateQueries({ queryKey: ['next-race-dashboard'] })
@@ -678,6 +685,7 @@ export default function RaceStrategyPage() {
 
       {saveStatus === 'saving' && <div className="mlabel" style={{ margin: '0.5rem 0' }}>Sauvegarde…</div>}
       {saveStatus === 'saved'  && <div className="mlabel" style={{ margin: '0.5rem 0', color: 'var(--vl-growth)' }}>GPX sauvegardé</div>}
+      {saveStatus === 'denied' && <div className="mlabel" style={{ margin: '0.5rem 0', color: 'var(--vl-ember)' }}>Quota gratuit atteint — 1 stratégie GPX incluse. Passe à PRO pour toutes tes courses.</div>}
 
       {/* ── Main content (tabs) ──────────────────────────────────────────────── */}
       {projection && (
