@@ -24,6 +24,9 @@ import RaceResult from '@/components/races/RaceResult'
 import BrandedLoader from '@/components/BrandedLoader'
 import { Card, CLabel, MLabel, HButton, PrimaryButton, BackLink, colors, radius, space } from '@/components/coach/ui'
 import { GearIcon } from '@/components/coach/CoachIcons'
+import ProGate from '@/components/ProGate'
+import { usePlanTier } from '@/lib/usePlanTier'
+import { useTrackEvent } from '@/lib/useTrackEvent'
 
 interface Race {
   id: string; name: string; date: string; distance: number | null; elevation: number | null; type: string | null
@@ -79,6 +82,20 @@ export default function RaceStrategyScreen() {
   }, [raceId])
 
   useEffect(() => { loadRace() }, [loadRace])
+
+  // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
+  // (portage 1:1 du web RaceStrategyPage ; le refus est de toute façon appliqué
+  // PAR LA BASE — trigger race_calendar, audit P0.4 — ceci est l'UX.)
+  const { tier } = usePlanTier()
+  const track = useTrackEvent()
+  useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId, platform: 'mobile' }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [racesWithGpxCount, setRacesWithGpxCount] = useState(0)
+  useEffect(() => {
+    supabase.from('race_calendar').select('id', { count: 'exact', head: true }).not('gpx_data', 'is', null)
+      .then(({ count, error }) => setRacesWithGpxCount(error ? 0 : (count ?? 0)))
+  }, [userId])
+  // Gated si : plan free + cette course n'a pas encore de GPX + au moins 1 autre course en a déjà un
+  const isGated = tier !== 'pro' && !race?.gpx_data && racesWithGpxCount >= 1
   useEffect(() => {
     { const { asOfISO, sinceISO } = engineHistoryBounds()
       supabase.from('strava_activities').select(ENGINE_COLUMNS_SELECT).lt('start_date', asOfISO).gte('start_date', sinceISO).is('deleted_at', null).order('start_date', { ascending: false }).then(({ data }) => setActivitiesData((data ?? []) as unknown as Record<string, unknown>[])) }
@@ -260,11 +277,15 @@ export default function RaceStrategyScreen() {
         {isComputing ? <BrandedLoader label="Calcul de la stratégie…" fullScreen={false} /> : null}
 
         {!projection && !isComputing ? (
-          <Card style={{ alignItems: 'center', padding: 32 }}>
-            <CLabel style={{ marginBottom: 16 }}>CHARGER LE GPX</CLabel>
-            <MLabel style={{ marginBottom: 20, textAlign: 'center' }}>Importez le fichier GPX de la course pour générer votre stratégie personnalisée</MLabel>
-            <HButton label="Sélectionner un fichier .gpx" onPress={importGpx} />
-          </Card>
+          isGated ? (
+            <ProGate feature="les stratégies GPX illimitées" />
+          ) : (
+            <Card style={{ alignItems: 'center', padding: 32 }}>
+              <CLabel style={{ marginBottom: 16 }}>CHARGER LE GPX</CLabel>
+              <MLabel style={{ marginBottom: 20, textAlign: 'center' }}>Importez le fichier GPX de la course pour générer votre stratégie personnalisée</MLabel>
+              <HButton label="Sélectionner un fichier .gpx" onPress={importGpx} />
+            </Card>
+          )
         ) : null}
 
         {saveStatus === 'saving' ? <MLabel style={{ marginVertical: 8 }}>Sauvegarde…</MLabel> : null}
@@ -309,7 +330,7 @@ export default function RaceStrategyScreen() {
             {isPast && projection ? <>{menuItem("Lier l'activité réalisée", () => { setTab('resultat'); setMenuOpen(false) }, colors.ember)}<View style={{ height: 1, backgroundColor: colors.line }} /></> : null}
             {menuItem('Modifier la course', openEdit)}
             <View style={{ height: 1, backgroundColor: colors.line }} />
-            {menuItem(projection ? 'Changer de GPX' : 'Importer un GPX', importGpx)}
+            {!projection && isGated ? null : menuItem(projection ? 'Changer de GPX' : 'Importer un GPX', importGpx)}
             {projection ? menuItem('Supprimer le GPX', handleRemoveGpx, colors.ember) : null}
             <View style={{ height: 1, backgroundColor: colors.line }} />
             {race.share_token ? <>{menuItem('Partager le lien', toggleShare, colors.growth)}{menuItem('Arrêter le partage', stopShare)}</> : menuItem('Partager cette stratégie', toggleShare)}

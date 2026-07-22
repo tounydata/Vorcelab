@@ -12,6 +12,8 @@ import { computeAdjustment, scaleWorkout, nextQualityWorkoutId, type ModulationD
 import { structureWorkout } from '@/lib/coach/structureWorkout'
 import { listSessionLog, type SessionLogRow } from '@/lib/coach/sessionLog'
 import { useCoachPlan } from '@/lib/coach/useCoachPlan'
+import { usePlanTier } from '@/lib/usePlanTier'
+import { useTrackEvent } from '@/lib/useTrackEvent'
 import CalibrationPopup from '@/components/coach/CalibrationPopup'
 import WeekProgram, { type HistoryWeek } from '@/components/WeekProgram'
 import SessionAdaptationSplash from '@/components/SessionAdaptationSplash'
@@ -167,6 +169,15 @@ export default function CoachScreen() {
     plan, replan, displayWeeks, renfoSessionsPerWeek,
     reloadRaces, reloadProfile,
   } = useCoachPlan(selectedRaceId)
+
+  const { tier } = usePlanTier()
+  const track = useTrackEvent()
+  useEffect(() => { track('coach_viewed', { platform: 'mobile' }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 2 premières semaines gratuites ; le reste nécessite PRO (portage web).
+  const FREE_WEEKS = 2
+  const isGated = tier !== 'pro' && displayWeeks.length > FREE_WEEKS
+  const visibleWeeks = isGated ? displayWeeks.slice(0, FREE_WEEKS) : displayWeeks
 
   const [savingPriority, setSavingPriority] = useState(false)
   const [savingDemiCooper, setSavingDemiCooper] = useState(false)
@@ -429,7 +440,7 @@ export default function CoachScreen() {
         ) : null}
 
         <WeekProgram
-          weeks={displayWeeks}
+          weeks={visibleWeeks}
           vdot={vdot}
           activities={activities}
           fcMax={profile?.fc_max}
@@ -439,6 +450,16 @@ export default function CoachScreen() {
           pastWeeks={pastWeeks}
           renfoSessionsPerWeek={renfoSessionsPerWeek}
         />
+
+        {isGated ? (
+          <Card style={{ borderLeftWidth: 4, borderLeftColor: colors.ember, padding: 16, marginTop: 16 }}>
+            <Text style={{ fontFamily: font.monoSemiBold, fontSize: 10, letterSpacing: 1.2, color: colors.ember, marginBottom: 6 }}>PLAN COMPLET · VORCELAB PRO</Text>
+            <Text style={{ fontSize: 13, lineHeight: 19, color: colors.text2 }}>
+              {displayWeeks.length - FREE_WEEKS} semaine{displayWeeks.length - FREE_WEEKS > 1 ? 's' : ''} de plan verrouillée{displayWeeks.length - FREE_WEEKS > 1 ? 's' : ''} —
+              le plan gratuit couvre les {FREE_WEEKS} premières semaines. Vorcelab PRO déverrouille la périodisation complète jusqu'au jour J.
+            </Text>
+          </Card>
+        ) : null}
 
         <Text style={{ fontSize: 10, color: colors.text3, marginTop: 16, lineHeight: 16 }}>
           Les séances sont une <Text style={{ fontWeight: '700' }}>proposition</Text> : tu restes libre de ton calendrier et de ton choix.
