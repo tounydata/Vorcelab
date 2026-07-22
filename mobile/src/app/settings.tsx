@@ -141,7 +141,7 @@ export default function SettingsScreen() {
           {(['reglages', 'nutrition'] as TabKey[]).map((t) => {
             const on = tab === t
             return (
-              <Pressable key={t} onPress={() => setTab(t)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: on ? colors.ember : 'transparent' }}>
+              <Pressable key={t} onPress={() => setTab(t)} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: on ? colors.ember : 'transparent' }}>
                 <Text style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: on ? colors.ember : colors.text3, fontWeight: '600' }}>
                   {t === 'reglages' ? 'RÉGLAGES' : 'NUTRITION'}
                 </Text>

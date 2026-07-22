@@ -438,8 +438,8 @@ export default function ProfileScreen() {
           {([['compte', 'PROFIL'], ['records', 'RECORDS'], ['analyse', 'LABO']] as [TabKey, string][]).map(([k, lbl]) => {
             const on = activeTab === k
             return (
-              <Pressable key={k} onPress={() => setActiveTab(k)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on ? colors.ember : 'transparent' }}>
-                <Text style={{ color: on ? colors.ember : colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>{lbl}</Text>
+              <Pressable key={k} onPress={() => setActiveTab(k)} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: on ? colors.ember : 'transparent' }}>
+                <Text style={{ color: on ? colors.ember : colors.text2, fontSize: 11, fontFamily: font.monoSemiBold, letterSpacing: 1 }}>{lbl}</Text>
               </Pressable>
             )
           })}

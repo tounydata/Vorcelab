@@ -10,7 +10,9 @@ export const colors = {
   line2: 'rgba(240,237,229,0.14)',
   text: '#f0ede5',
   text2: '#a8a59c',
-  text3: '#6a6963',
+  // Audit 22/07 (WCAG AA) : ancien #6a6963 ≈ 3,3:1 sur bg — aligné sur le
+  // nouveau token web (--vl-text-3), ≥ 4,6:1 sur bg/surf/surf2.
+  text3: '#908d84',
   ember: '#d6803e',
   growth: '#5da084',
   growth2: '#34d399',

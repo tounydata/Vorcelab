@@ -296,7 +296,7 @@ export default function RaceStrategyScreen() {
             {/* Tabs */}
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
               {([['strategie', 'STRATÉGIE'], ['assistance', 'PLAN ASSISTANCE'], ...(isPast ? [['resultat', 'RÉSULTAT'] as const] : [])] as [typeof tab, string][]).map(([k, lbl]) => (
-                <Pressable key={k} onPress={() => setTab(k)} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: tab === k ? colors.ember : colors.line2, backgroundColor: tab === k ? colors.ember : colors.surf2 }}>
+                <Pressable key={k} onPress={() => setTab(k)} hitSlop={4} style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.sm, borderWidth: 1, borderColor: tab === k ? colors.ember : colors.line2, backgroundColor: tab === k ? colors.ember : colors.surf2 }}>
                   <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 0.84, color: tab === k ? colors.bg : colors.text2 }}>{lbl}</Text>
                 </Pressable>
               ))}
