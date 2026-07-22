@@ -171,7 +171,7 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
     <View style={cardS}>
       <Text style={[clabel, { marginBottom: 10 }]}>CONDITIONS MÉTÉO & CONTEXTE</Text>
       <Text style={{ fontSize: 11, color: colors.text3, marginBottom: 10, lineHeight: 17 }}>
-        Impact mesuré sur tes sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l'effet condition du terrain. Quand tes données sont peu nombreuses, on s'appuie sur un socle physiologique (la chaleur, par ex., ralentit toujours un humain) et on l'affine au fil de tes sorties. Positif = tu es plus lent. Alimentera l'algorithme de projection.
+        Impact mesuré sur tes sorties des 90 derniers jours — normalisé par le D+/km de chaque sortie pour isoler l’effet condition du terrain. Quand tes données sont peu nombreuses, on s’appuie sur un socle physiologique (la chaleur, par ex., ralentit toujours un humain) et on l’affine au fil de tes sorties. Positif = tu es plus lent. Alimentera l’algorithme de projection.
       </Text>
       {CONDITION_META.map(({ key, label, desc }) => {
         const p = cp[key]
@@ -192,7 +192,7 @@ function ConditionPenaltiesCard({ rp }: { rp: RunnerProfileComputed }) {
           </View>
         )
       })}
-      <Text style={{ fontSize: 9, color: colors.text3, marginTop: 6, fontStyle: 'italic' }}>Pluie à venir · Vent : se remplit au fur et à mesure de tes consultations d'activités.</Text>
+      <Text style={{ fontSize: 9, color: colors.text3, marginTop: 6, fontStyle: 'italic' }}>Pluie à venir · Vent : se remplit au fur et à mesure de tes consultations d’activités.</Text>
     </View>
   )
 }
@@ -497,7 +497,7 @@ export default function ProfileScreen() {
 
             <Pressable onPress={() => router.push('/settings')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}><GearIcon size={12} color={colors.text3} /><Text style={clabel}>RÉGLAGES DE L'APP</Text></View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}><GearIcon size={12} color={colors.text3} /><Text style={clabel}>RÉGLAGES DE L’APP</Text></View>
                 <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Strava, orientation du coach, jours de course, renfo, 1RM, nutrition, compte.</Text>
               </View>
               <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
@@ -506,7 +506,7 @@ export default function ProfileScreen() {
             <Pressable onPress={() => router.push('/renfo/equipment')} style={({ pressed }) => [cardS, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', opacity: pressed ? 0.7 : 1 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[clabel, { marginBottom: 6 }]}>MATÉRIEL RENFO — MAISON / SALLE</Text>
-                <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Ce que tu as chez toi et en salle. Détermine les variantes d'exercices proposées en séance.</Text>
+                <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 19 }}>Ce que tu as chez toi et en salle. Détermine les variantes d’exercices proposées en séance.</Text>
               </View>
               <Text style={{ color: colors.ember, fontSize: 20, marginLeft: 12 }}>›</Text>
             </Pressable>
@@ -636,12 +636,12 @@ export default function ProfileScreen() {
                 </View>
                 {!row?.fc_max ? (
                   <View style={{ marginBottom: 10, padding: 12, borderRadius: 6, backgroundColor: 'rgba(214,128,62,0.10)', borderWidth: 1, borderColor: colors.ember }}>
-                    <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ FCmax non renseignée — calcul basé sur 185 bpm par défaut. Les pourcentages FCmax et l'efficacité cardio sont inexacts. Renseigne ta FCmax dans l'onglet PROFIL puis recalcule.</Text>
+                    <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ FCmax non renseignée — calcul basé sur 185 bpm par défaut. Les pourcentages FCmax et l’efficacité cardio sont inexacts. Renseigne ta FCmax dans l’onglet PROFIL puis recalcule.</Text>
                   </View>
                 ) : null}
                 {!!row?.fc_max && rp.fcMax !== row.fc_max ? (
                   <View style={{ marginBottom: 10, padding: 12, borderRadius: 6, backgroundColor: 'rgba(214,128,62,0.10)', borderWidth: 1, borderColor: colors.ember }}>
-                    <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ Ta FCmax ({row.fc_max} bpm) a changé depuis le dernier calcul — l'analyse ci-dessous utilise encore {rp.fcMax} bpm.</Text>
+                    <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17 }}>⚠ Ta FCmax ({row.fc_max} bpm) a changé depuis le dernier calcul — l’analyse ci-dessous utilise encore {rp.fcMax} bpm.</Text>
                   </View>
                 ) : null}
 
@@ -674,7 +674,7 @@ export default function ProfileScreen() {
               </>
             ) : !computing ? (
               <View style={cardS}>
-                <Text style={{ color: colors.text3, fontSize: 13, marginBottom: 10 }}>Profil non encore calculé — lance l'analyse de tes sorties (allures par gradient, récup, dérive cardiaque…).</Text>
+                <Text style={{ color: colors.text3, fontSize: 13, marginBottom: 10 }}>Profil non encore calculé — lance l’analyse de tes sorties (allures par gradient, récup, dérive cardiaque…).</Text>
                 <Pressable onPress={handleComputeProfile} style={({ pressed }) => ({ backgroundColor: colors.ember, borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center', opacity: pressed ? 0.7 : 1 })}>
                   <Text style={{ color: colors.bg, fontWeight: '700' }}>Calculer mon profil</Text>
                 </Pressable>

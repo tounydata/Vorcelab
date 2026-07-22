@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { MountainIcon, PlusRingIcon } from '@/components/coach/CoachIcons'
-import { colors, font, radius, space } from '@/lib/theme'
+import { colors, font, space } from '@/lib/theme'
 
 interface Race {
   id: string

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -239,7 +239,6 @@ function VamSectionsCard({ dist, alt, time }: { dist: number[]; alt: number[]; t
 
 // ─── Répartition FC ─────────────────────────────────────────────────────────
 const FC_ZONE_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#f97316', '#ef4444']
-const FC_ZONE_LABELS = ['Z1 <60%', 'Z2 60–70%', 'Z3 70–80%', 'Z4 80–90%', 'Z5 >90%']
 function computeFcZones(hrData: number[], fcMax: number): number[] {
   const counts = [0, 0, 0, 0, 0]
   hrData.forEach((h) => {

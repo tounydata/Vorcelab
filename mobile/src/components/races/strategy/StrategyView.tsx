@@ -12,7 +12,7 @@ import { surfaceInfo } from '@/lib/terrain'
 import RouteMap3D from './RouteMap3D'
 import { colors, radius } from '@/lib/theme'
 
-const GROWTH2 = colors.growth2, OVER = colors.ember2, INK = colors.bg
+const GROWTH2 = colors.growth2, OVER = colors.ember2
 
 interface RaceMeta { name: string; date: string; type?: string | null; goal_time?: string | null; start_time?: string | null }
 interface Props {

@@ -113,7 +113,7 @@ export default function ShareStickers({ data, onClose }: { data: StickerData; on
             )}
           </View>
           <Text style={{ fontSize: 11, color: colors.text3, marginTop: 8 }}>
-            PNG transparent. Partager → « Enregistrer l'image » pour ta galerie, ou Instagram/WhatsApp pour une story.
+            PNG transparent. Partager → « Enregistrer l’image » pour ta galerie, ou Instagram/WhatsApp pour une story.
           </Text>
 
           <Pressable onPress={share} disabled={busy || !urls[variant]}

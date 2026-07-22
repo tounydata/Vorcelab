@@ -3,7 +3,7 @@ import { Text, TextInput, View } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import OneRMTestPopup from '@/components/coach/OneRMTestPopup'
-import { Card, FL, HButton, colors, radius } from '@/components/coach/ui'
+import { Card, FL, HButton, colors } from '@/components/coach/ui'
 
 // Vue + saisie des 1RM (force) dans les Réglages — porté de
 // `src/components/coach/OneRMSettingsCard.tsx`. Saisie directe (is_estimated=false)

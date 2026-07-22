@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { Pressable, Text, TextInput, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Stop, Line, Path, Polyline, Polygon } from 'react-native-svg'
 import type { ProjectionResult } from '@/lib/computeRaceProjection'
 import { findRaceActivity, toActivityLite, type ActivityLite } from '@/lib/raceComparison'
@@ -69,7 +69,7 @@ export default function RaceResult({ projection, activities, resultActivityId, r
         <CLabel style={{ marginBottom: 10 }}>DÉBRIEF DE COURSE</CLabel>
         {suggestion && !picking ? (
           <>
-            <MLabel style={{ marginBottom: 12, textTransform: 'none', letterSpacing: 0 }}>On dirait que tu as couru cette course. C'est bien elle ?</MLabel>
+            <MLabel style={{ marginBottom: 12, textTransform: 'none', letterSpacing: 0 }}>On dirait que tu as couru cette course. C’est bien elle ?</MLabel>
             <ActivityRow a={suggestion} />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               <HButton label="Oui — analyser ma course" onPress={() => onLink(suggestion.id)} style={{ backgroundColor: colors.ember, borderColor: colors.ember }} textStyle={{ color: colors.bg }} />
@@ -152,7 +152,7 @@ function Debrief({ projection, activity, activities, raceDateISO, fcMax, annotat
         <HButton label="Délier" onPress={onUnlink} style={{ paddingVertical: 5, paddingHorizontal: 10 }} />
       </View>
       {loading ? <Card><MLabel>Analyse de ta course…</MLabel></Card> : null}
-      {!loading && !d ? <Card><MLabel style={{ textTransform: 'none', letterSpacing: 0 }}>Impossible de lire le détail de l'activité (streams indisponibles). Réessaie plus tard.</MLabel></Card> : null}
+      {!loading && !d ? <Card><MLabel style={{ textTransform: 'none', letterSpacing: 0 }}>Impossible de lire le détail de l’activité (streams indisponibles). Réessaie plus tard.</MLabel></Card> : null}
       {d ? (
         <>
           <VerdictBlock d={d} />
@@ -164,7 +164,7 @@ function Debrief({ projection, activity, activities, raceDateISO, fcMax, annotat
           <BenchBlock d={d} />
           <TakeawaysBlock d={d} />
           <ProfileLoopBlock d={d} />
-          <Text style={{ fontSize: 10.5, color: colors.text3, textAlign: 'center' }}>D'après {activity.name || 'ton activité'} · {activity.distance != null ? (activity.distance / 1000).toFixed(1) : '—'} km</Text>
+          <Text style={{ fontSize: 10.5, color: colors.text3, textAlign: 'center' }}>D’après {activity.name || 'ton activité'} · {activity.distance != null ? (activity.distance / 1000).toFixed(1) : '—'} km</Text>
         </>
       ) : null}
     </View>
@@ -201,7 +201,7 @@ function VerdictBlock({ d }: { d: RaceDebrief }) {
           <View style={{ flex: 1, minWidth: 150, backgroundColor: colors.surf2, borderRadius: radius.sm, padding: 14 }}>
             <MLabel style={{ marginBottom: 6 }}>EN MOUVEMENT</MLabel>
             <Text style={{ fontSize: 32, color: colors.text, fontWeight: '700' }}>{fmtHM(d.movingS / 60)}</Text>
-            <Text style={{ fontSize: 10.5, color: colors.amber, marginTop: 4 }}>{d.stopCount > 0 ? `${d.stopCount} arrêt${d.stopCount > 1 ? 's' : ''}` : 'Arrêts'} · {fmtClock(d.stoppedS)} à l'arrêt</Text>
+            <Text style={{ fontSize: 10.5, color: colors.amber, marginTop: 4 }}>{d.stopCount > 0 ? `${d.stopCount} arrêt${d.stopCount > 1 ? 's' : ''}` : 'Arrêts'} · {fmtClock(d.stoppedS)} à l’arrêt</Text>
           </View>
         ) : null}
       </View>
@@ -259,7 +259,7 @@ function PaceProfileCard({ d, annotations = [] }: { d: RaceDebrief; annotations?
       </Svg>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
         <Text style={{ fontSize: 9, color: colors.text3 }}>km 0</Text>
-        <Text style={{ fontSize: 9, color: colors.text3 }}>profil · {Math.round(d.altMax - d.altMin)} m d'amplitude</Text>
+        <Text style={{ fontSize: 9, color: colors.text3 }}>profil · {Math.round(d.altMax - d.altMin)} m d’amplitude</Text>
         <Text style={{ fontSize: 9, color: colors.text3 }}>km {totalKm.toFixed(0)}</Text>
       </View>
     </Card>
@@ -452,7 +452,7 @@ function BenchBlock({ d }: { d: RaceDebrief }) {
   const accColor = d.accuracyPct >= 97 ? FASTER : d.accuracyPct >= 92 ? colors.amber : colors.text2
   return (
     <Card style={{ padding: 16 }}>
-      <CLabel style={{ marginBottom: 12 }}>LA PROJECTION AU BANC D'ESSAI</CLabel>
+      <CLabel style={{ marginBottom: 12 }}>LA PROJECTION AU BANC D’ESSAI</CLabel>
       <View style={{ flexDirection: 'row', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
         <View>
           <Text style={{ fontSize: 38, color: accColor, fontWeight: '700' }}>{d.accuracyPct.toFixed(1)}%</Text>
@@ -463,7 +463,7 @@ function BenchBlock({ d }: { d: RaceDebrief }) {
           {d.stoppedS >= 30 ? (
             <>
               <Text style={{ fontSize: 12.5, color: colors.text2, lineHeight: 20 }}>En mouvement <Text style={{ color: colors.text, fontWeight: '700' }}>{fmtHM(d.movingS / 60)}</Text> <Text style={{ color: d.movingS - d.projTotalS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.movingS - d.projTotalS)})</Text></Text>
-              <Text style={{ fontSize: 11, color: colors.text3 }}>Temps total {fmtHM(d.actualTotalS / 60)} · {fmtClock(d.stoppedS)} d'arrêts</Text>
+              <Text style={{ fontSize: 11, color: colors.text3 }}>Temps total {fmtHM(d.actualTotalS / 60)} · {fmtClock(d.stoppedS)} d’arrêts</Text>
             </>
           ) : (
             <Text style={{ fontSize: 12.5, color: colors.text2, lineHeight: 20 }}>Réel <Text style={{ color: colors.text, fontWeight: '700' }}>{fmtHM(d.actualTotalS / 60)}</Text> <Text style={{ color: d.deltaS <= 0 ? FASTER : SLOWER }}>({fmtDelta(d.deltaS)})</Text></Text>
@@ -478,7 +478,7 @@ function TakeawaysBlock({ d }: { d: RaceDebrief }) {
   const tone = (t: string) => (t === 'good' ? FASTER : t === 'work' ? colors.amber : colors.text2)
   return (
     <Card style={{ padding: 16 }}>
-      <CLabel style={{ marginBottom: 12 }}>CE QU'IL FAUT EN RETENIR</CLabel>
+      <CLabel style={{ marginBottom: 12 }}>CE QU’IL FAUT EN RETENIR</CLabel>
       <View style={{ gap: 11 }}>
         {d.takeaways.map((t, i) => (
           <View key={i} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>

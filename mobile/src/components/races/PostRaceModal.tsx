@@ -31,7 +31,7 @@ export default function PostRaceModal({
       <Pressable onPress={onDismiss} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <Pressable onPress={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, backgroundColor: colors.surf, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, padding: 22 }}>
           <Text style={{ fontSize: 26, marginBottom: 6 }}>🏁</Text>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Comment s'est passée ta course ?</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Comment s’est passée ta course ?</Text>
           <Text style={{ fontSize: 14, color: colors.text2, lineHeight: 20, marginBottom: 16 }}>
             <Text style={{ color: colors.text, fontWeight: '700' }}>{race.name || 'Ta course'}</Text>{km ? ` · ${km}` : ''}. Lie ton activité Strava pour ton débrief complet — allure prévue vs réelle, cardiaque, terrain, enseignements.
           </Text>

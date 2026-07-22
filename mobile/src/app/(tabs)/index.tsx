@@ -123,7 +123,7 @@ function TrainingStatusCard({ activities, renfoLogs, fcMax }: { activities: Acti
 
   return (
     <View style={[card, { marginBottom: 24, padding: 14, overflow: 'hidden' }]}>
-      <Text style={[clabel, { marginBottom: 10 }]}>Statut d'entraînement</Text>
+      <Text style={[clabel, { marginBottom: 10 }]}>Statut d’entraînement</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: `${status.color}1f`, borderLeftWidth: 4, borderLeftColor: status.color, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 24, fontFamily: font.display, color: status.color, letterSpacing: 0.24 }}>{status.label}</Text>

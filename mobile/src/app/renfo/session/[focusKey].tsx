@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, Vibration, View } from 'react-native'
+import { ScrollView, Text, TextInput, Vibration, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -278,7 +278,7 @@ export default function RenfoSessionScreen() {
   // Sélecteur de lieu (intro de séance) — pilote le matériel → les variantes.
   const locationToggle = (
     <Card style={{ marginBottom: 16 }}>
-      <FL style={{ marginBottom: 8 }}>Où t'entraînes-tu aujourd'hui ?</FL>
+      <FL style={{ marginBottom: 8 }}>Où t’entraînes-tu aujourd’hui ?</FL>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(['maison', 'salle'] as const).map((loc) => {
           const on = location === loc
@@ -309,7 +309,7 @@ export default function RenfoSessionScreen() {
         <Card style={{ borderLeftWidth: 3, borderLeftColor: colors.ember }}>
           <MLabel style={{ color: colors.ember, marginBottom: 4 }}>Aucun exercice disponible</MLabel>
           <Text style={{ fontSize: 10.5, color: colors.text3, marginTop: 4 }}>
-            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l'autre lieu, ou ajoute du matériel dans{' '}
+            Aucune variante ne correspond à ton matériel {location === 'salle' ? 'de salle' : 'à la maison'}. Essaie l’autre lieu, ou ajoute du matériel dans{' '}
             <Text style={{ color: colors.ember, textDecorationLine: 'underline' }} onPress={() => router.push('/renfo/equipment')}>Réglages équipement</Text>.
           </Text>
           {sessionPlan._buildError ? (

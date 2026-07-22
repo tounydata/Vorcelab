@@ -59,7 +59,7 @@ export default function ProGate({ feature = 'cette fonctionnalité' }: ProGatePr
         {feature.toUpperCase()} : RÉSERVÉ À VORCELAB PRO
       </Text>
       <Text style={{ fontFamily: font.mono, fontSize: 12, color: colors.text2, textAlign: 'center', marginBottom: 28, maxWidth: 340, lineHeight: 18 }}>
-        Tu as utilisé ta stratégie GPX gratuite. Vorcelab PRO couvre l'analyse de toutes tes courses.
+        Tu as utilisé ta stratégie GPX gratuite. Vorcelab PRO couvre l’analyse de toutes tes courses.
       </Text>
 
       <View style={{ width: '100%', gap: 10, marginBottom: 24 }}>
