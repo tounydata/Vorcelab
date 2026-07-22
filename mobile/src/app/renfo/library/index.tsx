@@ -13,10 +13,10 @@ import {
 } from '@/lib/renfoData'
 import { cardStyle, CLabel, MLabel, SVal, SLbl, BackLink, colors, space } from '@/components/coach/ui'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const RENFO_EXERCISES = _RENFO_EXERCISES as Record<string, any>
 const SESSION_EXERCISES = _SESSION_EXERCISES as Record<string, string[]>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const FOCUS_META = _FOCUS_META as Record<string, any>
 const RENFO_FOCUS_COLORS = _RENFO_FOCUS_COLORS as Record<string, string>
 

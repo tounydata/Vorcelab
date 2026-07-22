@@ -110,7 +110,7 @@ export default function ElevationProfile({
         {wall ? (
           <View style={{ position: 'absolute', left: `${xPct(wall.km)}%`, top: `${yPct(wall.alt)}%`, alignItems: 'center', transform: [{ translateX: -50 }, { translateY: -40 }] }}>
             <View style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: 7, backgroundColor: '#d1583a' }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 }} numberOfLines={1}>▲ PENTE RAIDE{wall.sub ? ' · ' + wall.sub.split('·')[0].trim() : ''}</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 }} numberOfLines={1}>PENTE RAIDE{wall.sub ? ' · ' + wall.sub.split('·')[0].trim() : ''}</Text>
             </View>
             <View style={{ width: 1.5, height: 14, backgroundColor: '#d1583a' }} />
           </View>

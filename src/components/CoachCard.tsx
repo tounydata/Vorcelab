@@ -18,7 +18,7 @@ const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
   build: 'var(--vl-amber)',
   specific: 'var(--vl-ember)',
-  taper: '#3B82F6',
+  taper: 'var(--vl-status-rest)', // audit 21/07 : bleu hors-thème → ton rest du thème
   race: 'var(--vl-ember)',
 }
 

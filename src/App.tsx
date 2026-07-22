@@ -5,6 +5,7 @@ import { handleStravaRedirect } from './lib/strava'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
 import BrandedLoader from './components/BrandedLoader'
+import LoadError from './components/LoadError'
 import UpgradeModal from './components/UpgradeModal'
 import LegalAcceptanceGate from './components/LegalAcceptanceGate'
 import LoginPage from './pages/LoginPage'
@@ -37,7 +38,7 @@ const PrivacyPage = lazy(() => import('./pages/LegalPage').then((m) => ({ defaul
 const MentionsPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.MentionsPage })))
 
 function PrivateRoutes() {
-  const { user, sessionLoaded, loginRedirect, setLoginRedirect } = useVLStore()
+  const { user, sessionLoaded, sessionError, loginRedirect, setLoginRedirect } = useVLStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -51,6 +52,16 @@ function PrivateRoutes() {
   }, [user, loginRedirect, setLoginRedirect, navigate])
 
   if (!sessionLoaded) {
+    // Résolution de session en échec / trop lente : issue explicite au lieu du
+    // loader infini (audit 22/07 — P0.5). Le rechargement retente proprement.
+    if (sessionError) {
+      return (
+        <LoadError
+          onRetry={() => window.location.reload()}
+          message="Impossible de vérifier ta session — vérifie ta connexion puis réessaie."
+        />
+      )
+    }
     return (
       <BrandedLoader />
     )
@@ -86,12 +97,20 @@ function trackSessionStart(userId: string) {
   supabase.rpc('update_last_seen').then(() => undefined)
 }
 
+// Au-delà de ce délai sans réponse de Supabase, on propose la récupération
+// (l'attente observée en conditions dégradées dépassait plusieurs secondes).
+const SESSION_RESOLVE_TIMEOUT_MS = 8000
+
 export default function App() {
-  const { setUser, setSessionLoaded } = useVLStore()
+  const { setUser, setSessionLoaded, setSessionError } = useVLStore()
   const trackedSession = useRef<string | null>(null)
 
   useEffect(() => {
+    // getSession sans garde-fou peut laisser l'app sur le loader indéfiniment
+    // (panne, promesse bloquée). Timeout + catch → état de récupération.
+    const timer = setTimeout(() => setSessionError(true), SESSION_RESOLVE_TIMEOUT_MS)
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timer)
       if (session?.user) {
         localStorage.setItem('vl-had-session', '1')
         if (trackedSession.current !== session.user.id) {
@@ -101,6 +120,9 @@ export default function App() {
       }
       setUser(session?.user ?? null)
       setSessionLoaded(true)
+    }).catch(() => {
+      clearTimeout(timer)
+      setSessionError(true)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -134,8 +156,11 @@ export default function App() {
       }
     })
 
-    return () => subscription.unsubscribe()
-  }, [setUser, setSessionLoaded])
+    return () => {
+      clearTimeout(timer)
+      subscription.unsubscribe()
+    }
+  }, [setUser, setSessionLoaded, setSessionError])
 
   return (
     <BrowserRouter>

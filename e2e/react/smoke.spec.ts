@@ -20,8 +20,8 @@ test.describe('React app — smoke', () => {
 
     // Visiteur sans session passée → landing marketing avec CTA
     await expect(page.getByText('VORCELAB').first()).toBeVisible()
-    await expect(page.getByRole('button', { name: 'CRÉER MON COMPTE →' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'CRÉER MON COMPTE →' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Se connecter' })).toBeVisible()
 
     expect(pageErrors, 'aucune erreur JS non gérée').toHaveLength(0)
   })
@@ -42,7 +42,7 @@ test.describe('React app — smoke', () => {
 
   test('landing → CTA → login', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: 'CRÉER MON COMPTE →' }).click()
+    await page.getByRole('link', { name: 'CRÉER MON COMPTE →' }).click()
     await expect(page.getByPlaceholder('ton@email.com')).toBeVisible()
   })
 

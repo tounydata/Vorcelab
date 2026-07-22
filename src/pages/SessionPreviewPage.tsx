@@ -1,20 +1,27 @@
 import PaceZonesCard from '../components/PaceZonesCard'
 import WeekProgram from '../components/WeekProgram'
 import { getWorkout, type Phase } from '../lib/coach/workouts'
+import { deriveRunnerPaces } from '../lib/runnerPaces'
 import type { PlanWeek, PlannedSession } from '../lib/coach/planGenerator'
 import type { ActivityForLoad } from '../lib/trainingLoad'
 
 // Aperçu public (route additive, sans auth) : démonstration de la VUE HEBDOMADAIRE
 // choix-first (une semaine à la fois, navigation ← →). Données d'exemple, pas une
 // librairie à parcourir.
-const VDOT = 50
+//
+// Cohérence (audit 22/07, P0.5) : le VDOT annoncé est DÉDUIT du même PR que la
+// carte d'allures — plus d'écart entre l'intro et la déduction affichée.
+const SAMPLE_PRS = { '10k': { timeS: 2400, dist: 10000 } }
+const VDOT = deriveRunnerPaces(SAMPLE_PRS)?.vdot ?? 50
 
 // Construit une séance planifiée d'exemple à partir d'un workout de la bibliothèque.
-function sample(workoutId: string, dayOfWeek: number): PlannedSession {
+// Chaque type de séance a sa propre durée cible (la « sortie longue » n'a pas la
+// durée d'un footing de récupération).
+function sample(workoutId: string, dayOfWeek: number, targetDurationMin: number): PlannedSession {
   const t = getWorkout(workoutId)!
   return {
     dayOfWeek, workoutId, title: t.name, system: t.system, intensity: t.intensity,
-    targetDurationMin: 45, climbing: t.climbing, description: t.description,
+    targetDurationMin, climbing: t.climbing, description: t.description,
   }
 }
 function week(weekIndex: number, phase: Phase, isRecovery: boolean, focus: string, sessions: PlannedSession[]): PlanWeek {
@@ -22,9 +29,9 @@ function week(weekIndex: number, phase: Phase, isRecovery: boolean, focus: strin
 }
 
 const SAMPLE_WEEKS: PlanWeek[] = [
-  week(0, 'build', false, 'Développement du seuil.', [sample('endurance_easy', 2), sample('threshold_intervals', 4), sample('long_run_flat', 7)]),
-  week(1, 'build', false, 'On monte le volume.', [sample('endurance_easy', 2), sample('vo2_intervals', 4), sample('tempo_run', 6)]),
-  week(2, 'specific', true, 'Semaine de décharge.', [sample('recovery_jog', 3), sample('endurance_easy', 5)]),
+  week(0, 'build', false, 'Développement du seuil.', [sample('endurance_easy', 2, 50), sample('threshold_intervals', 4, 55), sample('long_run_flat', 7, 95)]),
+  week(1, 'build', false, 'On monte le volume.', [sample('endurance_easy', 2, 55), sample('vo2_intervals', 4, 50), sample('tempo_run', 6, 60)]),
+  week(2, 'specific', true, 'Semaine de décharge.', [sample('recovery_jog', 3, 35), sample('endurance_easy', 5, 45)]),
 ]
 
 // Une sortie dure récente → la reco met en avant le facile (badge), démo du contexte.
@@ -43,7 +50,7 @@ export default function SessionPreviewPage() {
       <p style={{ fontSize: 13, color: 'var(--vl-text-3)', margin: '0 0 20px' }}>
         Démonstration choix-first (VDOT {VDOT}) — ta semaine, séance par séance.
       </p>
-      <PaceZonesCard prs={{ '10k': { timeS: 2400, dist: 10000 } }} fcMax={190} />
+      <PaceZonesCard prs={SAMPLE_PRS} fcMax={190} />
       <WeekProgram weeks={SAMPLE_WEEKS} vdot={VDOT} activities={SAMPLE_ACTIVITIES} fcMax={190} />
     </div>
   )

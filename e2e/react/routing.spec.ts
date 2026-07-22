@@ -25,7 +25,7 @@ test.describe('React — auth guard', () => {
 
     await page.goto('/')
 
-    await expect(page.getByRole('button', { name: 'CRÉER MON COMPTE →' })).toBeVisible({ timeout: 6000 })
+    await expect(page.getByRole('link', { name: 'CRÉER MON COMPTE →' })).toBeVisible({ timeout: 6000 })
 
     expect(pageErrors, `erreurs JS sur root : ${pageErrors.join(' | ')}`).toHaveLength(0)
   })
@@ -85,7 +85,7 @@ test.describe('React — navigation (non authentifié)', () => {
     page.on('pageerror', e => pageErrors.push(e.message))
 
     await page.goto('/')
-    await expect(page.getByRole('button', { name: 'CRÉER MON COMPTE →' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'CRÉER MON COMPTE →' })).toBeVisible()
 
     // Pas d'erreur de montage React
     expect(pageErrors).toHaveLength(0)

@@ -6,9 +6,11 @@ import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import StrategyView from '../components/races/strategy/StrategyView'
 import type { RavitoPoint } from '../lib/crewPlan'
 
-// Parcours synthétique réaliste : boucle 25 km / 1 200 m D+ dans les Alpes françaises.
-// Les coordonnées GPS sont fictives mais l'algorithme de projection tourne sur de vraies
-// données géométriques — l'expérience est identique à un vrai import GPX.
+// Parcours synthétique réaliste dans les Alpes françaises. Les coordonnées GPS
+// sont fictives mais l'algorithme de projection tourne sur de vraies données
+// géométriques — l'expérience est identique à un vrai import GPX. IMPORTANT
+// (audit 22/07, P0.5) : tous les chiffres affichés (distance, D+) sont DÉRIVÉS
+// du calcul réel — aucune valeur annoncée en dur qui pourrait le contredire.
 function generateDemoRoute(): GpxPoint[] {
   const N = 500
   const startLat = 45.885
@@ -45,7 +47,7 @@ const DEMO_RAVITOS: RavitoPoint[] = [
 ]
 
 const DEMO_RACE = {
-  name: 'Trail des Crêtes · 25 km',
+  name: 'Trail des Crêtes',
   date: '2026-09-12',
   type: 'Trail',
   goal_time: null as string | null,
@@ -88,7 +90,7 @@ export default function DemoStrategyPage() {
           </span>
         </div>
         <Link
-          to="/"
+          to="/login"
           style={{
             textDecoration: 'none', display: 'inline-block', flexShrink: 0,
             background: 'var(--vl-ink)', color: 'var(--vl-ember)',
@@ -107,10 +109,12 @@ export default function DemoStrategyPage() {
             Démonstration · Alpes françaises
           </div>
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.7rem', fontWeight: 800, lineHeight: 1.05, marginBottom: 4 }}>
-            Trail des Crêtes · 25 km / 1 200 m D+
+            {/* Chiffres issus du même calcul que la stratégie affichée dessous. */}
+            Trail des Crêtes · {(projection.totalDistM / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km
+            {' / '}{Math.round(projection.dplus).toLocaleString('fr-FR')} m D+
           </div>
-          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-3)' }}>
-            Stratégie calculée pour un coureur VDOT 46 · profil trail pur · départ 06h00
+          <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 11, color: 'var(--vl-text-2)' }}>
+            Stratégie calculée pour un coureur VDOT {DEMO_PROFILE.vdot} · profil trail pur · départ 06h00
           </div>
         </div>
 
@@ -134,7 +138,7 @@ export default function DemoStrategyPage() {
             ta stratégie d'allure et ton plan nutrition personnalisés.
           </div>
           <Link
-            to="/"
+            to="/login"
             className="btn-primary"
             style={{ textDecoration: 'none', display: 'inline-block', padding: '12px 28px', fontSize: '1rem', fontFamily: 'var(--vl-display)', fontWeight: 800, letterSpacing: '.04em' }}
           >

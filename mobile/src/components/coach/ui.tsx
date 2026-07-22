@@ -2,7 +2,7 @@
 // (.card, .hbtn, .mlabel, .clabel) en composants React Native. Mêmes couleurs,
 // tailles, espacements et casses que style.css.
 import { Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native'
-import { colors, radius, space } from '@/lib/theme'
+import { colors, font, radius, space } from '@/lib/theme'
 
 // .card{background:var(--vl-surf);border:1px solid var(--vl-line);border-radius:var(--vl-r-lg);padding:1.25rem;}
 export const cardStyle: ViewStyle = {
@@ -34,7 +34,7 @@ export const hbtnStyle: ViewStyle = {
 export const hbtnTextStyle: TextStyle = {
   color: colors.text2,
   fontSize: 10.5,
-  fontWeight: '600',
+  fontFamily: font.monoSemiBold,
   letterSpacing: 0.84,
 }
 
@@ -65,7 +65,7 @@ export const mlabelStyle: TextStyle = {
   letterSpacing: 1.68,
   textTransform: 'uppercase',
   color: colors.text3,
-  fontWeight: '600',
+  fontFamily: font.monoSemiBold,
   lineHeight: 14.7,
 }
 export function MLabel({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
@@ -79,7 +79,7 @@ export const clabelStyle: TextStyle = {
   textTransform: 'uppercase',
   letterSpacing: 1.68,
   marginBottom: 12,
-  fontWeight: '600',
+  fontFamily: font.monoSemiBold,
 }
 export function CLabel({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   return <Text style={[clabelStyle, style]}>{children}</Text>
@@ -92,7 +92,7 @@ export const flStyle: TextStyle = {
   textTransform: 'uppercase',
   letterSpacing: 1.47,
   marginBottom: 6,
-  fontWeight: '600',
+  fontFamily: font.monoSemiBold,
 }
 export function FL({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   return <Text style={[flStyle, style]}>{children}</Text>
@@ -117,17 +117,17 @@ export function PrimaryButton({
         alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
       }, style]}
     >
-      <Text style={{ color: colors.bg, fontWeight: '700', fontSize: 16, letterSpacing: 0.96 }}>{label}</Text>
+      <Text style={{ color: colors.bg, fontFamily: font.displayBold, fontSize: 16, letterSpacing: 0.96 }}>{label}</Text>
     </Pressable>
   )
 }
 
 // .sval{font-family:display;font-size:1.5rem;line-height:1;} .slbl{mono 10px text-3 uppercase}
 export function SVal({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[{ fontSize: 24, letterSpacing: 0.48, lineHeight: 24, color: colors.text, fontWeight: '700' }, style]}>{children}</Text>
+  return <Text style={[{ fontSize: 24, letterSpacing: 0.48, lineHeight: 24, color: colors.text, fontFamily: font.displayBold }, style]}>{children}</Text>
 }
 export function SLbl({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[{ fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4, fontWeight: '600' }, style]}>{children}</Text>
+  return <Text style={[{ fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4, fontFamily: font.monoSemiBold }, style]}>{children}</Text>
 }
 
 // Lien retour façon .mlabel (← Libellé) — Pressable.
@@ -139,4 +139,4 @@ export function BackLink({ label, onPress, color }: { label: string; onPress: ()
   )
 }
 
-export { colors, radius, space }
+export { colors, font, radius, space }

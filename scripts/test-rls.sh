@@ -17,6 +17,8 @@ TESTS=(
   supabase/tests/rgpd_deletion.sql
   supabase/tests/renfo_dedup.sql
   supabase/tests/legal_acceptances.sql
+  supabase/tests/renfo_focus_log_rls.sql
+  supabase/tests/gpx_quota_server.sql
 )
 
 CURRENT_DB=""

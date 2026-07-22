@@ -75,7 +75,7 @@ export async function buildRunnerProfile(
 
   const bucketAccum: Partial<Record<BucketKey, BucketAccum>> = {}
   const driftSamples: number[] = []
-  const recoveryEvents: Array<{ hrDropBpmPerMin: number; resumeSpeedKmH: number }> = []
+  const recoveryEvents: { hrDropBpmPerMin: number; resumeSpeedKmH: number }[] = []
 
   // Per-bucket recovery accumulators
   type ClimbBucket = 'mild_up' | 'mod_up' | 'steep_up'

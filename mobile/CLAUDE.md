@@ -92,8 +92,9 @@ fonctionnalité ou d'un contenu en moins.
 - **Abonnement PRO (`SubscriptionCard`) volontairement absent sur iOS** : Apple impose
   l'In-App Purchase (Guideline 3.1.1) pour l'abonnement — Stripe hors-app = rejet. À
   porter en StoreKit/IAP une fois le compte Apple Developer souscrit (cf. suivi App Store).
-  Corollaire : le gating PRO du web (`usePlanTier`) n'est pas encore porté (tout est
-  débloqué sur natif tant que l'IAP n'existe pas).
+  **Le gating PRO est porté (audit 22/07)** : `usePlanTier` + `ProGate` (sans prix ni
+  lien d'achat — 3.1.3b), stratégie GPX limitée à 1 course et plan coach à 2 semaines
+  en gratuit, identique au web. Reste l'ACHAT lui-même (StoreKit/RevenueCat).
 - Onboarding / tour guidé non requis sur natif.
 - Limites physiques natives (≠ simplification) : impression (`window.print`) absente
   du menu stratégie ; saisie date/heure en texte faute de date-picker sans dépendance ;

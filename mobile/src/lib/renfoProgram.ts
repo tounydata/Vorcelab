@@ -32,7 +32,7 @@ export interface Variant {
   id: string
   priority: number
   required_equipment?: RequiredEquipment
-  required_equipment_any?: Array<Record<string, number>>
+  required_equipment_any?: Record<string, number>[]
   default_sets: number
   default_reps: number | string
   target_rpe: number
@@ -47,9 +47,23 @@ export interface Exercise {
   [k: string]: unknown
 }
 
+// Matériel du profil : clés booléennes + charges max numériques + bandes (liste).
+interface EquipmentMap {
+  barbell?: boolean
+  leg_press?: boolean
+  bench?: boolean
+  pullup_bar?: boolean
+  step?: boolean
+  anchor_point?: boolean
+  bands?: unknown[]
+  dumbbells_max_kg?: number
+  kettlebell_max_kg?: number
+  [k: string]: unknown
+}
+
 // Une variante est-elle réalisable avec le matériel du profil ?
 export function isVariantFeasible(v: Variant, profile: RenfoProfile): boolean {
-  const eq: Record<string, any> = profile.equipment || {}
+  const eq: EquipmentMap = (profile.equipment as EquipmentMap) || {}
   if (v.required_equipment) {
     if (v.required_equipment.has_gym_access && !profile.has_gym_access) return false
     if (v.required_equipment.barbell && !eq.barbell) return false
@@ -61,7 +75,7 @@ export function isVariantFeasible(v: Variant, profile: RenfoProfile): boolean {
     if (v.required_equipment.bands && (!eq.bands || eq.bands.length === 0)) return false
   }
   if (v.required_equipment_any) {
-    const ok = v.required_equipment_any.some((req: Record<string, any>) => {
+    const ok = v.required_equipment_any.some((req: Record<string, number>) => {
       if (req.dumbbells_max_kg) return (eq.dumbbells_max_kg || 0) >= req.dumbbells_max_kg
       if (req.kettlebell_max_kg) return (eq.kettlebell_max_kg || 0) >= req.kettlebell_max_kg
       return false

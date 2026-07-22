@@ -10,7 +10,7 @@ import { FOCUS_META } from '@/lib/renfoData'
 import type { SessionLog } from '@/lib/renfoUtils'
 import { colors, radius } from '@/lib/theme'
 
-const PHASE_COLORS: Record<Phase, string> = { base: colors.growth, build: colors.amber, specific: colors.ember, taper: '#3B82F6', race: colors.ember }
+const PHASE_COLORS: Record<Phase, string> = { base: colors.growth, build: colors.amber, specific: colors.ember, taper: colors.status.rest, race: colors.ember }
 const WEEK_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const
 const INTENSITY: Record<string, { label: string; color: string }> = {
   easy: { label: 'Facile', color: colors.growth }, moderate: { label: 'Modéré', color: colors.amber }, hard: { label: 'Soutenu', color: colors.ember },
