@@ -81,7 +81,8 @@ export default function LandingPage() {
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '1.2rem', letterSpacing: '0.1em', color: 'var(--vl-ember)', fontWeight: 800 }}>
             VORCELAB
           </div>
-          <Link to="/login"><button className="hbtn">Se connecter</button></Link>
+          {/* Un seul élément interactif par action (a11y) : le lien porte le style bouton. */}
+          <Link to="/login" className="hbtn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Se connecter</Link>
         </header>
 
         {/* ── Hero ── */}
@@ -96,11 +97,11 @@ export default function LandingPage() {
             allures, ravitos, nutrition, pente par pente.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/login" style={{ textDecoration: 'none' }}>
-              <button className="btn-primary" style={{ width: 'auto', padding: '13px 28px' }}>CRÉER MON COMPTE →</button>
+            <Link to="/login" className="btn-primary" style={{ textDecoration: 'none', width: 'auto', padding: '13px 28px' }}>
+              CRÉER MON COMPTE →
             </Link>
-            <Link to="/demo" style={{ textDecoration: 'none' }}>
-              <button className="hbtn" style={{ height: 46, padding: '0 22px', fontSize: 12 }}>Voir une stratégie démo</button>
+            <Link to="/demo" className="hbtn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', height: 46, padding: '0 22px', fontSize: 12 }}>
+              Voir une stratégie démo
             </Link>
           </div>
           <div className="mlabel" style={{ marginTop: 14 }}>Gratuit pour commencer · sans carte bancaire</div>
@@ -170,8 +171,8 @@ export default function LandingPage() {
           <h2 style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(1.6rem, 4.5vw, 2.4rem)', fontWeight: 900, lineHeight: 1.05, margin: '0 0 18px' }}>
             Ta prochaine course mérite<br />mieux qu'une allure au doigt mouillé.
           </h2>
-          <Link to="/login" style={{ textDecoration: 'none' }}>
-            <button className="btn-primary" style={{ width: 'auto', padding: '13px 28px', margin: '0 auto' }}>COMMENCER GRATUITEMENT →</button>
+          <Link to="/login" className="btn-primary" style={{ textDecoration: 'none', width: 'auto', padding: '13px 28px', margin: '0 auto', display: 'inline-flex' }}>
+            COMMENCER GRATUITEMENT →
           </Link>
         </section>
 

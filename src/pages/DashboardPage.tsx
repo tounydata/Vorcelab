@@ -713,16 +713,18 @@ export default function DashboardPage() {
   //   a) latest activity is newer than last profile computation, OR
   //   b) streamCoverage < 0.01 (old profile computed without streams — stale data)
   const profileTriggeredRef = useRef(false)
+  // Expressions extraites pour un tableau de dépendances statiquement vérifiable
+  // (lint exhaustive-deps) — le ref + needsRecompute empêchent toute boucle.
+  const latestActivityStart = activities[0]?.start_date
   useEffect(() => {
     if (!user || !activities.length || profileTriggeredRef.current) return
     // Attendre que le profil soit chargé : sinon `profileData?.fc_max` vaut
     // undefined → le recalcul partirait sur 185 (défaut) et ÉCRASERAIT la vraie
     // FC max de l'athlète. (Le hook se relance quand profileData arrive.)
     if (profileData === undefined) return
-    const latestActivityDate = activities[0].start_date
     // Recalcul auto si profil absent, INCOMPATIBLE (ancien schéma), périmé, ou sans streams.
     // Aucune intervention manuelle ; chaque profil se répare à la 1re visite de son propriétaire.
-    const needsRecompute = shouldRebuildRunnerProfile(profileData?.runner_profile ?? null, { latestActivityAt: latestActivityDate })
+    const needsRecompute = shouldRebuildRunnerProfile(profileData?.runner_profile ?? null, { latestActivityAt: latestActivityStart })
     if (!needsRecompute) return
 
     profileTriggeredRef.current = true
@@ -736,7 +738,7 @@ export default function DashboardPage() {
         profileTriggeredRef.current = false
       }
     })()
-  }, [user?.id, activities[0]?.start_date, profileData?.runner_profile?._computedAt, profileData?.fc_max])
+  }, [user, activities, latestActivityStart, profileData, refetchProfile])
 
   const now = new Date()
 

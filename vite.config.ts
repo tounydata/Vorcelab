@@ -80,6 +80,11 @@ export default defineConfig({
   base: '/',
   resolve: { alias: { '@': '/src' } },
   build: {
+    // Budget de bundle explicite (audit 22/07) : le seul chunk > 500 Ko est
+    // maplibre-gl (~1,03 Mo min, ~273 Ko gzip) — déjà lazy (import() dans
+    // RouteMap3D), hors précache PWA et mis en cache runtime. Budget accepté :
+    // 1,1 Mo ; toute nouvelle dérive au-delà refait apparaître l'avertissement.
+    chunkSizeWarningLimit: 1100,
     rollupOptions: {
       output: {
         // Forme fonction (robuste aux versions de types Rollup/Vite) — même
