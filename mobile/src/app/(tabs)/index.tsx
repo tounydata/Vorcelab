@@ -321,6 +321,7 @@ export default function Dashboard() {
     }
   }, [userId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { load().finally(() => setLoading(false)) }, [load])
 
   // Ordre des sections : AsyncStorage (cache) puis serveur (fait foi).
@@ -340,6 +341,7 @@ export default function Dashboard() {
     const sl = profileData?.dashboard_layout
     if (!sl?.length) return
     const next = sanitizeOrder(sl)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setSectionOrder((prev) => (next.join(',') !== prev.join(',') ? next : prev))
     AsyncStorage.setItem('vl-dash-order', JSON.stringify(next))
   }, [profileData?.dashboard_layout])

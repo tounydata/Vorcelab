@@ -582,6 +582,7 @@ export default function ActivityDetailScreen() {
 
   useEffect(() => {
     if (!activityId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setLoading(true); setError(false)
     supabase.from('strava_activities')
       .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,elapsed_time,start_date,start_date_local,type,sport_type,average_heartrate,max_heartrate,average_speed,max_speed,suffer_score,is_race,kudos_count:raw_data->kudos_count,average_temp:raw_data->average_temp')

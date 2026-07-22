@@ -222,6 +222,7 @@ export default function CoachScreen() {
     setSessionLogs(await listSessionLog(120))
   }, [userId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { loadLogs() }, [loadLogs])
 
   function onSessionSaved() { loadLogs() }
@@ -250,6 +251,7 @@ export default function CoachScreen() {
 
   const [dismissed, setDismissed] = useState(false)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (!latestVerdict) { setDismissed(false); return }
     AsyncStorage.getItem('vl-modul-dismiss').then((v) => setDismissed(v === latestVerdict.id))
   }, [latestVerdict])

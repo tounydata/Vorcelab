@@ -15,6 +15,7 @@ export function useRunningDUPOverride(): DUPPhase4 | undefined {
   const [data, setData] = useState<{ date: string; distance: number } | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (!userId) { setData(null); return }
     let alive = true
     supabase

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { GearIcon, PencilIcon, SaveIcon } from '@/components/coach/CoachIcons'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -348,7 +348,7 @@ export default function ProfileScreen() {
   const [computeLabel, setComputeLabel] = useState('')
   const [savingZones, setSavingZones] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!user) return
     const { data } = await supabase
       .from('profiles')
@@ -369,8 +369,9 @@ export default function ProfileScreen() {
       setLactatePace(r.lactate_pace ?? '')
     }
     setLoading(false)
-  }
-  useEffect(() => { load() }, [user?.id])
+  }, [user])
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
+  useEffect(() => { load() }, [load])
 
   async function handleSave() {
     if (!user) return

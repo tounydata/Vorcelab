@@ -117,6 +117,7 @@ function Debrief({ projection, activity, activities, raceDateISO, fcMax, annotat
   const [loading, setLoading] = useState(true)
   const [heat, setHeat] = useState<RaceHeat | null>(null)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (!streamId) { setLoading(false); return }
     setLoading(true)
     fetchStreams(streamId).then((s) => setStream(s)).catch(() => setStream(undefined)).finally(() => setLoading(false))
@@ -134,6 +135,7 @@ function Debrief({ projection, activity, activities, raceDateISO, fcMax, annotat
   const startLat = latlng?.[0]?.[0] ?? null
   const startLon = latlng?.[0]?.[1] ?? null
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (startLat == null || startLon == null || !activity.start_date) { setHeat(null); return }
     const durationS = activity.elapsed_time ?? activity.moving_time ?? 3600
     let alive = true

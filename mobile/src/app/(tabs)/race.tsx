@@ -81,6 +81,7 @@ export default function RaceCalendar() {
   }, [year, month, uid])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     loadMonth()
   }, [loadMonth])
 

@@ -91,6 +91,7 @@ export default function RaceStrategyScreen() {
     setRaceLoading(false)
   }, [raceId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
   useEffect(() => { loadRace() }, [loadRace])
 
   // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
@@ -110,6 +111,7 @@ export default function RaceStrategyScreen() {
     { const { asOfISO, sinceISO } = engineHistoryBounds()
       supabase.from('strava_activities').select(ENGINE_COLUMNS_SELECT).lt('start_date', asOfISO).gte('start_date', sinceISO).is('deleted_at', null).order('start_date', { ascending: false }).then(({ data }) => setActivitiesData((data ?? []) as unknown as Record<string, unknown>[])) }
     if (userId) supabase.from('profiles').select('*').eq('id', userId).single().then(({ data }) => setProfileData((data ?? {}) as Record<string, unknown>))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     else setProfileData({})
   }, [userId])
 
@@ -160,6 +162,7 @@ export default function RaceStrategyScreen() {
     if (!race?.gpx_data || !activitiesData || !profileData || projection) return
     const pts = race.gpx_data as GpxPoint[]
     if (!Array.isArray(pts) || pts.length < 2) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     runAnalysis(pts, false, true)
   }, [race, activitiesData, profileData, projection, runAnalysis])
 

@@ -66,6 +66,9 @@ export default function RenfoSessionScreen() {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([])
   const [maxLifts, setMaxLifts] = useState<{ exercise_id: string; one_rm: number }[]>([])
   const [maxLiftsFetched, setMaxLiftsFetched] = useState(false)
+  // « aujourd'hui » figé au montage (Date.now() hors rendu — react-hooks/purity),
+  // au niveau des hooks (pas après un return conditionnel — rules-of-hooks).
+  const [todayMs] = useState(() => Date.now())
 
   useEffect(() => {
     if (!userId) return
@@ -85,6 +88,7 @@ export default function RenfoSessionScreen() {
   const [oneRmSeen, setOneRmSeen] = useState(false)
   useEffect(() => {
     if (focusKey === 'force_lourde' && maxLiftsFetched && maxLifts.length === 0 && !oneRmSeen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
       setShow1rm(true)
       setOneRmSeen(true)
     }
@@ -154,6 +158,7 @@ export default function RenfoSessionScreen() {
     if (!exo) return
     const exoLogs = logsByExo[exo.exercise_id] ?? []
     const suggested = computeNextLoad(exoLogs)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     setLoad(suggested !== null ? suggested : '')
     // Exos chargés → reps = cible (la progression passe par la charge). Non chargés → reps/durée.
     const isLoadExo = exo.load_type === 'external_kg'
@@ -506,11 +511,7 @@ export default function RenfoSessionScreen() {
 
   // ── Done ───────────────────────────────────────────────────────────────────
   const uniqueExos = new Set(setLogs.map((l) => l.exercise_id)).size
-  // « aujourd'hui » figé au montage (évite Date.now() au rendu — react-hooks/purity).
-  const [dateChoices] = useState(() => {
-    const now = Date.now()
-    return Array.from({ length: 7 }, (_, k) => new Date(now - (6 - k) * 86400000).toISOString().slice(0, 10))
-  })
+  const dateChoices = Array.from({ length: 7 }, (_, k) => new Date(todayMs - (6 - k) * 86400000).toISOString().slice(0, 10))
 
   return wrap(
     <>

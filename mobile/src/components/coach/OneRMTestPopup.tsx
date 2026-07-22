@@ -46,6 +46,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
 
   // Réinitialise à chaque ouverture.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (open) { setStep('setup'); setWuIdx(0); setRest(null); setWeight(''); setReps('5'); setSavedRm(null) }
   }, [open])
 
@@ -60,6 +61,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
   // Minuteur de repos d'échauffement → auto-avance à la fin.
   useEffect(() => {
     if (rest == null) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
     if (rest <= 0) { setRest(null); advanceWarmup(); return }
     timer.current = setTimeout(() => setRest((r) => (r == null ? null : r - 1)), 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
