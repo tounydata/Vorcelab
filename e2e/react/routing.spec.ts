@@ -61,7 +61,8 @@ test.describe('React — redirection hash → path', () => {
   test('/#/legal/cgu est réécrit en /legal/cgu', async ({ page }) => {
     await page.goto('/#/legal/cgu')
 
-    await expect(page.getByText("Conditions générales d'utilisation et de vente")).toBeVisible({ timeout: 6000 })
+    // Cible le TITRE (h1) : depuis #518 le texte apparaît aussi dans la case de consentement.
+    await expect(page.getByRole('heading', { name: "Conditions générales d'utilisation et de vente" })).toBeVisible({ timeout: 6000 })
     expect(new URL(page.url()).pathname).toBe('/legal/cgu')
     expect(new URL(page.url()).hash).toBe('')
   })

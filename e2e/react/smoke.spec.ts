@@ -51,10 +51,12 @@ test.describe('React app — smoke', () => {
     page.on('pageerror', e => pageErrors.push(e.message))
 
     await page.goto('/legal/cgu')
-    await expect(page.getByText("Conditions générales d'utilisation et de vente")).toBeVisible()
+    // Cible le TITRE (h1) : depuis #518, le texte « Conditions générales… »
+    // apparaît aussi dans la case de consentement → getByText large = ambigu.
+    await expect(page.getByRole('heading', { name: "Conditions générales d'utilisation et de vente" })).toBeVisible()
 
     await page.goto('/legal/confidentialite')
-    await expect(page.getByText('Politique de confidentialité')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Politique de confidentialité' })).toBeVisible()
 
     expect(pageErrors, 'aucune erreur JS non gérée').toHaveLength(0)
   })
