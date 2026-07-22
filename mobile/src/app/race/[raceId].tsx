@@ -39,6 +39,16 @@ const FR_MON = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet'
 function formatDate(iso: string) { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')} ${FR_MON[d.getMonth()]} ${d.getFullYear()}` }
 function uuid() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; const v = c === 'x' ? r : (r & 0x3) | 0x8; return v.toString(16) }) }
 
+// Entrée de menu d'actions — composant hoisté (les callbacks sont des props,
+// pas des accès ref pendant le rendu → react-hooks/refs satisfait).
+function MenuItem({ label, onPress, color = colors.text2 }: { label: string; onPress: () => void; color?: string }) {
+  return (
+    <Pressable onPress={onPress} style={{ paddingVertical: 11, paddingHorizontal: 14 }}>
+      <Text style={{ color, fontSize: 13 }}>{label}</Text>
+    </Pressable>
+  )
+}
+
 export default function RaceStrategyScreen() {
   const { raceId } = useLocalSearchParams<{ raceId: string }>()
   const { session } = useAuth()
@@ -253,9 +263,6 @@ export default function RaceStrategyScreen() {
     ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, profileData?.nutrition_level as string | undefined, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true)
     : []
 
-  const menuItem = (label: string, onPress: () => void, color: string = colors.text2) => (
-    <Pressable onPress={onPress} style={{ paddingVertical: 11, paddingHorizontal: 14 }}><Text style={{ color, fontSize: 13 }}>{label}</Text></Pressable>
-  )
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
@@ -328,13 +335,13 @@ export default function RaceStrategyScreen() {
       <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable onPress={() => setMenuOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 70, paddingRight: 16 }}>
           <Pressable onPress={() => {}} style={{ minWidth: 230, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line, borderRadius: 10, overflow: 'hidden' }}>
-            {isPast && projection ? <>{menuItem("Lier l'activité réalisée", () => { setTab('resultat'); setMenuOpen(false) }, colors.ember)}<View style={{ height: 1, backgroundColor: colors.line }} /></> : null}
-            {menuItem('Modifier la course', openEdit)}
+            {isPast && projection ? <><MenuItem label="Lier l'activité réalisée" onPress={() => { setTab('resultat'); setMenuOpen(false) }} color={colors.ember} /><View style={{ height: 1, backgroundColor: colors.line }} /></> : null}
+            <MenuItem label="Modifier la course" onPress={openEdit} />
             <View style={{ height: 1, backgroundColor: colors.line }} />
-            {!projection && isGated ? null : menuItem(projection ? 'Changer de GPX' : 'Importer un GPX', importGpx)}
-            {projection ? menuItem('Supprimer le GPX', handleRemoveGpx, colors.ember) : null}
+            {!projection && isGated ? null : <MenuItem label={projection ? 'Changer de GPX' : 'Importer un GPX'} onPress={() => importGpx()} />}
+            {projection ? <MenuItem label="Supprimer le GPX" onPress={() => handleRemoveGpx()} color={colors.ember} /> : null}
             <View style={{ height: 1, backgroundColor: colors.line }} />
-            {race.share_token ? <>{menuItem('Partager le lien', toggleShare, colors.growth)}{menuItem('Arrêter le partage', stopShare)}</> : menuItem('Partager cette stratégie', toggleShare)}
+            {race.share_token ? <><MenuItem label="Partager le lien" onPress={toggleShare} color={colors.growth} /><MenuItem label="Arrêter le partage" onPress={stopShare} /></> : <MenuItem label="Partager cette stratégie" onPress={toggleShare} />}
           </Pressable>
         </Pressable>
       </Modal>

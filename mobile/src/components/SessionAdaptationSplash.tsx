@@ -1,7 +1,7 @@
 // Splash animé affiché brièvement quand le verdict d'une séance va influencer
 // les prochaines séances. Communique la boucle d'adaptation (prévu → réalisé →
 // ajustement) de façon non anxiogène. Auto-fermeture après `durationMs`.
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, Easing, Modal, Pressable, Text, View } from 'react-native'
 import { TargetIcon } from './coach/CoachIcons'
 import { colors } from '@/lib/theme'
@@ -15,8 +15,8 @@ export default function SessionAdaptationSplash({
   durationMs?: number
   onDone: () => void
 }) {
-  const ring = useRef(new Animated.Value(0)).current
-  const pulse = useRef(new Animated.Value(1)).current
+  const [ring] = useState(() => new Animated.Value(0))
+  const [pulse] = useState(() => new Animated.Value(1))
 
   useEffect(() => {
     const id = setTimeout(onDone, durationMs)

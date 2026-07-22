@@ -1,13 +1,13 @@
 // Splash de chargement Vorcelab : le logo de marque + le nom, en pleine page.
 // Remplace les spinners — un chargement doit ressembler à la marque. Le tracé
 // « se dessine » via une pulsation d'opacité (équivalent natif de l'animation SVG web).
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, Easing, Text, View } from 'react-native'
 import { Logo } from './Logo'
 import { colors } from '@/lib/theme'
 
 export default function BrandedLoader({ label, fullScreen = true }: { label?: string; fullScreen?: boolean }) {
-  const pulse = useRef(new Animated.Value(0.4)).current
+  const [pulse] = useState(() => new Animated.Value(0.4))
 
   useEffect(() => {
     const loop = Animated.loop(

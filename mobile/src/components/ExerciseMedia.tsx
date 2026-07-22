@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Animated, Easing, View } from 'react-native'
 import { Image } from 'expo-image'
 import Svg, { Circle, G, Path } from 'react-native-svg'
@@ -30,7 +30,7 @@ function motionFor(category?: string): Motion {
 // ── Glyphes SVG par catégorie, ANIMÉS, 100 % maison — placeholder quand l'exercice
 // n'a pas de démo. ──
 function Glyph({ category, size = 48, color }: { category?: string; size?: number; color: string }) {
-  const t = useRef(new Animated.Value(0)).current
+  const [t] = useState(() => new Animated.Value(0))
   const motion = motionFor(category)
   const common = { fill: 'none' as const, stroke: color, strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 
