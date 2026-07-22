@@ -9,7 +9,7 @@ import ExerciseMedia from '@/components/ExerciseMedia'
 import { RENFO_EXERCISES as _RENFO_EXERCISES, RENFO_FOCUS_COLORS as _RENFO_FOCUS_COLORS } from '@/lib/renfoData'
 import { Card, CLabel, MLabel, FL, SVal, SLbl, PrimaryButton, BackLink, colors, space } from '@/components/coach/ui'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const RENFO_EXERCISES = _RENFO_EXERCISES as Record<string, any>
 const RENFO_FOCUS_COLORS = _RENFO_FOCUS_COLORS as Record<string, string>
 
@@ -147,7 +147,7 @@ export default function RenfoExerciseDetailScreen() {
         {ex.variants?.length > 0 ? (
           <Card style={{ marginBottom: 24 }}>
             <FL style={{ marginBottom: 8 }}>Variantes disponibles</FL>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            { }
             {ex.variants.map((v: any) => (
               <View key={v.id} style={{ paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.line, marginBottom: 12 }}>
                 <Text style={{ fontSize: 10.5, color: colors.text3, marginBottom: 2 }}>{v.name}</Text>

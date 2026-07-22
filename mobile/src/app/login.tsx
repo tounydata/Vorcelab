@@ -73,6 +73,12 @@ export default function LoginScreen() {
       })
       setLoading(false)
       if (error) { setStatus({ msg: 'Erreur : ' + error.message, ok: false }); return }
+      // Funnel mobile (audit 22/07) : 1re marche « signup_completed ». On a
+      // l'id du user à la source ; le hook useTrackEvent no-opperait ici (pas
+      // encore de session côté contexte), donc insertion directe.
+      if (data.user) {
+        supabase.from('user_events').insert({ user_id: data.user.id, event: 'signup_completed', meta: { platform: 'mobile' } }).then(() => undefined)
+      }
       if (data.session) setStatus({ msg: 'Compte créé — connexion…', ok: true })
       else if (data.user) setStatus({ msg: 'Compte créé ! Confirme ton email (pense aux spams), puis reviens te connecter.', ok: true })
       return

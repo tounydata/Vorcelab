@@ -18,9 +18,9 @@ import BrandedLoader from '@/components/BrandedLoader'
 import OneRMTestPopup from '@/components/coach/OneRMTestPopup'
 import { Card, CLabel, MLabel, FL, SVal, SLbl, HButton, PrimaryButton, BackLink, colors, radius, space } from '@/components/coach/ui'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const RENFO_EXERCISES = _RENFO_EXERCISES as Record<string, any>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const FOCUS_META = _FOCUS_META as Record<string, any>
 const RENFO_FOCUS_COLORS = _RENFO_FOCUS_COLORS as Record<string, string>
 
@@ -61,7 +61,7 @@ export default function RenfoSessionScreen() {
   const scrollRef = useRef<ScrollView | null>(null)
 
   // ── Données ───────────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const [renfoProfile, setRenfoProfile] = useState<any>(null)
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([])
   const [maxLifts, setMaxLifts] = useState<{ exercise_id: string; one_rm: number }[]>([])
@@ -100,20 +100,20 @@ export default function RenfoSessionScreen() {
   }, [])
   useEffect(() => { AsyncStorage.setItem('vl-renfo-location', location) }, [location])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const effectiveProfile = useMemo<any>(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const p: any = renfoProfile ?? DEFAULT_PROFILE
     const eqHome = p.equipment_home ?? p.equipment ?? {}
     const eqGym = p.equipment_gym ?? p.equipment ?? {}
     return { ...p, equipment: location === 'salle' ? eqGym : eqHome, has_gym_access: location === 'salle' }
   }, [renfoProfile, location])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const sessionPlan = useMemo<any>(() => {
     if (!focusKey) return null
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       let s: any = buildSession(focusKey, effectiveProfile)
       if (phase === 'deload') s = { ...s, exercises: applyDeloadModifiers(s.exercises) }
       else s = applyDUP(s)
@@ -149,7 +149,7 @@ export default function RenfoSessionScreen() {
 
   useEffect(() => {
     if (exoIdx < 0 || !sessionPlan) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const exo: any = sessionPlan.exercises[exoIdx]
     if (!exo) return
     const exoLogs = logsByExo[exo.exercise_id] ?? []
@@ -199,7 +199,7 @@ export default function RenfoSessionScreen() {
   function completeSet() {
     if (!sessionPlan || stageState.stage !== 'active') return
     const { exoIdx: ei, setIdx: si } = stageState
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const exo: any = sessionPlan.exercises[ei]
     const loadKg = typeof load === 'number' && load > 0 ? load : null
     const e1rm = loadKg && reps > 0 ? calcE1rm(loadKg, reps) : null
@@ -220,7 +220,7 @@ export default function RenfoSessionScreen() {
     setSaving(true); setSaveError(null)
     try {
       const exerciseInserts = setLogs.map((l) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const targetReps = sessionPlan.exercises.find((e: any) => e.exercise_id === l.exercise_id)?.reps ?? 0
         return {
           user_id: userId, session_date: sessionDate, exercise_id: l.exercise_id, variant_id: l.variant_id,
@@ -241,7 +241,7 @@ export default function RenfoSessionScreen() {
         })
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const completedMap = Object.fromEntries(sessionPlan.exercises.map((e: any) => [e.exercise_id, true]))
       const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
       const dayKey = DAY_KEYS[new Date(sessionDate + 'T12:00:00').getDay()]
@@ -361,7 +361,7 @@ export default function RenfoSessionScreen() {
 
         <Card style={{ marginBottom: 24 }}>
           <FL style={{ marginBottom: 8 }}>Programme du jour</FL>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          { }
           {sessionPlan.exercises.map((exo: any, i: number) => {
             const ex = RENFO_EXERCISES[exo.exercise_id]
             const isHold = exo.unit === 's'
@@ -386,7 +386,7 @@ export default function RenfoSessionScreen() {
     const { exoIdx: ei, setIdx: si } = stageState
     const exo = sessionPlan.exercises[ei]
     const ex = RENFO_EXERCISES[exo.exercise_id]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const variant = ex?.variants?.find((v: any) => v.id === exo.variant_id) ?? ex?.variants?.[0]
     const isLoadExo = exo.load_type === 'external_kg'
     const isHold = exo.unit === 's'

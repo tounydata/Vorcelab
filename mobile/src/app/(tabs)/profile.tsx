@@ -11,8 +11,6 @@ import Constants from 'expo-constants'
 import { useRouter } from 'expo-router'
 import DeleteAccount from '@/components/profile/DeleteAccount'
 import { LEGAL, openLegal, openSupport } from '@/lib/legal'
-
-const appVersion = Constants.expoConfig?.version ?? '1.0.0'
 import PaceZonesCard from '@/components/PaceZonesCard'
 import HrZonesCard from '@/components/HrZonesCard'
 import type { HrZoneConfig } from '@/lib/hrZones'
@@ -35,6 +33,8 @@ import {
   type RecoveryBucketStats,
   type ConditionPenalties,
 } from '@/lib/runnerProfile'
+
+const appVersion = Constants.expoConfig?.version ?? '1.0.0'
 
 // ─── Pont couleurs : les helpers web renvoient des var(--vl-*) (CSS), inexistantes
 //     en natif → on les résout vers les hex du thème. (Seule différence tolérée :

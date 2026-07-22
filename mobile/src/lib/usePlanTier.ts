@@ -9,6 +9,7 @@ import { resolvePlanTier, resolveExpiry, type EntitlementRow, type ProfileFallba
 export type PlanTier = 'free' | 'pro'
 
 interface PlanState {
+  userId: string
   isAdmin: boolean
   entitlement: EntitlementRow | null
   profile: ProfileFallback | null
@@ -17,11 +18,12 @@ interface PlanState {
 export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; expiresAt: Date | null; isLoading: boolean } {
   const { session } = useAuth()
   const userId = session?.user.id ?? null
+  // On mémorise le userId de l'état pour dériver `isLoading` sans setState
+  // synchrone dans l'effet (évite les rendus en cascade — react-hooks).
   const [data, setData] = useState<PlanState | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!userId) { setData(null); setIsLoading(false); return }
+    if (!userId) return
     let cancelled = false
     ;(async () => {
       // Repli / admin : lecture de profiles (source historique, non modifiable
@@ -41,22 +43,26 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; expiresAt: Da
 
       if (cancelled) return
       setData({
+        userId,
         isAdmin: profileRow?.is_admin === true,
         entitlement: entRow ? { status: entRow.status as EntStatus, current_period_end: entRow.current_period_end } : null,
         profile: profileRow
           ? { plan_tier: profileRow.plan_tier ?? null, plan_expires_at: profileRow.plan_expires_at ?? null }
           : null,
       })
-      setIsLoading(false)
     })()
     return () => { cancelled = true }
   }, [userId])
 
-  const isAdmin = data?.isAdmin === true
-  const tier = data
-    ? resolvePlanTier({ isAdmin: data.isAdmin, entitlement: data.entitlement, profile: data.profile })
+  // État courant seulement si celui-ci correspond au user connecté (sinon on est
+  // encore en train de charger, ou déconnecté).
+  const current = data && data.userId === userId ? data : null
+  const isLoading = userId != null && current == null
+  const isAdmin = current?.isAdmin === true
+  const tier = current
+    ? resolvePlanTier({ isAdmin: current.isAdmin, entitlement: current.entitlement, profile: current.profile })
     : 'free'
-  const expiresAt = data ? resolveExpiry({ entitlement: data.entitlement, profile: data.profile }) : null
+  const expiresAt = current ? resolveExpiry({ entitlement: current.entitlement, profile: current.profile }) : null
 
   return { tier, isAdmin, expiresAt, isLoading }
 }

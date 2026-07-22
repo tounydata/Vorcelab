@@ -201,6 +201,7 @@ export default function RaceStrategyScreen() {
       setUnclassifiedWaypoints(unclassified)
       surfacesDoneRef.current = false
       if (raceId) await supabase.from('race_calendar').update({ surfaces: null }).eq('id', raceId)
+      track('gpx_uploaded', { race_id: raceId, points: pts.length, platform: 'mobile' })
       runAnalysis(pts, true)
     } catch (err) { console.error('GPX import error:', err) }
   }

@@ -4,9 +4,9 @@ import { useCallback } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 
+import type { AppEvent } from './analyticsEvents'
 export { ANALYTICS_EVENTS } from './analyticsEvents'
 export type { AppEvent } from './analyticsEvents'
-import type { AppEvent } from './analyticsEvents'
 
 export function useTrackEvent() {
   const { session } = useAuth()

@@ -63,7 +63,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
     if (rest <= 0) { setRest(null); advanceWarmup(); return }
     timer.current = setTimeout(() => setRest((r) => (r == null ? null : r - 1)), 1000)
     return () => { if (timer.current) clearTimeout(timer.current) }
-  }, [rest]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rest])  
 
   async function save(oneRm: number) {
     if (!userId) return

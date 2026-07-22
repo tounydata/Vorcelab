@@ -149,7 +149,7 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
 
   const bucketAccum: Partial<Record<BucketKey, BucketAccum>> = {}
   const driftSamples: number[] = []
-  const recoveryEvents: Array<{ hrDropBpmPerMin: number; resumeSpeedKmH: number }> = []
+  const recoveryEvents: { hrDropBpmPerMin: number; resumeSpeedKmH: number }[] = []
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
   const descentRecoveryAccum: Partial<Record<DescentBucket, RecoveryEvent[]>> = {}
   const descentTechAccum: Record<DescentBucket, { sin: number; speed: number; dist: number }[]> = { mild_down: [], mod_down: [], steep_down: [] }
@@ -436,7 +436,7 @@ function processRecovery(
   fcMax: number,
   mode: 'climb' | 'descent',
   accum: Partial<Record<ClimbBucket | DescentBucket, RecoveryEvent[]>>,
-  climbRecoveryEvents: Array<{ hrDropBpmPerMin: number; resumeSpeedKmH: number }>,
+  climbRecoveryEvents: { hrDropBpmPerMin: number; resumeSpeedKmH: number }[],
 ): void {
   let phase = false
   let endIdx = -1

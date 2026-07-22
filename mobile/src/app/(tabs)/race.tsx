@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
-import { Pressable } from 'react-native'
+import { ScrollView, Text, View , Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useAuth } from '@/lib/auth'
