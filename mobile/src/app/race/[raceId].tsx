@@ -27,6 +27,7 @@ import { GearIcon } from '@/components/coach/CoachIcons'
 import ProGate from '@/components/ProGate'
 import { usePlanTier } from '@/lib/usePlanTier'
 import { useTrackEvent } from '@/lib/useTrackEvent'
+import { useLoadEffect } from '@/lib/useLoadEffect'
 
 interface Race {
   id: string; name: string; date: string; distance: number | null; elevation: number | null; type: string | null
@@ -91,15 +92,14 @@ export default function RaceStrategyScreen() {
     setRaceLoading(false)
   }, [raceId])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
-  useEffect(() => { loadRace() }, [loadRace])
+  useLoadEffect(loadRace, [loadRace])
 
   // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
   // (portage 1:1 du web RaceStrategyPage ; le refus est de toute façon appliqué
   // PAR LA BASE — trigger race_calendar, audit P0.4 — ceci est l'UX.)
   const { tier } = usePlanTier()
   const track = useTrackEvent()
-  useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId, platform: 'mobile' }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId, platform: 'mobile' }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps -- event vue stratégie émis à chaque changement de course uniquement (track stable)
   const [racesWithGpxCount, setRacesWithGpxCount] = useState(0)
   useEffect(() => {
     supabase.from('race_calendar').select('id', { count: 'exact', head: true }).not('gpx_data', 'is', null)

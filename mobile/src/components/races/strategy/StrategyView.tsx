@@ -110,7 +110,7 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
     if (wallSec) { const km = (wallSec.startKm + wallSec.endKm) / 2; m.push({ kind: 'wall', km, alt: altAtKm(km, pts), t: passageHM(km), label: 'Pente raide', sub: `${Math.round(wallSec.grade)}% · km ${wallSec.startKm.toFixed(1)}` }) }
     m.push({ kind: 'finish', km: totalKm, alt: altAtKm(totalKm, pts), t: fmtHM(p.estTimeS / 60), label: 'Arrivée' })
     return m
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps explicites (pts/ravitos/totalKm/wallSec/p) ; helpers de rendu stables volontairement omis
   }, [pts, ravitos, totalKm, wallSec, p])
 
   const hasRoute = p.points && p.points.length >= 2

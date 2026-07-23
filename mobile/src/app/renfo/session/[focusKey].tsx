@@ -164,7 +164,7 @@ export default function RenfoSessionScreen() {
     const isLoadExo = exo.load_type === 'external_kg'
     setReps(isLoadExo ? exo.reps : computeNextReps(exoLogs, exo.reps, exo.unit === 's'))
     setRpe(exo.target_rpe ?? 8)
-  }, [exoIdx]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exoIdx]) // eslint-disable-line react-hooks/exhaustive-deps -- réinit du formulaire au SEUL changement d'exercice (les autres valeurs sont lues à l'instant T)
 
   // Vibration de décompte (équivalent natif des bips sport du web) : 3 ticks + GO long.
   useEffect(() => {
