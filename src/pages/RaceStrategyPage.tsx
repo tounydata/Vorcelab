@@ -499,6 +499,7 @@ export default function RaceStrategyPage() {
         profileData?.nutrition_level as string | undefined,
         resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined),
         profileData?.nutrition_no_caffeine === true,
+        ravitos, // fusionne les prises glucidiques avec les ravitaillements réels
       )
     : []
 

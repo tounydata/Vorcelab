@@ -263,7 +263,7 @@ export default function RaceStrategyScreen() {
   const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const isPast = !!race.date && race.date.slice(0, 10) <= todayLocal
   const nutritionRows = projection
-    ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, profileData?.nutrition_level as string | undefined, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true)
+    ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, profileData?.nutrition_level as string | undefined, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true, ravitos)
     : []
 
 
