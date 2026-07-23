@@ -189,6 +189,60 @@ SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run backtest:real   # lecture
 Les artefacts (`artifacts/engine-backtest/`) et fixtures (`*.backtest-fixture.json`) restent
 **gitignorés** (données personnelles / GPS jamais commitées).
 
+## Snapshots prospectifs (validation « live », audit §P0.2)
+
+Un snapshot fige, **avant le départ d'une course future**, la projection produite (temps
+central/prudent/agressif), la provenance (versions moteur/profil), le **manifeste complet
+des entrées** (`input_manifest` : agrégats par activité, jamais de GPS brut) et la
+**séparation dev/validation** (`data_split`). Après la course, seul le **résultat réel**
+peut être ajouté — une seule fois. C'est la preuve qu'une prédiction n'a pas été
+recalculée après coup.
+
+### Garanties (côté base, table `projection_validation_snapshots`)
+
+- **Création serveur uniquement** : le client n'a plus le privilège `INSERT` ; seule
+  l'Edge Function `lock-projection-snapshot` (service_role) crée un snapshot, après avoir
+  vérifié serveur que la course n'a pas commencé (borne depuis `race_calendar`).
+- **Immuabilité** : prédiction, versions, empreinte, `input_manifest` et `data_split` sont
+  figés après création (trigger `enforce_snapshot_immutability`, `SECURITY INVOKER`).
+- **Résultat écrit une fois** : `result_moving_s`/`result_elapsed_s` non ré-inscriptibles
+  une fois `result_recorded_at` posé.
+- **Invalidation tracée** : passer à `invalidated` exige une `invalidation_reason`, figée ensuite.
+- **Pas de suppression** : le privilège `DELETE` est retiré à `authenticated`.
+
+Migrations : `20260719000000_projection_validation_snapshots` → `_pvs_hardening` →
+`_pvs_server_authoritative` (ajoute `input_manifest` + bascule serveur) →
+`_pvs_data_split` (ajoute `data_split`). Test de cycle complet reproductible :
+`supabase/tests/pvs_lifecycle.sql` (via `scripts/test-rls.sh`, base éphémère).
+
+### Métriques (lecture seule, à exécuter sur la prod ou une réplique)
+
+```sql
+-- Répartition + erreur par version moteur × split × statut × type de course.
+-- MAPE = moyenne(|réel − prédit| / réel) sur les snapshots évalués.
+select
+  s.engine_version,
+  s.data_split,
+  s.status,
+  coalesce(r.type, 'inconnu')                         as race_type,
+  count(*)                                            as n,
+  count(*) filter (where s.used_fallback)             as n_fallback,
+  count(*) filter (where s.used_personal_fade)        as n_personal_fade,
+  count(*) filter (where s.used_steepness_calibration) as n_steepness,
+  round(avg(
+    case when s.status = 'evaluated' and s.result_elapsed_s > 0
+      then abs(s.result_elapsed_s - s.prediction_central_s)::numeric / s.result_elapsed_s
+    end
+  ) * 100, 1)                                          as mape_pct
+from public.projection_validation_snapshots s
+left join public.race_calendar r on r.id = s.race_id
+group by s.engine_version, s.data_split, s.status, race_type
+order by s.engine_version desc, s.data_split, s.status;
+```
+
+Tant que `evaluated` reste à 0 (aucune course terminée avec résultat enregistré), le MAPE
+est `null` : **ne pas** en tirer de promesse publique de précision (cf. §7 de l'audit).
+
 ## Honnêteté
 
 Ne pas prétendre que le moteur est « le plus puissant au monde » sans ce benchmark.
