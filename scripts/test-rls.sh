@@ -20,6 +20,7 @@ TESTS=(
   supabase/tests/renfo_focus_log_rls.sql
   supabase/tests/gpx_quota_server.sql
   supabase/tests/pvs_lifecycle.sql
+  supabase/tests/user_events_activation.sql
 )
 
 CURRENT_DB=""
