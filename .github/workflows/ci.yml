@@ -168,6 +168,9 @@ jobs:
       - name: Lint (strict, 0 warning)
         run: npm run lint
         working-directory: mobile
+      - name: Garde-fou anti-dette (désactivations ESLint justifiées + plafonnées)
+        run: npm run lint:disables
+        working-directory: mobile
 
   # Chaîne d'approvisionnement : scan de secrets déterministe (bloquant) + audit
   # des dépendances (informatif — ne bloque pas sur des CVE préexistantes).

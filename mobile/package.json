@@ -50,7 +50,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint -- --max-warnings=0"
+    "lint": "expo lint -- --max-warnings=0",
+    "lint:disables": "node scripts/check-eslint-disables.mjs"
   },
   "private": true
 }

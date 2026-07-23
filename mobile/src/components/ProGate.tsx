@@ -41,7 +41,7 @@ export default function ProGate({ feature = 'cette fonctionnalité' }: ProGatePr
 
   useEffect(() => {
     track('progate_view', { feature, platform: 'mobile' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- event progate émis une seule fois au montage (deps vides voulues)
   }, [])
 
   return (

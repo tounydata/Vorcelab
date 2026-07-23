@@ -20,6 +20,7 @@ import SessionAdaptationSplash from '@/components/SessionAdaptationSplash'
 import BrandedLoader from '@/components/BrandedLoader'
 import { Card } from '@/components/coach/ui'
 import { colors, font, radius, space } from '@/lib/theme'
+import { useLoadEffect } from '@/lib/useLoadEffect'
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: colors.growth,
@@ -172,7 +173,7 @@ export default function CoachScreen() {
 
   const { tier } = usePlanTier()
   const track = useTrackEvent()
-  useEffect(() => { track('coach_viewed', { platform: 'mobile' }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { track('coach_viewed', { platform: 'mobile' }) }, []) // eslint-disable-line react-hooks/exhaustive-deps -- event vue « coach » émis une seule fois au montage (deps vides voulues)
 
   // 2 premières semaines gratuites ; le reste nécessite PRO (portage web).
   const FREE_WEEKS = 2
@@ -222,8 +223,7 @@ export default function CoachScreen() {
     setSessionLogs(await listSessionLog(120))
   }, [userId])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
-  useEffect(() => { loadLogs() }, [loadLogs])
+  useLoadEffect(loadLogs, [loadLogs])
 
   function onSessionSaved() { loadLogs() }
 

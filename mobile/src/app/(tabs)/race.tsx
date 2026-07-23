@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { ScrollView, Text, View , Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { MountainIcon, PlusRingIcon } from '@/components/coach/CoachIcons'
 import { colors, font, space } from '@/lib/theme'
+import { useLoadEffect } from '@/lib/useLoadEffect'
 
 interface Race {
   id: string
@@ -80,10 +81,7 @@ export default function RaceCalendar() {
     setRenfo((r as RenfoLog[]) ?? [])
   }, [year, month, uid])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
-    loadMonth()
-  }, [loadMonth])
+  useLoadEffect(loadMonth, [loadMonth])
 
   // Grille
   const firstDay = new Date(year, month, 1)

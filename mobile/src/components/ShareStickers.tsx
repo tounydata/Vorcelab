@@ -63,7 +63,7 @@ export default function ShareStickers({ data, onClose }: { data: StickerData; on
   const [urls, setUrls] = useState<Partial<Record<StickerVariant, string>>>({})
   const [busy, setBusy] = useState(false)
   const webRef = useRef<WebView | null>(null)
-  const html = useMemo(() => buildHtml(data, variant, variants), [data, variants]) // eslint-disable-line react-hooks/exhaustive-deps
+  const html = useMemo(() => buildHtml(data, variant, variants), [data, variants]) // eslint-disable-line react-hooks/exhaustive-deps -- `variant` volontairement hors deps : le HTML de base ne dépend que des données, la variante est appliquée côté WebView
 
   async function share() {
     const url = urls[variant]

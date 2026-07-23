@@ -3,12 +3,6 @@ import { ActivityIndicator, View } from 'react-native'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useFonts } from 'expo-font'
-// Big Shoulders : fichiers EMBARQUÉS localement (audit — le paquet
-// @expo-google-fonts/big-shoulders-display est déprécié/retiré de Google Fonts).
-// Les .ttf vivent dans assets/fonts, plus aucune dépendance runtime pour ce titre.
-const BigShouldersDisplay_700Bold = require('../../assets/fonts/BigShouldersDisplay_700Bold.ttf')
-const BigShouldersDisplay_800ExtraBold = require('../../assets/fonts/BigShouldersDisplay_800ExtraBold.ttf')
-const BigShouldersDisplay_900Black = require('../../assets/fonts/BigShouldersDisplay_900Black.ttf')
 import {
   JetBrainsMono_400Regular,
   JetBrainsMono_500Medium,
@@ -17,6 +11,13 @@ import {
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { colors } from '@/lib/theme'
+
+// Big Shoulders : fichiers EMBARQUÉS localement (audit — le paquet
+// @expo-google-fonts/big-shoulders-display est déprécié/retiré de Google Fonts).
+// Les .ttf vivent dans assets/fonts, plus aucune dépendance runtime pour ce titre.
+const BigShouldersDisplay_700Bold = require('../../assets/fonts/BigShouldersDisplay_700Bold.ttf')
+const BigShouldersDisplay_800ExtraBold = require('../../assets/fonts/BigShouldersDisplay_800ExtraBold.ttf')
+const BigShouldersDisplay_900Black = require('../../assets/fonts/BigShouldersDisplay_900Black.ttf')
 
 // Redirige selon l'état de connexion (pattern d'auth expo-router).
 function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {

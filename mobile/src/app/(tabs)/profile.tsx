@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { GearIcon, PencilIcon, SaveIcon } from '@/components/coach/CoachIcons'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -15,6 +15,7 @@ import PaceZonesCard from '@/components/PaceZonesCard'
 import HrZonesCard from '@/components/HrZonesCard'
 import type { HrZoneConfig } from '@/lib/hrZones'
 import { recomputeRunnerProfileServer } from '@/lib/recomputeRunnerProfile'
+import { useLoadEffect } from '@/lib/useLoadEffect'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -370,8 +371,7 @@ export default function ProfileScreen() {
     }
     setLoading(false)
   }, [user])
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- effet de chargement/reset/timer légitime (Expo, aucun data-loader framework) ; règle conservée en erreur pour le reste du code
-  useEffect(() => { load() }, [load])
+  useLoadEffect(load, [load])
 
   async function handleSave() {
     if (!user) return
