@@ -11,6 +11,7 @@ import {
 import { adaptCatalog, distanceFocusFromKm, type AdaptProfile } from './adaptCatalog'
 import { motivationBias, type CoachMotivation } from './motivation'
 import { computePostRaceRecovery, type CompletedRace } from './postRaceRecovery'
+import { COURSE_SHAPE_LABELS, type CourseDemands } from './courseDemands'
 
 export interface PlanInput {
   raceName: string
@@ -38,6 +39,10 @@ export interface PlanInput {
   /** Dernière course TERMINÉE (récente) — déclenche un bloc de récup post-course en
    *  début de plan (reverse taper) ; durée ∝ distance + D+ (cf. postRaceRecovery). */
   recentRace?: CompletedRace
+  /** Exigences dérivées du GPX de la course cible (forme du profil : grande ascension,
+   *  descente technique, verticalité…). Absent = repli sur distance + D+ total (aucune
+   *  régression). Présent = spécialise le choix des séances et enrichit la rationale. */
+  courseDemands?: CourseDemands | null
 }
 
 /** Course secondaire dans la fenêtre du plan (priorité B = objectif secondaire, C = rodage). */
@@ -305,12 +310,18 @@ function isTaperSafe(t: WorkoutTemplate): boolean {
  * Plafonné pour rester focalisé tout en laissant de la variété à la rotation.
  */
 function qualityPool(phase: Phase, isTrail: boolean, input: PlanInput): string[] {
+  // Points faibles du COUREUR + exigences du PARCOURS (GPX) fusionnés : les deux
+  // boostent les mêmes séances via le levier d'adaptation le plus fort (+4). Une
+  // course à grande ascension tire ainsi les longues montées même sans faiblesse
+  // « climbing » détectée chez le coureur.
+  const merged = [...(input.weaknesses ?? []), ...(input.courseDemands?.emphasis ?? [])]
+  const weaknesses = merged.filter((w, i) => merged.indexOf(w) === i) // dédup, ordre stable
   const profile: AdaptProfile = {
     level: input.level ?? 'intermediate',
     distance: distanceFocusFromKm(input.raceDistanceKm),
     trail: isTrail,
     phase,
-    weaknesses: input.weaknesses,
+    weaknesses,
   }
   return adaptCatalog(profile)
     .filter((s) => isQualityTemplate(s.template))
@@ -542,6 +553,17 @@ export function generateTrainingPlan(input: PlanInput): TrainingPlan {
     rationale.push('Course trail → priorité aux sorties longues en D+, côtes longues et descente technique (durabilité).')
   } else {
     rationale.push('Course route → priorité au seuil, VO2max et allure spécifique sur terrain roulant.')
+  }
+  // Spécificité PARCOURS (GPX) : la FORME réelle du profil, pas seulement le D+ total.
+  if (input.courseDemands) {
+    const d = input.courseDemands
+    rationale.push(
+      `Profil du parcours : ${COURSE_SHAPE_LABELS[d.shape].toLowerCase()} — ` +
+      `${d.verticalRatioMPerKm} m/km, plus grande montée ${d.biggestClimbDplus} m` +
+      `${d.descentShare >= 0.45 ? `, ${Math.round(d.descentShare * 100)} % en descente` : ''}` +
+      `${d.maxAltitudeM != null && d.maxAltitudeM >= 1500 ? `, jusqu'à ${d.maxAltitudeM} m d'altitude` : ''}.`,
+    )
+    for (const note of d.notes) rationale.push(note)
   }
   rationale.push('Une semaine de décharge toutes les 4 semaines pour assimiler la charge.')
   const secs = (input.secondaryRaces ?? []).filter((r) => r.dateISO > input.todayISO && r.dateISO < input.raceDateISO)

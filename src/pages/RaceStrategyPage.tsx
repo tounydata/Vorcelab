@@ -200,6 +200,8 @@ export default function RaceStrategyPage() {
   const { tier } = usePlanTier()
   const track = useTrackEvent()
   useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Activation (P0.3) : consultation du débrief post-course (par ouverture d'onglet).
+  useEffect(() => { if (tab === 'resultat') track('race_debrief_viewed', { race_id: raceId ?? null }) }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
   const { data: racesWithGpxCount = 0 } = useQuery<number>({
     queryKey: ['races-with-gpx-count'],
     staleTime: 60_000,
@@ -254,6 +256,10 @@ export default function RaceStrategyPage() {
           { smoothElevation: true }, // anti-bruit altimétrique sur le GPX importé
         )
         setProjection(result)
+        // Activation (P0.3) : une stratégie a réellement été générée (succès du calcul,
+        // pas seulement la page vue), et son plan nutrition en découle. Comptés 1×/user.
+        track('first_strategy_generated', { race_id: raceId ?? null })
+        track('nutrition_plan_generated', { race_id: raceId ?? null })
         // Fixe l'estTimeS de base une seule fois (passe sans terrain) pour que
         // la clé météo reste stable et corresponde à celle de useRaceProjection.
         if (!terrain) setBaseEstTimeS(result.estTimeS)
@@ -420,6 +426,7 @@ export default function RaceStrategyPage() {
     setTimeout(() => { window.print(); document.body.classList.remove('print-mode-strategie') }, 80)
   }
   function printAssistance() {
+    track('crew_plan_shared', { race_id: raceId ?? null, via: 'print' })
     document.body.classList.add('print-mode-assistance')
     setTimeout(() => { window.print(); document.body.classList.remove('print-mode-assistance') }, 80)
   }

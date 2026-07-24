@@ -233,6 +233,13 @@ export default function CoachPage() {
   const track = useTrackEvent()
 
   useEffect(() => { track('coach_viewed') }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Activation (P0.3) : un plan coach a réellement été généré (séances présentes),
+  // pas seulement la page vue. Compté 1×/user.
+  useEffect(() => {
+    if (!isLoading && plan && displayWeeks.length > 0) {
+      track('coach_plan_generated', { race_id: selectedRaceId ?? null, weeks: displayWeeks.length })
+    }
+  }, [isLoading, plan, displayWeeks.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 2 premières semaines gratuites ; le reste nécessite PRO.
   const FREE_WEEKS = 2

@@ -15,6 +15,7 @@ export const ANALYTICS_EVENTS = [
   // Usage cœur
   'race_created', 'gpx_uploaded', 'first_strategy_generated',
   'coach_plan_generated', 'first_workout_completed',
+  'nutrition_plan_generated', 'race_debrief_viewed', 'crew_plan_shared',
   // Paywall & abonnement (checkout_* client ; les confirmations viennent du webhook)
   // gpx_quota_granted est émis PAR LA BASE (trigger race_calendar, audit P0.4) ;
   // gpx_quota_denied par le client quand le serveur refuse l'écriture.
@@ -30,3 +31,19 @@ export const ANALYTICS_EVENTS = [
 ] as const
 
 export type AppEvent = (typeof ANALYTICS_EVENTS)[number]
+
+// Jalons d'ACTIVATION comptés UNE seule fois par utilisateur (audit P0.3). Émettre
+// le même jalon plusieurs fois n'a pas de sens pour le funnel (« a-t-il atteint
+// cette étape ? »). Garanti côté base par un index unique partiel
+// (migration user_events_activation_once) ; le client déduplique aussi en session.
+export const ACTIVATION_ONCE_EVENTS = [
+  'first_analysis_viewed',
+  'first_strategy_generated',
+  'coach_plan_generated',
+  'first_workout_completed',
+  'nutrition_plan_generated',
+] as const
+
+export function isActivationOnceEvent(event: AppEvent): boolean {
+  return (ACTIVATION_ONCE_EVENTS as readonly string[]).includes(event)
+}
