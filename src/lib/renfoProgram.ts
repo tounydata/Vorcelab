@@ -32,7 +32,7 @@ export interface Variant {
   id: string
   priority: number
   required_equipment?: RequiredEquipment
-  required_equipment_any?: Array<Record<string, number>>
+  required_equipment_any?: Record<string, number>[]
   default_sets: number
   default_reps: number | string
   target_rpe: number
