@@ -17,6 +17,8 @@ export interface RaceForProjection {
   start_time?: string | null
   gpx_data: GpxPoint[] | null
   surfaces?: unknown | null
+  /** D+ officiel déclaré (m) — recale le profil GPX lissé. Absent → pas de recalage. */
+  elevation?: number | null
 }
 
 export function useRaceProjection(race: RaceForProjection | null | undefined): ProjectionResult | null {
@@ -39,7 +41,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
 
   const baseProjection = useMemo<ProjectionResult | null>(() => {
     if (!pts || !activitiesData || !profileData || !race) return null
-    try { return computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, null, { smoothElevation: true }) } catch { return null }
+    try { return computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, null, { smoothElevation: true, targetElevationGainM: race.elevation ?? null }) } catch { return null }
   }, [pts, activitiesData, profileData, race])
 
   const startPt = baseProjection?.points?.[0]
@@ -54,7 +56,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
     if (Array.isArray(cached) && cached.length === baseProjection.sections.length && (cached as (string | null)[]).some((s) => s != null)) {
       const weather = forecast?.available && forecast.precipMm != null ? { precip: forecast.precipMm } : undefined
       try {
-        return computeRaceProjection(pts, activitiesData ?? [], profileData ?? {}, { type: race.type, goal_time: race.goal_time }, { surfaces: cached as (string | null)[], weather }, { smoothElevation: true })
+        return computeRaceProjection(pts, activitiesData ?? [], profileData ?? {}, { type: race.type, goal_time: race.goal_time }, { surfaces: cached as (string | null)[], weather }, { smoothElevation: true, targetElevationGainM: race.elevation ?? null })
       } catch { return baseProjection }
     }
     return baseProjection

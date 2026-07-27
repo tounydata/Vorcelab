@@ -256,7 +256,10 @@ export default function RaceStrategyPage() {
           profileData ?? {},
           race ? { type: race.type, goal_time: race.goal_time } : null,
           terrain ?? null,
-          { smoothElevation: true }, // anti-bruit altimétrique sur le GPX importé
+          // Anti-bruit altimétrique sur le GPX importé, recalé sur le D+ OFFICIEL
+          // quand il est saisi : un GPX d'organisateur sous-estime souvent le D+ du
+          // règlement, et le moteur projetait alors un parcours trop plat.
+          { smoothElevation: true, targetElevationGainM: race?.elevation ?? null },
         )
         setProjection(result)
         // Activation (P0.3) : une stratégie a réellement été générée (succès du calcul,

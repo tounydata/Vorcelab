@@ -27,10 +27,14 @@ export interface ValidationCampaign {
  * `ENGINE_VERSION` à l'ouverture (garanti par `validationPolicy.test.ts`). Pour geler une
  * nouvelle version, on ouvre une nouvelle campagne (nouveau label + date).
  */
+// Nouvelle campagne ouverte avec 2026.07-8 : la calibration de durée + le recalage du
+// D+ officiel changent les projections (elles ralentissent sur les formats longs et
+// verticaux). Les preuves prospectives collectées sous 2026.07-7 restent valides POUR
+// CETTE VERSION-LÀ — elles ne sont pas requalifiées, d'où une campagne distincte.
 export const VALIDATION_CAMPAIGN: ValidationCampaign = {
-  label: 'campagne-2026.07',
-  frozenEngineVersion: '2026.07-7',
-  startAtISO: '2026-07-20T00:00:00.000Z',
+  label: 'campagne-2026.07-b',
+  frozenEngineVersion: '2026.07-8',
+  startAtISO: '2026-07-27T00:00:00.000Z',
 }
 
 /** Vrai si la version fournie est celle gelée pour la campagne (collecte de validation ouverte). */
