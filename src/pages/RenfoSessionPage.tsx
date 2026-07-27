@@ -20,6 +20,7 @@ import {
 } from '../lib/renfoUtils'
 import BrandedLoader from '../components/BrandedLoader'
 import OneRMTestPopup from '../components/coach/OneRMTestPopup'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
 type Stage =
   | { stage: 'warmup' }
@@ -49,6 +50,7 @@ export default function RenfoSessionPage() {
   const { user } = useVLStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const track = useTrackEvent()
 
   const { data: renfoProfile } = useQuery({
     queryKey: ['renfo-profile'],
@@ -331,6 +333,9 @@ export default function RenfoSessionPage() {
       if (sErr) throw sErr
     },
     onSuccess: () => {
+      // Activation (P0.3) : un entraînement (renfo) a réellement été complété et
+      // enregistré. Compté 1×/user.
+      track('first_workout_completed', { focus: focusKey ?? null })
       queryClient.invalidateQueries({ queryKey: ['renfo-session-logs-7d'] })
       navigate('/coach')
     },

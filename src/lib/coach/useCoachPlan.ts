@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../supabase'
 import { useVLStore } from '../../store/vlStore'
 import { generateTrainingPlan } from './planGenerator'
+import { courseDemandsFromPoints, type GpxDemandPoint } from './courseDemands'
 import { type CoachMotivation } from './motivation'
 import { levelFromVdot, weaknessesFromRunnerProfile } from './profileSignals'
 import { applyReplan } from './replan'
@@ -108,6 +109,20 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       ?? upcoming[0] ?? null,
     [upcoming, selectedRaceId],
   )
+  // GPX de la course CIBLE → exigences du parcours (forme réelle : grande ascension,
+  // descente technique, verticalité…). Récupéré à part (le GPX peut être volumineux et
+  // n'est pas dans la liste des courses). Absent → plan basé sur distance + D+ total.
+  const { data: targetGpx = null } = useQuery<GpxDemandPoint[] | null>({
+    queryKey: ['race-gpx', targetRace?.id ?? null],
+    enabled: !!targetRace,
+    queryFn: async () => {
+      if (!targetRace) return null
+      const { data } = await supabase.from('race_calendar').select('gpx_data').eq('id', targetRace.id).maybeSingle()
+      return (data?.gpx_data ?? null) as GpxDemandPoint[] | null
+    },
+  })
+  const courseDemands = useMemo(() => courseDemandsFromPoints(targetGpx), [targetGpx])
+
   // Courses secondaires (B/C) entre aujourd'hui et la cible → intégrées au plan.
   const secondaryRaces = useMemo(() => {
     if (!targetRace) return []
@@ -172,8 +187,9 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       motivation,
       secondaryRaces,
       recentRace,
+      courseDemands,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces, recentRace])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces, recentRace, courseDemands])
 
   // Replanification RÉACTIVE : la charge RÉELLE (ACWR/forme) ajuste la semaine courante.
   const replan = useMemo(
@@ -213,7 +229,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     profile, activities,
     vdot, level, weaknesses, fitnessAnchor,
     loadSignals, pmcToday, currentCTL,
-    daysPerWeek, motivation,
+    daysPerWeek, motivation, courseDemands,
     plan, replan, displayWeeks, renfoFusion, renfoSessionsPerWeek,
   }
 }

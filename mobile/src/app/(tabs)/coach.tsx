@@ -174,6 +174,10 @@ export default function CoachScreen() {
   const { tier } = usePlanTier()
   const track = useTrackEvent()
   useEffect(() => { track('coach_viewed', { platform: 'mobile' }) }, []) // eslint-disable-line react-hooks/exhaustive-deps -- event vue « coach » émis une seule fois au montage (deps vides voulues)
+  // Activation (P0.3) : un plan coach a réellement été généré (séances présentes). Compté 1×/user. Parité web.
+  useEffect(() => {
+    if (!isLoading && plan && displayWeeks.length > 0) track('coach_plan_generated', { race_id: selectedRaceId ?? null, weeks: displayWeeks.length, platform: 'mobile' })
+  }, [isLoading, plan, displayWeeks.length, selectedRaceId, track])
 
   // 2 premières semaines gratuites ; le reste nécessite PRO (portage web).
   const FREE_WEEKS = 2

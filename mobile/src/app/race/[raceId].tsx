@@ -100,6 +100,8 @@ export default function RaceStrategyScreen() {
   const { tier } = usePlanTier()
   const track = useTrackEvent()
   useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId, platform: 'mobile' }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps -- event vue stratégie émis à chaque changement de course uniquement (track stable)
+  // Activation (P0.3) : consultation du débrief post-course (par ouverture d'onglet). Parité web.
+  useEffect(() => { if (tab === 'resultat') track('race_debrief_viewed', { race_id: raceId ?? null, platform: 'mobile' }) }, [tab, raceId, track])
   const [racesWithGpxCount, setRacesWithGpxCount] = useState(0)
   useEffect(() => {
     supabase.from('race_calendar').select('id', { count: 'exact', head: true }).not('gpx_data', 'is', null)
@@ -130,6 +132,10 @@ export default function RaceStrategyScreen() {
       try {
         const result = computeRaceProjection(pts, activitiesData, profileData, { type: race.type, goal_time: race.goal_time }, terrain ?? null, { smoothElevation: true })
         setProjection(result)
+        // Activation (P0.3) : stratégie réellement générée (succès du calcul) + son
+        // plan nutrition. Comptés 1×/user. Parité web.
+        track('first_strategy_generated', { race_id: raceId ?? null, platform: 'mobile' })
+        track('nutrition_plan_generated', { race_id: raceId ?? null, platform: 'mobile' })
         if (!terrain) setBaseEstTimeS(result.estTimeS)
         // Snapshot PROSPECTIF (§14) : fige une preuve immuable pour une course FUTURE.
         const raceStartAtMs = race?.date ? Date.parse(`${race.date.slice(0, 10)}T${race.start_time || '08:00'}`) : NaN
@@ -155,7 +161,7 @@ export default function RaceStrategyScreen() {
         }
       } catch (err) { console.error('GPX projection error:', err) } finally { setIsComputing(false) }
     }, 0)
-  }, [activitiesData, profileData, race, raceId])
+  }, [activitiesData, profileData, race, raceId, track])
 
   // Auto-projection depuis le GPX stocké.
   useEffect(() => {
@@ -232,6 +238,9 @@ export default function RaceStrategyScreen() {
     const token = race.share_token ?? uuid()
     if (!race.share_token) await supabase.from('race_calendar').update({ share_token: token }).eq('id', raceId!)
     await Share.share({ message: `https://vorcelab.app/s/${token}` })
+    // Activation (P0.3) : partage du plan d'assistance (équivalent natif de l'impression
+    // assistance web — le partage natif remplace window.print).
+    if (tab === 'assistance') track('crew_plan_shared', { race_id: raceId ?? null, via: 'share', platform: 'mobile' })
     loadRace()
   }
   async function stopShare() { setMenuOpen(false); await supabase.from('race_calendar').update({ share_token: null }).eq('id', raceId!); loadRace() }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
 import { generateTrainingPlan } from './planGenerator'
+import { courseDemandsFromPoints, type GpxDemandPoint } from './courseDemands'
 import { type CoachMotivation } from './motivation'
 import { levelFromVdot, weaknessesFromRunnerProfile } from './profileSignals'
 import { applyReplan } from './replan'
@@ -120,6 +121,22 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       ?? upcoming[0] ?? null,
     [upcoming, selectedRaceId],
   )
+  // GPX de la course CIBLE → exigences du parcours (forme réelle : grande ascension,
+  // descente technique, verticalité…). Chargé à part (le GPX peut être volumineux et
+  // n'est pas dans la liste des courses). Absent → plan basé sur distance + D+ total.
+  const [targetGpx, setTargetGpx] = useState<GpxDemandPoint[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    const id = targetRace?.id
+    // Reset au changement de cible pour ne pas appliquer le GPX d'une autre course.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loader natif (aucun data-loader framework) ; règle conservée en erreur ailleurs
+    if (!id) { setTargetGpx(null); return }
+    supabase.from('race_calendar').select('gpx_data').eq('id', id).maybeSingle()
+      .then(({ data }) => { if (alive) setTargetGpx((data?.gpx_data ?? null) as GpxDemandPoint[] | null) })
+    return () => { alive = false }
+  }, [targetRace?.id])
+  const courseDemands = useMemo(() => courseDemandsFromPoints(targetGpx), [targetGpx])
+
   // Courses secondaires (B/C) entre aujourd'hui et la cible → intégrées au plan.
   const secondaryRaces = useMemo(() => {
     if (!targetRace) return []
@@ -182,8 +199,9 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
       motivation,
       secondaryRaces,
       recentRace,
+      courseDemands,
     })
-  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces, recentRace])
+  }, [targetRace, daysPerWeek, today, level, weaknesses, currentCTL, motivation, secondaryRaces, recentRace, courseDemands])
 
   // Replanification RÉACTIVE : la charge RÉELLE (ACWR/forme) ajuste la semaine courante.
   const replan = useMemo(
@@ -210,7 +228,7 @@ export function useCoachPlan(selectedRaceId: string | null = null) {
     profile, activities,
     vdot, level, weaknesses, fitnessAnchor,
     loadSignals, pmcToday, currentCTL,
-    daysPerWeek, motivation,
+    daysPerWeek, motivation, courseDemands,
     plan, replan, displayWeeks, renfoFusion, renfoSessionsPerWeek,
     reload: load, reloadRaces: loadRaces, reloadProfile: loadProfile,
   }

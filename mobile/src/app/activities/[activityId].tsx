@@ -16,6 +16,7 @@ import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '@/lib/w
 import BrandedLoader from '@/components/BrandedLoader'
 import RouteMap from '@/components/RouteMap'
 import ShareStickers from '@/components/ShareStickers'
+import { useTrackEvent } from '@/lib/useTrackEvent'
 import { Card, CLabel, SVal, SLbl, BackLink, colors, radius, space } from '@/components/coach/ui'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -564,6 +565,7 @@ export default function ActivityDetailScreen() {
   const { session } = useAuth()
   const userId = session?.user.id ?? null
   const router = useRouter()
+  const track = useTrackEvent()
   const [shareOpen, setShareOpen] = useState(false)
 
   const [fcMax, setFcMax] = useState(185)
@@ -589,6 +591,9 @@ export default function ActivityDetailScreen() {
       .eq('id', activityId).single()
       .then(({ data, error: err }) => { if (err || !data) setError(true); else setActivity(data as ActivityDetail); setLoading(false) })
   }, [activityId])
+
+  // Activation (P0.3) : première analyse d'activité consultée (chargement réussi). Compté 1×/user. Parité web.
+  useEffect(() => { if (activity) track('first_analysis_viewed', { activity_id: activityId ?? null, platform: 'mobile' }) }, [activity, activityId, track])
 
   // Contexte récent (90 j) pour débrief / lecture.
   useEffect(() => {

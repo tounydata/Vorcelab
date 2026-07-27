@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -16,6 +16,7 @@ import { computeDecoupling, computeDurabilityThirds, type DurabilityStatus } fro
 import { vamBand, VAM_BAND_LABEL, VAM_BAND_COLOR } from '../lib/coach/sessionAnalysis'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 import BrandedLoader from '../components/BrandedLoader'
+import { useTrackEvent } from '../lib/useTrackEvent'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -945,6 +946,11 @@ export default function ActivityDetailPage() {
     },
     enabled: !!activityId,
   })
+
+  // Activation (P0.3) : première analyse d'activité consultée (chargement réussi).
+  // Compté 1×/user.
+  const track = useTrackEvent()
+  useEffect(() => { if (activity) track('first_analysis_viewed', { activity_id: activityId ?? null }) }, [activity]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Étiquette « course / effort de référence » : cale les projections sur l'effort réel.
   const raceTagMutation = useMutation({

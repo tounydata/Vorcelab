@@ -15,6 +15,7 @@ import {
   type ExerciseLog,
 } from '@/lib/renfoUtils'
 import BrandedLoader from '@/components/BrandedLoader'
+import { useTrackEvent } from '@/lib/useTrackEvent'
 import OneRMTestPopup from '@/components/coach/OneRMTestPopup'
 import { Card, CLabel, MLabel, FL, SVal, SLbl, HButton, PrimaryButton, BackLink, colors, radius, space } from '@/components/coach/ui'
 
@@ -58,6 +59,7 @@ export default function RenfoSessionScreen() {
   const { session: authSession } = useAuth()
   const userId = authSession?.user.id ?? null
   const router = useRouter()
+  const track = useTrackEvent()
   const scrollRef = useRef<ScrollView | null>(null)
 
   // ── Données ───────────────────────────────────────────────────────────────
@@ -261,6 +263,8 @@ export default function RenfoSessionScreen() {
         ? await supabase.from('renfo_session_log').update(payload).eq('id', existingId)
         : await supabase.from('renfo_session_log').insert({ user_id: userId, session_date: sessionDate, focus: focusKey!, ...payload })
       if (sErr) throw sErr
+      // Activation (P0.3) : entraînement (renfo) complété et enregistré. Compté 1×/user. Parité web.
+      track('first_workout_completed', { focus: focusKey ?? null, platform: 'mobile' })
       router.push('/coach')
     } catch (err) {
       setSaveError((err as Error)?.message ?? String(err))

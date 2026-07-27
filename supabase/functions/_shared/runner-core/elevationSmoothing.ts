@@ -22,8 +22,8 @@ export interface AltitudeSmoothingOptions {
  * de même longueur, toujours fini. Si aucune altitude n'est exploitable, renvoie des zéros.
  */
 export function smoothAltitudeByDistance(
-  altitude: ReadonlyArray<number | null | undefined>,
-  cumDistanceM: ReadonlyArray<number>,
+  altitude: readonly (number | null | undefined)[],
+  cumDistanceM: readonly number[],
   opts?: AltitudeSmoothingOptions,
 ): number[] {
   const n = Math.min(altitude.length, cumDistanceM.length)
