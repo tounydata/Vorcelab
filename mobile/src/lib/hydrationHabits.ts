@@ -53,6 +53,16 @@ export interface HydrationHabits {
   notes: string[]
 }
 
+/** Libellés de confiance (UI partagée web/mobile). */
+export const HYDRATION_CONFIDENCE_LABELS: Record<HydrationConfidence, string> = {
+  none: 'Aucune donnée', low: 'Confiance faible', medium: 'Confiance moyenne', high: 'Confiance élevée',
+}
+
+/** Libellés des profils de tolérance glucidique (miroir de nutritionPlan). */
+export const NUTRITION_LEVEL_LABELS: Record<string, string> = {
+  prudent: 'Prudent', standard: 'Standard', trained: 'Entraîné', gut_trained: 'Entr. digestif', elite: 'Élite',
+}
+
 // Sortie minimale pour qu'un ravito soit représentatif d'un débit soutenu.
 const MIN_DURATION_S = 2700 // 45 min
 
