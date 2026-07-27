@@ -17,6 +17,7 @@ import { vamBand, VAM_BAND_LABEL, VAM_BAND_COLOR } from '../lib/coach/sessionAna
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 import BrandedLoader from '../components/BrandedLoader'
 import { useTrackEvent } from '../lib/useTrackEvent'
+import { resolveNutritionProducts } from '../lib/nutritionProducts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -912,6 +913,151 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
   )
 }
 
+// ─── Journal de ravitaillement (facultatif) ────────────────────────────────────
+// Le coureur note ce qu'il a bu/mangé sur la sortie → on APPREND ses habitudes
+// (débits mL/h, g/h) pour personnaliser la stratégie de course (cf.
+// hydrationHabits + useHydrationHabits). Tout est facultatif ; rien n'est exigé.
+function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: string; userId: string; movingTimeS: number | null }) {
+  const queryClient = useQueryClient()
+  const [fluidMl, setFluidMl] = useState('')
+  const [electrolytes, setElectrolytes] = useState(false)
+  const [carbsG, setCarbsG] = useState('')
+  const [note, setNote] = useState('')
+  const [justSaved, setJustSaved] = useState(false)
+
+  const { data: myProducts = [] } = useQuery({
+    queryKey: ['my-nutrition-products', userId],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('nutrition_products').eq('id', userId).maybeSingle()
+      return resolveNutritionProducts((data?.nutrition_products ?? []) as string[])
+    },
+  })
+
+  const { data: existing } = useQuery<{ fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null } | null>({
+    queryKey: ['nutrition-log', activityId],
+    queryFn: async () => {
+      const { data } = await supabase.from('activity_nutrition_log')
+        .select('fluid_ml,electrolytes,carbs_g,note').eq('activity_id', activityId).maybeSingle()
+      return (data ?? null) as { fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null } | null
+    },
+  })
+  // Pré-remplit le formulaire depuis le journal existant (une fois chargé).
+  useEffect(() => {
+    if (!existing) return
+    setFluidMl(existing.fluid_ml != null ? String(existing.fluid_ml) : '')
+    setElectrolytes(!!existing.electrolytes)
+    setCarbsG(existing.carbs_g != null ? String(existing.carbs_g) : '')
+    setNote(existing.note ?? '')
+  }, [existing])
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('activity_nutrition_log').upsert({
+        user_id: userId,
+        activity_id: activityId,
+        fluid_ml: fluidMl === '' ? null : Math.max(0, Math.round(Number(fluidMl))),
+        electrolytes,
+        carbs_g: carbsG === '' ? null : Math.max(0, Math.round(Number(carbsG))),
+        note: note.trim() || null,
+      }, { onConflict: 'activity_id' })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 2500)
+      queryClient.invalidateQueries({ queryKey: ['nutrition-log', activityId] })
+      queryClient.invalidateQueries({ queryKey: ['hydration-logs', userId] })
+    },
+  })
+
+  const addCarbs = (g: number) => setCarbsG((c) => String((c === '' ? 0 : Number(c)) + g))
+  const hours = movingTimeS && movingTimeS > 0 ? movingTimeS / 3600 : null
+  const mlPerH = hours && fluidMl !== '' ? Math.round(Number(fluidMl) / hours) : null
+  const gPerH = hours && carbsG !== '' ? Math.round(Number(carbsG) / hours) : null
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.5rem 0.6rem', borderRadius: 8, minHeight: 44,
+    border: '1px solid var(--vl-border)', background: 'var(--vl-surface-2)', color: 'var(--vl-text-1)',
+  }
+
+  return (
+    <details className="card" style={{ marginBottom: '1rem' }}>
+      <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span className="clabel">RAVITO DE LA SORTIE · facultatif</span>
+        <span className="mlabel" style={{ color: existing ? 'var(--vl-growth)' : 'var(--vl-text-3)' }}>
+          {existing ? '✓ renseigné' : 'ajouter'}
+        </span>
+      </summary>
+
+      <p className="mlabel" style={{ color: 'var(--vl-text-3)', margin: '0.75rem 0' }}>
+        Ce que tu as bu et mangé pendant cette sortie. Facultatif — mais plus tu en notes,
+        plus la stratégie de course colle à <em>tes</em> habitudes (et non à une moyenne).
+      </p>
+
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        <label style={{ display: 'block' }}>
+          <span className="mlabel">Liquides bus (mL)</span>
+          <input type="number" inputMode="numeric" min={0} step={100} placeholder="ex. 3000"
+            value={fluidMl} onChange={(e) => setFluidMl(e.target.value)} style={inputStyle} />
+          {mlPerH != null && <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>≈ {mlPerH} mL/h</span>}
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: 44 }}>
+          <input type="checkbox" checked={electrolytes} onChange={(e) => setElectrolytes(e.target.checked)}
+            style={{ width: 20, height: 20 }} />
+          <span className="mlabel">Avec électrolytes / sels</span>
+        </label>
+
+        <label style={{ display: 'block' }}>
+          <span className="mlabel">Glucides ingérés (g)</span>
+          <input type="number" inputMode="numeric" min={0} step={10} placeholder="ex. 180"
+            value={carbsG} onChange={(e) => setCarbsG(e.target.value)} style={inputStyle} />
+          {gPerH != null && <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>≈ {gPerH} g/h</span>}
+        </label>
+
+        {myProducts.length > 0 && (
+          <div>
+            <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Ajouter depuis tes produits :</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
+              {myProducts.map((p) => (
+                <button key={p.id} type="button" onClick={() => addCarbs(p.carbs)}
+                  className="mlabel"
+                  style={{ padding: '0.35rem 0.6rem', borderRadius: 999, minHeight: 36,
+                    border: '1px solid var(--vl-border)', background: 'var(--vl-surface-2)', color: 'var(--vl-text-1)', cursor: 'pointer' }}>
+                  + {p.brand} {p.name} ({p.carbs}g)
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label style={{ display: 'block' }}>
+          <span className="mlabel">Note (facultatif)</span>
+          <input type="text" maxLength={500} placeholder="ex. estomac ok, un peu ballonné en fin"
+            value={note} onChange={(e) => setNote(e.target.value)} style={inputStyle} />
+        </label>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button type="button" onClick={() => save.mutate()} disabled={save.isPending}
+            style={{ padding: '0.6rem 1rem', minHeight: 44, borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: 'var(--vl-accent)', color: '#fff', fontWeight: 600 }}>
+            {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+          {justSaved && <span className="mlabel" style={{ color: 'var(--vl-growth)' }}>✓ enregistré</span>}
+          {save.isError && <span className="mlabel" style={{ color: 'var(--vl-ember)' }}>Erreur — réessaie</span>}
+        </div>
+
+        <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'var(--vl-surface-2)', borderLeft: '3px solid var(--vl-amber)' }}>
+          <span className="mlabel">
+            💡 <strong>Le sais-tu ?</strong> Une simple pesée <em>avant</em> et <em>après</em> une longue sortie
+            (à jeun de boisson au réveil) révèle ton taux de sudation réel : chaque kilo perdu ≈ 1 L de sueur.
+            C'est le meilleur moyen de savoir combien boire — sans rien saisir ici.
+          </span>
+        </div>
+      </div>
+    </details>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ActivityDetailPage() {
@@ -1130,6 +1276,11 @@ export default function ActivityDetailPage() {
       <FcZonesCard hrData={hrData} fcMax={fcMax} />
       <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recentActivities} structure={workoutStructure} />
       <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather ?? null)} />
+
+      {/* Journal de ravito (facultatif) → apprend les habitudes → stratégie de course */}
+      {user && activityId && (
+        <NutritionLogCard activityId={activityId} userId={user.id} movingTimeS={activity.moving_time ?? null} />
+      )}
 
       {/* Altitude profile + map + VAM sections */}
       {activityId && stravaActivityIdStr && (

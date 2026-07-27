@@ -37,6 +37,7 @@ const ALLOWED_DIVERGENCES: Record<string, string> = {
   'useTrackEvent.ts': 'Source d’auth : useAuth natif vs store Zustand web.',
   'usePlanTier.ts': 'Hook : loader Supabase natif vs TanStack Query web.',
   'useRaceProjection.ts': 'Hook : loader Supabase natif vs TanStack Query web.',
+  'useHydrationHabits.ts': 'Hook : loader Supabase natif vs TanStack Query web (calcul pur partagé).',
   'coach/useCoachPlan.ts': 'Hook : loaders Supabase natifs vs TanStack Query web (calculs identiques).',
   'coach/useRunningDUPOverride.ts': 'Hook : loader/persistance natifs vs TanStack Query web.',
 }

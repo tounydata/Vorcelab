@@ -6,6 +6,32 @@ import { resolveNutritionProducts, NUTRITION_PRODUCTS } from '../src/lib/nutriti
 const athlete = resolveNutritionProducts(['4endurance-gel', '4endurance-drink', 'maurten-gel-100-caf'])
 const richGel = resolveNutritionProducts(['pfh-pf90']) // 90 g / prise
 
+describe('hydratation personnalisée (habitudes apprises)', () => {
+  it('sans débit appris → générique 500 ml/h, non personnalisé', () => {
+    const plan = computeNutritionIntakes(50000, 5 * 3600, 'standard', athlete)
+    expect(plan.hydrationMlPerH).toBe(500)
+    expect(plan.hydrationPersonalized).toBe(false)
+  })
+
+  it('avec débit appris → utilise le débit du coureur (le gros buveur)', () => {
+    const plan = computeNutritionIntakes(50000, 5 * 3600, 'standard', athlete, false, [], 25, 750)
+    expect(plan.hydrationMlPerH).toBe(750)
+    expect(plan.hydrationPersonalized).toBe(true)
+  })
+
+  it('borne les valeurs aberrantes (300–1200 ml/h)', () => {
+    expect(computeNutritionIntakes(50000, 5 * 3600, 'standard', athlete, false, [], 25, 50).hydrationMlPerH).toBe(300)
+    expect(computeNutritionIntakes(50000, 5 * 3600, 'standard', athlete, false, [], 25, 5000).hydrationMlPerH).toBe(1200)
+  })
+
+  it('la ligne Hydratation du tableau signale la personnalisation', () => {
+    const rows = computeNutritionPlan(50000, 5 * 3600, 'standard', athlete, false, [], 25, 800)
+    const hydro = rows.find((r) => r.moment === 'Hydratation')!
+    expect(hydro.action).toContain('800')
+    expect(hydro.note).toMatch(/tes ravitos/i)
+  })
+})
+
 describe('catalogue nutrition', () => {
   it('résout les ids en produits et ignore les inconnus', () => {
     const r = resolveNutritionProducts(['maurten-gel-100', 'inconnu-xyz', '4endurance-gel'])
