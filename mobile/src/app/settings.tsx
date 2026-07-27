@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { MOTIVATION_LABELS, type CoachMotivation } from '@/lib/coach/motivation'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '@/lib/nutritionProducts'
+import { useHydrationHabits } from '@/lib/useHydrationHabits'
+import { HYDRATION_CONFIDENCE_LABELS, NUTRITION_LEVEL_LABELS } from '@/lib/hydrationHabits'
 import { LEGAL, openLegal, openSupport } from '@/lib/legal'
 import StravaConnectionCard from '@/components/profile/StravaConnectionCard'
 import OneRMSettingsCard from '@/components/profile/OneRMSettingsCard'
@@ -62,6 +64,7 @@ function Toggle({ on }: { on: boolean }) {
 
 export default function SettingsScreen() {
   const { session } = useAuth()
+  const habits = useHydrationHabits()
   const userId = session?.user.id ?? null
   const email = session?.user.email ?? ''
   const router = useRouter()
@@ -236,6 +239,52 @@ export default function SettingsScreen() {
           </>
         ) : (
           <>
+            {/* Habitudes apprises depuis les ravitos loggés sur les sorties */}
+            <Card style={{ marginBottom: space.lg }}>
+              <CLabel style={{ marginBottom: 8 }}>TES HABITUDES APPRISES</CLabel>
+              {habits.confidence === 'none' ? (
+                <Text style={{ fontSize: 12, color: colors.text3, lineHeight: 18 }}>
+                  Renseigne le bloc « Ravito de la sortie » dans l&apos;analyse de tes sorties (≥ 45 min).
+                  Après quelques sorties, tes débits réels apparaîtront ici et personnaliseront automatiquement
+                  la stratégie de course (fini la cible générique).
+                </Text>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 22, color: colors.growth, fontWeight: '700' }}>{habits.fluidMlPerH ?? '—'}<Text style={{ fontSize: 11, color: colors.text3 }}> mL/h</Text></Text>
+                      <Text style={{ fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1 }}>Hydratation</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 22, color: colors.growth, fontWeight: '700' }}>{habits.carbsGPerH ?? '—'}<Text style={{ fontSize: 11, color: colors.text3 }}> g/h</Text></Text>
+                      <Text style={{ fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1 }}>Glucides</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                    <View style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line }}>
+                      <Text style={{ fontSize: 11, color: colors.text2 }}>{HYDRATION_CONFIDENCE_LABELS[habits.confidence]} · {habits.sampleCount} sortie{habits.sampleCount > 1 ? 's' : ''}</Text>
+                    </View>
+                    {habits.suggestedNutritionLevel ? (
+                      <View style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line }}>
+                        <Text style={{ fontSize: 11, color: colors.text2 }}>Profil suggéré : {NUTRITION_LEVEL_LABELS[habits.suggestedNutritionLevel] ?? habits.suggestedNutritionLevel}</Text>
+                      </View>
+                    ) : null}
+                    {habits.electrolyteShare != null ? (
+                      <View style={{ paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, backgroundColor: colors.surf2, borderWidth: 1, borderColor: colors.line }}>
+                        <Text style={{ fontSize: 11, color: colors.text2 }}>Électrolytes {Math.round(habits.electrolyteShare * 100)}% du temps</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {habits.notes.map((n, i) => (
+                    <Text key={i} style={{ fontSize: 11, color: colors.text3, lineHeight: 16, marginVertical: 2 }}>{n}</Text>
+                  ))}
+                  <Text style={{ fontSize: 11, color: colors.text3, lineHeight: 16, marginTop: 6 }}>
+                    Ces débits personnalisent automatiquement ta stratégie de course.
+                  </Text>
+                </>
+              )}
+            </Card>
+
             {/* Préférences */}
             <Card style={{ marginBottom: space.lg }}>
               <CLabel style={{ marginBottom: 8 }}>PRÉFÉRENCES</CLabel>

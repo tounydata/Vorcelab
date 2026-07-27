@@ -5,6 +5,8 @@ import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { signOutAndClear } from '../lib/session'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
+import { useHydrationHabits } from '../lib/useHydrationHabits'
+import { HYDRATION_CONFIDENCE_LABELS, NUTRITION_LEVEL_LABELS } from '../lib/hydrationHabits'
 import { MOTIVATION_LABELS, type CoachMotivation } from '../lib/coach/motivation'
 import StravaConnection from '../components/StravaConnection'
 import SubscriptionCard from '../components/SubscriptionCard'
@@ -48,6 +50,8 @@ export default function SettingsPage() {
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'reglages' ? {} : { tab }, { replace: false })
   const queryClient = useQueryClient()
+  // Habitudes de ravito apprises (débits mL/h, g/h) — récap lisible sans ouvrir une stratégie.
+  const habits = useHydrationHabits()
 
   // Password change state
   const [showPwdInput, setShowPwdInput] = useState(false)
@@ -299,6 +303,52 @@ export default function SettingsPage() {
       {/* ── Tab NUTRITION ── */}
       {activeTab === 'nutrition' && (
         <>
+        {/* Habitudes apprises depuis les ravitos loggés sur les sorties */}
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="clabel" style={{ marginBottom: 8 }}>TES HABITUDES APPRISES</div>
+          {habits.confidence === 'none' ? (
+            <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: 0, lineHeight: 1.5 }}>
+              Renseigne le bloc « Ravito de la sortie » dans l&apos;analyse de tes sorties (≥ 45 min).
+              Après quelques sorties, tes débits réels apparaîtront ici et <strong style={{ color: 'var(--vl-text-2)' }}>personnaliseront
+              automatiquement</strong> la stratégie de course (fini la cible générique).
+            </p>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                <div className="fg">
+                  <div className="sval" style={{ color: 'var(--vl-growth)' }}>{habits.fluidMlPerH ?? '—'}<span style={{ fontSize: 12, color: 'var(--vl-text-3)' }}> mL/h</span></div>
+                  <div className="slbl">Hydratation</div>
+                </div>
+                <div className="fg">
+                  <div className="sval" style={{ color: 'var(--vl-growth)' }}>{habits.carbsGPerH ?? '—'}<span style={{ fontSize: 12, color: 'var(--vl-text-3)' }}> g/h</span></div>
+                  <div className="slbl">Glucides</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <span className="mlabel" style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)' }}>
+                  {HYDRATION_CONFIDENCE_LABELS[habits.confidence]} · {habits.sampleCount} sortie{habits.sampleCount > 1 ? 's' : ''}
+                </span>
+                {habits.suggestedNutritionLevel && (
+                  <span className="mlabel" style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)' }}>
+                    Profil suggéré : {NUTRITION_LEVEL_LABELS[habits.suggestedNutritionLevel] ?? habits.suggestedNutritionLevel}
+                  </span>
+                )}
+                {habits.electrolyteShare != null && (
+                  <span className="mlabel" style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)' }}>
+                    Électrolytes {Math.round(habits.electrolyteShare * 100)}% du temps
+                  </span>
+                )}
+              </div>
+              {habits.notes.map((n, i) => (
+                <p key={i} style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '2px 0', lineHeight: 1.45 }}>{n}</p>
+              ))}
+              <p style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '6px 0 0', lineHeight: 1.45 }}>
+                Ces débits <strong style={{ color: 'var(--vl-text-2)' }}>personnalisent automatiquement</strong> ta stratégie de course.
+              </p>
+            </>
+          )}
+        </div>
+
         {/* Préférences nutrition */}
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="clabel" style={{ marginBottom: 8 }}>PRÉFÉRENCES</div>
