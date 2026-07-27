@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -574,6 +574,9 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
   const [products, setProducts] = useState<NutritionProduct[]>([])
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const hydratedRef = useRef(false)
+  const savedSigRef = useRef('')
+  const sig = (f: string, e: boolean, c: string, n: string) => JSON.stringify([f, e, c, n.trim()])
 
   useEffect(() => {
     let alive = true
@@ -581,30 +584,42 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
       .then(({ data }) => { if (alive) setProducts(resolveNutritionProducts((data?.nutrition_products ?? []) as string[])) })
     supabase.from('activity_nutrition_log').select('fluid_ml,electrolytes,carbs_g,note').eq('activity_id', activityId).maybeSingle()
       .then(({ data }) => {
-        if (!alive || !data) return
-        const d = data as { fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null }
-        setExisting(true)
-        setFluidMl(d.fluid_ml != null ? String(d.fluid_ml) : '')
-        setElectrolytes(!!d.electrolytes)
-        setCarbsG(d.carbs_g != null ? String(d.carbs_g) : '')
-        setNote(d.note ?? '')
+        if (!alive) return
+        if (data) {
+          const d = data as { fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null }
+          const f = d.fluid_ml != null ? String(d.fluid_ml) : ''
+          const c = d.carbs_g != null ? String(d.carbs_g) : ''
+          const n = d.note ?? ''
+          setExisting(true); setFluidMl(f); setElectrolytes(!!d.electrolytes); setCarbsG(c); setNote(n)
+          savedSigRef.current = sig(f, !!d.electrolytes, c, n)
+        }
+        hydratedRef.current = true
       })
     return () => { alive = false }
   }, [activityId, userId])
 
-  const save = async () => {
-    setSaving(true)
-    const { error } = await supabase.from('activity_nutrition_log').upsert({
-      user_id: userId,
-      activity_id: activityId,
-      fluid_ml: fluidMl === '' ? null : Math.max(0, Math.round(Number(fluidMl))),
-      electrolytes,
-      carbs_g: carbsG === '' ? null : Math.max(0, Math.round(Number(carbsG))),
-      note: note.trim() || null,
-    }, { onConflict: 'activity_id' })
-    setSaving(false)
-    if (!error) { setExisting(true); setJustSaved(true); setTimeout(() => setJustSaved(false), 2500) }
-  }
+  // Sauvegarde AUTOMATIQUE (débounce) : aucun bouton à cliquer → rien ne se perd.
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    const s = sig(fluidMl, electrolytes, carbsG, note)
+    if (s === savedSigRef.current) return
+    if (fluidMl === '' && carbsG === '' && !electrolytes && note.trim() === '' && !existing) return
+    const t = setTimeout(async () => {
+      savedSigRef.current = s
+      setSaving(true)
+      const { error } = await supabase.from('activity_nutrition_log').upsert({
+        user_id: userId,
+        activity_id: activityId,
+        fluid_ml: fluidMl === '' ? null : Math.max(0, Math.round(Number(fluidMl))),
+        electrolytes,
+        carbs_g: carbsG === '' ? null : Math.max(0, Math.round(Number(carbsG))),
+        note: note.trim() || null,
+      }, { onConflict: 'activity_id' })
+      setSaving(false)
+      if (!error) { setExisting(true); setJustSaved(true); setTimeout(() => setJustSaved(false), 2000) }
+    }, 700)
+    return () => clearTimeout(t)
+  }, [fluidMl, electrolytes, carbsG, note, existing, userId, activityId])
 
   const addCarbs = (g: number) => setCarbsG((c) => String((c === '' ? 0 : Number(c)) + g))
   const hours = movingTimeS && movingTimeS > 0 ? movingTimeS / 3600 : null
@@ -663,12 +678,10 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
             <TextInput style={input} value={note} onChangeText={setNote} placeholder="ex. estomac ok, un peu ballonné en fin" placeholderTextColor={colors.text3} maxLength={500} />
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={save} disabled={saving}
-              style={{ paddingVertical: 12, paddingHorizontal: 18, borderRadius: radius.md, backgroundColor: colors.ember, minHeight: 44, justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
-              <Text style={{ color: colors.bg, fontWeight: '600', fontSize: 14 }}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Text>
-            </Pressable>
-            {justSaved ? <Text style={{ fontSize: 13, color: colors.growth }}>✓ enregistré</Text> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 }}>
+            <Text style={{ fontSize: 12, color: justSaved ? colors.growth : colors.text3 }}>
+              {saving ? 'Enregistrement…' : justSaved ? '✓ Enregistré' : 'Sauvegarde automatique'}
+            </Text>
           </View>
 
           <View style={{ padding: 12, borderRadius: radius.md, backgroundColor: colors.surf, borderLeftWidth: 3, borderLeftColor: colors.amber }}>

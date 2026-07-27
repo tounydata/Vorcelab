@@ -529,7 +529,7 @@ export default function RenfoSessionPage() {
                   type="number" min={0} step={1.25}
                   value={load}
                   onChange={(e) => setLoad(e.target.value === '' ? '' : +e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', fontSize: '1.1rem', background: 'var(--vl-surface-2)', border: '1px solid var(--vl-border)', borderRadius: 6, color: 'var(--vl-text-1)' }}
+                  style={{ width: '100%', padding: '0.5rem', fontSize: '1.1rem', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 6, color: 'var(--vl-text)' }}
                 />
               </div>
             )}
@@ -539,7 +539,7 @@ export default function RenfoSessionPage() {
                 type="number" min={1} step={isHold ? 5 : 1}
                 value={reps}
                 onChange={(e) => setReps(+e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', fontSize: '1.1rem', background: 'var(--vl-surface-2)', border: '1px solid var(--vl-border)', borderRadius: 6, color: 'var(--vl-text-1)' }}
+                style={{ width: '100%', padding: '0.5rem', fontSize: '1.1rem', background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 6, color: 'var(--vl-text)' }}
               />
             </div>
           </div>
@@ -601,7 +601,7 @@ export default function RenfoSessionPage() {
           <div style={{ fontFamily: 'var(--vl-display)', fontSize: '3.5rem', color, marginBottom: '0.75rem' }}>
             {fmtRestTimer(secondsLeft)}
           </div>
-          <div style={{ background: 'var(--vl-surface-2)', borderRadius: 4, height: 8, marginBottom: '1rem' }}>
+          <div style={{ background: 'var(--vl-surf-2)', borderRadius: 4, height: 8, marginBottom: '1rem' }}>
             <div style={{
               width: `${pct}%`, height: '100%', background: color, borderRadius: 4,
               transition: 'width 1s linear',
@@ -659,7 +659,7 @@ export default function RenfoSessionPage() {
           min={weekStart}
           max={todayStr()}
           onChange={(e) => setSessionDate(e.target.value)}
-          style={{ background: 'var(--vl-surface-2)', border: '1px solid var(--vl-border)', borderRadius: 6, padding: '0.5rem', color: 'var(--vl-text-1)' }}
+          style={{ background: 'var(--vl-surf-2)', border: '1px solid var(--vl-line)', borderRadius: 6, padding: '0.5rem', color: 'var(--vl-text)' }}
         />
       </div>
       <button

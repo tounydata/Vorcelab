@@ -380,7 +380,7 @@ function RecoveryByBucketSection({ rp }: { rp: RunnerProfileComputed }) {
       )}
 
       {rp.downhillFatigue && rp.downhillFatigue.status !== 'unknown' && (
-        <div style={{ marginTop: 10, padding: '6px 10px', background: 'var(--vl-bg-2)', borderRadius: 4 }}>
+        <div style={{ marginTop: 10, padding: '6px 10px', background: 'var(--vl-surf-2)', borderRadius: 4 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="mlabel" style={{ fontSize: 10 }}>SIGNAL FATIGUE DESCENTE</div>
             <span style={{
@@ -808,7 +808,7 @@ export default function ProfilePage() {
                   <div className="mlabel" style={{ marginBottom: 6, color: 'var(--vl-text-2)', textTransform: 'none', letterSpacing: 0 }}>
                     {computeLabel}
                   </div>
-                  <div style={{ height: 3, background: 'var(--vl-bg-2)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: 3, background: 'var(--vl-surf-2)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{
                       height: '100%', width: `${computeProgress}%`,
                       background: 'var(--vl-ember)', borderRadius: 2, transition: 'width 0.3s',
@@ -888,7 +888,7 @@ export default function ProfilePage() {
                         return (
                           <span key={m} style={{
                             fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.04em',
-                            padding: '2px 6px', borderRadius: 3, background: 'var(--vl-bg-2)',
+                            padding: '2px 6px', borderRadius: 3, background: 'var(--vl-surf-2)',
                             color: 'var(--vl-text-3)', textTransform: 'uppercase',
                           }}>
                             {label}

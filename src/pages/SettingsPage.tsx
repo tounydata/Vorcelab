@@ -281,7 +281,7 @@ export default function SettingsPage() {
                       <button className="hbtn" onClick={handlePwdChange}>Confirmer</button>
                       <button
                         className="hbtn"
-                        style={{ background: 'var(--vl-bg-2)', color: 'var(--vl-text-3)' }}
+                        style={{ background: 'var(--vl-surf-2)', color: 'var(--vl-text-3)' }}
                         onClick={() => { setShowPwdInput(false); setNewPwd('') }}
                       >
                         Annuler

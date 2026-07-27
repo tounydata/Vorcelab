@@ -32,9 +32,9 @@ function E1rmChart({ data, color }: { data: ChartPoint[]; color: string }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%' }}>
-      <line x1={PL} y1={toY(minE)} x2={W - PR} y2={toY(minE)} stroke="var(--vl-border)" strokeWidth={1} />
+      <line x1={PL} y1={toY(minE)} x2={W - PR} y2={toY(minE)} stroke="var(--vl-line)" strokeWidth={1} />
       {maxE !== minE && (
-        <line x1={PL} y1={toY(maxE)} x2={W - PR} y2={toY(maxE)} stroke="var(--vl-border)" strokeWidth={1} strokeDasharray="3 3" />
+        <line x1={PL} y1={toY(maxE)} x2={W - PR} y2={toY(maxE)} stroke="var(--vl-line)" strokeWidth={1} strokeDasharray="3 3" />
       )}
       <text x={PL - 4} y={toY(minE)} fontSize={9} fill="var(--vl-text-3)" textAnchor="end" dominantBaseline="middle">{minE}</text>
       <text x={PL - 4} y={toY(maxE)} fontSize={9} fill="var(--vl-text-3)" textAnchor="end" dominantBaseline="middle">{maxE}</text>
@@ -158,7 +158,7 @@ export default function RenfoExerciseDetailPage() {
           <div className="fl" style={{ marginBottom: '0.5rem' }}>Variantes disponibles</div>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {ex.variants.map((v: any) => (
-            <div key={v.id} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid var(--vl-border)', marginBottom: '0.75rem' }}>
+            <div key={v.id} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid var(--vl-line)', marginBottom: '0.75rem' }}>
               <div className="mlabel" style={{ textTransform: 'none', letterSpacing: 0, marginBottom: 2 }}>{v.name}</div>
               <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
                 {v.default_sets}×{v.default_reps} · RPE {v.target_rpe} · repos {v.rest_seconds}s

@@ -458,7 +458,7 @@ export default function RaceStrategyPage() {
     display: 'block', width: '100%', textAlign: 'left', background: 'none',
     border: 'none', padding: '9px 14px', cursor: 'pointer',
     fontFamily: 'var(--vl-mono)', fontSize: '0.78rem', letterSpacing: '0.04em',
-    color: 'var(--vl-text-1)', lineHeight: 1.3,
+    color: 'var(--vl-text)', lineHeight: 1.3,
   }
 
   function GearIcon() {
