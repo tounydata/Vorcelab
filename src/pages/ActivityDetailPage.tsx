@@ -864,7 +864,7 @@ function SessionQCard({ activity, streams, fcMax }: { activity: ActivityDetail; 
         <div className="clabel" style={{ margin: 0 }}>QUALITÉ DE SÉANCE</div>
         <span style={{
           fontFamily: 'var(--vl-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '.1em',
-          padding: '3px 8px', borderRadius: 3, background: 'var(--vl-bg-2)', color: 'var(--vl-text-2)',
+          padding: '3px 8px', borderRadius: 3, background: 'var(--vl-surf-2)', color: 'var(--vl-text-2)',
         }}>
           {type.toUpperCase()}
         </span>
@@ -933,7 +933,7 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
     },
   })
 
-  const { data: existing } = useQuery<{ fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null } | null>({
+  const { data: existing, isFetched } = useQuery<{ fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null } | null>({
     queryKey: ['nutrition-log', activityId],
     queryFn: async () => {
       const { data } = await supabase.from('activity_nutrition_log')
@@ -941,14 +941,27 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
       return (data ?? null) as { fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null } | null
     },
   })
-  // Pré-remplit le formulaire depuis le journal existant (une fois chargé).
+  const hydratedRef = useRef(false)
+  const savedSigRef = useRef('')
+  const sig = (f = fluidMl, e = electrolytes, c = carbsG, n = note) => JSON.stringify([f, e, c, n.trim()])
+
+  // Pré-remplit le formulaire depuis le journal existant (une fois la requête résolue).
   useEffect(() => {
-    if (!existing) return
-    setFluidMl(existing.fluid_ml != null ? String(existing.fluid_ml) : '')
-    setElectrolytes(!!existing.electrolytes)
-    setCarbsG(existing.carbs_g != null ? String(existing.carbs_g) : '')
-    setNote(existing.note ?? '')
-  }, [existing])
+    if (!isFetched || hydratedRef.current) return
+    if (existing) {
+      setFluidMl(existing.fluid_ml != null ? String(existing.fluid_ml) : '')
+      setElectrolytes(!!existing.electrolytes)
+      setCarbsG(existing.carbs_g != null ? String(existing.carbs_g) : '')
+      setNote(existing.note ?? '')
+      savedSigRef.current = sig(
+        existing.fluid_ml != null ? String(existing.fluid_ml) : '',
+        !!existing.electrolytes,
+        existing.carbs_g != null ? String(existing.carbs_g) : '',
+        existing.note ?? '',
+      )
+    }
+    hydratedRef.current = true
+  }, [isFetched, existing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () => {
@@ -964,11 +977,22 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
     },
     onSuccess: () => {
       setJustSaved(true)
-      setTimeout(() => setJustSaved(false), 2500)
-      queryClient.invalidateQueries({ queryKey: ['nutrition-log', activityId] })
+      setTimeout(() => setJustSaved(false), 2000)
       queryClient.invalidateQueries({ queryKey: ['hydration-logs', userId] })
     },
   })
+
+  // Sauvegarde AUTOMATIQUE (débounce) : aucun bouton à cliquer → rien ne se perd.
+  // On ne crée pas de ligne vide : au moins un champ renseigné (ou une ligne existante).
+  useEffect(() => {
+    if (!hydratedRef.current) return
+    const s = sig()
+    if (s === savedSigRef.current) return
+    const hasContent = fluidMl !== '' || carbsG !== '' || electrolytes || note.trim() !== '' || !!existing
+    if (!hasContent) return
+    const t = setTimeout(() => { savedSigRef.current = s; save.mutate() }, 700)
+    return () => clearTimeout(t)
+  }, [fluidMl, electrolytes, carbsG, note]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCarbs = (g: number) => setCarbsG((c) => String((c === '' ? 0 : Number(c)) + g))
   const hours = movingTimeS && movingTimeS > 0 ? movingTimeS / 3600 : null
@@ -976,7 +1000,7 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
   const gPerH = hours && carbsG !== '' ? Math.round(Number(carbsG) / hours) : null
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.5rem 0.6rem', borderRadius: 8, minHeight: 44,
-    border: '1px solid var(--vl-border)', background: 'var(--vl-surface-2)', color: 'var(--vl-text-1)',
+    border: '1px solid var(--vl-line-2)', background: 'var(--vl-surf-2)', color: 'var(--vl-text)',
   }
 
   return (
@@ -1022,7 +1046,7 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
                 <button key={p.id} type="button" onClick={() => addCarbs(p.carbs)}
                   className="mlabel"
                   style={{ padding: '0.35rem 0.6rem', borderRadius: 999, minHeight: 36,
-                    border: '1px solid var(--vl-border)', background: 'var(--vl-surface-2)', color: 'var(--vl-text-1)', cursor: 'pointer' }}>
+                    border: '1px solid var(--vl-line-2)', background: 'var(--vl-surf-2)', color: 'var(--vl-text)', cursor: 'pointer' }}>
                   + {p.brand} {p.name} ({p.carbs}g)
                 </button>
               ))}
@@ -1036,17 +1060,14 @@ function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: str
             value={note} onChange={(e) => setNote(e.target.value)} style={inputStyle} />
         </label>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button type="button" onClick={() => save.mutate()} disabled={save.isPending}
-            style={{ padding: '0.6rem 1rem', minHeight: 44, borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: 'var(--vl-accent)', color: '#fff', fontWeight: 600 }}>
-            {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-          {justSaved && <span className="mlabel" style={{ color: 'var(--vl-growth)' }}>✓ enregistré</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: 24 }}>
+          <span className="mlabel" style={{ color: 'var(--vl-text-3)' }}>
+            {save.isPending ? 'Enregistrement…' : justSaved ? '✓ Enregistré' : 'Sauvegarde automatique'}
+          </span>
           {save.isError && <span className="mlabel" style={{ color: 'var(--vl-ember)' }}>Erreur — réessaie</span>}
         </div>
 
-        <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'var(--vl-surface-2)', borderLeft: '3px solid var(--vl-amber)' }}>
+        <div style={{ padding: '0.6rem 0.75rem', borderRadius: 8, background: 'var(--vl-surf-2)', borderLeft: '3px solid var(--vl-amber)' }}>
           <span className="mlabel">
             💡 <strong>Le sais-tu ?</strong> Une simple pesée <em>avant</em> et <em>après</em> une longue sortie
             (à jeun de boisson au réveil) révèle ton taux de sudation réel : chaque kilo perdu ≈ 1 L de sueur.

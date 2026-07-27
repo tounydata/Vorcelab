@@ -506,7 +506,7 @@ function CardiacBlock({ d }: { d: RaceDebrief }) {
               ? 'Légère dérive en 2ᵉ moitié — l\'effort a coûté un peu plus cher sur la fin.'
               : 'Forte dérive : à allure égale, ta FC a grimpé — signe de fatigue ou de nutrition à revoir.'}
           {confBits.length > 0 && (
-            <> {' '}<span style={{ color: 'var(--vl-text-1)' }}>
+            <> {' '}<span style={{ color: 'var(--vl-text)' }}>
               Dérive mesurée +{drift.toFixed(0)} %, dont une part attribuée à {confBits.join(' et ')} — sans ça, ~+{(netDrift ?? 0).toFixed(0)} % : ton endurance n'est pas en cause.
             </span></>
           )}

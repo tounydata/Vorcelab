@@ -251,7 +251,7 @@ export default function SessionFeedback({ link, onSaved }: { link?: SessionLinkC
             {verdict.signals.filter((s) => s.status !== 'unknown').map((s) => (
               <span key={s.axis} style={{
                 fontSize: 11, padding: '2px 8px', borderRadius: 10,
-                background: 'var(--vl-surface-2)', color: 'var(--vl-text-2)',
+                background: 'var(--vl-surf-2)', color: 'var(--vl-text-2)',
               }}>
                 {s.label}
               </span>
