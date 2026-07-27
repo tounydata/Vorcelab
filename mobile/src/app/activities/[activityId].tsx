@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Svg, { Defs, LinearGradient, Stop, Path, Line, Text as SvgText, Rect, G, ClipPath } from 'react-native-svg'
@@ -17,6 +17,7 @@ import BrandedLoader from '@/components/BrandedLoader'
 import RouteMap from '@/components/RouteMap'
 import ShareStickers from '@/components/ShareStickers'
 import { useTrackEvent } from '@/lib/useTrackEvent'
+import { resolveNutritionProducts, type NutritionProduct } from '@/lib/nutritionProducts'
 import { Card, CLabel, SVal, SLbl, BackLink, colors, radius, space } from '@/components/coach/ui'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -560,6 +561,127 @@ function StreamsSection({ streams }: { streams: StreamData }) {
 // ─── Écran principal ──────────────────────────────────────────────────────────
 const RUN_SET = ['Run', 'TrailRun', 'Trail Run', 'VirtualRun']
 
+// ─── Journal de ravitaillement (facultatif) — parité web ────────────────────────
+// Le coureur note ce qu'il a bu/mangé → on APPREND ses habitudes (mL/h, g/h) pour
+// personnaliser la stratégie de course (hydrationHabits + useHydrationHabits).
+function NutritionLogCard({ activityId, userId, movingTimeS }: { activityId: string; userId: string; movingTimeS: number | null }) {
+  const [open, setOpen] = useState(false)
+  const [existing, setExisting] = useState(false)
+  const [fluidMl, setFluidMl] = useState('')
+  const [electrolytes, setElectrolytes] = useState(false)
+  const [carbsG, setCarbsG] = useState('')
+  const [note, setNote] = useState('')
+  const [products, setProducts] = useState<NutritionProduct[]>([])
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    supabase.from('profiles').select('nutrition_products').eq('id', userId).maybeSingle()
+      .then(({ data }) => { if (alive) setProducts(resolveNutritionProducts((data?.nutrition_products ?? []) as string[])) })
+    supabase.from('activity_nutrition_log').select('fluid_ml,electrolytes,carbs_g,note').eq('activity_id', activityId).maybeSingle()
+      .then(({ data }) => {
+        if (!alive || !data) return
+        const d = data as { fluid_ml: number | null; electrolytes: boolean; carbs_g: number | null; note: string | null }
+        setExisting(true)
+        setFluidMl(d.fluid_ml != null ? String(d.fluid_ml) : '')
+        setElectrolytes(!!d.electrolytes)
+        setCarbsG(d.carbs_g != null ? String(d.carbs_g) : '')
+        setNote(d.note ?? '')
+      })
+    return () => { alive = false }
+  }, [activityId, userId])
+
+  const save = async () => {
+    setSaving(true)
+    const { error } = await supabase.from('activity_nutrition_log').upsert({
+      user_id: userId,
+      activity_id: activityId,
+      fluid_ml: fluidMl === '' ? null : Math.max(0, Math.round(Number(fluidMl))),
+      electrolytes,
+      carbs_g: carbsG === '' ? null : Math.max(0, Math.round(Number(carbsG))),
+      note: note.trim() || null,
+    }, { onConflict: 'activity_id' })
+    setSaving(false)
+    if (!error) { setExisting(true); setJustSaved(true); setTimeout(() => setJustSaved(false), 2500) }
+  }
+
+  const addCarbs = (g: number) => setCarbsG((c) => String((c === '' ? 0 : Number(c)) + g))
+  const hours = movingTimeS && movingTimeS > 0 ? movingTimeS / 3600 : null
+  const mlPerH = hours && fluidMl !== '' ? Math.round(Number(fluidMl) / hours) : null
+  const gPerH = hours && carbsG !== '' ? Math.round(Number(carbsG) / hours) : null
+  const input = { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surf2, color: colors.text, paddingHorizontal: 12, fontSize: 15 }
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <Pressable onPress={() => setOpen((o) => !o)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 }}>
+        <CLabel>RAVITO DE LA SORTIE · facultatif</CLabel>
+        <Text style={{ fontSize: 12, color: existing ? colors.growth : colors.text3 }}>{existing ? '✓ renseigné' : (open ? '▲' : 'ajouter ▾')}</Text>
+      </Pressable>
+
+      {open ? (
+        <View style={{ gap: 12, marginTop: 12 }}>
+          <Text style={{ fontSize: 12, color: colors.text3 }}>
+            Ce que tu as bu et mangé pendant cette sortie. Facultatif — mais plus tu en notes, plus la stratégie de course colle à tes habitudes (et non à une moyenne).
+          </Text>
+
+          <View>
+            <Text style={{ fontSize: 12, color: colors.text2, marginBottom: 4 }}>Liquides bus (mL)</Text>
+            <TextInput style={input} value={fluidMl} onChangeText={setFluidMl} placeholder="ex. 3000" placeholderTextColor={colors.text3} keyboardType="number-pad" />
+            {mlPerH != null ? <Text style={{ fontSize: 11, color: colors.text3, marginTop: 3 }}>≈ {mlPerH} mL/h</Text> : null}
+          </View>
+
+          <Pressable onPress={() => setElectrolytes((e) => !e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: electrolytes ? colors.growth : colors.line, backgroundColor: electrolytes ? colors.growth : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+              {electrolytes ? <Text style={{ color: '#fff', fontSize: 15 }}>✓</Text> : null}
+            </View>
+            <Text style={{ fontSize: 14, color: colors.text2 }}>Avec électrolytes / sels</Text>
+          </Pressable>
+
+          <View>
+            <Text style={{ fontSize: 12, color: colors.text2, marginBottom: 4 }}>Glucides ingérés (g)</Text>
+            <TextInput style={input} value={carbsG} onChangeText={setCarbsG} placeholder="ex. 180" placeholderTextColor={colors.text3} keyboardType="number-pad" />
+            {gPerH != null ? <Text style={{ fontSize: 11, color: colors.text3, marginTop: 3 }}>≈ {gPerH} g/h</Text> : null}
+          </View>
+
+          {products.length > 0 ? (
+            <View>
+              <Text style={{ fontSize: 12, color: colors.text3, marginBottom: 6 }}>Ajouter depuis tes produits :</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {products.map((p) => (
+                  <Pressable key={p.id} onPress={() => addCarbs(p.carbs)}
+                    style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surf, minHeight: 36 }}>
+                    <Text style={{ fontSize: 12, color: colors.text2 }}>+ {p.brand} {p.name} ({p.carbs}g)</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <View>
+            <Text style={{ fontSize: 12, color: colors.text2, marginBottom: 4 }}>Note (facultatif)</Text>
+            <TextInput style={input} value={note} onChangeText={setNote} placeholder="ex. estomac ok, un peu ballonné en fin" placeholderTextColor={colors.text3} maxLength={500} />
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable onPress={save} disabled={saving}
+              style={{ paddingVertical: 12, paddingHorizontal: 18, borderRadius: radius.md, backgroundColor: colors.ember, minHeight: 44, justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
+              <Text style={{ color: colors.bg, fontWeight: '600', fontSize: 14 }}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Text>
+            </Pressable>
+            {justSaved ? <Text style={{ fontSize: 13, color: colors.growth }}>✓ enregistré</Text> : null}
+          </View>
+
+          <View style={{ padding: 12, borderRadius: radius.md, backgroundColor: colors.surf, borderLeftWidth: 3, borderLeftColor: colors.amber }}>
+            <Text style={{ fontSize: 12, color: colors.text2, lineHeight: 18 }}>
+              💡 Le sais-tu ? Une simple pesée avant et après une longue sortie (à jeun de boisson au réveil) révèle ton taux de sudation réel : chaque kilo perdu ≈ 1 L de sueur. C&apos;est le meilleur moyen de savoir combien boire — sans rien saisir ici.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </Card>
+  )
+}
+
 export default function ActivityDetailScreen() {
   const { activityId } = useLocalSearchParams<{ activityId: string }>()
   const { session } = useAuth()
@@ -718,6 +840,10 @@ export default function ActivityDetailScreen() {
         <FcZonesCard hrData={hrData} fcMax={fcMax} />
         <SessionSummaryCard activity={activity} hrData={hrData} fcMax={fcMax} recentRuns={recent} structure={workoutStructure} />
         <RaceContextCard activity={activity} weather={mergeStravaTemp(activity.average_temp, weather)} />
+
+        {userId && activityId ? (
+          <NutritionLogCard activityId={activityId} userId={userId} movingTimeS={activity.moving_time ?? null} />
+        ) : null}
 
         {streams ? <StreamsSection streams={streams} /> : null}
         {streams ? <AthleteProfileCard streams={streams} /> : null}

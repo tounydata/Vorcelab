@@ -51,6 +51,18 @@ const MIN_CADENCE_MIN = 15 // ⇔ 4 prises/h max
 // Cibles conservatrices (à ajuster au ressenti / à la chaleur, non médicales).
 const HYDRATION_ML_PER_H = 500
 const SODIUM_MG_PER_H = 500
+// Bornes de sécurité pour un débit d'hydratation PERSONNEL appris (mL/h) : on ne
+// laisse pas une saisie aberrante piloter la stratégie (cf. hydrationHabits).
+const HYDRATION_MIN_ML_PER_H = 300
+const HYDRATION_MAX_ML_PER_H = 1200
+
+/** Débit d'hydratation à retenir : le débit PERSONNEL appris (borné) sinon le générique. */
+function resolveHydrationMlPerH(learned?: number | null): { value: number; personalized: boolean } {
+  if (learned != null && Number.isFinite(learned) && learned > 0) {
+    return { value: Math.round(Math.min(HYDRATION_MAX_ML_PER_H, Math.max(HYDRATION_MIN_ML_PER_H, learned))), personalized: true }
+  }
+  return { value: HYDRATION_ML_PER_H, personalized: false }
+}
 const DEFAULT_GEL_CARBS = 25 // repli quand l'athlète n'a pas renseigné de produit
 const STOP_FUEL_BEFORE_S = 300 // on ne planifie pas de prise dans les 5 dernières min
 
@@ -76,6 +88,8 @@ export interface NutritionIntakePlan {
   plannedCarbsTotal: number
   hydrationMlPerH: number
   sodiumMgPerH: number
+  /** Vrai si l'hydratation vient des habitudes APPRISES du coureur (et non du générique). */
+  hydrationPersonalized: boolean
   cadenceMin: number
   intakes: NutritionIntake[]
   /** Vrai si les produits ne permettent pas d'atteindre la cible (< 90 %). */
@@ -105,15 +119,19 @@ export function computeNutritionIntakes(
   avoidCaffeine = false,
   ravitos: RavitoLike[] = [],
   cadenceMin = DEFAULT_CADENCE_MIN,
+  /** Débit d'hydratation PERSONNEL appris (mL/h) — cf. hydrationHabits. null = générique. */
+  learnedHydrationMlPerH: number | null = null,
 ): NutritionIntakePlan {
   const dh = estTimeS / 3600
   const dk = distM / 1000
   const profile = CARBS_PROFILES[nutritionLevel] ?? CARBS_PROFILES.standard
+  const hydration = resolveHydrationMlPerH(learnedHydrationMlPerH)
 
   if (dh < 1.5 || estTimeS <= 0) {
     return {
       targetCarbsPerH: 0, totalCarbsTarget: 0, plannedCarbsTotal: 0,
-      hydrationMlPerH: dh > 0.75 ? HYDRATION_ML_PER_H : 0, sodiumMgPerH: dh > 0.75 ? SODIUM_MG_PER_H : 0,
+      hydrationMlPerH: dh > 0.75 ? hydration.value : 0, sodiumMgPerH: dh > 0.75 ? SODIUM_MG_PER_H : 0,
+      hydrationPersonalized: dh > 0.75 && hydration.personalized,
       cadenceMin, intakes: [], shortfall: false, tooShort: true,
     }
   }
@@ -200,7 +218,8 @@ export function computeNutritionIntakes(
 
   return {
     targetCarbsPerH, totalCarbsTarget, plannedCarbsTotal,
-    hydrationMlPerH: HYDRATION_ML_PER_H, sodiumMgPerH: SODIUM_MG_PER_H,
+    hydrationMlPerH: hydration.value, sodiumMgPerH: SODIUM_MG_PER_H,
+    hydrationPersonalized: hydration.personalized,
     cadenceMin, intakes, shortfall, tooShort: false,
   }
 }
@@ -218,8 +237,9 @@ export function computeNutritionPlan(
   avoidCaffeine = false,
   ravitos: RavitoLike[] = [],
   cadenceMin = DEFAULT_CADENCE_MIN,
+  learnedHydrationMlPerH: number | null = null,
 ): NutritionRow[] {
-  const plan = computeNutritionIntakes(distM, estTimeS, nutritionLevel, products, avoidCaffeine, ravitos, cadenceMin)
+  const plan = computeNutritionIntakes(distM, estTimeS, nutritionLevel, products, avoidCaffeine, ravitos, cadenceMin, learnedHydrationMlPerH)
   const dh = estTimeS / 3600
   const rows: NutritionRow[] = []
 
@@ -244,7 +264,9 @@ export function computeNutritionPlan(
     moment: 'Hydratation',
     action: `~${plan.hydrationMlPerH} ml/h + électrolytes`,
     glucides: `~${plan.sodiumMgPerH} mg/h sodium`,
-    note: 'Cible conservatrice — à ajuster à la chaleur et au ressenti',
+    note: plan.hydrationPersonalized
+      ? 'Basé sur TES ravitos loggés — à ajuster à la chaleur et au ressenti'
+      : 'Cible conservatrice — à ajuster à la chaleur et au ressenti',
   })
 
   if (plan.shortfall) {

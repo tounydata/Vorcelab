@@ -9,6 +9,7 @@ import { fetchRaceForecast, computeWeatherImpact } from '../lib/raceWeather'
 import type { ConditionPenalties } from '../lib/runnerProfile'
 import { computeNutritionPlan } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
+import { useHydrationHabits } from '../lib/useHydrationHabits'
 import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
 import type { RaceAnnotation } from '../lib/raceDebrief'
 import { linkRaceResult } from '../lib/linkRaceResult'
@@ -199,6 +200,8 @@ export default function RaceStrategyPage() {
   // ── Freemium gate : stratégie GPX limitée à 1 course sur le plan gratuit ──
   const { tier } = usePlanTier()
   const track = useTrackEvent()
+  // Habitudes de ravito apprises (mL/h, g/h) → personnalise la nutrition de course.
+  const hydrationHabits = useHydrationHabits()
   useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps
   // Activation (P0.3) : consultation du débrief post-course (par ouverture d'onglet).
   useEffect(() => { if (tab === 'resultat') track('race_debrief_viewed', { race_id: raceId ?? null }) }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -499,14 +502,21 @@ export default function RaceStrategyPage() {
   const _todayLocal = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
   const isPast = !!race.date && race.date.slice(0, 10) <= _todayLocal
 
+  // Profil glucidique : choix explicite du coureur (Réglages) prioritaire, sinon
+  // le profil SUGGÉRÉ par ses g/h réellement observés (habitudes), sinon défaut.
+  const nutritionLevel = (profileData?.nutrition_level as string | undefined)
+    ?? hydrationHabits.suggestedNutritionLevel
+    ?? undefined
   const nutritionRows = projection
     ? computeNutritionPlan(
         projection.totalDistM,
         projection.estTimeS,
-        profileData?.nutrition_level as string | undefined,
+        nutritionLevel,
         resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined),
         profileData?.nutrition_no_caffeine === true,
         ravitos, // fusionne les prises glucidiques avec les ravitaillements réels
+        undefined, // cadence par défaut
+        hydrationHabits.fluidMlPerH, // débit d'hydratation appris (mL/h) → personnalise la cible
       )
     : []
 

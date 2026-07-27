@@ -13,6 +13,7 @@ import { fetchRaceForecast, computeWeatherImpact } from '@/lib/raceWeather'
 import type { ConditionPenalties } from '@/lib/runnerProfile'
 import { computeNutritionPlan } from '@/lib/nutritionPlan'
 import { resolveNutritionProducts } from '@/lib/nutritionProducts'
+import { useHydrationHabits } from '@/lib/useHydrationHabits'
 import { extractGpxWaypointsRegex, parseGpxTrackPoints, type RavitoPoint, type UnclassifiedWaypoint } from '@/lib/crewPlan'
 import type { RaceAnnotation } from '@/lib/raceDebrief'
 import { getAthleteLabel } from '@/lib/athleteLabel'
@@ -99,6 +100,8 @@ export default function RaceStrategyScreen() {
   // PAR LA BASE — trigger race_calendar, audit P0.4 — ceci est l'UX.)
   const { tier } = usePlanTier()
   const track = useTrackEvent()
+  // Habitudes de ravito apprises (mL/h, g/h) → personnalise la nutrition de course.
+  const hydrationHabits = useHydrationHabits()
   useEffect(() => { if (raceId) track('strategy_viewed', { race_id: raceId, platform: 'mobile' }) }, [raceId]) // eslint-disable-line react-hooks/exhaustive-deps -- event vue stratégie émis à chaque changement de course uniquement (track stable)
   // Activation (P0.3) : consultation du débrief post-course (par ouverture d'onglet). Parité web.
   useEffect(() => { if (tab === 'resultat') track('race_debrief_viewed', { race_id: raceId ?? null, platform: 'mobile' }) }, [tab, raceId, track])
@@ -271,8 +274,10 @@ export default function RaceStrategyScreen() {
   const now = new Date()
   const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const isPast = !!race.date && race.date.slice(0, 10) <= todayLocal
+  // Profil glucidique : choix explicite (Réglages) sinon profil suggéré par les g/h observés.
+  const nutritionLevel = (profileData?.nutrition_level as string | undefined) ?? hydrationHabits.suggestedNutritionLevel ?? undefined
   const nutritionRows = projection
-    ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, profileData?.nutrition_level as string | undefined, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true, ravitos)
+    ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, nutritionLevel, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true, ravitos, undefined, hydrationHabits.fluidMlPerH)
     : []
 
 
