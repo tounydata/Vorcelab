@@ -105,24 +105,27 @@ const longTrainingRun: Record<string, unknown> = {
   is_race: false,
 }
 
-// Athlète A : l'allure plat-équivalente se DÉGRADE avec la durée (350 → 490 s/km).
+// Athlète A : l'allure plat-équivalente se DÉGRADE avec la durée (358 → 488 s/km).
 // Vitesses choisies pour que la MOYENNE PONDÉRÉE de son allure plat-équivalente égale
-// celle du témoin B — seule la FORME (décroissance vs constante) diffère. Toute
-// différence de projection est donc imputable à la seule extrapolation en durée, et
-// non à un athlète globalement plus lent que l'autre.
+// EXACTEMENT celle du témoin B — seule la FORME (décroissance vs constante) diffère.
+// Toute différence de projection est donc imputable à la seule extrapolation en durée,
+// et non à un athlète globalement plus lent que l'autre.
+// 4 courses : c'est le minimum d'identifiabilité exigé par la calibration de durée.
 const decaying = [
-  race(30, 10000, DPKM, 2.395),
-  race(60, 16000, DPKM, 2.037),
-  race(90, 24000, DPKM, 1.710),
+  race(30, 10000, DPKM, 2.2716),
+  race(60, 16000, DPKM, 2.0432),
+  race(45, 20000, DPKM, 1.8998),
+  race(90, 24000, DPKM, 1.6661),
   longTrainingRun,
 ]
 
 // Athlète B (témoin) : mêmes distances, mêmes pentes, allure CONSTANTE (420 s/km
 // plat-équivalent — la moyenne pondérée de A).
 const flatPaced = [
-  race(30, 10000, DPKM, 1.996),
-  race(60, 16000, DPKM, 1.996),
-  race(90, 24000, DPKM, 1.996),
+  race(30, 10000, DPKM, 1.9347),
+  race(60, 16000, DPKM, 1.9347),
+  race(45, 20000, DPKM, 1.9347),
+  race(90, 24000, DPKM, 1.9347),
   longTrainingRun,
 ]
 
@@ -151,7 +154,7 @@ describe('ancrage conscient de la durée', () => {
     const a = computeRaceProjection(course, decaying, profile, raceMeta, null, ctx)
     expect(a.duration_calibration_exponent!).toBeGreaterThan(0)
     expect(a.duration_calibration_exponent!).toBeLessThanOrEqual(0.15)
-    expect(a.duration_calibration_race_count).toBe(3)
+    expect(a.duration_calibration_race_count).toBe(4)
   })
 
   it('4. le libellé d’explicabilité nomme l’axe durée', () => {
@@ -160,10 +163,26 @@ describe('ancrage conscient de la durée', () => {
     expect(labels.some((l) => l.startsWith('Calé sur tes courses') && l.includes('durée'))).toBe(true)
   })
 
-  it('5. moins de 3 courses → axe durée inerte (aucune régression de comportement)', () => {
-    const a = computeRaceProjection(course, [...decaying.slice(0, 2), longTrainingRun], profile, raceMeta, null, ctx)
+  it('5. moins de 4 courses → axe durée inerte (identifiabilité insuffisante)', () => {
+    const a = computeRaceProjection(course, [...decaying.slice(0, 3), longTrainingRun], profile, raceMeta, null, ctx)
     expect(a.duration_calibration_active).toBe(false)
     expect(a.duration_calibration_reason).toBe('not_enough_races')
+  })
+
+  it('5bis. durée corrélée à la pente → axe durée inerte (non identifiable)', () => {
+    // Les courses les plus longues sont aussi les plus raides : impossible de dire
+    // lequel des deux ralentit. Le moteur doit s'abstenir plutôt que sur-corriger.
+    const confounded = [
+      race(30, 10000, 20, 2.2716),
+      race(60, 16000, 30, 2.0432),
+      race(45, 20000, 40, 1.8998),
+      race(90, 24000, 55, 1.6661),
+      longTrainingRun,
+    ]
+    const a = computeRaceProjection(course, confounded, profile, raceMeta, null, ctx)
+    expect(a.duration_calibration_collinearity!).toBeGreaterThan(0.5)
+    expect(a.duration_calibration_active).toBe(false)
+    expect(a.duration_calibration_reason).toBe('collinear_with_steepness')
   })
 
   it('6. sur une course COURTE (dans le vécu), l’axe durée ne ralentit pas', () => {

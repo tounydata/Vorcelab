@@ -32,6 +32,9 @@ export interface DurationCalibrationPoint {
   flatEquivalentPaceS: number
   /** Poids (récence × similarité de distance). > 0. */
   weight: number
+  /** D+/km de la course — sert UNIQUEMENT au test d'identifiabilité (colinéarité
+   *  durée ↔ pente). Absent → le test est ignoré (compatibilité ascendante). */
+  dplusPerKm?: number
 }
 
 export interface DurationCalibrationResult {
@@ -49,18 +52,38 @@ export interface DurationCalibrationResult {
   spreadRatio: number
   /** Rapport durée cible / durée de la plus longue course (> 1 = extrapolation). */
   extrapolationRatio: number
+  /** Corrélation |r| entre ln(durée) et D+/km sur les courses (null si D+/km absent).
+   *  Élevée = les deux axes varient ensemble → la régression ne peut pas les séparer. */
+  steepnessCollinearity: number | null
   /** Nombre de courses fournies. */
   sampleCount: number
-  reason: 'active' | 'not_enough_races' | 'insufficient_spread' | 'invalid_regression'
+  reason:
+    | 'active'
+    | 'not_enough_races'
+    | 'insufficient_spread'
+    | 'invalid_regression'
+    | 'collinear_with_steepness'
 }
 
 export interface DurationCalibrationOptions {
   /** Durée visée pour la course à projeter (s). */
   targetDurationS: number
-  /** Nombre minimum de courses pour activer (défaut 3). */
+  /** Nombre minimum de courses pour activer (défaut 4).
+   *  À 3 points pour 2 paramètres il ne reste qu'un degré de liberté : la droite passe
+   *  quasiment par les données quoi qu'il arrive, et un seul effort long atypique
+   *  (course de nuit, mauvais jour) dicte toute la pente. */
   minRaces?: number
   /** Étalement minimal de durée, la plus longue / la plus courte (défaut 1.5). */
   minSpreadRatio?: number
+  /** Colinéarité maximale tolérée entre ln(durée) et D+/km (défaut 0.5).
+   *  Au-delà, durée et pente varient ensemble sur les courses de l'athlète : la
+   *  régression attribue à la DURÉE ce qui vient peut-être de la PENTE. On préfère
+   *  s'abstenir plutôt que de sur-corriger sur une attribution non identifiable. */
+  maxCollinearity?: number
+  /** Extrapolation maximale de DURÉE : la durée cible est plafonnée à ce multiple de
+   *  la plus longue course (défaut 1.25). Empêche l'exposant de composer très au-delà
+   *  du vécu — c'est là que l'erreur d'une régression courte explose. */
+  maxDurationExtrapolation?: number
   /** Exposant d'endurance maximal retenu (défaut 0.15). Borne haute PRUDENTE :
    *  une régression sur 3 points peut sortir un k très raide (0,20+) qui extrapolerait
    *  de façon absurde. 0,15 reste au-dessus de Riegel (0,06) sans partir en vrille. */
@@ -79,10 +102,12 @@ export function computePersonalDurationCalibration(
   points: DurationCalibrationPoint[],
   options: DurationCalibrationOptions,
 ): DurationCalibrationResult {
-  const minRaces = options.minRaces ?? 3
+  const minRaces = options.minRaces ?? 4
   const minSpreadRatio = options.minSpreadRatio ?? 1.5
   const maxExponent = options.maxExponent ?? 0.15
   const maxExtrap = options.maxExtrapolationRatio ?? 1.3
+  const maxCollinearity = options.maxCollinearity ?? 0.5
+  const maxDurationExtrap = options.maxDurationExtrapolation ?? 1.25
   const n = points.length
 
   // On n'accepte que des points exploitables (durée et allure strictement positives :
@@ -105,6 +130,25 @@ export function computePersonalDurationCalibration(
   const spreadRatio = minDur > 0 ? maxDur / minDur : 0
   const extrapolationRatio = maxDur > 0 ? options.targetDurationS / maxDur : 0
 
+  // Colinéarité pondérée |r| entre ln(durée) et D+/km : test d'IDENTIFIABILITÉ.
+  // Si les deux varient ensemble sur les courses de l'athlète, aucune régression à une
+  // variable ne peut dire lequel des deux ralentit — et attribuer par défaut à la durée
+  // sur-corrige (la pente est déjà traitée par `steepnessCalibration`).
+  const withSteepness = usable.filter((p) => typeof p.dplusPerKm === 'number' && Number.isFinite(p.dplusPerKm))
+  let steepnessCollinearity: number | null = null
+  if (withSteepness.length === usable.length && usable.length >= 2) {
+    const w = withSteepness.reduce((s, p) => s + p.weight, 0)
+    const mx = withSteepness.reduce((s, p) => s + p.weight * Math.log(p.durationS), 0) / w
+    const my = withSteepness.reduce((s, p) => s + p.weight * (p.dplusPerKm as number), 0) / w
+    let cxy = 0, cxx = 0, cyy = 0
+    for (const p of withSteepness) {
+      const dx = Math.log(p.durationS) - mx
+      const dy = (p.dplusPerKm as number) - my
+      cxy += p.weight * dx * dy; cxx += p.weight * dx * dx; cyy += p.weight * dy * dy
+    }
+    steepnessCollinearity = cxx > 0 && cyy > 0 ? Math.abs(cxy / Math.sqrt(cxx * cyy)) : null
+  }
+
   const inactive = (reason: DurationCalibrationResult['reason']): DurationCalibrationResult => ({
     active: false,
     predictedFlatEquivalentPaceS: reference,
@@ -113,6 +157,7 @@ export function computePersonalDurationCalibration(
     rawExponent: null,
     spreadRatio,
     extrapolationRatio,
+    steepnessCollinearity,
     sampleCount: n,
     reason,
   })
@@ -120,6 +165,8 @@ export function computePersonalDurationCalibration(
   if (usable.length < minRaces || den <= 0 || reference == null) return inactive('not_enough_races')
   if (spreadRatio < minSpreadRatio) return inactive('insufficient_spread')
   if (!(options.targetDurationS > 0)) return inactive('invalid_regression')
+  if (steepnessCollinearity != null && steepnessCollinearity > maxCollinearity)
+    return inactive('collinear_with_steepness')
 
   // Régression pondérée en log-log : ln(allure) = ln(a) + k · ln(T).
   const xbar = usable.reduce((s, p) => s + p.weight * Math.log(p.durationS), 0) / den
@@ -138,9 +185,13 @@ export function computePersonalDurationCalibration(
   // laisse JAMAIS la calibration accélérer (cf. en-tête). k trop grand = sur-ajustement
   // sur 3 points → plafonné.
   const exponent = Math.min(maxExponent, Math.max(0, rawExponent))
+  // Extrapolation de DURÉE bornée : au-delà de `maxDurationExtrapolation × ta plus
+  // longue course`, on gèle la durée servant à la prédiction. La régression continue
+  // de décrire ton domaine vécu, elle n'invente pas ce qui se passe très au-delà.
+  const cappedTargetS = Math.min(options.targetDurationS, maxDur * maxDurationExtrap)
   // La droite passe par le centroïde pondéré (préserve la moyenne) : on ne réestime
   // pas l'ordonnée à l'origine après bornage, on pivote autour du centroïde.
-  const rawPredicted = Math.exp(ybar + exponent * (Math.log(options.targetDurationS) - xbar))
+  const rawPredicted = Math.exp(ybar + exponent * (Math.log(cappedTargetS) - xbar))
 
   const maxObs = Math.max(...usable.map((p) => p.flatEquivalentPaceS))
   // Ralentissement seul (plancher = moyenne) + plafond d'extrapolation.
@@ -155,6 +206,7 @@ export function computePersonalDurationCalibration(
     rawExponent,
     spreadRatio,
     extrapolationRatio,
+    steepnessCollinearity,
     sampleCount: n,
     reason: 'active',
   }

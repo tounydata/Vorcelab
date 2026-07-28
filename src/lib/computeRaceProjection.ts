@@ -20,6 +20,13 @@ import { fitFadeExponent } from './fadeModel'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
+// ── Correction de dispersion du facteur de pente (cf. `meanGradeFactor`) ─────────
+// Pente du terme linéaire, ajustée par moindres carrés sur l'écart mesuré entre
+// l'intégration de Minetti sur des profils GPS RÉELS (pas à 50 m) et l'approximation
+// à pente uniforme. Bornée : au-delà, on n'a plus de mesure pour étayer.
+const DISPERSION_PER_DPKM = 0.00102
+const DISPERSION_MAX = 0.05
+
 /**
  * Contexte temporel de la projection. `asOfMs` = date de référence (« horloge »)
  * à laquelle le moteur se replace : récence des entraînements, fenêtres 7 j / 42 j,
@@ -134,6 +141,8 @@ export interface ProjectionResult {
   duration_calibration_spread_ratio: number
   /** Durée visée / durée de ta plus longue course (> 1 = extrapolation). */
   duration_calibration_extrapolation_ratio: number
+  /** |r| entre ln(durée) et D+/km sur les courses d'ancrage (test d'identifiabilité). */
+  duration_calibration_collinearity: number | null
   /** Nombre de compétitions confirmées ayant alimenté la calibration de durée. */
   duration_calibration_race_count: number
   /** Code d'état de la calibration de durée (cf. DurationCalibrationResult.reason). */
@@ -445,7 +454,20 @@ export function computeRaceProjection(
     // Boucle : ~moitié en montée +g, moitié en descente −g, g ≈ (D+/km)/500.
     const g = Math.min(0.45, Math.max(0, dpkm / 500))
     if (g === 0) return 1
-    return 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
+    const uniform = 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
+    // ── Correction de DISPERSION (inégalité de Jensen) ──────────────────────────
+    // Le calcul ci-dessus suppose une pente UNIFORME. Un vrai parcours a une
+    // DISTRIBUTION de pentes, et le coût de Minetti est convexe : le coût moyen d'un
+    // profil réel est donc supérieur au coût de sa pente moyenne. En intégrant Minetti
+    // sur les profils GPS réels (pas à 50 m), l'écart mesuré croît avec le D+/km :
+    //   3 m/km → +0,9 % · 22 → +1,8 % · 36 → +3,7 % · 41 → +4,6 % · 47 → +4,6 %
+    // Sans cette correction, une course RAIDE paraît plus lente qu'elle ne l'est en
+    // allure « plat-équivalente » (le facteur qui la neutralise est sous-estimé), ce
+    // qui fausse l'ancrage dès que la pente des courses diffère de celle de la cible.
+    // Terme linéaire borné, appliqué des DEUX côtés (courses passées ET course visée)
+    // pour rester cohérent. Calibration : profils réels intégrés, cf. tests.
+    const dispersion = Math.min(DISPERSION_MAX, DISPERSION_PER_DPKM * dpkm)
+    return uniform * (1 + dispersion)
   }
   // Une activité ne nourrit le FIC, l'ancrage et la calibration de pente que si c'est
   // une COMPÉTITION CONFIRMÉE (mêmes règles que le banc : running/trail, étiquetée course,
@@ -991,6 +1013,7 @@ export function computeRaceProjection(
           durationS: p.durationS,
           flatEquivalentPaceS: p.flatPaceS,
           weight: p.w,
+          dplusPerKm: p.dpkm, // test d'identifiabilité durée ↔ pente
         }))
         let targetDurationS = estTimeS
         let calib = 1
@@ -1233,6 +1256,7 @@ export function computeRaceProjection(
     duration_calibration_extrapolation_ratio: durationCalibration
       ? +durationCalibration.extrapolationRatio.toFixed(2)
       : 0,
+    duration_calibration_collinearity: durationCalibration?.steepnessCollinearity ?? null,
     duration_calibration_race_count: durationCalibration?.sampleCount ?? 0,
     duration_calibration_reason: durationCalibration?.reason ?? 'not_enough_races',
     used_stream_best_efforts: false, // records auto non utilisés pour l'allure (cf. benchmark)
