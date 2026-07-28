@@ -7,6 +7,7 @@ import { useVLStore } from '../store/vlStore'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import StatsTab from '../components/admin/StatsTab'
+import EngineAccuracyCard from '../components/admin/EngineAccuracyCard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -478,7 +479,7 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {tab === 'stats' && <StatsTab />}
+      {tab === 'stats' && <><EngineAccuracyCard /><StatsTab /></>}
 
       {tab === 'users' && <>
       {/* Accès rapide : passer tous les utilisateurs en test */}
