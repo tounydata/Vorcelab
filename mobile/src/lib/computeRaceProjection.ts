@@ -13,6 +13,7 @@ import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
+import { computePersonalDurationCalibration, type DurationCalibrationResult } from './durationCalibration'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
 import { assessBestEffortQuality, type MergedBestEffort } from './bestEfforts'
 import { fitFadeExponent } from './fadeModel'
@@ -39,6 +40,18 @@ export interface ProjectionTimeContext {
    * le banc gère son propre lissage avec recalage Strava en amont).
    */
   smoothElevation?: boolean
+  /**
+   * D+ OFFICIEL déclaré (m) — règlement de la course / saisie de l'athlète. Quand il
+   * est fourni ET que `smoothElevation` est actif, le profil lissé est recalé
+   * proportionnellement dessus (la distance n'est JAMAIS modifiée).
+   *
+   * Pourquoi : le moteur intègre l'altimétrie point à point du GPX, or un GPX
+   * d'organisateur sous-estime couramment le D+ annoncé (échantillonnage grossier,
+   * altitude lissée à la source). Le parcours projeté était alors plus plat que le
+   * vrai — donc la projection trop rapide. Absent/incohérent → aucun recalage
+   * (comportement inchangé).
+   */
+  targetElevationGainM?: number | null
 }
 
 export interface Section {
@@ -111,6 +124,20 @@ export interface ProjectionResult {
   steepness_calibration_spread_dplus_per_km: number
   /** Code d'état de la calibration de pente (cf. SteepnessCalibrationResult.reason). */
   steepness_calibration_reason: SteepnessCalibrationResult['reason']
+  /** Calibration de DURÉE personnelle réellement appliquée (ralentissement). */
+  duration_calibration_active: boolean
+  /** Exposant d'endurance personnel appliqué (allure = a·T^k), après bornage. */
+  duration_calibration_exponent: number | null
+  /** Exposant BRUT de la régression, avant bornage (diagnostic). */
+  duration_calibration_raw_exponent: number | null
+  /** Étalement de durée des courses retenues (la plus longue / la plus courte). */
+  duration_calibration_spread_ratio: number
+  /** Durée visée / durée de ta plus longue course (> 1 = extrapolation). */
+  duration_calibration_extrapolation_ratio: number
+  /** Nombre de compétitions confirmées ayant alimenté la calibration de durée. */
+  duration_calibration_race_count: number
+  /** Code d'état de la calibration de durée (cf. DurationCalibrationResult.reason). */
+  duration_calibration_reason: DurationCalibrationResult['reason']
   /** Vrai si l'allure s'est appuyée sur des records AUTO détectés depuis les streams
    *  (toutes sorties), et non seulement sur des courses étiquetées / PR manuels. */
   used_stream_best_efforts: boolean
@@ -151,9 +178,14 @@ export function computeRaceProjection(
   const asOfMs = ctx?.asOfMs
 
   // Nettoyage altimétrique optionnel (production) : écrase le bruit baro/GPS qui
-  // gonfle le D+. Sans cible Strava ici (GPX importé) → lissage seul, pas de recalage.
+  // gonfle le D+. Si le D+ OFFICIEL est connu (règlement/saisie), on recale le profil
+  // lissé dessus — un GPX d'organisateur sous-estime couramment le D+ annoncé, et le
+  // moteur projetait alors un parcours plus plat que le vrai. Sinon : lissage seul.
   if (ctx?.smoothElevation) {
-    points = smoothElevationProfile({ points }).points
+    points = smoothElevationProfile({
+      points,
+      targetElevationGainM: ctx.targetElevationGainM ?? null,
+    }).points
   }
   // Replis génériques réellement mobilisés (renseigné au fil du calcul).
   const fallbackSources: string[] = []
@@ -472,6 +504,8 @@ export function computeRaceProjection(
   const personalAdjustments: { label: string; detail: string; color: string }[] = []
   // Calibration de pente PERSONNELLE (renseignée dans le bloc d'ancrage ci-dessous).
   let steepnessCalibration: SteepnessCalibrationResult | null = null
+  // Calibration de DURÉE PERSONNELLE (idem — décroissance d'allure avec la durée).
+  let durationCalibration: DurationCalibrationResult | null = null
   if (rif.pct > 0) personalAdjustments.push({
     label: `Allure de course : +${rif.pct}%`,
     detail: 'calée sur tes courses étiquetées (vs allure d\'entraînement)',
@@ -908,7 +942,7 @@ export function computeRaceProjection(
     // constante quelle que soit la pente. Si elle DÉRIVE avec le D+/km sur tes courses,
     // c'est TON écart personnel à Minetti (tu encaisses plus/moins la pente que la
     // moyenne). On l'apprend par régression et on l'applique à la pente de LA course.
-    const pts: { dpkm: number; flatPaceS: number; w: number }[] = []
+    const pts: { dpkm: number; flatPaceS: number; w: number; durationS: number }[] = []
     for (const a of anchorPool) {
       const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
       const flatPaceS = (1000 / (a.average_speed as number)) / meanGradeFactor(dpkm)
@@ -918,7 +952,9 @@ export function computeRaceProjection(
       const sim = 1 - Math.min(1, Math.abs(dist - totalDistM) / Math.max(totalDistM, dist)) // 1 = même distance
       const w = wRec * (0.4 + 0.6 * sim)
       num += flatPaceS * w; den += w
-      pts.push({ dpkm, flatPaceS, w })
+      // Durée réelle de la course : axe de la calibration de DURÉE (cf. plus bas).
+      const durationS = (a.moving_time as number) || 0
+      pts.push({ dpkm, flatPaceS, w, durationS })
     }
     if (den > 0) {
       const wAvgFlatPaceS = num / den
@@ -934,25 +970,68 @@ export function computeRaceProjection(
         pts.map((p) => ({ dplusPerKm: p.dpkm, flatEquivalentPaceS: p.flatPaceS, weight: p.w })),
         { targetDplusPerKm: raceDpKm2 },
       )
-      const demoFlatPaceS = steepnessCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
+      const steepFlatPaceS = steepnessCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
       const slopeApplied = steepnessCalibration.active
 
       // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
       const trust = n >= 3 ? 0.9 : n === 2 ? 0.7 : 0.45
       const projFlatPaceS = (estTimeS / (totalDistM / 1000)) / meanGradeFactor(raceDpKm2)
       if (projFlatPaceS > 0) {
-        const targetFlat = projFlatPaceS * (1 - trust) + demoFlatPaceS * trust
-        // Ralentissement seul (≥1) : ne double pas l'accélération du FIC. Plafonné +50 %.
-        const calib = Math.min(1.5, Math.max(1.0, targetFlat / projFlatPaceS))
+        // ── Calibration de DURÉE (fonction PURE, testable) ───────────────────────
+        // La moyenne pondérée ci-dessus écrase l'axe DURÉE : elle mélange une course
+        // d'1 h et une de 3 h, puis applique le résultat à une course plus longue
+        // encore. Or l'allure soutenable se dégrade avec la durée → projection
+        // systématiquement optimiste sur les formats longs. On régresse donc
+        // `allure_plat ~ durée` (log-log) sur TES courses et on prédit à la durée visée.
+        //
+        // Point fixe : la durée visée dépend de l'allure prédite, qui dépend de la
+        // durée visée. La boucle converge vite (l'exposant est borné ≤ 0,15 → facteur
+        // de contraction < 1) ; on part de la projection courante.
+        const durationPoints = pts.map((p) => ({
+          durationS: p.durationS,
+          flatEquivalentPaceS: p.flatPaceS,
+          weight: p.w,
+        }))
+        let targetDurationS = estTimeS
+        let calib = 1
+        for (let it = 0; it < 12; it++) {
+          durationCalibration = computePersonalDurationCalibration(durationPoints, { targetDurationS })
+          const durFlatPaceS = durationCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
+          // Composition PRUDENTE des deux calibrations : chacune ne sait RALENTIR, et
+          // elles décrivent deux axes distincts (pente / durée) appris sur les MÊMES
+          // 3-4 courses. Les multiplier reviendrait à compter deux fois un effet déjà
+          // partagé (une course longue est souvent aussi la plus raide) et à
+          // sur-ajuster. On retient donc la contrainte LA PLUS LENTE, pas leur produit.
+          const demoFlatPaceS = Math.max(steepFlatPaceS, durFlatPaceS)
+          const targetFlat = projFlatPaceS * (1 - trust) + demoFlatPaceS * trust
+          // Ralentissement seul (≥1) : ne double pas l'accélération du FIC. Plafonné +50 %.
+          const next = Math.min(1.5, Math.max(1.0, targetFlat / projFlatPaceS))
+          const converged = Math.abs(next - calib) < 1e-4
+          calib = next
+          targetDurationS = estTimeS * calib
+          if (converged) break
+        }
+        const durationApplied = durationCalibration?.active ?? false
         estTimeS *= calib
         const pct = Math.round((calib - 1) * 100)
-        if (pct >= 1) personalAdjustments.push({
-          label: slopeApplied ? `Calé sur tes courses (pente) : +${pct}%` : `Calé sur tes courses : +${pct}%`,
-          detail: slopeApplied
-            ? 'Projection ramenée à ton allure réelle, en tenant compte de ta sensibilité PERSONNELLE à la pente apprise sur tes courses (au-delà de Minetti) — s\'affine à chaque nouvelle course.'
-            : 'Projection ramenée à l\'allure plat-équivalente de tes courses réelles (Minetti neutralise le D+ de chacune) — corrige un excès d\'optimisme.',
-          color: 'var(--vl-ember)',
-        })
+        if (pct >= 1) {
+          // Le libellé nomme l'axe RÉELLEMENT déterminant (durée, pente, ou les deux) :
+          // on n'annonce jamais une correction « pente » quand c'est la durée qui mord.
+          const axis = durationApplied && slopeApplied ? 'durée + pente'
+            : durationApplied ? 'durée'
+            : slopeApplied ? 'pente'
+            : null
+          const detail = durationApplied
+            ? `Projection ramenée à ton allure réelle : sur tes courses, ton allure plat-équivalente se dégrade quand l'effort s'allonge${slopeApplied ? ', et tu encaisses la pente moins bien que la moyenne' : ''} — extrapolé à la durée visée (s'affine à chaque nouvelle course).`
+            : slopeApplied
+              ? 'Projection ramenée à ton allure réelle, en tenant compte de ta sensibilité PERSONNELLE à la pente apprise sur tes courses (au-delà de Minetti) — s\'affine à chaque nouvelle course.'
+              : 'Projection ramenée à l\'allure plat-équivalente de tes courses réelles (Minetti neutralise le D+ de chacune) — corrige un excès d\'optimisme.'
+          personalAdjustments.push({
+            label: axis ? `Calé sur tes courses (${axis}) : +${pct}%` : `Calé sur tes courses : +${pct}%`,
+            detail,
+            color: 'var(--vl-ember)',
+          })
+        }
       }
     }
   }
@@ -1145,6 +1224,17 @@ export function computeRaceProjection(
       ? +steepnessCalibration.spread.toFixed(1)
       : 0,
     steepness_calibration_reason: steepnessCalibration?.reason ?? 'not_enough_races',
+    duration_calibration_active: durationCalibration?.active ?? false,
+    duration_calibration_exponent: durationCalibration?.exponent ?? null,
+    duration_calibration_raw_exponent: durationCalibration?.rawExponent ?? null,
+    duration_calibration_spread_ratio: durationCalibration
+      ? +durationCalibration.spreadRatio.toFixed(2)
+      : 0,
+    duration_calibration_extrapolation_ratio: durationCalibration
+      ? +durationCalibration.extrapolationRatio.toFixed(2)
+      : 0,
+    duration_calibration_race_count: durationCalibration?.sampleCount ?? 0,
+    duration_calibration_reason: durationCalibration?.reason ?? 'not_enough_races',
     used_stream_best_efforts: false, // records auto non utilisés pour l'allure (cf. benchmark)
     used_personal_fade: usePersonalFade,
     personal_fade_exponent: usePersonalFade ? personalFade.exponent : null,

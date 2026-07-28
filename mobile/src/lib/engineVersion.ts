@@ -23,8 +23,18 @@
  *  appris sur la courbe de meilleures perfs (records auto détectés depuis les streams,
  *  désormais calculés par le profil). Gain mesuré au banc sur le trail long
  *  (MAPE 8.8→8.2 %) sans régression route. Les records auto NE pilotent PAS l'allure
- *  (le banc a montré que ça dégrade) — ils servent la durabilité et l'affichage. */
-export const ENGINE_VERSION = '2026.07-7'
+ *  (le banc a montré que ça dégrade) — ils servent la durabilité et l'affichage.
+ *  2026.07-8 : (1) CALIBRATION DE DURÉE personnelle — l'ancrage ne ramène plus la
+ *  projection à la MOYENNE pondérée de l'allure plat-équivalente des courses (qui
+ *  écrasait l'axe durée : allure d'un format court appliquée à un format long), mais
+ *  à une régression log-log `allure ~ durée` extrapolée à la durée visée. Exposant
+ *  personnel borné [0 ; 0,15], ralentissement seul, composé avec la calibration de
+ *  pente par la contrainte LA PLUS LENTE (jamais le produit — mêmes courses sources).
+ *  (2) Le D+ OFFICIEL déclaré recale désormais le profil GPX lissé en production
+ *  (`targetElevationGainM`) : un GPX d'organisateur sous-estime couramment le D+ du
+ *  règlement, et le moteur projetait un parcours plus plat que le vrai.
+ *  Les deux corrections RALENTISSENT les projections longues/verticales. */
+export const ENGINE_VERSION = '2026.07-8'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

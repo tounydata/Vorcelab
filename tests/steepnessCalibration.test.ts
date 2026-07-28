@@ -41,8 +41,14 @@ describe('calibration de pente individuelle', () => {
       labeledTrail(90, 13000, 50, 1.7),
     ]
     const proj = computeRaceProjection(steepTrail(), steepSensitive, profile, race, null, { asOfMs: now })
+    // Assertion STRUCTURÉE (indépendante du libellé) : c'est bien l'axe pente qui s'active.
+    expect(proj.steepness_calibration_active).toBe(true)
     const labels = proj.personalAdjustments.map((a) => a.label)
-    expect(labels.some((l) => l.startsWith('Calé sur tes courses (pente)'))).toBe(true)
+    // Le libellé nomme les axes réellement actifs. Ici les courses sont d'autant plus
+    // longues qu'elles sont raides (vitesse décroissante à distance ~constante) : l'axe
+    // durée s'active aussi, d'où « (durée + pente) ». On exige la mention de la pente,
+    // pas une forme exacte.
+    expect(labels.some((l) => l.startsWith('Calé sur tes courses') && l.includes('pente'))).toBe(true)
   })
 
   it('reste NEUTRE (pas de terme de pente) sans étalement de pente suffisant', () => {
