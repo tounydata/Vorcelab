@@ -1,8 +1,15 @@
 import { defineConfig } from 'vitest/config'
+import { readFileSync } from 'node:fs'
+
+// Version applicative : UNE seule source de vérité (package.json), injectée à la
+// compilation. Sert aussi de repère visible pour savoir si un utilisateur tourne
+// encore sur un ancien bundle (cf. src/lib/swUpdate.ts).
+const pkgVersion = JSON.parse(readFileSync('./package.json', 'utf-8')).version as string
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
   plugins: [
     react(),
     VitePWA({

@@ -1,4 +1,8 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
+
+/** Version applicative, injectée à la compilation depuis package.json. */
+declare const __APP_VERSION__: string
 
 interface ImportMetaEnv {
   /** Client ID public de l'app Strava (OAuth). Défini à la compilation. */
