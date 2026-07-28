@@ -33,8 +33,22 @@
  *  (2) Le D+ OFFICIEL déclaré recale désormais le profil GPX lissé en production
  *  (`targetElevationGainM`) : un GPX d'organisateur sous-estime couramment le D+ du
  *  règlement, et le moteur projetait un parcours plus plat que le vrai.
- *  Les deux corrections RALENTISSENT les projections longues/verticales. */
-export const ENGINE_VERSION = '2026.07-8'
+ *  Les deux corrections RALENTISSENT les projections longues/verticales.
+ *  2026.07-9 : correctif de la SUR-correction introduite en -8, sur preuve terrain
+ *  (classement réel d'une course : la projection -8 tombait au 85e centile pour un
+ *  athlète médian).
+ *  (1) IDENTIFIABILITÉ de la calibration de durée : elle exige désormais ≥ 4 courses
+ *  (au lieu de 3 — à 3 points pour 2 paramètres, un seul effort long atypique dicte
+ *  toute la pente) et une colinéarité |r(ln durée, D+/km)| ≤ 0,5. Quand durée et pente
+ *  varient ensemble sur les courses de l'athlète, aucune régression à une variable ne
+ *  peut les séparer : le moteur s'abstient au lieu d'attribuer par défaut à la durée.
+ *  L'extrapolation de durée est en outre plafonnée à 1,25 × la plus longue course.
+ *  (2) Facteur de pente : correction de DISPERSION (inégalité de Jensen). L'ancien
+ *  calcul supposait une pente uniforme ; le coût de Minetti étant convexe, il
+ *  sous-estimait le coût d'un profil réel — d'autant plus que le terrain est raide
+ *  (+0,9 % à 3 m/km, +4,6 % à 47 m/km, mesuré en intégrant Minetti sur des profils GPS
+ *  réels pas à 50 m). Appliquée des DEUX côtés (courses passées et course visée). */
+export const ENGINE_VERSION = '2026.07-9'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses
