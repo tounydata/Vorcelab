@@ -2,7 +2,7 @@ import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
-import { isSupportSessionWindow } from './lib/supportSession'
+import { isSupportSessionWindow, readSupportSessionMeta } from './lib/supportSession'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
 import BrandedLoader from './components/BrandedLoader'
@@ -143,9 +143,17 @@ export default function App() {
       setUser(session?.user ?? null)
     })
 
-    // Retour OAuth Strava (?code=…) : échange le code puis recharge l'app connectée.
-    if (!SUPPORT_WINDOW) handleStravaRedirect().then((res) => {
+    // Retour OAuth Strava (?code=…) : y compris dans la fenêtre d'assistance.
+    // Le supportSessionId permet au serveur de stocker le scope et sa preuve
+    // d'audit atomiquement pour la bonne cible.
+    const supportSessionId = SUPPORT_WINDOW ? readSupportSessionMeta()?.id : undefined
+    handleStravaRedirect({ supportSessionId }).then((res) => {
       if (res === 'connected') {
+        if (SUPPORT_WINDOW) {
+          try { sessionStorage.removeItem('vl-strava-auth-result') } catch { /* ignore */ }
+          window.location.reload()
+          return
+        }
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user) {
             supabase.from('user_events')
@@ -158,6 +166,7 @@ export default function App() {
       } else if (res === 'error' || res === 'denied' || res === 'missing_scope') {
         // Échec du retour Strava : on le signale sur l'écran de connexion au lieu du silence.
         try { sessionStorage.setItem('vl-strava-auth-result', res) } catch { /* ignore */ }
+        if (SUPPORT_WINDOW) window.location.reload()
       }
     })
 

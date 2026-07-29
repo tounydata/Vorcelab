@@ -10,6 +10,7 @@
 
 import { supabase } from './supabase'
 import { ENGINE_VERSION } from './engineVersion'
+import { readSupportSessionMeta } from './supportSession'
 
 export interface LockSnapshotInput {
   /** Conservé pour compat des appels ; le serveur fait autorité sur le départ. */
@@ -58,6 +59,7 @@ export async function maybeLockProjectionSnapshot(input: LockSnapshotInput): Pro
         engineVersion: ENGINE_VERSION,
         profileVersion: input.profileVersion,
         profileSchemaVersion: input.profileSchemaVersion,
+        supportSessionId: readSupportSessionMeta()?.id,
       },
     })
     if (error) return 'error'

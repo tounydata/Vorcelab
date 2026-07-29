@@ -22,6 +22,12 @@ import {
   type ActivityManifestEntry,
 } from '../_shared/runner-core/projectionSnapshot.ts'
 import { classifyDataSplit } from '../_shared/runner-core/validationPolicy.ts'
+import {
+  resolveAssistedSupportSession,
+  SupportAuditError,
+  type AssistedSupportSession,
+  writeSupportAudit,
+} from '../_shared/supportAudit.ts'
 
 interface LockBody {
   raceId?: string
@@ -35,6 +41,7 @@ interface LockBody {
   engineVersion?: string
   profileVersion?: string
   profileSchemaVersion?: string
+  supportSessionId?: unknown
 }
 
 function json(body: unknown, status: number, cors: Record<string, string>): Response {
@@ -47,20 +54,48 @@ function json(body: unknown, status: number, cors: Record<string, string>): Resp
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req)
   const cors = getCorsHeaders(req.headers.get('origin'))
+  const supabase = getServiceClient()
+  let supportSession: AssistedSupportSession | null = null
 
   try {
     const user = await requireAuth(req)
-    const supabase = getServiceClient()
     const body = (await req.json().catch(() => ({}))) as LockBody
+    supportSession = await resolveAssistedSupportSession(
+      supabase,
+      body.supportSessionId,
+      user.id,
+    )
 
     const raceId = typeof body.raceId === 'string' ? body.raceId : ''
     const central = Math.round(Number(body.predictionCentralS))
-    if (!raceId || !(central > 0)) return json({ result: 'invalid' }, 400, cors)
+    if (!raceId || !(central > 0)) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'error',
+          'Snapshot de projection refusé : données invalides',
+        )
+      }
+      return json({ result: 'invalid' }, 400, cors)
+    }
 
     const engineVersion = String(body.engineVersion ?? '')
     const profileVersion = String(body.profileVersion ?? '')
     const profileSchemaVersion = String(body.profileSchemaVersion ?? '')
-    if (!engineVersion || !profileVersion) return json({ result: 'invalid' }, 400, cors)
+    if (!engineVersion || !profileVersion) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'error',
+          'Snapshot de projection refusé : version moteur absente',
+        )
+      }
+      return json({ result: 'invalid' }, 400, cors)
+    }
 
     // ── Course (fait autorité) : appartenance à l'utilisateur + horaire de départ ──────
     const { data: race } = await supabase
@@ -72,14 +107,47 @@ Deno.serve(async (req: Request) => {
     const raceRow = race as
       | { date: string | null; start_time: string | null; distance: number | null; elevation: number | null }
       | null
-    if (!raceRow || !raceRow.date) return json({ result: 'race_not_found' }, 404, cors)
+    if (!raceRow || !raceRow.date) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'error',
+          'Snapshot de projection refusé : course introuvable',
+        )
+      }
+      return json({ result: 'race_not_found' }, 404, cors)
+    }
 
     // Départ = date (+ start_time, défaut 08:00). Borne STRICTE côté serveur.
     const startTime = (raceRow.start_time && /^\d{2}:\d{2}/.test(raceRow.start_time)) ? raceRow.start_time.slice(0, 5) : '08:00'
     const raceStartMs = Date.parse(`${String(raceRow.date).slice(0, 10)}T${startTime}`)
-    if (!Number.isFinite(raceStartMs)) return json({ result: 'invalid' }, 400, cors)
+    if (!Number.isFinite(raceStartMs)) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'error',
+          'Snapshot de projection refusé : horaire de course invalide',
+        )
+      }
+      return json({ result: 'invalid' }, 400, cors)
+    }
     const nowMs = Date.now()
-    if (raceStartMs <= nowMs) return json({ result: 'race_started' }, 409, cors)
+    if (raceStartMs <= nowMs) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'error',
+          'Snapshot de projection refusé : la course a déjà commencé',
+        )
+      }
+      return json({ result: 'race_started' }, 409, cors)
+    }
 
     // ── Idempotence : même prédiction + mêmes versions déjà figée pour cette course ? ──
     const { data: existing } = await supabase
@@ -91,7 +159,20 @@ Deno.serve(async (req: Request) => {
       .eq('profile_version', profileVersion)
       .eq('prediction_central_s', central)
       .limit(1)
-    if (existing && (existing as unknown[]).length > 0) return json({ result: 'exists' }, 200, cors)
+    if (existing && (existing as unknown[]).length > 0) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'projection_snapshot_locked',
+          'success',
+          'Snapshot de projection déjà enregistré',
+          null,
+          { source: 'lock_projection_snapshot_function', result: 'exists' },
+        )
+      }
+      return json({ result: 'exists' }, 200, cors)
+    }
 
     // ── Manifeste COMPLET : activités running de la fenêtre moteur (agrégats, pas de GPS) ──
     const sinceISO = new Date(nowMs - ENGINE_HISTORY_DAYS * 86_400_000).toISOString()
@@ -186,10 +267,36 @@ Deno.serve(async (req: Request) => {
       .single()
 
     if (insertErr) throw new Error(insertErr.message)
+    if (supportSession) {
+      await writeSupportAudit(
+        supabase,
+        supportSession,
+        'projection_snapshot_locked',
+        'success',
+        'Snapshot de projection enregistré par le serveur',
+        null,
+        {
+          source: 'lock_projection_snapshot_function',
+          result: 'created',
+          activity_count: manifest.length,
+        },
+      )
+    }
     return json({ ok: true, result: 'created', snapshot_id: (inserted as { id: string }).id }, 200, cors)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
-    const status = msg === 'Unauthorized' ? 401 : 500
+    const status = msg === 'Unauthorized' ? 401 : err instanceof SupportAuditError ? 403 : 500
+    if (supportSession) {
+      await writeSupportAudit(
+        supabase,
+        supportSession,
+        'projection_snapshot_locked',
+        'error',
+        'Échec de l’enregistrement du snapshot de projection',
+        null,
+        { source: 'lock_projection_snapshot_function' },
+      )
+    }
     if (status === 500) console.error('lock-projection-snapshot error:', msg)
     return json({ result: 'error', error: msg }, status, cors)
   }

@@ -7,6 +7,7 @@
 // web/mobile/benchmark, plus de calcul sur 50 activités tronquées côté navigateur.
 
 import { supabase } from './supabase'
+import { readSupportSessionMeta } from './supportSession'
 
 /**
  * Déclenche le recalcul serveur du profil coureur et attend sa fin. Lève en cas d'erreur
@@ -14,6 +15,8 @@ import { supabase } from './supabase'
  * doit ensuite rafraîchir sa lecture (refetch / invalidate).
  */
 export async function recomputeRunnerProfileServer(): Promise<void> {
-  const { error } = await supabase.functions.invoke('compute-runner-profile')
+  const { error } = await supabase.functions.invoke('compute-runner-profile', {
+    body: { supportSessionId: readSupportSessionMeta()?.id },
+  })
   if (error) throw error
 }
