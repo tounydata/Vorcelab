@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
 import { signOutAndClear } from '../lib/session'
+import { isSupportSessionWindow } from '../lib/supportSession'
 import { NUTRITION_TYPE_LABELS, nutritionBrands } from '../lib/nutritionProducts'
 import { useHydrationHabits } from '../lib/useHydrationHabits'
 import { HYDRATION_CONFIDENCE_LABELS, NUTRITION_LEVEL_LABELS } from '../lib/hydrationHabits'
@@ -50,6 +51,7 @@ export default function SettingsPage() {
   const setActiveTab = (tab: TabKey) =>
     setSearchParams(tab === 'reglages' ? {} : { tab }, { replace: false })
   const queryClient = useQueryClient()
+  const supportWindow = isSupportSessionWindow()
   // Habitudes de ravito apprises (débits mL/h, g/h) — récap lisible sans ouvrir une stratégie.
   const habits = useHydrationHabits()
 
@@ -261,7 +263,11 @@ export default function SettingsPage() {
 
               {/* Password change */}
               <div style={{ marginTop: '0.75rem' }}>
-                {!showPwdInput ? (
+                {supportWindow ? (
+                  <div style={{ color: 'var(--vl-text-3)', fontSize: 10.5, lineHeight: 1.5 }}>
+                    Changement de mot de passe bloqué pendant une session assistée.
+                  </div>
+                ) : !showPwdInput ? (
                   <button
                     className="hbtn"
                     onClick={() => setShowPwdInput(true)}
@@ -451,13 +457,15 @@ export default function SettingsPage() {
       )}
 
       {/* Logout */}
-      <button
-        className="hbtn"
-        style={{ marginTop: '1.5rem' }}
-        onClick={() => { void signOutAndClear() }}
-      >
-        Se déconnecter
-      </button>
+      {!supportWindow ? (
+        <button
+          className="hbtn"
+          style={{ marginTop: '1.5rem' }}
+          onClick={() => { void signOutAndClear() }}
+        >
+          Se déconnecter
+        </button>
+      ) : null}
 
       {/* Légal */}
       <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid var(--vl-line)', display: 'flex', gap: 18, flexWrap: 'wrap' }}>

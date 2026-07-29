@@ -5,6 +5,7 @@ import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
 import { useVLStore } from '../store/vlStore'
 import { supabase } from '../lib/supabase'
+import { isSupportSessionWindow } from '../lib/supportSession'
 
 // Carte ABONNEMENT (Réglages) :
 //   - Gratuit  → statut + CTA « Passer à PRO » (ouvre la modal).
@@ -29,6 +30,7 @@ export default function SubscriptionCard() {
   const track = useTrackEvent()
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const supportWindow = isSupportSessionWindow()
 
   // Existence d'un abonnement Stripe (customer) → conditionne le bouton « Gérer ».
   const { data: stripeCustomerId } = useQuery<string | null>({
@@ -108,7 +110,7 @@ export default function SubscriptionCard() {
           <p style={{ fontSize: 12, color: 'var(--vl-text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
             Compte administrateur — accès PRO permanent.
           </p>
-          {hasSubscription && manageBlock}
+          {hasSubscription && !supportWindow && manageBlock}
         </>
       ) : tier === 'pro' ? (
         <>
@@ -119,11 +121,11 @@ export default function SubscriptionCard() {
               <><br /><span style={{ color: 'var(--vl-text-3)' }}>Renouvellement / fin de période le {fmtDate(expiresAt)}.</span></>
             )}
           </p>
-          {hasSubscription ? manageBlock : (
+          {hasSubscription && !supportWindow ? manageBlock : !hasSubscription ? (
             <p style={{ fontSize: 11, color: 'var(--vl-text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
               Accès accordé manuellement — aucun abonnement à gérer.
             </p>
-          )}
+          ) : null}
         </>
       ) : (
         <>
@@ -137,10 +139,15 @@ export default function SubscriptionCard() {
             style={{ background: 'var(--vl-ember)', color: 'var(--vl-ink)', borderColor: 'var(--vl-ember)', fontWeight: 700 }}
             onClick={() => openModal()}
           >
-            Passer à PRO →
+            {supportWindow ? 'Prévisualiser le parcours PRO →' : 'Passer à PRO →'}
           </button>
         </>
       )}
+      {supportWindow ? (
+        <p style={{ fontSize: 10, color: 'var(--vl-text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
+          Mode assistance : le statut est réel, mais paiement, factures et carte bancaire restent bloqués.
+        </p>
+      ) : null}
     </div>
   )
 }

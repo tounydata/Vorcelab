@@ -53,7 +53,8 @@ describe('labo admin sécurisé', () => {
 
     expect(oneRm).toContain('if (previewMode) return')
     expect(onboarding).toContain('if (previewMode || !user) return')
-    expect(upgrade).toContain('if (previewMode)')
+    expect(upgrade).toContain('if (effectivePreviewMode)')
+    expect(upgrade).toContain('previewMode || isSupportSessionWindow()')
     expect(upgrade).toContain('MODE TEST · AUCUN PAIEMENT')
   })
 })

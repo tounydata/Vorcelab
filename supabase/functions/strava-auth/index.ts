@@ -29,12 +29,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return fail('Method not allowed', 405)
 
   try {
-    const body = (await req.json()) as { code?: string; scope?: string }
-    const { code, scope = '' } = body
+    const body = (await req.json()) as { code?: string }
+    const { code } = body
     if (!code || typeof code !== 'string') return fail('Missing OAuth code', 400)
-    if (!hasRequiredStravaActivityScope(scope)) {
-      return fail('Strava activity permission required', 403)
-    }
 
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
     const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')
@@ -47,15 +44,21 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, grant_type: 'authorization_code' }),
     })
     if (!tokenRes.ok) {
-      console.error('Strava token exchange failed:', tokenRes.status, await tokenRes.text())
+      // Le corps d'une erreur OAuth n'est jamais journalisé.
+      console.error('Strava token exchange failed:', tokenRes.status)
       return fail('Strava token exchange failed', 502)
     }
     const tokenData = (await tokenRes.json()) as {
       access_token: string; refresh_token: string; expires_at: number
+      scope?: string
       athlete: { id: number; firstname: string; lastname: string; profile_medium: string }
     }
     const { access_token, refresh_token, expires_at, athlete } = tokenData
+    const grantedScope = tokenData.scope ?? ''
     if (!athlete?.id) return fail('Strava athlete missing', 502)
+    if (!hasRequiredStravaActivityScope(grantedScope)) {
+      return fail('Strava activity permission required', 403)
+    }
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -92,7 +95,7 @@ Deno.serve(async (req: Request) => {
     // 3. Stocke / rafraîchit les tokens Strava (clé = user_id).
     const { error: upsertErr } = await admin.from('strava_tokens').upsert({
       user_id: userId, strava_athlete_id: athlete.id,
-      access_token, refresh_token, expires_at, scope,
+      access_token, refresh_token, expires_at, scope: grantedScope,
       athlete_firstname: athlete.firstname, athlete_lastname: athlete.lastname,
       athlete_avatar: athlete.profile_medium, updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })

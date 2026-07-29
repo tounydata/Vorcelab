@@ -6,11 +6,13 @@ import { ENGINE_VERSION } from '../lib/engineVersion'
 import { supabase } from '../lib/supabase'
 import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from '../lib/engineHistory'
 import { signOutAndClear } from '../lib/session'
+import { isSupportSessionWindow } from '../lib/supportSession'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useVLStore } from '../store/vlStore'
 import OnboardingGate from './onboarding/OnboardingGate'
 import SpotlightTour, { openFeatureTour } from './onboarding/SpotlightTour'
 import StravaConnection from './StravaConnection'
+import SupportSessionBanner from './SupportSessionBanner'
 
 function useTheme() {
   const [isDark, setIsDark] = useState(() => {
@@ -135,6 +137,7 @@ export default function Layout() {
   const { isAdmin } = usePlanTier()
   const viewAs = useVLStore((s) => s.viewAs)
   const setViewAs = useVLStore((s) => s.setViewAs)
+  const supportWindow = isSupportSessionWindow()
   // Le renfo vit sous l'onglet Coach (fusion coach complet) : /renfo/* allume Coach.
   const coachAlsoActive = pathname.startsWith('/renfo')
 
@@ -179,9 +182,13 @@ export default function Layout() {
 
   return (
     <div id="appShell" className="show">
+      {supportWindow ? <SupportSessionBanner /> : null}
       <OnboardingGate />
       <SpotlightTour />
-      <nav className="sidebar">
+      <nav
+        className="sidebar"
+        style={supportWindow ? { top: 52, height: 'calc(100vh - 52px)' } : undefined}
+      >
         <NavLink to="/" end className="sidebar-logo" style={{ textDecoration: 'none' }}>
           <div style={{ color: 'var(--vl-text)', flexShrink: 0 }}>{VL_LOGO}</div>
           <div>
@@ -226,12 +233,14 @@ export default function Layout() {
             <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
             {themeBtn}
           </div>
-          <button
-            className="hbtn"
-            onClick={() => { void signOutAndClear() }}
-          >
-            Déconnexion
-          </button>
+          {!supportWindow ? (
+            <button
+              className="hbtn"
+              onClick={() => { void signOutAndClear() }}
+            >
+              Déconnexion
+            </button>
+          ) : null}
           {/* Version applicative — repère visible pour savoir si un utilisateur tourne
               encore sur un ancien bundle (le service worker peut retarder la bascule). */}
           <div
@@ -247,7 +256,15 @@ export default function Layout() {
         </div>
       </nav>
 
-      <div className="mobile-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+      <div
+        className="mobile-header"
+        style={{
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: 8,
+          ...(supportWindow ? { top: 52 } : {}),
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <NavLink to="/" end style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ color: 'var(--vl-text)' }}>
@@ -294,7 +311,10 @@ export default function Layout() {
         </div>
       )}
 
-      <div className="app-main" style={viewAs ? { paddingTop: 38 } : undefined}>
+      <div
+        className="app-main"
+        style={supportWindow ? { paddingTop: 52 } : viewAs ? { paddingTop: 38 } : undefined}
+      >
         <main>
           <Outlet />
         </main>

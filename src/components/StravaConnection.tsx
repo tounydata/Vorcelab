@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase, SUPA_URL } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
+import { isSupportSessionWindow } from '../lib/supportSession'
 
 // Connexion Strava — composant partagé. `compact` = état + sync (header mobile,
 // non envahissant) ; `full` = état + connecter/déconnecter/forcer sync (sidebar
@@ -37,6 +38,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   const qc = useQueryClient()
   const [status, setStatus] = useState<StravaStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const supportWindow = isSupportSessionWindow()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -48,7 +50,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
 
   async function sync() {
     if (status?.activity_access_granted === false) {
-      startStravaOAuth({ forceApproval: true })
+      if (!supportWindow) startStravaOAuth({ forceApproval: true })
       return
     }
     setSyncing(true)
@@ -93,11 +95,14 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         />
         {activityAccessMissing ? (
           <button
-            onClick={() => startStravaOAuth({ forceApproval: true })}
-            title="Réautoriser Strava pour donner accès aux activités"
+            onClick={() => { if (!supportWindow) startStravaOAuth({ forceApproval: true }) }}
+            disabled={supportWindow}
+            title={supportWindow
+              ? "L'autorisation doit être validée sur l'appareil de l'athlète"
+              : 'Réautoriser Strava pour donner accès aux activités'}
             style={{ background: 'none', border: '1px solid var(--vl-ember)', borderRadius: 6, cursor: 'pointer', color: 'var(--vl-ember)', padding: '5px 7px', fontFamily: 'var(--vl-mono)', fontSize: 8 }}
           >
-            AUTORISER
+            {supportWindow ? 'ATHLÈTE REQUIS' : 'AUTORISER'}
           </button>
         ) : connected && (
           <button onClick={sync} disabled={syncing} title={`Forcer la synchro · ${formatSync(status.last_sync_at)}`} aria-label="Synchroniser Strava"
@@ -125,10 +130,11 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <button
             className="hbtn"
-            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)' }}
-            onClick={() => startStravaOAuth({ forceApproval: true })}
+            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)', opacity: supportWindow ? .6 : 1 }}
+            disabled={supportWindow}
+            onClick={() => { if (!supportWindow) startStravaOAuth({ forceApproval: true }) }}
           >
-            RÉAUTORISER STRAVA
+            {supportWindow ? 'À VALIDER SUR SON APPAREIL' : 'RÉAUTORISER STRAVA'}
           </button>
           <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
             DÉCONNECTER
@@ -173,8 +179,13 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
       </div>
       {stravaConfigured() && (
-        <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', width: '100%' }} onClick={() => startStravaOAuth()}>
-          CONNECTER STRAVA
+        <button
+          className="hbtn"
+          style={{ fontSize: 9, padding: '3px 8px', width: '100%', opacity: supportWindow ? .6 : 1 }}
+          disabled={supportWindow}
+          onClick={() => { if (!supportWindow) startStravaOAuth() }}
+        >
+          {supportWindow ? 'CONNEXION À FAIRE PAR L’ATHLÈTE' : 'CONNECTER STRAVA'}
         </button>
       )}
     </div>
