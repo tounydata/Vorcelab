@@ -61,6 +61,8 @@ export default function LoginPage() {
     if (r === 'error') setStatus({ msg: 'La connexion avec Strava a échoué. Réessaie, ou crée un compte par email.', ok: false })
     else if (r === 'denied') setStatus({ msg: 'Autorisation Strava refusée. Réessaie pour continuer.', ok: false })
     else if (r === 'missing_scope') setStatus({ msg: 'L’accès aux activités Strava est nécessaire. Réessaie et coche la case concernant tes activités.', ok: false })
+    else if (r === 'wrong_athlete') setStatus({ msg: 'Le navigateur est connecté à un autre compte Strava que celui déjà lié à ce profil. Change de compte sur strava.com puis réessaie.', ok: false })
+    else if (r === 'already_linked') setStatus({ msg: 'Ce compte Strava est déjà utilisé par un autre compte Vorcelab.', ok: false })
   }, [])
 
   function clearStatus() { setStatus(null) }

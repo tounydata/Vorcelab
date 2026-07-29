@@ -3,6 +3,12 @@
 // Configurer VITE_STRAVA_CLIENT_ID dans l'environnement de build.
 import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
 import { hasRequiredStravaActivityScope } from './stravaScopes'
+import {
+  classifyStravaOAuthFailure,
+  type StravaRedirectResult,
+} from './stravaOAuthResult'
+
+export type { StravaRedirectResult } from './stravaOAuthResult'
 
 // client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
 // Override possible via VITE_STRAVA_CLIENT_ID. Le secret reste côté edge function.
@@ -35,8 +41,6 @@ export function startStravaOAuth(options: { forceApproval?: boolean } = {}): voi
   })
   window.location.href = `https://www.strava.com/oauth/authorize?${params.toString()}`
 }
-
-export type StravaRedirectResult = 'connected' | 'denied' | 'missing_scope' | 'error' | null
 
 async function logAssistedOAuthResult(
   supportSessionId: string | undefined,
@@ -95,7 +99,9 @@ export async function handleStravaRedirect(
           supportSessionId: options.supportSessionId,
         }),
       })
-      return r.ok ? 'connected' : 'error'
+      if (r.ok) return 'connected'
+      const payload = await r.json().catch(() => null) as unknown
+      return classifyStravaOAuthFailure(payload)
     } catch {
       await logAssistedOAuthResult(options.supportSessionId, 'client_error')
       return 'error'

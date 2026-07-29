@@ -163,10 +163,13 @@ export default function App() {
             window.location.reload()
           }
         })
-      } else if (res === 'error' || res === 'denied' || res === 'missing_scope') {
-        // Échec du retour Strava : on le signale sur l'écran de connexion au lieu du silence.
+      } else if (res) {
+        // Échec du retour Strava : on persiste le code précis puis on remonte
+        // l'interface avec un message actionnable. Le rechargement est requis
+        // aussi hors assistance, car le composant d'erreur est déjà monté
+        // lorsque l'échange OAuth asynchrone se termine.
         try { sessionStorage.setItem('vl-strava-auth-result', res) } catch { /* ignore */ }
-        if (SUPPORT_WINDOW) window.location.reload()
+        window.location.reload()
       }
     })
 

@@ -1,7 +1,7 @@
 import { getCorsHeaders } from './cors.ts'
 
-export function errorResponse(message: string, status: number): Response {
-  return new Response(JSON.stringify({ error: message }), {
+export function errorResponse(message: string, status: number, code?: string): Response {
+  return new Response(JSON.stringify(code ? { error: message, code } : { error: message }), {
     status,
     headers: { ...getCorsHeaders(null), 'Content-Type': 'application/json' },
   })

@@ -5,6 +5,7 @@ interface StravaActivityPermissionModalProps {
   onAuthorize: () => void
   busy?: boolean
   error?: string | null
+  wrongAthlete?: boolean
   /** Uniquement pour le labo admin : permet de sortir de la prévisualisation. */
   previewMode?: boolean
   onPreviewClose?: () => void
@@ -14,6 +15,7 @@ export default function StravaActivityPermissionModal({
   onAuthorize,
   busy = false,
   error = null,
+  wrongAthlete = false,
   previewMode = false,
   onPreviewClose,
 }: StravaActivityPermissionModalProps) {
@@ -77,7 +79,7 @@ export default function StravaActivityPermissionModal({
             fontWeight: 700, letterSpacing: '.16em',
           }}>
             <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: '#FC4C02', boxShadow: '0 0 12px #FC4C02' }} />
-            ACTION OBLIGATOIRE
+            {wrongAthlete ? 'COMPTE STRAVA INCORRECT' : 'ACTION OBLIGATOIRE'}
           </div>
 
           <h1 id="strava-permission-title" style={{
@@ -86,15 +88,20 @@ export default function StravaActivityPermissionModal({
             fontSize: 'clamp(2.3rem, 8vw, 4rem)', lineHeight: .92,
             letterSpacing: '.01em', textTransform: 'uppercase',
           }}>
-            Autorise tes<br /><span style={{ color: '#FC4C02' }}>activités Strava</span>
+            {wrongAthlete ? (
+              <>Change de<br /><span style={{ color: '#FC4C02' }}>compte Strava</span></>
+            ) : (
+              <>Autorise tes<br /><span style={{ color: '#FC4C02' }}>activités Strava</span></>
+            )}
           </h1>
 
           <p id="strava-permission-description" style={{
             margin: '22px 0 20px', maxWidth: 470,
             color: 'var(--vl-text-2)', fontSize: 14, lineHeight: 1.65,
           }}>
-            Ton compte Strava est lié, mais tu n’as pas autorisé Vorcelab à lire tes sorties.
-            Sans elles, le moteur ne peut pas calculer ton profil, adapter ton entraînement ni synchroniser tes performances.
+            {wrongAthlete
+              ? 'La session Vorcelab assistée ne change pas le compte actuellement connecté sur strava.com. Vorcelab a donc bloqué l’autorisation pour éviter de rattacher les données du mauvais athlète.'
+              : 'Ton compte Strava est lié, mais tu n’as pas autorisé Vorcelab à lire tes sorties. Sans elles, le moteur ne peut pas calculer ton profil, adapter ton entraînement ni synchroniser tes performances.'}
           </p>
 
           <div style={{
@@ -103,7 +110,9 @@ export default function StravaActivityPermissionModal({
             color: 'var(--vl-text)', fontFamily: 'var(--vl-mono)',
             fontSize: 11, lineHeight: 1.65,
           }}>
-            Sur l’écran Strava, coche impérativement la case concernant l’accès à tes activités.
+            {wrongAthlete
+              ? 'Ouvre Strava, déconnecte le compte actuellement ouvert, connecte le compte Strava de l’athlète assisté, puis reviens ici et réessaie.'
+              : 'Sur l’écran Strava, coche impérativement la case concernant l’accès à tes activités.'}
           </div>
 
           {error ? (
@@ -113,6 +122,24 @@ export default function StravaActivityPermissionModal({
             }}>
               {error}
             </div>
+          ) : null}
+
+          {wrongAthlete ? (
+            <a
+              href="https://www.strava.com/settings/profile"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '100%', minHeight: 46, marginBottom: 10, padding: '11px 16px',
+                border: '1px solid rgba(255,255,255,.22)', borderRadius: 12,
+                color: '#fff', textDecoration: 'none',
+                fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 800,
+                letterSpacing: '.08em',
+              }}
+            >
+              OUVRIR STRAVA POUR CHANGER DE COMPTE ↗
+            </a>
           ) : null}
 
           <button
@@ -129,7 +156,11 @@ export default function StravaActivityPermissionModal({
               opacity: busy ? .68 : 1,
             }}
           >
-            {busy ? 'OUVERTURE STRAVA…' : 'RÉAUTORISER STRAVA'}
+            {busy
+              ? 'OUVERTURE STRAVA…'
+              : wrongAthlete
+              ? 'RÉESSAYER AVEC LE BON COMPTE'
+              : 'RÉAUTORISER STRAVA'}
           </button>
 
           <div style={{

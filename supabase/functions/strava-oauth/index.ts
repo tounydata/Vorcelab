@@ -253,6 +253,8 @@ Deno.serve(async (req: Request) => {
     }
 
     console.error('strava-oauth error:', oauthError.code)
-    return errorResponse(oauthError.publicMessage, oauthError.status)
+    // Le code stable permet au client d'afficher une résolution actionnable
+    // (notamment changement de compte Strava) sans exposer aucun jeton.
+    return errorResponse(oauthError.publicMessage, oauthError.status, oauthError.code)
   }
 })

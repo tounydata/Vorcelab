@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
 import { startStravaOAuth } from '../lib/strava'
+import {
+  parseStoredStravaOAuthFailure,
+  stravaOAuthFailureMessage,
+  type StravaRedirectFailureResult,
+} from '../lib/stravaOAuthResult'
 import { needsStravaActivityPermission, type StravaPermissionStatus } from '../lib/stravaScopes'
 import { supabase, SUPA_URL } from '../lib/supabase'
 import StravaActivityPermissionModal from './StravaActivityPermissionModal'
@@ -8,13 +13,11 @@ type GateState = 'checking' | 'clear' | 'blocked'
 
 export default function StravaActivityPermissionGate() {
   const [state, setState] = useState<GateState>('checking')
-  const [oauthError, setOauthError] = useState<string | null>(() => {
+  const [oauthFailure, setOauthFailure] = useState<StravaRedirectFailureResult | null>(() => {
     try {
       const result = sessionStorage.getItem('vl-strava-auth-result')
       sessionStorage.removeItem('vl-strava-auth-result')
-      if (result === 'denied') return 'Autorisation annulée sur Strava. Réessaie puis valide le bouton Autoriser.'
-      if (result === 'missing_scope') return 'La permission activités n’a pas été accordée par Strava.'
-      if (result === 'error') return 'Strava a répondu, mais Vorcelab n’a pas pu enregistrer l’autorisation. L’échec est visible dans le journal admin.'
+      return parseStoredStravaOAuthFailure(result)
     } catch {
       // sessionStorage peut être indisponible dans certains navigateurs privés.
     }
@@ -50,11 +53,14 @@ export default function StravaActivityPermissionGate() {
 
   if (state !== 'blocked') return null
 
+  const wrongAthlete = oauthFailure === 'wrong_athlete'
+
   return (
     <StravaActivityPermissionModal
-      error={oauthError}
+      error={stravaOAuthFailureMessage(oauthFailure)}
+      wrongAthlete={wrongAthlete}
       onAuthorize={() => {
-        setOauthError(null)
+        setOauthFailure(null)
         startStravaOAuth({ forceApproval: true })
       }}
     />
