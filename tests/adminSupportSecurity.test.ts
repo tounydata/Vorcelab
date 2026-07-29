@@ -12,7 +12,7 @@ const migration = readFileSync(
   'utf8',
 ).toLowerCase()
 const auditMigration = readFileSync(
-  resolve('supabase/migrations/20260729125217_fix_assisted_strava_audit.sql'),
+  resolve('supabase/migrations/20260729132138_fix_assisted_strava_audit.sql'),
   'utf8',
 ).toLowerCase()
 const edgeFunction = readFileSync(
