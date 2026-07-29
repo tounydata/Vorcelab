@@ -1,5 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ASSISTANCE ADMIN : PREUVE D'EXÉCUTION + HISTORIQUE
+-- Version alignée sur l'identifiant enregistré par Supabase production.
 --
 -- Les actions réalisées dans la vraie session utilisateur ne doivent apparaître
 -- comme réussies qu'après confirmation de la base ou de la fonction serveur.
