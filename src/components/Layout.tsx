@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
+import { APP_VERSION } from '../lib/appVersion'
+import { ENGINE_VERSION } from '../lib/engineVersion'
 import { supabase } from '../lib/supabase'
 import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from '../lib/engineHistory'
 import { signOutAndClear } from '../lib/session'
@@ -230,6 +232,18 @@ export default function Layout() {
           >
             Déconnexion
           </button>
+          {/* Version applicative — repère visible pour savoir si un utilisateur tourne
+              encore sur un ancien bundle (le service worker peut retarder la bascule). */}
+          <div
+            title={`Version de l'app — moteur de projection ${ENGINE_VERSION}`}
+            style={{
+              marginTop: 10, textAlign: 'center',
+              fontFamily: 'var(--vl-mono)', fontSize: 9, letterSpacing: '.08em',
+              color: 'var(--vl-text-3)',
+            }}
+          >
+            v{APP_VERSION}
+          </div>
         </div>
       </nav>
 

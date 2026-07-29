@@ -4,11 +4,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as Sentry from '@sentry/react'
 import App from './App'
 import { purgeDangerousCaches } from './lib/cachePurge'
+import { setupServiceWorkerUpdates } from './lib/swUpdate'
 import '../style.css'
 
 // Nettoie tout cache authentifié laissé par une ancienne version du service
 // worker (fuite potentielle de données entre comptes). Sans effet si absent.
 void purgeDangerousCaches()
+
+// Mise à jour du service worker : vérifie souvent, applique quand l'onglet est masqué.
+// Sans cela, une page ouverte continue de tourner sur l'ancien bundle — et donc sur une
+// ancienne version du MOTEUR — jusqu'au prochain chargement complet.
+setupServiceWorkerUpdates()
 
 // Monitoring d'erreurs (Sentry) — no-op tant que VITE_SENTRY_DSN n'est pas
 // fourni au build (secret GitHub Actions). Erreurs uniquement, pas de tracing :
