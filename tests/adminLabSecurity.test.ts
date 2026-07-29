@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync(
-  resolve('supabase/migrations/20260729102609_admin_lab_readonly_support.sql'),
+  resolve('supabase/migrations/20260729110343_admin_lab_readonly_support.sql'),
   'utf8',
 ).toLowerCase()
 
