@@ -7,7 +7,7 @@ import {
 } from '../supabase/functions/_shared/adminSupport'
 
 const migration = readFileSync(
-  resolve('supabase/migrations/20260729112330_admin_support_mode.sql'),
+  resolve('supabase/migrations/20260729121647_admin_support_mode.sql'),
   'utf8',
 ).toLowerCase()
 const edgeFunction = readFileSync(

@@ -1,5 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- MODE ASSISTANCE ADMIN
+-- Version alignée sur l’historique de migrations Supabase de production.
 --
 -- Un administrateur peut assister un utilisateur présent à distance :
 --   • ouvrir une session support limitée dans le temps ;
