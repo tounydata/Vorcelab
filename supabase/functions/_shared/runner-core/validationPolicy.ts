@@ -27,14 +27,15 @@ export interface ValidationCampaign {
  * `ENGINE_VERSION` à l'ouverture (garanti par `validationPolicy.test.ts`). Pour geler une
  * nouvelle version, on ouvre une nouvelle campagne (nouveau label + date).
  */
-// Nouvelle campagne ouverte avec 2026.07-8 : la calibration de durée + le recalage du
-// D+ officiel changent les projections (elles ralentissent sur les formats longs et
-// verticaux). Les preuves prospectives collectées sous 2026.07-7 restent valides POUR
-// CETTE VERSION-LÀ — elles ne sont pas requalifiées, d'où une campagne distincte.
+// Nouvelle campagne ouverte avec 2026.07-10 : la recalibration du facteur de pente sur
+// 240 profils réels (ordonnée à l'origine + pente revue) change toutes les projections,
+// route comprise. Les preuves prospectives collectées sous les versions antérieures
+// restent valides POUR CES VERSIONS-LÀ — elles ne sont pas requalifiées, d'où une
+// campagne distincte. La comparaison entre versions se lit dans EngineAccuracyCard.
 export const VALIDATION_CAMPAIGN: ValidationCampaign = {
-  label: 'campagne-2026.07-c',
-  frozenEngineVersion: '2026.07-9',
-  startAtISO: '2026-07-28T00:00:00.000Z',
+  label: 'campagne-2026.07-d',
+  frozenEngineVersion: '2026.07-10',
+  startAtISO: '2026-07-29T00:00:00.000Z',
 }
 
 /** Vrai si la version fournie est celle gelée pour la campagne (collecte de validation ouverte). */

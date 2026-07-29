@@ -47,8 +47,15 @@
  *  calcul supposait une pente uniforme ; le coût de Minetti étant convexe, il
  *  sous-estimait le coût d'un profil réel — d'autant plus que le terrain est raide
  *  (+0,9 % à 3 m/km, +4,6 % à 47 m/km, mesuré en intégrant Minetti sur des profils GPS
- *  réels pas à 50 m). Appliquée des DEUX côtés (courses passées et course visée). */
-export const ENGINE_VERSION = '2026.07-9'
+ *  réels pas à 50 m). Appliquée des DEUX côtés (courses passées et course visée).
+ *  2026.07-10 : la correction de dispersion est RECALIBRÉE sur 240 activités réelles
+ *  (au lieu de 5 profils d'un seul athlète, qui donnaient 29 % de trop) et gagne une
+ *  ORDONNÉE À L'ORIGINE : une route « plate » garde des micro-ondulations qui coûtent
+ *  déjà 1,2-1,9 %, là où un modèle proportionnel ne prédisait que 0,1 % — la route était
+ *  donc systématiquement sous-corrigée. Le facteur d'équivalence plat/terrain est
+ *  extrait en module PUR (`gradeEquivalence.ts`), testé contre les facteurs mesurés par
+ *  intégration de Minetti sur profils GPS réels (écart < 2 % de 3 à 47 m/km). */
+export const ENGINE_VERSION = '2026.07-10'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

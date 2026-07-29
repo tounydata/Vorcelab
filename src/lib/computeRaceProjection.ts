@@ -14,18 +14,13 @@ import { dayAnchoredNow } from './dayAnchor'
 import { smoothElevationProfile } from './elevationProfile'
 import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } from './steepnessCalibration'
 import { computePersonalDurationCalibration, type DurationCalibrationResult } from './durationCalibration'
+import { meanGradeFactor } from './gradeEquivalence'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
 import { assessBestEffortQuality, type MergedBestEffort } from './bestEfforts'
 import { fitFadeExponent } from './fadeModel'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
-// ── Correction de dispersion du facteur de pente (cf. `meanGradeFactor`) ─────────
-// Pente du terme linéaire, ajustée par moindres carrés sur l'écart mesuré entre
-// l'intégration de Minetti sur des profils GPS RÉELS (pas à 50 m) et l'approximation
-// à pente uniforme. Bornée : au-delà, on n'a plus de mesure pour étayer.
-const DISPERSION_PER_DPKM = 0.00102
-const DISPERSION_MAX = 0.05
 
 /**
  * Contexte temporel de la projection. `asOfMs` = date de référence (« horloge »)
@@ -450,25 +445,6 @@ export function computeRaceProjection(
   // course (plat-équivalente, Minetti) et son allure apprise sur plat.
   // Aucune course étiquetée → FIC = 1 → comportement inchangé (pas de régression).
   // Science vérifiable uniquement : sa vraie course vs son vrai historique.
-  function meanGradeFactor(dpkm: number): number {
-    // Boucle : ~moitié en montée +g, moitié en descente −g, g ≈ (D+/km)/500.
-    const g = Math.min(0.45, Math.max(0, dpkm / 500))
-    if (g === 0) return 1
-    const uniform = 1 + 0.5 * (minettiGradePenalty(g) + minettiGradePenalty(-g))
-    // ── Correction de DISPERSION (inégalité de Jensen) ──────────────────────────
-    // Le calcul ci-dessus suppose une pente UNIFORME. Un vrai parcours a une
-    // DISTRIBUTION de pentes, et le coût de Minetti est convexe : le coût moyen d'un
-    // profil réel est donc supérieur au coût de sa pente moyenne. En intégrant Minetti
-    // sur les profils GPS réels (pas à 50 m), l'écart mesuré croît avec le D+/km :
-    //   3 m/km → +0,9 % · 22 → +1,8 % · 36 → +3,7 % · 41 → +4,6 % · 47 → +4,6 %
-    // Sans cette correction, une course RAIDE paraît plus lente qu'elle ne l'est en
-    // allure « plat-équivalente » (le facteur qui la neutralise est sous-estimé), ce
-    // qui fausse l'ancrage dès que la pente des courses diffère de celle de la cible.
-    // Terme linéaire borné, appliqué des DEUX côtés (courses passées ET course visée)
-    // pour rester cohérent. Calibration : profils réels intégrés, cf. tests.
-    const dispersion = Math.min(DISPERSION_MAX, DISPERSION_PER_DPKM * dpkm)
-    return uniform * (1 + dispersion)
-  }
   // Une activité ne nourrit le FIC, l'ancrage et la calibration de pente que si c'est
   // une COMPÉTITION CONFIRMÉE (mêmes règles que le banc : running/trail, étiquetée course,
   // distance/temps/vitesse plausibles, ni échauffement/décrassage/footing, ni pending).
