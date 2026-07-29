@@ -54,8 +54,18 @@
  *  déjà 1,2-1,9 %, là où un modèle proportionnel ne prédisait que 0,1 % — la route était
  *  donc systématiquement sous-corrigée. Le facteur d'équivalence plat/terrain est
  *  extrait en module PUR (`gradeEquivalence.ts`), testé contre les facteurs mesurés par
- *  intégration de Minetti sur profils GPS réels (écart < 2 % de 3 à 47 m/km). */
-export const ENGINE_VERSION = '2026.07-10'
+ *  intégration de Minetti sur profils GPS réels (écart < 2 % de 3 à 47 m/km).
+ *  2026.07-11 : DÉTECTION AUTOMATIQUE des compétitions. Une activité ne comptait comme
+ *  course que si l'athlète avait coché « course » sur Strava — or presque personne ne le
+ *  fait : un athlète arrivé avec quatre ans d'historique et 427 sorties avait ZÉRO course
+ *  étiquetée, alors qu'il y avait un marathon et deux semis dedans. Sans ancrage, le
+ *  moteur retombait sur des allures génériques. Le détecteur combine titre personnalisé
+ *  (un titre auto Strava n'est jamais une course : 2 cas sur 18), nom d'événement ou
+ *  classement, absence de motif de séance, temps d'arrêt ≤ 3 % et FC dans le top 15 %
+ *  PERSONNEL — rang, et non %FCmax, car `fc_max` est saisi à la main et souvent faux.
+ *  Calibré sur les compétitions déjà étiquetées de la base. PRÉCISION avant rappel : une
+ *  fausse course entre dans l'ancrage et y déplace durablement les projections. */
+export const ENGINE_VERSION = '2026.07-11'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses
