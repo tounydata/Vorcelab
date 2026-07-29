@@ -234,6 +234,18 @@ describe('mode assistance administrateur', () => {
     expect(auditMigration).toContain('to service_role')
   })
 
+  it('renvoie un code client stable sans jamais remplacer un autre athlète', () => {
+    expect(stravaOauth).toContain("'different_strava_athlete'")
+    expect(stravaOauth).toContain(
+      'errorResponse(oauthError.publicMessage, oauthError.status, oauthError.code)',
+    )
+    expect(stravaOauth).toContain(
+      'Number(currentToken.strava_athlete_id) !== athlete.id',
+    )
+    expect(app).toContain("sessionStorage.setItem('vl-strava-auth-result', res)")
+    expect(app).toContain('window.location.reload()')
+  })
+
   it('journalise les mutations assistées après confirmation Postgres', () => {
     expect(auditMigration).toContain(
       'create or replace function private.log_assisted_row_change',
