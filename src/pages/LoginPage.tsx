@@ -60,6 +60,7 @@ export default function LoginPage() {
     try { r = sessionStorage.getItem('vl-strava-auth-result'); if (r) sessionStorage.removeItem('vl-strava-auth-result') } catch { /* ignore */ }
     if (r === 'error') setStatus({ msg: 'La connexion avec Strava a échoué. Réessaie, ou crée un compte par email.', ok: false })
     else if (r === 'denied') setStatus({ msg: 'Autorisation Strava refusée. Réessaie pour continuer.', ok: false })
+    else if (r === 'missing_scope') setStatus({ msg: 'L’accès aux activités Strava est nécessaire. Réessaie et coche la case concernant tes activités.', ok: false })
   }, [])
 
   function clearStatus() { setStatus(null) }

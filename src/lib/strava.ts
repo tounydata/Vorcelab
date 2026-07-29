@@ -2,7 +2,7 @@
 // l'URL d'autorisation) ; le secret reste dans l'edge function strava-oauth.
 // Configurer VITE_STRAVA_CLIENT_ID dans l'environnement de build.
 import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
-
+import { hasRequiredStravaActivityScope } from './stravaScopes'
 
 // client_id PUBLIC de l'app Strava Vorcelab (visible dans l'URL d'autorisation).
 // Override possible via VITE_STRAVA_CLIENT_ID. Le secret reste côté edge function.
@@ -23,20 +23,20 @@ function redirectUri(): string {
 const STRAVA_STATE = 'vl_strava'
 
 /** Démarre le flux OAuth Strava (redirige le navigateur vers Strava). */
-export function startStravaOAuth(): void {
+export function startStravaOAuth(options: { forceApproval?: boolean } = {}): void {
   if (!stravaConfigured()) return
   const params = new URLSearchParams({
     client_id: STRAVA_CLIENT_ID,
     response_type: 'code',
     redirect_uri: redirectUri(),
-    approval_prompt: 'auto',
+    approval_prompt: options.forceApproval ? 'force' : 'auto',
     scope: 'read,activity:read_all',
     state: STRAVA_STATE,
   })
   window.location.href = `https://www.strava.com/oauth/authorize?${params.toString()}`
 }
 
-export type StravaRedirectResult = 'connected' | 'denied' | 'error' | null
+export type StravaRedirectResult = 'connected' | 'denied' | 'missing_scope' | 'error' | null
 
 /**
  * À appeler au chargement de l'app : si l'URL contient `?code=` (retour Strava),
@@ -56,6 +56,7 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   window.history.replaceState({}, '', `${url.origin}${url.pathname}`)
 
   if (err || !code) return 'denied'
+  if (!hasRequiredStravaActivityScope(scope)) return 'missing_scope'
 
   const { data: { session } } = await supabase.auth.getSession()
 

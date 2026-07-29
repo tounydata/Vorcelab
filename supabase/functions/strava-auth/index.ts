@@ -14,6 +14,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { syncStravaActivitiesForUser } from '../_shared/strava.ts'
+import { hasRequiredStravaActivityScope } from '../_shared/stravaScopes.ts'
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 // Domaine synthétique pour les comptes créés via Strava (aucun mail n'y est envoyé).
@@ -31,6 +32,9 @@ Deno.serve(async (req: Request) => {
     const body = (await req.json()) as { code?: string; scope?: string }
     const { code, scope = '' } = body
     if (!code || typeof code !== 'string') return fail('Missing OAuth code', 400)
+    if (!hasRequiredStravaActivityScope(scope)) {
+      return fail('Strava activity permission required', 403)
+    }
 
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
     const clientSecret = Deno.env.get('STRAVA_CLIENT_SECRET')

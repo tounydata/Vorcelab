@@ -150,7 +150,7 @@ export default function App() {
             window.location.reload()
           }
         })
-      } else if (res === 'error' || res === 'denied') {
+      } else if (res === 'error' || res === 'denied' || res === 'missing_scope') {
         // Échec du retour Strava : on le signale sur l'écran de connexion au lieu du silence.
         try { sessionStorage.setItem('vl-strava-auth-result', res) } catch { /* ignore */ }
       }

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { hasRequiredStravaActivityScope } from '../_shared/stravaScopes.ts'
 
 const STATIC_ORIGINS = new Set([
   'https://vorcelab.app',
@@ -40,7 +41,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const { data: row } = await admin
       .from('strava_tokens')
-      .select('athlete_firstname, athlete_lastname, athlete_avatar, last_sync_at')
+      .select('athlete_firstname, athlete_lastname, athlete_avatar, last_sync_at, scope')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -52,6 +53,8 @@ Deno.serve(async (req: Request) => {
       athlete_lastname: row.athlete_lastname ?? null,
       athlete_avatar: row.athlete_avatar ?? null,
       last_sync_at: row.last_sync_at ?? null,
+      scope: row.scope ?? null,
+      activity_access_granted: hasRequiredStravaActivityScope(row.scope),
     }), { status: 200, headers: { ...cors(origin), 'Content-Type': 'application/json' } })
 
   } catch (err) {

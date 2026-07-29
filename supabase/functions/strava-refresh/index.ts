@@ -3,6 +3,7 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { errorResponse } from '../_shared/error.ts'
 import { requireAuth } from '../_shared/auth.ts'
 import { getValidStravaAccessToken, syncStravaActivitiesForUser } from '../_shared/strava.ts'
+import { hasRequiredStravaActivityScope } from '../_shared/stravaScopes.ts'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req)
@@ -18,7 +19,7 @@ Deno.serve(async (req: Request) => {
     // Check if user has a Strava connection
     const { data: tokenRow } = await supabase
       .from('strava_tokens')
-      .select('last_sync_at')
+      .select('last_sync_at, scope')
       .eq('user_id', user.id)
       .single()
 
@@ -27,6 +28,10 @@ Deno.serve(async (req: Request) => {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    if (!hasRequiredStravaActivityScope(tokenRow.scope as string | null)) {
+      return errorResponse('Strava activity permission required', 403)
     }
 
     const accessToken = await getValidStravaAccessToken(supabase, user.id)
