@@ -36,7 +36,7 @@ export default function SupportSessionBanner() {
 
     window.close()
     // Fallback lorsque le navigateur refuse window.close().
-    window.setTimeout(() => window.location.replace('/support-session?ended=1'), 150)
+    window.setTimeout(() => window.location.replace('/support-session/?ended=1'), 150)
   }, [ending, meta?.id])
 
   useEffect(() => {

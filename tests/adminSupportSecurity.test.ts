@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildStravaSupportAuthorizationUrl,
   parseAdminSupportAction,
 } from '../supabase/functions/_shared/adminSupport'
+import { isSupportSessionWindow } from '../src/lib/supportSession'
 
 const migration = readFileSync(
   resolve('supabase/migrations/20260729121647_admin_support_mode.sql'),
@@ -43,8 +44,11 @@ const subscriptionCard = readFileSync(
   'utf8',
 )
 const settingsPage = readFileSync(resolve('src/pages/SettingsPage.tsx'), 'utf8')
+const pagesPostbuild = readFileSync(resolve('scripts/pages-postbuild.mjs'), 'utf8')
 
 describe('mode assistance administrateur', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it('limite chaque intervention à un admin, une cible serveur et une durée', () => {
     expect(migration).toContain('create table if not exists public.admin_support_sessions')
     expect(migration).toContain("expires_at timestamptz not null default (now() + interval '45 minutes')")
@@ -144,13 +148,25 @@ describe('mode assistance administrateur', () => {
     expect(supabaseClient).toContain('detectSessionInUrl: false')
 
     const clearIndex = supportSessionPage.indexOf(
-      "window.history.replaceState({}, '', '/support-session')",
+      "window.history.replaceState({}, '', '/support-session/')",
     )
     const verifyIndex = supportSessionPage.indexOf('supabase.auth.verifyOtp')
     expect(clearIndex).toBeGreaterThan(-1)
     expect(verifyIndex).toBeGreaterThan(clearIndex)
     expect(supportSessionPage).toContain("type: 'magiclink'")
     expect(supportSessionPage).toContain('data.user.id !== payload.targetUserId')
+  })
+
+  it('matérialise la route privée sur GitHub Pages sans l’indexer', () => {
+    expect(adminPage).toContain("new URL('/support-session/', window.location.origin)")
+    expect(pagesPostbuild).toContain("const PRIVATE_SPA_ROUTES = ['support-session']")
+    expect(pagesPostbuild).toContain('noindex,nofollow')
+
+    vi.stubGlobal('window', {
+      location: { pathname: '/support-session/' },
+      sessionStorage: { getItem: () => null },
+    })
+    expect(isSupportSessionWindow()).toBe(true)
   })
 
   it('vérifie et termine la fenêtre assistée uniquement pour la cible authentifiée', () => {

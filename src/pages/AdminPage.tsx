@@ -346,7 +346,9 @@ function UserRow({ user }: { user: AdminUser }) {
         throw new Error('Lien de session assistée incomplet.')
       }
 
-      const destination = new URL('/support-session', window.location.origin)
+      // Le slash final évite la redirection de répertoire de GitHub Pages et
+      // conserve le fragment OTP dans la toute première requête.
+      const destination = new URL('/support-session/', window.location.origin)
       destination.hash = new URLSearchParams({
         token_hash: result.token_hash,
         support_session_id: result.support_session_id,
