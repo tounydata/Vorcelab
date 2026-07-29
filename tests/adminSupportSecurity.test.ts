@@ -11,6 +11,10 @@ const migration = readFileSync(
   resolve('supabase/migrations/20260729121647_admin_support_mode.sql'),
   'utf8',
 ).toLowerCase()
+const auditMigration = readFileSync(
+  resolve('supabase/migrations/20260729125217_fix_assisted_strava_audit.sql'),
+  'utf8',
+).toLowerCase()
 const edgeFunction = readFileSync(
   resolve('supabase/functions/admin-support/index.ts'),
   'utf8',
@@ -36,6 +40,12 @@ const supportBanner = readFileSync(
 )
 const stravaConnection = readFileSync(
   resolve('src/components/StravaConnection.tsx'),
+  'utf8',
+)
+const stravaRedirect = readFileSync(resolve('src/lib/strava.ts'), 'utf8')
+const app = readFileSync(resolve('src/App.tsx'), 'utf8')
+const adminSupportTab = readFileSync(
+  resolve('src/components/admin/AdminSupportTab.tsx'),
   'utf8',
 )
 const upgradeModal = readFileSync(resolve('src/components/UpgradeModal.tsx'), 'utf8')
@@ -81,6 +91,7 @@ describe('mode assistance administrateur', () => {
     )
     expect(contextFunction).not.toContain('st.access_token')
     expect(contextFunction).not.toContain('st.refresh_token')
+    expect(auditMigration).not.toMatch(/jsonb_build_object\([^)]*(access_token|refresh_token)/)
   })
 
   it('dérive toujours la cible de la session support, jamais du corps de requête', () => {
@@ -192,7 +203,7 @@ describe('mode assistance administrateur', () => {
     expect(adminPage).not.toContain('Vue en tant que')
   })
 
-  it('bloque les actions de sécurité, paiement et OAuth dans la fenêtre assistée', () => {
+  it('bloque mot de passe et paiement mais traite OAuth dans la fenêtre assistée', () => {
     expect(settingsPage).toContain(
       'Changement de mot de passe bloqué pendant une session assistée.',
     )
@@ -200,7 +211,56 @@ describe('mode assistance administrateur', () => {
       'const effectivePreviewMode = previewMode || isSupportSessionWindow()',
     )
     expect(subscriptionCard).toContain('paiement, factures et carte bancaire restent bloqués')
-    expect(stravaConnection).toContain('disabled={supportWindow}')
-    expect(stravaConnection).toContain('À VALIDER SUR SON APPAREIL')
+    expect(stravaConnection).toContain('body: JSON.stringify({ supportSessionId })')
+    expect(stravaConnection).not.toContain('disabled={supportWindow}')
+    expect(app).toContain('handleStravaRedirect({ supportSessionId })')
+    expect(stravaRedirect).toContain('supportSessionId: options.supportSessionId')
+  })
+
+  it('ne marque OAuth réussi qu’avec le scope Strava stocké atomiquement', () => {
+    expect(stravaOauth).toContain("'support_apply_strava_oauth'")
+    expect(stravaOauth).toContain('p_support_session_id: supportSession.id')
+    expect(auditMigration).toContain(
+      'create or replace function public.support_apply_strava_oauth',
+    )
+    expect(auditMigration).toContain("'strava_oauth_completed'")
+    expect(auditMigration).toContain("'réautorisation strava confirmée par le serveur'")
+    expect(auditMigration).toContain(
+      "coalesce(p_scope, '') !~ '(^|[ ,])activity:read_all([ ,]|$)'",
+    )
+    expect(auditMigration).toContain(
+      'grant execute on function public.support_apply_strava_oauth',
+    )
+    expect(auditMigration).toContain('to service_role')
+  })
+
+  it('journalise les mutations assistées après confirmation Postgres', () => {
+    expect(auditMigration).toContain(
+      'create or replace function private.log_assisted_row_change',
+    )
+    expect(auditMigration).toContain('after insert or update or delete on public.profiles')
+    expect(auditMigration).toContain(
+      'after insert or update or delete on public.race_calendar',
+    )
+    expect(auditMigration).toContain('owner_id <> caller_id')
+    expect(auditMigration).toContain("'source', 'database_trigger'")
+    expect(auditMigration).toContain("'success'")
+    expect(auditMigration).toContain('confirmée par la base')
+  })
+
+  it('rend l’historique de toutes les sessions uniquement à leur admin', () => {
+    expect(auditMigration).toContain(
+      'create or replace function public.admin_list_support_history',
+    )
+    expect(auditMigration).toContain('s.admin_user_id = caller_id')
+    expect(auditMigration).toContain('p.is_admin is true')
+    expect(auditMigration).toContain(
+      'revoke execute on function public.admin_list_support_history(integer)',
+    )
+    expect(adminSupportTab).toContain("'admin-support-history'")
+    expect(adminSupportTab).toContain('HISTORIQUE ADMIN DES ASSISTANCES')
+    expect(adminSupportTab).toContain(
+      'confirme une écriture effectuée par la base ou une opération validée par le serveur',
+    )
   })
 })

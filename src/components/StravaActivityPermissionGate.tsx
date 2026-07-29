@@ -8,6 +8,18 @@ type GateState = 'checking' | 'clear' | 'blocked'
 
 export default function StravaActivityPermissionGate() {
   const [state, setState] = useState<GateState>('checking')
+  const [oauthError, setOauthError] = useState<string | null>(() => {
+    try {
+      const result = sessionStorage.getItem('vl-strava-auth-result')
+      sessionStorage.removeItem('vl-strava-auth-result')
+      if (result === 'denied') return 'Autorisation annulée sur Strava. Réessaie puis valide le bouton Autoriser.'
+      if (result === 'missing_scope') return 'La permission activités n’a pas été accordée par Strava.'
+      if (result === 'error') return 'Strava a répondu, mais Vorcelab n’a pas pu enregistrer l’autorisation. L’échec est visible dans le journal admin.'
+    } catch {
+      // sessionStorage peut être indisponible dans certains navigateurs privés.
+    }
+    return null
+  })
 
   useEffect(() => {
     let active = true
@@ -40,7 +52,11 @@ export default function StravaActivityPermissionGate() {
 
   return (
     <StravaActivityPermissionModal
-      onAuthorize={() => startStravaOAuth({ forceApproval: true })}
+      error={oauthError}
+      onAuthorize={() => {
+        setOauthError(null)
+        startStravaOAuth({ forceApproval: true })
+      }}
     />
   )
 }

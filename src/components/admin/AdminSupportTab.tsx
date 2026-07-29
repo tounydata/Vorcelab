@@ -42,6 +42,20 @@ interface SupportActionLog {
   created_at: string
 }
 
+interface SupportHistorySession {
+  id: string
+  target_user_id: string
+  target_email?: string | null
+  target_name?: string | null
+  reason: string
+  consent_mode: string
+  started_at: string
+  expires_at: string
+  ended_at?: string | null
+  state: 'active' | 'ended' | 'expired'
+  actions: SupportActionLog[]
+}
+
 interface SupportContext {
   session: {
     id: string
@@ -245,6 +259,118 @@ function SelectField({
   )
 }
 
+function SupportHistorySection({
+  sessions,
+  loading,
+  error,
+}: {
+  sessions: SupportHistorySession[]
+  loading: boolean
+  error: boolean
+}) {
+  return (
+    <section style={card}>
+      <div className="clabel" style={{ marginBottom: 5 }}>HISTORIQUE ADMIN DES ASSISTANCES</div>
+      <div style={{ marginBottom: 12, color: 'var(--vl-text-3)', fontSize: 10, lineHeight: 1.5 }}>
+        Une ligne verte confirme une écriture effectuée par la base ou une opération validée par le serveur.
+        Une ligne rouge confirme un échec.
+        Les simples consultations et changements de page ne sont pas journalisés.
+      </div>
+
+      {loading ? <div className="loading"><div className="spinner" /></div> : null}
+      {error ? (
+        <div role="alert" style={{ color: 'var(--vl-ember)', fontSize: 11 }}>
+          Impossible de charger l’historique d’assistance.
+        </div>
+      ) : null}
+      {!loading && !error && sessions.length === 0 ? (
+        <div style={{ color: 'var(--vl-text-3)', fontSize: 10 }}>Aucune session enregistrée.</div>
+      ) : null}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sessions.map((session, index) => {
+          const successCount = session.actions.filter((action) => action.outcome === 'success').length
+          const errorCount = session.actions.filter((action) => action.outcome === 'error').length
+          const stateLabel = session.state === 'active'
+            ? 'ACTIVE'
+            : session.state === 'expired'
+            ? 'EXPIRÉE'
+            : 'TERMINÉE'
+
+          return (
+            <details
+              key={session.id}
+              open={index === 0 && session.state === 'active'}
+              style={{
+                border: '1px solid var(--vl-line)',
+                borderRadius: 9,
+                background: 'var(--vl-surf-2)',
+                overflow: 'hidden',
+              }}
+            >
+              <summary style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                padding: '10px 12px',
+                cursor: 'pointer',
+                listStyle: 'none',
+                fontFamily: 'var(--vl-mono)',
+                fontSize: 9.5,
+              }}>
+                <span style={{
+                  color: session.state === 'active' ? 'var(--vl-growth)' : 'var(--vl-text-3)',
+                  fontWeight: 800,
+                }}>
+                  {stateLabel}
+                </span>
+                <strong style={{ color: 'var(--vl-text)' }}>
+                  {session.target_name || session.target_email || session.target_user_id}
+                </strong>
+                <span style={{ color: 'var(--vl-text-3)' }}>{fmtDateTime(session.started_at)}</span>
+                <span style={{ marginLeft: 'auto', color: 'var(--vl-growth)' }}>✓ {successCount}</span>
+                {errorCount > 0 ? <span style={{ color: 'var(--vl-ember)' }}>✕ {errorCount}</span> : null}
+              </summary>
+
+              <div style={{ padding: '0 12px 10px' }}>
+                <div style={{ padding: '7px 0', color: 'var(--vl-text-3)', fontSize: 9.5 }}>
+                  {session.reason}
+                </div>
+                {session.actions.map((log) => (
+                  <div
+                    key={log.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '118px minmax(150px, .8fr) minmax(220px, 2fr)',
+                      gap: 9,
+                      padding: '7px 0',
+                      borderTop: '1px solid var(--vl-line)',
+                      fontFamily: 'var(--vl-mono)',
+                      fontSize: 9,
+                    }}
+                  >
+                    <span style={{ color: 'var(--vl-text-3)' }}>{fmtDateTime(log.created_at)}</span>
+                    <span style={{
+                      color: log.outcome === 'success' ? 'var(--vl-growth)' : 'var(--vl-ember)',
+                      fontWeight: 700,
+                    }}>
+                      {log.outcome === 'success' ? '✓' : '✕'} {log.action}
+                    </span>
+                    <span style={{ color: 'var(--vl-text-2)' }}>{log.summary}</span>
+                  </div>
+                ))}
+                {session.actions.length === 0 ? (
+                  <div style={{ color: 'var(--vl-text-3)', fontSize: 9.5 }}>Aucune action enregistrée.</div>
+                ) : null}
+              </div>
+            </details>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
   const queryClient = useQueryClient()
   const athleteUsers = useMemo(() => users.filter((user) => !user.is_admin), [users])
@@ -268,6 +394,18 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
   })
 
   const activeSession = activeSessionQuery.data ?? null
+
+  const historyQuery = useQuery<SupportHistorySession[]>({
+    queryKey: ['admin-support-history'],
+    refetchInterval: activeSession ? 4_000 : 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_list_support_history', {
+        history_limit: 25,
+      })
+      if (error) throw error
+      return (data ?? []) as unknown as SupportHistorySession[]
+    },
+  })
 
   const contextQuery = useQuery<SupportContext>({
     queryKey: ['admin-support-context', activeSession?.id],
@@ -311,6 +449,7 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
       setOauthUrl('')
       setMessage('Session d’assistance ouverte pour 45 minutes.')
       queryClient.setQueryData(['admin-support-active-session'], session)
+      queryClient.invalidateQueries({ queryKey: ['admin-support-history'] })
     },
     onError: (error) => setMessage(`Erreur : ${error.message}`),
   })
@@ -329,6 +468,7 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
       setMessage('Session d’assistance terminée.')
       queryClient.setQueryData(['admin-support-active-session'], null)
       queryClient.removeQueries({ queryKey: ['admin-support-context'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-support-history'] })
     },
     onError: (error) => setMessage(`Erreur : ${error.message}`),
   })
@@ -370,6 +510,7 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
         setMessage(messages[action])
       }
       contextQuery.refetch()
+      queryClient.invalidateQueries({ queryKey: ['admin-support-history'] })
     },
     onError: (error) => setMessage(`Erreur : ${error.message}`),
   })
@@ -388,6 +529,7 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
       setProfileForm(profileFormFrom(profile))
       setMessage('Profil et réglages enregistrés.')
       contextQuery.refetch()
+      queryClient.invalidateQueries({ queryKey: ['admin-support-history'] })
     },
     onError: (error) => setMessage(`Erreur : ${error.message}`),
   })
@@ -515,6 +657,11 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
           ) : null}
           {message ? <div aria-live="polite" style={{ marginTop: 10, color: 'var(--vl-text-2)', fontSize: 11 }}>{message}</div> : null}
         </section>
+        <SupportHistorySection
+          sessions={historyQuery.data ?? []}
+          loading={historyQuery.isLoading}
+          error={historyQuery.isError}
+        />
       </div>
     )
   }
@@ -800,7 +947,10 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
           </section>
 
           <section style={card}>
-            <div className="clabel" style={{ marginBottom: 10 }}>JOURNAL ASSAINI DE LA SESSION</div>
+            <div className="clabel" style={{ marginBottom: 4 }}>JOURNAL LIVE DE LA SESSION</div>
+            <div style={{ marginBottom: 10, color: 'var(--vl-text-3)', fontSize: 9.5 }}>
+              Le succès n’est ajouté qu’après confirmation de la base ou du serveur.
+            </div>
             {(supportContext.recent_actions ?? []).map((log) => (
               <div
                 key={log.id}
@@ -815,7 +965,9 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
                 }}
               >
                 <span style={{ color: 'var(--vl-text-3)' }}>{fmtDateTime(log.created_at)}</span>
-                <span style={{ color: log.outcome === 'success' ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>{log.action}</span>
+                <span style={{ color: log.outcome === 'success' ? 'var(--vl-growth)' : 'var(--vl-ember)' }}>
+                  {log.outcome === 'success' ? '✓' : '✕'} {log.action}
+                </span>
                 <span style={{ color: 'var(--vl-text-2)' }}>{log.summary}</span>
               </div>
             ))}
@@ -823,6 +975,12 @@ export default function AdminSupportTab({ users }: { users: SupportUser[] }) {
               <div style={{ color: 'var(--vl-text-3)', fontSize: 10 }}>Aucune action enregistrée.</div>
             ) : null}
           </section>
+
+          <SupportHistorySection
+            sessions={historyQuery.data ?? []}
+            loading={historyQuery.isLoading}
+            error={historyQuery.isError}
+          />
         </>
       ) : null}
     </div>

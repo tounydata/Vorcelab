@@ -20,6 +20,12 @@ import {
   type RawStreamSet,
 } from '../_shared/runner-core/mod.ts'
 import { isRunningActivity } from '../_shared/runner-core/engineHistory.ts'
+import {
+  resolveAssistedSupportSession,
+  SupportAuditError,
+  type AssistedSupportSession,
+  writeSupportAudit,
+} from '../_shared/supportAudit.ts'
 
 const STRAVA_STREAMS_URL = 'https://www.strava.com/api/v3/activities'
 
@@ -51,10 +57,19 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return handleCors(req)
   const origin = req.headers.get('origin')
   const cors = getCorsHeaders(origin)
+  const supabase = getServiceClient()
+  let supportSession: AssistedSupportSession | null = null
 
   try {
     const user = await requireAuth(req)
-    const supabase = getServiceClient()
+    const body = (await req.json().catch(() => ({}))) as {
+      supportSessionId?: unknown
+    }
+    supportSession = await resolveAssistedSupportSession(
+      supabase,
+      body.supportSessionId,
+      user.id,
+    )
 
     // Profil (fcMax + runner_profile existant, pour la persistance non destructive).
     const { data: profileRow } = await supabase
@@ -116,6 +131,15 @@ Deno.serve(async (req: Request) => {
       isRunningActivity({ type: a.type, sport_type: a.sport_type }))
 
     if (activities.length === 0) {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'runner_profile_recomputed',
+          'error',
+          'Recalcul du profil refusé : aucune activité course disponible',
+        )
+      }
       return new Response(JSON.stringify({ error: 'No run activities found' }), {
         status: 404, headers: { ...cors, 'Content-Type': 'application/json' },
       })
@@ -125,6 +149,15 @@ Deno.serve(async (req: Request) => {
     try {
       accessToken = await getValidStravaAccessToken(supabase, user.id)
     } catch {
+      if (supportSession) {
+        await writeSupportAudit(
+          supabase,
+          supportSession,
+          'runner_profile_recomputed',
+          'error',
+          'Recalcul du profil refusé : connexion Strava indisponible',
+        )
+      }
       return new Response(JSON.stringify({ error: 'No Strava connection' }), {
         status: 401, headers: { ...cors, 'Content-Type': 'application/json' },
       })
@@ -219,7 +252,7 @@ Deno.serve(async (req: Request) => {
       streamDiagnostics,
     }
 
-    await supabase
+    const { error: profileWriteError } = await supabase
       .from('profiles')
       .upsert({
         id: user.id,
@@ -227,6 +260,25 @@ Deno.serve(async (req: Request) => {
         runner_profile_at: computedProfile.computedAt,
         updated_at: computedProfile.computedAt,
       })
+    if (profileWriteError) {
+      throw new Error(`profile write failed: ${profileWriteError.message}`)
+    }
+
+    if (supportSession) {
+      await writeSupportAudit(
+        supabase,
+        supportSession,
+        'runner_profile_recomputed',
+        'success',
+        'Profil coureur recalculé et enregistré par le serveur',
+        null,
+        {
+          activities_used: activities.length,
+          streams_available: Object.keys(streamsByActivityId).length,
+          source: 'compute_runner_profile_function',
+        },
+      )
+    }
 
     return new Response(
       JSON.stringify({ ok: true, profile: runnerProfile, stream_diagnostics: streamDiagnostics, preserved_fields: Object.keys(preserved) }),
@@ -234,7 +286,18 @@ Deno.serve(async (req: Request) => {
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
-    const status = msg === 'Unauthorized' ? 401 : 500
+    const status = msg === 'Unauthorized' ? 401 : err instanceof SupportAuditError ? 403 : 500
+    if (supportSession) {
+      await writeSupportAudit(
+        supabase,
+        supportSession,
+        'runner_profile_recomputed',
+        'error',
+        'Échec du recalcul du profil coureur',
+        null,
+        { source: 'compute_runner_profile_function' },
+      )
+    }
     if (status === 500) console.error('compute-runner-profile error:', msg)
     return new Response(JSON.stringify({ error: msg }), {
       status, headers: { ...cors, 'Content-Type': 'application/json' },

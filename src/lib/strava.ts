@@ -38,11 +38,28 @@ export function startStravaOAuth(options: { forceApproval?: boolean } = {}): voi
 
 export type StravaRedirectResult = 'connected' | 'denied' | 'missing_scope' | 'error' | null
 
+async function logAssistedOAuthResult(
+  supportSessionId: string | undefined,
+  result: 'denied' | 'missing_scope' | 'client_error',
+): Promise<void> {
+  if (!supportSessionId) return
+  try {
+    await supabase.rpc('support_log_assisted_oauth_result', {
+      support_session_id: supportSessionId,
+      result_code: result,
+    })
+  } catch {
+    // L'erreur OAuth reste affichée même si son audit secondaire est indisponible.
+  }
+}
+
 /**
  * À appeler au chargement de l'app : si l'URL contient `?code=` (retour Strava),
  * échange le code via l'edge function puis nettoie l'URL. `null` si pas de retour OAuth.
  */
-export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
+export async function handleStravaRedirect(
+  options: { supportSessionId?: string } = {},
+): Promise<StravaRedirectResult> {
   const url = new URL(window.location.href)
   const code = url.searchParams.get('code')
   const err = url.searchParams.get('error')
@@ -55,8 +72,14 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
   // Nettoie l'URL (retire la query OAuth, conserve le chemin de routage).
   window.history.replaceState({}, '', `${url.origin}${url.pathname}`)
 
-  if (err || !code) return 'denied'
-  if (!hasRequiredStravaActivityScope(scope)) return 'missing_scope'
+  if (err || !code) {
+    await logAssistedOAuthResult(options.supportSessionId, 'denied')
+    return 'denied'
+  }
+  if (!hasRequiredStravaActivityScope(scope)) {
+    await logAssistedOAuthResult(options.supportSessionId, 'missing_scope')
+    return 'missing_scope'
+  }
 
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -66,10 +89,15 @@ export async function handleStravaRedirect(): Promise<StravaRedirectResult> {
       const r = await fetch(`${SUPA_URL}/functions/v1/strava-oauth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ code, scope }),
+        body: JSON.stringify({
+          code,
+          scope,
+          supportSessionId: options.supportSessionId,
+        }),
       })
       return r.ok ? 'connected' : 'error'
     } catch {
+      await logAssistedOAuthResult(options.supportSessionId, 'client_error')
       return 'error'
     }
   }

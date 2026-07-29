@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase, SUPA_URL } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
-import { isSupportSessionWindow } from '../lib/supportSession'
+import { readSupportSessionMeta } from '../lib/supportSession'
 
 // Connexion Strava — composant partagé. `compact` = état + sync (header mobile,
 // non envahissant) ; `full` = état + connecter/déconnecter/forcer sync (sidebar
@@ -38,7 +38,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   const qc = useQueryClient()
   const [status, setStatus] = useState<StravaStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
-  const supportWindow = isSupportSessionWindow()
+  const supportSessionId = readSupportSessionMeta()?.id
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -50,7 +50,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
 
   async function sync() {
     if (status?.activity_access_granted === false) {
-      if (!supportWindow) startStravaOAuth({ forceApproval: true })
+      startStravaOAuth({ forceApproval: true })
       return
     }
     setSyncing(true)
@@ -58,7 +58,9 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) return
       const r = await fetch(`${SUPA_URL}/functions/v1/strava-refresh`, {
-        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: '{}',
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supportSessionId }),
       })
       const d = await r.json()
       if (d.last_sync_at) setStatus((p) => p ? { ...p, last_sync_at: d.last_sync_at } : p)
@@ -71,9 +73,12 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   async function disconnect() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) return
-    await fetch(`${SUPA_URL}/functions/v1/strava-disconnect`, {
-      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: '{}',
+    const response = await fetch(`${SUPA_URL}/functions/v1/strava-disconnect`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supportSessionId }),
     }).catch(() => {})
+    if (!(response instanceof Response) || !response.ok) return
     setStatus({ connected: false })
     qc.invalidateQueries()
   }
@@ -95,14 +100,11 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         />
         {activityAccessMissing ? (
           <button
-            onClick={() => { if (!supportWindow) startStravaOAuth({ forceApproval: true }) }}
-            disabled={supportWindow}
-            title={supportWindow
-              ? "L'autorisation doit être validée sur l'appareil de l'athlète"
-              : 'Réautoriser Strava pour donner accès aux activités'}
+            onClick={() => startStravaOAuth({ forceApproval: true })}
+            title="Réautoriser Strava pour donner accès aux activités"
             style={{ background: 'none', border: '1px solid var(--vl-ember)', borderRadius: 6, cursor: 'pointer', color: 'var(--vl-ember)', padding: '5px 7px', fontFamily: 'var(--vl-mono)', fontSize: 8 }}
           >
-            {supportWindow ? 'ATHLÈTE REQUIS' : 'AUTORISER'}
+            AUTORISER
           </button>
         ) : connected && (
           <button onClick={sync} disabled={syncing} title={`Forcer la synchro · ${formatSync(status.last_sync_at)}`} aria-label="Synchroniser Strava"
@@ -130,11 +132,10 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <button
             className="hbtn"
-            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)', opacity: supportWindow ? .6 : 1 }}
-            disabled={supportWindow}
-            onClick={() => { if (!supportWindow) startStravaOAuth({ forceApproval: true }) }}
+            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)' }}
+            onClick={() => startStravaOAuth({ forceApproval: true })}
           >
-            {supportWindow ? 'À VALIDER SUR SON APPAREIL' : 'RÉAUTORISER STRAVA'}
+            RÉAUTORISER STRAVA
           </button>
           <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
             DÉCONNECTER
@@ -181,11 +182,10 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
       {stravaConfigured() && (
         <button
           className="hbtn"
-          style={{ fontSize: 9, padding: '3px 8px', width: '100%', opacity: supportWindow ? .6 : 1 }}
-          disabled={supportWindow}
-          onClick={() => { if (!supportWindow) startStravaOAuth() }}
+          style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
+          onClick={() => startStravaOAuth()}
         >
-          {supportWindow ? 'CONNEXION À FAIRE PAR L’ATHLÈTE' : 'CONNECTER STRAVA'}
+          CONNECTER STRAVA
         </button>
       )}
     </div>
