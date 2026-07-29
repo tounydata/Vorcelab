@@ -8,6 +8,7 @@ import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import StatsTab from '../components/admin/StatsTab'
 import EngineAccuracyCard from '../components/admin/EngineAccuracyCard'
+import AdminLabTab from '../components/admin/AdminLabTab'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -386,14 +387,14 @@ function UserRow({ user }: { user: AdminUser }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
-type AdminTab = 'users' | 'stats'
+type AdminTab = 'users' | 'stats' | 'lab'
 
 export default function AdminPage() {
   const { isAdmin, isLoading: tierLoading } = usePlanTier()
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<AdminTab>('users')
   const qc = useQueryClient()
-  const { openModal } = useUpgradeModal()
+  const { openPreviewModal } = useUpgradeModal()
   const { vdot, targetRace, plan } = useCoachPlan()
 
   const { data: users = [], isLoading } = useQuery<AdminUser[]>({
@@ -443,7 +444,7 @@ export default function AdminPage() {
             ✦ ADMIN
           </span>
           <button
-            onClick={() => openModal(targetRace ? {
+            onClick={() => openPreviewModal(targetRace ? {
               vdot,
               distanceKm: targetRace.distance ?? 0,
               weeksToRace: plan?.weeksToRace ?? 0,
@@ -463,7 +464,7 @@ export default function AdminPage() {
 
       {/* Onglets */}
       <div style={{ display: 'flex', gap: 6, marginBottom: '1.5rem' }}>
-        {([['users', 'Utilisateurs'], ['stats', 'Statistiques']] as [AdminTab, string][]).map(([key, label]) => (
+        {([['users', 'Utilisateurs'], ['stats', 'Statistiques'], ['lab', 'Labo & tests']] as [AdminTab, string][]).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -480,6 +481,7 @@ export default function AdminPage() {
       </div>
 
       {tab === 'stats' && <><EngineAccuracyCard /><StatsTab /></>}
+      {tab === 'lab' && <AdminLabTab users={users} />}
 
       {tab === 'users' && <>
       {/* Accès rapide : passer tous les utilisateurs en test */}

@@ -54,7 +54,7 @@ const PERKS = [
 ]
 
 export default function UpgradeModal() {
-  const { open, teaser, closeModal } = useUpgradeModal()
+  const { open, teaser, previewMode, closeModal } = useUpgradeModal()
   const user = useVLStore((s) => s.user)
   const track = useTrackEvent()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
@@ -64,7 +64,7 @@ export default function UpgradeModal() {
 
   useEffect(() => {
     if (open) {
-      track('upgrade_modal_open', { with_teaser: !!teaser })
+      if (!previewMode) track('upgrade_modal_open', { with_teaser: !!teaser })
       setTimeout(() => setMounted(true), 10)
       document.body.style.overflow = 'hidden'
     } else {
@@ -72,7 +72,7 @@ export default function UpgradeModal() {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, previewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null
 
@@ -88,6 +88,10 @@ export default function UpgradeModal() {
   const savedMinHigh = currentTimeS && coachFastS ? Math.floor((currentTimeS - coachFastS) / 60) : 0
 
   function handleCTA() {
+    if (previewMode) {
+      closeModal()
+      return
+    }
     const base = PRICING[billing].stripeUrl
     // has_teaser = un scénario chiffré a réellement été montré → mesure si le
     // teaser aide à convertir (à croiser avec upgrade_modal_open.with_teaser).
@@ -122,6 +126,7 @@ export default function UpgradeModal() {
         aria-modal="true"
         aria-label="Passer à Vorcelab PRO"
         style={{
+          position: 'relative',
           width: '100%',
           maxWidth: 520,
           background: 'var(--vl-surf)',
@@ -134,6 +139,17 @@ export default function UpgradeModal() {
           flexShrink: 0,
         }}
       >
+        {previewMode ? (
+          <div style={{
+            position: 'absolute', zIndex: 3, top: 14, left: 14,
+            borderRadius: 999, padding: '4px 9px',
+            background: '#111216', border: '1px solid rgba(255,255,255,.18)',
+            color: '#fff', fontFamily: 'var(--vl-mono)', fontSize: 8,
+            fontWeight: 700, letterSpacing: '.1em',
+          }}>
+            MODE TEST · AUCUN PAIEMENT
+          </div>
+        ) : null}
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div style={{
           background: 'linear-gradient(150deg, #0c0300 0%, #2a0d00 50%, #180404 100%)',
@@ -340,7 +356,11 @@ export default function UpgradeModal() {
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'scale(1.01)' }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
           >
-            {billing === 'annual' ? `DÉMARRER — ${priceLabels.annual().toUpperCase()} →` : `DÉMARRER — ${priceLabels.monthly().toUpperCase()} →`}
+            {previewMode
+              ? 'FERMER LA PRÉVISUALISATION'
+              : billing === 'annual'
+                ? `DÉMARRER — ${priceLabels.annual().toUpperCase()} →`
+                : `DÉMARRER — ${priceLabels.monthly().toUpperCase()} →`}
           </button>
 
           <div style={{

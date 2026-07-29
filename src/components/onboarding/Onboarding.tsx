@@ -28,7 +28,11 @@ type StepKey = 'intro' | 'profil' | 'perfs' | 'strava' | 'objectif' | 'strategie
 // faire dès la 1ʳᵉ ouverture (alimente toute l'analyse). Le reste suit.
 const STEPS: StepKey[] = ['intro', 'strava', 'profil', 'perfs', 'objectif', 'strategie']
 
-export default function Onboarding({ onDone }: { onDone: () => void }) {
+export default function Onboarding({ onDone, previewMode = false }: {
+  onDone: () => void
+  /** Labo admin : navigation complète sans aucune écriture ni redirection OAuth. */
+  previewMode?: boolean
+}) {
   const { user } = useVLStore()
   const navigate = useNavigate()
   const [i, setI] = useState(0)
@@ -56,7 +60,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   const raceSet = !!(raceKmResolved && raceDate)
 
   async function persistStep() {
-    if (!user) return
+    if (previewMode || !user) return
     if (step === 'profil') {
       await supabase.from('profiles').upsert({
         id: user.id,
@@ -80,6 +84,10 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   }
 
   async function finish(dest?: string) {
+    if (previewMode) {
+      onDone()
+      return
+    }
     if (user) await supabase.from('profiles').upsert({ id: user.id, onboarding_done: true })
     onDone()
     if (dest) navigate(dest)
@@ -164,13 +172,13 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <>
                   <button
                     className="btn-primary"
-                    onClick={() => startStravaOAuth()}
+                    onClick={() => previewMode ? next() : startStravaOAuth()}
                     style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#FC4C02' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
                     </svg>
-                    Connecter Strava
+                    {previewMode ? 'Simuler la connexion Strava' : 'Connecter Strava'}
                   </button>
                   <p style={{ ...pStyle, fontSize: 11, color: 'var(--vl-text-3)', margin: 0 }}>
                     Pas de Strava ? Tu pourras importer tes fichiers .GPX / .FIT plus tard.
