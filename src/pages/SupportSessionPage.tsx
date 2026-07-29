@@ -40,7 +40,7 @@ async function validateSupportSession(
 async function bootstrap(payload: BootstrapPayload): Promise<void> {
   // Le fragment contenant l'OTP est effacé avant tout appel réseau : il ne
   // reste ni dans l'historique visible ni dans un referer.
-  window.history.replaceState({}, '', '/support-session')
+  window.history.replaceState({}, '', '/support-session/')
   window.sessionStorage.setItem(SUPPORT_WINDOW_FLAG, '1')
 
   const { data, error } = await supabase.auth.verifyOtp({

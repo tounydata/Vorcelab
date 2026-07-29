@@ -14,7 +14,7 @@ export interface SupportSessionMeta {
 
 export function isSupportSessionWindow(): boolean {
   if (typeof window === 'undefined') return false
-  if (window.location.pathname === '/support-session') return true
+  if (window.location.pathname.replace(/\/+$/, '') === '/support-session') return true
 
   try {
     return window.sessionStorage.getItem(SUPPORT_WINDOW_FLAG) === '1'

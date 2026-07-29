@@ -23,6 +23,9 @@ if (mode !== '--github' && mode !== '--cloudflare') {
 const DIST = 'dist'
 const ORIGIN = 'https://vorcelab.app'
 const PUBLIC_ROUTES = ['login', 'demo', 'legal/cgu', 'legal/confidentialite']
+// Entrées SPA techniques qui doivent répondre 200 sur un hébergement statique,
+// sans être indexées ni ajoutées au sitemap.
+const PRIVATE_SPA_ROUTES = ['support-session']
 
 const index = readFileSync(`${DIST}/index.html`, 'utf8')
 
@@ -34,9 +37,21 @@ for (const route of PUBLIC_ROUTES) {
   writeFileSync(`${DIST}/${route}/index.html`, html)
 }
 
+for (const route of PRIVATE_SPA_ROUTES) {
+  mkdirSync(`${DIST}/${route}`, { recursive: true })
+  const html = index.replace(
+    '</head>',
+    '  <meta name="robots" content="noindex,nofollow" />\n</head>',
+  )
+  writeFileSync(`${DIST}/${route}/index.html`, html)
+}
+
 if (mode === '--github') {
   writeFileSync(`${DIST}/404.html`, index)
   writeFileSync(`${DIST}/CNAME`, 'vorcelab.app\n')
 }
 
-console.log(`pages-postbuild ${mode} : ${PUBLIC_ROUTES.length} routes générées`)
+console.log(
+  `pages-postbuild ${mode} : ${PUBLIC_ROUTES.length} routes publiques + ` +
+  `${PRIVATE_SPA_ROUTES.length} entrée SPA privée générées`,
+)
