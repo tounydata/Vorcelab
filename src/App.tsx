@@ -2,6 +2,7 @@ import { useEffect, useRef, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, Navigate, useNavigate, useLocation } from 'react-router'
 import { supabase } from './lib/supabase'
 import { handleStravaRedirect } from './lib/strava'
+import { isSupportSessionWindow } from './lib/supportSession'
 import { useVLStore } from './store/vlStore'
 import Layout from './components/Layout'
 import BrandedLoader from './components/BrandedLoader'
@@ -34,9 +35,11 @@ const MobileStravaBridge = lazy(() => import('./pages/MobileStravaBridge'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
+const SupportSessionPage = lazy(() => import('./pages/SupportSessionPage'))
 const CguPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.CguPage })))
 const PrivacyPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.PrivacyPage })))
 const MentionsPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.MentionsPage })))
+const SUPPORT_WINDOW = isSupportSessionWindow()
 
 function PrivateRoutes() {
   const { user, sessionLoaded, sessionError, loginRedirect, setLoginRedirect } = useVLStore()
@@ -113,7 +116,7 @@ export default function App() {
     const timer = setTimeout(() => setSessionError(true), SESSION_RESOLVE_TIMEOUT_MS)
     supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(timer)
-      if (session?.user) {
+      if (session?.user && !SUPPORT_WINDOW) {
         localStorage.setItem('vl-had-session', '1')
         if (trackedSession.current !== session.user.id) {
           trackedSession.current = session.user.id
@@ -128,7 +131,7 @@ export default function App() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+      if (session?.user && !SUPPORT_WINDOW) {
         localStorage.setItem('vl-had-session', '1')
         if (trackedSession.current !== session.user.id) {
           trackedSession.current = session.user.id
@@ -141,7 +144,7 @@ export default function App() {
     })
 
     // Retour OAuth Strava (?code=…) : échange le code puis recharge l'app connectée.
-    handleStravaRedirect().then((res) => {
+    if (!SUPPORT_WINDOW) handleStravaRedirect().then((res) => {
       if (res === 'connected') {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user) {
@@ -174,6 +177,7 @@ export default function App() {
         <Route path="preview/session" element={<SessionPreviewPage />} />
         <Route path="demo" element={<DemoStrategyPage />} />
         <Route path="mobile-strava" element={<MobileStravaBridge />} />
+        <Route path="support-session" element={<SupportSessionPage />} />
         <Route path="payment/success" element={<PaymentSuccessPage />} />
         <Route path="login" element={<LoginRoute />} />
         <Route path="legal/cgu" element={<CguPage />} />

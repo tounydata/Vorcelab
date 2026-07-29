@@ -12,6 +12,11 @@ project_id = "wanzrkdgqmcctwvnbmuv"
 [functions.strava-activity]
 verify_jwt = true
 
+# Assistance administrateur : le gateway exige un JWT, puis la fonction
+# revalide le rôle admin et la session support active côté serveur.
+[functions.admin-support]
+verify_jwt = true
+
 [functions.stripe-webhook]
 verify_jwt = false
 

@@ -13,14 +13,11 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await requireAuth(req)
 
-    const body = (await req.json()) as { code?: string; scope?: string; state?: string }
-    const { code, scope = '' } = body
+    const body = (await req.json()) as { code?: string }
+    const { code } = body
 
     if (!code || typeof code !== 'string' || code.length === 0) {
       return errorResponse('Missing OAuth code', 400)
-    }
-    if (!hasRequiredStravaActivityScope(scope)) {
-      return errorResponse('Strava activity permission required', 403)
     }
 
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')
@@ -42,8 +39,9 @@ Deno.serve(async (req: Request) => {
     })
 
     if (!tokenRes.ok) {
-      const errBody = await tokenRes.text()
-      console.error('Strava token exchange failed:', tokenRes.status, errBody)
+      // Ne jamais journaliser un corps de réponse OAuth : il pourrait contenir
+      // des informations sensibles ajoutées par le fournisseur.
+      console.error('Strava token exchange failed:', tokenRes.status)
       return errorResponse('Strava token exchange failed', 502)
     }
 
@@ -51,6 +49,7 @@ Deno.serve(async (req: Request) => {
       access_token: string
       refresh_token: string
       expires_at: number
+      scope?: string
       athlete: {
         id: number
         firstname: string
@@ -60,29 +59,58 @@ Deno.serve(async (req: Request) => {
     }
 
     const { access_token, refresh_token, expires_at, athlete } = tokenData
+    const grantedScope = tokenData.scope ?? ''
+    // Le scope du navigateur est informatif et modifiable. Seule la réponse
+    // serveur de l'échange OAuth fait foi.
+    if (!hasRequiredStravaActivityScope(grantedScope)) {
+      return errorResponse('Strava activity permission required', 403)
+    }
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
 
-// Security: one Strava athlete can be linked to only one Vorcelab account.
-// This blocks silent relinking caused by an already-authenticated Strava browser session.
-const { data: conflictingTokens, error: conflictError } = await supabase
-  .from('strava_tokens')
-  .select('user_id')
-  .eq('strava_athlete_id', athlete.id)
-  .neq('user_id', user.id)
-  .limit(1)
+    // Une réautorisation doit concerner le même athlète que celui déjà lié.
+    // Cela évite qu'une session Strava ouverte sur le mauvais compte remplace
+    // silencieusement la connexion existante.
+    const { data: currentToken, error: currentTokenError } = await supabase
+      .from('strava_tokens')
+      .select('strava_athlete_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-if (conflictError) {
-  console.error('strava_tokens ownership check error:', conflictError.message)
-  return errorResponse('Failed to verify Strava connection ownership', 500)
-}
+    if (currentTokenError) {
+      console.error('strava_tokens current ownership check error')
+      return errorResponse('Failed to verify current Strava connection', 500)
+    }
 
-if (conflictingTokens && conflictingTokens.length > 0) {
-  return errorResponse('Ce compte Strava est déjà lié à un autre compte Vorcelab.', 409)
-}
+    if (
+      currentToken?.strava_athlete_id != null &&
+      Number(currentToken.strava_athlete_id) !== athlete.id
+    ) {
+      return errorResponse(
+        'Le compte Strava autorisé ne correspond pas à celui déjà lié à ce compte Vorcelab.',
+        409,
+      )
+    }
+
+    // Security: one Strava athlete can be linked to only one Vorcelab account.
+    const { data: conflictingTokens, error: conflictError } = await supabase
+      .from('strava_tokens')
+      .select('user_id')
+      .eq('strava_athlete_id', athlete.id)
+      .neq('user_id', user.id)
+      .limit(1)
+
+    if (conflictError) {
+      console.error('strava_tokens ownership check error')
+      return errorResponse('Failed to verify Strava connection ownership', 500)
+    }
+
+    if (conflictingTokens && conflictingTokens.length > 0) {
+      return errorResponse('Ce compte Strava est déjà lié à un autre compte Vorcelab.', 409)
+    }
 
     // Upsert strava_tokens — keyed on user_id
     const { error: upsertError } = await supabase.from('strava_tokens').upsert(
@@ -92,7 +120,7 @@ if (conflictingTokens && conflictingTokens.length > 0) {
         access_token,
         refresh_token,
         expires_at,
-        scope,
+        scope: grantedScope,
         athlete_firstname: athlete.firstname,
         athlete_lastname: athlete.lastname,
         athlete_avatar: athlete.profile_medium,
@@ -120,7 +148,7 @@ if (conflictingTokens && conflictingTokens.length > 0) {
           lastname: athlete.lastname,
           avatar: athlete.profile_medium,
         },
-        scope,
+        scope: grantedScope,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

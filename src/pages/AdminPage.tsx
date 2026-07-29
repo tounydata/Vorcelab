@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Navigate, useNavigate } from 'react-router'
+import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { usePlanTier } from '../lib/usePlanTier'
-import { useVLStore } from '../store/vlStore'
 import { useUpgradeModal } from '../lib/useUpgradeModal'
 import { useCoachPlan } from '../lib/coach/useCoachPlan'
 import StatsTab from '../components/admin/StatsTab'
 import EngineAccuracyCard from '../components/admin/EngineAccuracyCard'
 import AdminLabTab from '../components/admin/AdminLabTab'
+import AdminSupportTab from '../components/admin/AdminSupportTab'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -292,21 +292,77 @@ function UserRow({ user }: { user: AdminUser }) {
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const [supportBusy, setSupportBusy] = useState(false)
+  const [supportMsg, setSupportMsg] = useState('')
   const qc = useQueryClient()
-  const setViewAs = useVLStore((s) => s.setViewAs)
-  const viewAs = useVLStore((s) => s.viewAs)
-  const navigate = useNavigate()
 
-  function handleViewAs() {
-    setViewAs({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      plan_tier: user.plan_tier,
-      plan_expires_at: user.plan_expires_at,
-      is_admin: user.is_admin,
-    })
-    navigate('/')
+  async function openAssistedSession(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+    const label = user.name ?? user.email
+    const confirmed = window.confirm(
+      `Ouvrir le vrai compte Vorcelab de ${label} ?\n\n` +
+      'En continuant, tu attestes que cette personne est présente en visio Teams et t’a donné son accord oral. ' +
+      'Vorcelab journalise ton attestation, sans pouvoir vérifier la conversation Teams.',
+    )
+    if (!confirmed) return
+
+    const supportWindow = window.open('about:blank', '_blank')
+    if (!supportWindow) {
+      setSupportMsg('Autorise les popups pour ouvrir la fenêtre assistée.')
+      return
+    }
+
+    setSupportBusy(true)
+    setSupportMsg('')
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.rpc(
+        'admin_start_support_session',
+        {
+          target_user_id: user.id,
+          support_reason: 'Assistance en visio Teams demandée par l’utilisateur',
+          consent_mode: 'verbal',
+          user_present: true,
+        },
+      )
+      if (sessionError || !sessionData) {
+        throw new Error(sessionError?.message ?? 'Session d’assistance impossible.')
+      }
+
+      const supportSession = sessionData as unknown as { id: string }
+      const { data, error } = await supabase.functions.invoke('admin-support', {
+        body: {
+          sessionId: supportSession.id,
+          action: 'start_vorcelab_impersonation',
+        },
+      })
+      if (error) throw error
+
+      const result = data as {
+        token_hash?: string
+        support_session_id?: string
+        target_user_id?: string
+      } | null
+      if (!result?.token_hash || !result.support_session_id || !result.target_user_id) {
+        throw new Error('Lien de session assistée incomplet.')
+      }
+
+      const destination = new URL('/support-session', window.location.origin)
+      destination.hash = new URLSearchParams({
+        token_hash: result.token_hash,
+        support_session_id: result.support_session_id,
+        target_user_id: result.target_user_id,
+      }).toString()
+      supportWindow.location.replace(destination.toString())
+      try { supportWindow.opener = null } catch { /* déjà isolée par le navigateur */ }
+      setSupportMsg(`Session réelle ouverte pour ${label}.`)
+    } catch (error) {
+      supportWindow.close()
+      setSupportMsg(
+        `Erreur : ${error instanceof Error ? error.message : 'ouverture impossible.'}`,
+      )
+    } finally {
+      setSupportBusy(false)
+    }
   }
 
   return (
@@ -335,6 +391,30 @@ function UserRow({ user }: { user: AdminUser }) {
         </div>
 
         {/* Statut + dates */}
+        {!user.is_admin ? (
+          <button
+            onClick={openAssistedSession}
+            disabled={supportBusy}
+            title={`Ouvrir une session Vorcelab temporaire pour assister ${user.name ?? user.email}`}
+            style={{
+              flexShrink: 0,
+              background: 'var(--vl-ember)',
+              border: '1px solid var(--vl-ember)',
+              color: 'var(--vl-ink)',
+              borderRadius: 7,
+              padding: '6px 10px',
+              cursor: supportBusy ? 'wait' : 'pointer',
+              fontFamily: 'var(--vl-mono)',
+              fontSize: 9,
+              fontWeight: 800,
+              letterSpacing: '.04em',
+              opacity: supportBusy ? .55 : 1,
+            }}
+          >
+            {supportBusy ? 'OUVERTURE…' : 'ASSISTER CE COMPTE'}
+          </button>
+        ) : null}
+
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
           {tierBadge(user.plan_tier, user.plan_expires_at)}
           <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)' }}>
@@ -344,6 +424,20 @@ function UserRow({ user }: { user: AdminUser }) {
 
         <span style={{ fontFamily: 'var(--vl-mono)', fontSize: 12, color: 'var(--vl-text-3)', transition: 'transform .15s', display: 'inline-block', transform: expanded ? 'rotate(90deg)' : 'none' }}>›</span>
       </div>
+      {supportMsg ? (
+        <div
+          role={supportMsg.startsWith('Erreur') ? 'alert' : 'status'}
+          style={{
+            padding: '6px 16px',
+            borderTop: '1px solid var(--vl-line)',
+            color: supportMsg.startsWith('Erreur') ? 'var(--vl-ember)' : 'var(--vl-growth)',
+            fontFamily: 'var(--vl-mono)',
+            fontSize: 9.5,
+          }}
+        >
+          {supportMsg}
+        </div>
+      ) : null}
 
       {/* Actions (expanded) */}
       {expanded && (
@@ -362,20 +456,6 @@ function UserRow({ user }: { user: AdminUser }) {
             >
               {showActivity ? '▴ Masquer activité' : '▾ Voir activité'}
             </button>
-            <button
-              onClick={handleViewAs}
-              style={{
-                background: viewAs?.id === user.id
-                  ? 'color-mix(in oklab, var(--vl-ember) 15%, transparent)'
-                  : 'var(--vl-surf-2)',
-                border: `1px solid ${viewAs?.id === user.id ? 'var(--vl-ember)' : 'var(--vl-line)'}`,
-                color: viewAs?.id === user.id ? 'var(--vl-ember)' : 'var(--vl-text-2)',
-                borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
-                fontFamily: 'var(--vl-mono)', fontSize: 10, fontWeight: 600,
-              }}
-            >
-              👁 Vue en tant que
-            </button>
           </div>
           {showHistory && <GrantHistory userId={user.id} />}
           {showActivity && <UserActivity userId={user.id} />}
@@ -387,7 +467,7 @@ function UserRow({ user }: { user: AdminUser }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
-type AdminTab = 'users' | 'stats' | 'lab'
+type AdminTab = 'users' | 'stats' | 'support' | 'lab'
 
 export default function AdminPage() {
   const { isAdmin, isLoading: tierLoading } = usePlanTier()
@@ -464,7 +544,7 @@ export default function AdminPage() {
 
       {/* Onglets */}
       <div style={{ display: 'flex', gap: 6, marginBottom: '1.5rem' }}>
-        {([['users', 'Utilisateurs'], ['stats', 'Statistiques'], ['lab', 'Labo & tests']] as [AdminTab, string][]).map(([key, label]) => (
+        {([['users', 'Utilisateurs'], ['stats', 'Statistiques'], ['support', 'Assistance'], ['lab', 'Labo & tests']] as [AdminTab, string][]).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -481,6 +561,7 @@ export default function AdminPage() {
       </div>
 
       {tab === 'stats' && <><EngineAccuracyCard /><StatsTab /></>}
+      {tab === 'support' && <AdminSupportTab users={users} />}
       {tab === 'lab' && <AdminLabTab users={users} />}
 
       {tab === 'users' && <>

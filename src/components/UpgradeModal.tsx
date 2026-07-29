@@ -5,6 +5,7 @@ import { predictRaceTimeS, fmtRaceTime, estimateVdotGainRange } from '../lib/rac
 import { useVLStore } from '../store/vlStore'
 import { useTrackEvent } from '../lib/useTrackEvent'
 import { PRICING, fmtEur, priceLabels, annualSavingsPct } from '../lib/pricing'
+import { isSupportSessionWindow } from '../lib/supportSession'
 
 const IconStar = () => (
   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -55,6 +56,7 @@ const PERKS = [
 
 export default function UpgradeModal() {
   const { open, teaser, previewMode, closeModal } = useUpgradeModal()
+  const effectivePreviewMode = previewMode || isSupportSessionWindow()
   const user = useVLStore((s) => s.user)
   const track = useTrackEvent()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
@@ -64,7 +66,7 @@ export default function UpgradeModal() {
 
   useEffect(() => {
     if (open) {
-      if (!previewMode) track('upgrade_modal_open', { with_teaser: !!teaser })
+      if (!effectivePreviewMode) track('upgrade_modal_open', { with_teaser: !!teaser })
       setTimeout(() => setMounted(true), 10)
       document.body.style.overflow = 'hidden'
     } else {
@@ -72,7 +74,7 @@ export default function UpgradeModal() {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
-  }, [open, previewMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, effectivePreviewMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null
 
@@ -88,7 +90,7 @@ export default function UpgradeModal() {
   const savedMinHigh = currentTimeS && coachFastS ? Math.floor((currentTimeS - coachFastS) / 60) : 0
 
   function handleCTA() {
-    if (previewMode) {
+    if (effectivePreviewMode) {
       closeModal()
       return
     }
@@ -139,7 +141,7 @@ export default function UpgradeModal() {
           flexShrink: 0,
         }}
       >
-        {previewMode ? (
+        {effectivePreviewMode ? (
           <div style={{
             position: 'absolute', zIndex: 3, top: 14, left: 14,
             borderRadius: 999, padding: '4px 9px',
@@ -356,7 +358,7 @@ export default function UpgradeModal() {
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'scale(1.01)' }}
             onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
           >
-            {previewMode
+            {effectivePreviewMode
               ? 'FERMER LA PRÉVISUALISATION'
               : billing === 'annual'
                 ? `DÉMARRER — ${priceLabels.annual().toUpperCase()} →`

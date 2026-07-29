@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import {
+  isSupportSessionWindow,
+  SUPPORT_AUTH_STORAGE_KEY,
+} from './supportSession'
 
 // La clé anon est publique par conception (livrée dans le bundle) — la sécurité
 // repose sur la RLS. Les env VITE_* permettent de viser un autre projet
@@ -20,4 +24,23 @@ if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_URL) {
   )
 }
 
-export const supabase = createClient(SUPA_URL, SUPA_KEY)
+const supportWindow = isSupportSessionWindow()
+
+export const supabase = createClient(
+  SUPA_URL,
+  SUPA_KEY,
+  supportWindow
+    ? {
+        auth: {
+          // La vraie session utilisateur vit uniquement dans la fenêtre
+          // d'assistance. Elle ne remplace jamais la session admin stockée dans
+          // localStorage et disparaît quand cet onglet est fermé.
+          storage: window.sessionStorage,
+          storageKey: SUPPORT_AUTH_STORAGE_KEY,
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+      }
+    : undefined,
+)
