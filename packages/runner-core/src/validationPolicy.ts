@@ -27,14 +27,14 @@ export interface ValidationCampaign {
  * `ENGINE_VERSION` à l'ouverture (garanti par `validationPolicy.test.ts`). Pour geler une
  * nouvelle version, on ouvre une nouvelle campagne (nouveau label + date).
  */
-// Nouvelle campagne ouverte avec 2026.07-10 : la recalibration du facteur de pente sur
-// 240 profils réels (ordonnée à l'origine + pente revue) change toutes les projections,
-// route comprise. Les preuves prospectives collectées sous les versions antérieures
+// Nouvelle campagne ouverte avec 2026.07-11 : la détection automatique des compétitions
+// élargit le pool d'ancrage de nombreux athlètes (certains passent de zéro course à
+// plusieurs), ce qui change leurs projections. Les preuves prospectives collectées sous les versions antérieures
 // restent valides POUR CES VERSIONS-LÀ — elles ne sont pas requalifiées, d'où une
 // campagne distincte. La comparaison entre versions se lit dans EngineAccuracyCard.
 export const VALIDATION_CAMPAIGN: ValidationCampaign = {
-  label: 'campagne-2026.07-d',
-  frozenEngineVersion: '2026.07-10',
+  label: 'campagne-2026.07-e',
+  frozenEngineVersion: '2026.07-11',
   startAtISO: '2026-07-29T00:00:00.000Z',
 }
 

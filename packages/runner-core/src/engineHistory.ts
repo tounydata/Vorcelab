@@ -162,8 +162,9 @@ export function selectRunningActivities(history: EngineActivity[]): EngineActivi
   return history.filter(isRunningActivity)
 }
 
-function toRaceCandidate(a: EngineActivity): RaceCandidateInput {
+function toRaceCandidate(a: EngineActivity, hrPercentile?: number | null): RaceCandidateInput {
   return {
+    hrPercentile: hrPercentile ?? null,
     name: a.name ?? null,
     sportType: a.sport_type ?? null,
     type: a.type ?? null,
@@ -186,8 +187,11 @@ function toRaceCandidate(a: EngineActivity): RaceCandidateInput {
  * vitesse/distance plausibles, ni échauffement/décrassage/footing, ni pending/rejected.
  * Un footing reste une activité valide pour le profil général — mais PAS ici.
  */
-export function isEligiblePersonalCalibrationRace(activity: EngineActivity): boolean {
-  return validateRaceCandidate(toRaceCandidate(activity)).status === 'confirmed'
+export function isEligiblePersonalCalibrationRace(
+  activity: EngineActivity,
+  hrPercentile?: number | null,
+): boolean {
+  return validateRaceCandidate(toRaceCandidate(activity, hrPercentile)).status === 'confirmed'
 }
 
 /** Options du chargeur d'historique moteur (cf. `fetchEngineHistory`). */

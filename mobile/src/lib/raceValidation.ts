@@ -11,6 +11,8 @@
 // (aucune écriture en production). Les `reasons` sont des CODES stables (pas de texte
 // nominatif, pas de coordonnées) — sûrs à écrire dans un rapport anonymisé.
 
+import { detectRace } from './raceDetection'
+
 export type RaceValidationStatus = 'confirmed' | 'pending' | 'rejected'
 
 export interface RaceCandidateInput {
@@ -30,6 +32,12 @@ export interface RaceCandidateInput {
   workoutType?: number | string | null
   /** deleted_at : activité supprimée si non nul. */
   deletedAt?: string | null
+  /**
+   * Rang de la FC moyenne dans la distribution PERSONNELLE de l'athlète (0..1).
+   * Alimente la DÉTECTION automatique de course (cf. `raceDetection.ts`). Absent →
+   * aucune détection possible : on ne confirme jamais une course sur le seul nom.
+   */
+  hrPercentile?: number | null
 }
 
 export interface RaceValidation {
@@ -77,6 +85,28 @@ function isRaceLabeled(c: RaceCandidateInput): boolean {
 }
 
 /**
+ * Vrai si l'activité est une compétition — étiquetée par l'athlète OU DÉTECTÉE.
+ *
+ * Presque personne ne coche « course » sur Strava : un athlète arrivé avec quatre ans
+ * d'historique et 427 sorties n'avait aucune course étiquetée, alors qu'il y avait un
+ * marathon et deux semis dedans. Sans détection, le moteur n'a aucun ancrage et retombe
+ * sur des allures génériques. Le détecteur privilégie la PRÉCISION (cf. raceDetection.ts) :
+ * une fausse course entrerait dans l'ancrage et y déplacerait durablement les projections.
+ */
+function isRaceLabeledOrDetected(c: RaceCandidateInput): boolean {
+  if (isRaceLabeled(c)) return true
+  return detectRace({
+    name: c.name,
+    sportType: c.sportType,
+    type: c.type,
+    distanceM: c.distanceM,
+    movingTimeS: c.movingTimeS,
+    elapsedTimeS: c.elapsedTimeS,
+    hrPercentile: c.hrPercentile,
+  }).detected
+}
+
+/**
  * Valide une course candidate. Ne confirme JAMAIS automatiquement au moindre doute.
  * Ordre : rejets durs (données inutilisables) → pending (doute) → confirmed.
  */
@@ -113,7 +143,7 @@ export function validateRaceCandidate(c: RaceCandidateInput): RaceValidation {
   // ── Doute (pending) : jamais confirmé automatiquement ───────────────────────
   const pending: string[] = []
   if (PENDING_NAME_PATTERNS.some((p) => name.includes(p))) pending.push('time_to_confirm')
-  if (!isRaceLabeled(c)) pending.push('not_labeled_race')
+  if (!isRaceLabeledOrDetected(c)) pending.push('not_labeled_race')
 
   if (dist != null && dist > 0 && moving != null && moving > 0) {
     const speed = dist / moving

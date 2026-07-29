@@ -16,6 +16,7 @@ import { computePersonalSteepnessCalibration, type SteepnessCalibrationResult } 
 import { computePersonalDurationCalibration, type DurationCalibrationResult } from './durationCalibration'
 import { meanGradeFactor } from './gradeEquivalence'
 import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, type EngineActivity } from './engineHistory'
+import { buildHrPercentileLookup } from './raceDetection'
 import { assessBestEffortQuality, type MergedBestEffort } from './bestEfforts'
 import { fitFadeExponent } from './fadeModel'
 
@@ -450,8 +451,24 @@ export function computeRaceProjection(
   // distance/temps/vitesse plausibles, ni échauffement/décrassage/footing, ni pending).
   // L'étiquette `is_race`/`workout_type=1` seule ne suffit PLUS (un footing étiqueté par
   // erreur, un échauffement, un « à confirmer » ne doivent pas caler ta projection).
+  // Rang de FC dans la distribution PERSONNELLE de l'athlète — calculé UNE fois sur ses
+  // courses à pied. Alimente la détection automatique des compétitions : presque personne
+  // ne coche « course » sur Strava, et sans détection le moteur n'a aucun ancrage. Le rang
+  // personnel évite de dépendre d'une `fc_max` saisie à la main (souvent fausse).
+  const hrPercentileOf = buildHrPercentileLookup(
+    activities
+      .filter((a) => {
+        const t = a.type as string, st = a.sport_type as string
+        return ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(t) ||
+               ['Run', 'TrailRun', 'Trail Run', 'Running'].includes(st)
+      })
+      .map((a) => ({ averageHeartrate: a.average_heartrate as number | undefined })),
+  )
   function isRaceEffort(a: Record<string, unknown>): boolean {
-    return isEligiblePersonalCalibrationRace(a as unknown as EngineActivity)
+    return isEligiblePersonalCalibrationRace(
+      a as unknown as EngineActivity,
+      hrPercentileOf(a.average_heartrate as number | undefined),
+    )
   }
   function computeRaceIntensityFactor(): { factor: number; pct: number } {
     const flat = rBuckets?.flat
