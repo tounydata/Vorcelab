@@ -27,10 +27,12 @@ type Step = 'setup' | 'warmup' | 'test' | 'result'
 
 function mmss(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
 
-export default function OneRMTestPopup({ open, onClose, onSaved }: {
+export default function OneRMTestPopup({ open, onClose, onSaved, previewMode = false }: {
   open: boolean
   onClose: () => void
   onSaved?: () => void
+  /** Labo admin : déroule le parcours sans écrire dans Supabase. */
+  previewMode?: boolean
 }) {
   const { user } = useVLStore()
   const qc = useQueryClient()
@@ -63,6 +65,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
 
   const mut = useMutation({
     mutationFn: async ({ exercise_id, oneRm }: { exercise_id: string; oneRm: number }) => {
+      if (previewMode) return
       const { error } = await supabase.from('renfo_max_lifts').upsert({
         user_id: user!.id, exercise_id, one_rm: oneRm,
         is_estimated: true, recorded_at: new Date().toISOString(),
@@ -90,6 +93,16 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
       onClick={onClose}
     >
       <div className="card" style={{ maxWidth: 440, width: '100%', padding: '18px 20px', borderLeft: '4px solid var(--vl-ember)', maxHeight: '92vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        {previewMode ? (
+          <div style={{
+            display: 'inline-flex', marginBottom: 8, borderRadius: 999,
+            padding: '3px 8px', border: '1px solid var(--vl-line-2)',
+            color: 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)',
+            fontSize: 8, fontWeight: 700, letterSpacing: '.1em',
+          }}>
+            MODE TEST · AUCUNE ÉCRITURE
+          </div>
+        ) : null}
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
           <div style={{ fontFamily: 'var(--vl-display)', fontWeight: 700, fontSize: '1.15rem' }}>Test de force · {lift.label}</div>
           <button className="hbtn" onClick={onClose} style={{ fontSize: '.72rem', padding: '3px 8px' }}>Fermer</button>
