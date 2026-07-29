@@ -11,6 +11,7 @@ import {
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { colors } from '@/lib/theme'
+import StravaActivityPermissionGate from '@/components/StravaActivityPermissionGate'
 
 // Big Shoulders : fichiers EMBARQUÉS localement (audit — le paquet
 // @expo-google-fonts/big-shoulders-display est déprécié/retiré de Google Fonts).
@@ -44,13 +45,16 @@ function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.bg },
-        animation: 'fade',
-      }}
-    />
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+          animation: 'fade',
+        }}
+      />
+      {session?.access_token ? <StravaActivityPermissionGate accessToken={session.access_token} /> : null}
+    </>
   )
 }
 

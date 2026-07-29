@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { hasRequiredStravaActivityScope as webHasScope } from '../src/lib/stravaScopes'
 import { hasRequiredStravaActivityScope as mobileHasScope } from '../mobile/src/lib/stravaScopes'
 import { hasRequiredStravaActivityScope as edgeHasScope } from '../supabase/functions/_shared/stravaScopes'
+import { needsStravaActivityPermission } from '../src/lib/stravaScopes'
 
 const implementations = [
   ['web', webHasScope],
@@ -33,5 +34,13 @@ describe('scope Strava requis pour synchroniser les activités', () => {
     const edge = readFileSync(resolve('supabase/functions/_shared/stravaScopes.ts'), 'utf8')
     expect(mobile).toBe(web)
     expect(edge).toBe(web)
+  })
+
+  it('bloque uniquement une connexion Strava existante sans accès aux activités', () => {
+    expect(needsStravaActivityPermission({ connected: true, activity_access_granted: false })).toBe(true)
+    expect(needsStravaActivityPermission({ connected: true, activity_access_granted: true })).toBe(false)
+    expect(needsStravaActivityPermission({ connected: false, activity_access_granted: false })).toBe(false)
+    expect(needsStravaActivityPermission({ connected: true })).toBe(false)
+    expect(needsStravaActivityPermission(null)).toBe(false)
   })
 })

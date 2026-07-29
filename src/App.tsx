@@ -8,6 +8,7 @@ import BrandedLoader from './components/BrandedLoader'
 import LoadError from './components/LoadError'
 import UpgradeModal from './components/UpgradeModal'
 import LegalAcceptanceGate from './components/LegalAcceptanceGate'
+import StravaActivityPermissionGate from './components/StravaActivityPermissionGate'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -80,6 +81,7 @@ function PrivateRoutes() {
       {/* Consentement versionné CGU/confidentialité — inerte tant que les mentions
           légales obligatoires ne sont pas complètes (LEGAL_INFO_COMPLETE). */}
       <LegalAcceptanceGate />
+      <StravaActivityPermissionGate />
       <Outlet />
     </>
   )
