@@ -107,6 +107,7 @@ export default function LoginScreen() {
     const res = await signInWithStravaMobile()
     setLoading(false)
     if (res === 'error') setStatus({ msg: 'La connexion avec Strava a échoué. Réessaie.', ok: false })
+    else if (res === 'missing_scope') setStatus({ msg: 'L’accès aux activités Strava est nécessaire. Réessaie et coche la case concernant tes activités.', ok: false })
     // 'connected' → onAuthStateChange bascule ; 'denied' → l'utilisateur a annulé.
   }
 

@@ -3,6 +3,7 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { errorResponse } from '../_shared/error.ts'
 import { requireAuth } from '../_shared/auth.ts'
 import { syncStravaActivitiesForUser } from '../_shared/strava.ts'
+import { hasRequiredStravaActivityScope } from '../_shared/stravaScopes.ts'
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 
@@ -17,6 +18,9 @@ Deno.serve(async (req: Request) => {
 
     if (!code || typeof code !== 'string' || code.length === 0) {
       return errorResponse('Missing OAuth code', 400)
+    }
+    if (!hasRequiredStravaActivityScope(scope)) {
+      return errorResponse('Strava activity permission required', 403)
     }
 
     const clientId = Deno.env.get('STRAVA_CLIENT_ID')

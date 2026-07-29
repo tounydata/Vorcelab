@@ -11,6 +11,8 @@ interface StravaStatus {
   connected: boolean
   athlete_firstname?: string | null
   last_sync_at?: string | null
+  scope?: string | null
+  activity_access_granted?: boolean
 }
 
 function formatSync(iso?: string | null): string {
@@ -45,6 +47,10 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   }, [])
 
   async function sync() {
+    if (status?.activity_access_granted === false) {
+      startStravaOAuth({ forceApproval: true })
+      return
+    }
     setSyncing(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -72,13 +78,28 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
 
   if (!status) return null
   const connected = status.connected
+  const activityAccessMissing = connected && status.activity_access_granted === false
 
   // ── COMPACT : pastille d'état + icône sync (header mobile) ──
   if (variant === 'compact') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className={connected ? 'dot dot-on' : 'dot dot-off'} title={connected ? `Strava connecté · sync ${formatSync(status.last_sync_at)}` : 'Strava non connecté'} />
-        {connected && (
+        <span
+          className={connected && !activityAccessMissing ? 'dot dot-on' : 'dot dot-off'}
+          title={activityAccessMissing
+            ? 'Strava lié · accès aux activités manquant'
+            : connected ? `Strava connecté · sync ${formatSync(status.last_sync_at)}` : 'Strava non connecté'}
+          style={activityAccessMissing ? { background: 'var(--vl-ember)' } : undefined}
+        />
+        {activityAccessMissing ? (
+          <button
+            onClick={() => startStravaOAuth({ forceApproval: true })}
+            title="Réautoriser Strava pour donner accès aux activités"
+            style={{ background: 'none', border: '1px solid var(--vl-ember)', borderRadius: 6, cursor: 'pointer', color: 'var(--vl-ember)', padding: '5px 7px', fontFamily: 'var(--vl-mono)', fontSize: 8 }}
+          >
+            AUTORISER
+          </button>
+        ) : connected && (
           <button onClick={sync} disabled={syncing} title={`Forcer la synchro · ${formatSync(status.last_sync_at)}`} aria-label="Synchroniser Strava"
             style={{ background: 'none', border: '1px solid var(--vl-line)', borderRadius: 6, cursor: 'pointer', color: 'var(--vl-text-2)', padding: '5px 7px', display: 'flex', alignItems: 'center' }}>
             <IconSync spinning={syncing} />
@@ -89,6 +110,37 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   }
 
   // ── FULL : état + connecter / déconnecter / forcer sync ──
+  if (activityAccessMissing) {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <div className="dot dot-off" style={{ background: 'var(--vl-ember)' }} />
+          <span className="mlabel" style={{ margin: 0, color: 'var(--vl-ember)', fontSize: 9 }}>
+            AUTORISATION ACTIVITÉS MANQUANTE
+          </span>
+        </div>
+        <p style={{ margin: '0 0 8px', color: 'var(--vl-text-2)', fontSize: 10, lineHeight: 1.45 }}>
+          Strava est lié, mais Vorcelab ne peut pas lire les sorties. Réautorise puis coche la case concernant tes activités.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button
+            className="hbtn"
+            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)' }}
+            onClick={() => startStravaOAuth({ forceApproval: true })}
+          >
+            RÉAUTORISER STRAVA
+          </button>
+          <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
+            DÉCONNECTER
+          </button>
+        </div>
+        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 6, textAlign: 'center' }}>
+          POWERED BY STRAVA
+        </div>
+      </div>
+    )
+  }
+
   return connected ? (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -121,7 +173,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
       </div>
       {stravaConfigured() && (
-        <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', width: '100%' }} onClick={startStravaOAuth}>
+        <button className="hbtn" style={{ fontSize: 9, padding: '3px 8px', width: '100%' }} onClick={() => startStravaOAuth()}>
           CONNECTER STRAVA
         </button>
       )}

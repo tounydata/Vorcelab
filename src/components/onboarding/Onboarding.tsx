@@ -164,7 +164,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
                 <>
                   <button
                     className="btn-primary"
-                    onClick={startStravaOAuth}
+                    onClick={() => startStravaOAuth()}
                     style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#FC4C02' }}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

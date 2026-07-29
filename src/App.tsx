@@ -8,6 +8,7 @@ import BrandedLoader from './components/BrandedLoader'
 import LoadError from './components/LoadError'
 import UpgradeModal from './components/UpgradeModal'
 import LegalAcceptanceGate from './components/LegalAcceptanceGate'
+import StravaActivityPermissionGate from './components/StravaActivityPermissionGate'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -80,6 +81,7 @@ function PrivateRoutes() {
       {/* Consentement versionné CGU/confidentialité — inerte tant que les mentions
           légales obligatoires ne sont pas complètes (LEGAL_INFO_COMPLETE). */}
       <LegalAcceptanceGate />
+      <StravaActivityPermissionGate />
       <Outlet />
     </>
   )
@@ -150,7 +152,7 @@ export default function App() {
             window.location.reload()
           }
         })
-      } else if (res === 'error' || res === 'denied') {
+      } else if (res === 'error' || res === 'denied' || res === 'missing_scope') {
         // Échec du retour Strava : on le signale sur l'écran de connexion au lieu du silence.
         try { sessionStorage.setItem('vl-strava-auth-result', res) } catch { /* ignore */ }
       }

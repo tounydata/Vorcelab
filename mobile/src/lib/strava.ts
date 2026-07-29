@@ -7,12 +7,13 @@
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { supabase, SUPA_URL, SUPA_KEY } from './supabase'
+import { hasRequiredStravaActivityScope } from './stravaScopes'
 
 const STRAVA_CLIENT_ID = process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID ?? '161609'
 // Page-pont hébergée par le web (déployée avec l'app) — cf. src/App.tsx route /mobile-strava.
 const BRIDGE_URL = process.env.EXPO_PUBLIC_STRAVA_BRIDGE ?? 'https://vorcelab.app/mobile-strava'
 
-export type StravaMobileResult = 'connected' | 'denied' | 'error'
+export type StravaMobileResult = 'connected' | 'denied' | 'missing_scope' | 'error'
 
 /** Extrait un paramètre de query d'une URL sans dépendre de l'objet URL (Hermes limité). */
 function param(url: string, key: string): string | null {
@@ -20,14 +21,16 @@ function param(url: string, key: string): string | null {
   return m ? decodeURIComponent(m[1]) : null
 }
 
-export async function signInWithStravaMobile(): Promise<StravaMobileResult> {
+export async function signInWithStravaMobile(
+  options: { forceApproval?: boolean } = {},
+): Promise<StravaMobileResult> {
   const returnUrl = Linking.createURL('strava') // vorcelab://strava (build) ou exp://…/strava (dev)
   const authUrl =
     'https://www.strava.com/oauth/authorize' +
     `?client_id=${encodeURIComponent(STRAVA_CLIENT_ID)}` +
     '&response_type=code' +
     `&redirect_uri=${encodeURIComponent(BRIDGE_URL)}` +
-    '&approval_prompt=auto' +
+    `&approval_prompt=${options.forceApproval ? 'force' : 'auto'}` +
     '&scope=read,activity:read_all' +
     // La page-pont lira `state` pour savoir vers quel schéma d'app rebondir.
     `&state=${encodeURIComponent(returnUrl)}`
@@ -39,7 +42,8 @@ export async function signInWithStravaMobile(): Promise<StravaMobileResult> {
   const code = param(res.url, 'code')
   const err = param(res.url, 'error')
   if (err || !code) return 'denied'
-  const scope = param(res.url, 'scope') ?? 'read,activity:read_all'
+  const scope = param(res.url, 'scope') ?? ''
+  if (!hasRequiredStravaActivityScope(scope)) return 'missing_scope'
 
   try {
     const { data: { session } } = await supabase.auth.getSession()
