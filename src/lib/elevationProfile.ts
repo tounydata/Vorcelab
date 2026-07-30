@@ -1,3 +1,27 @@
+// ── RÉGLAGES CALIBRÉS SUR 501 TRACÉS RÉELS (2026-07-30) ──────────────────────────
+//
+// Les valeurs précédentes — fenêtre 50 m, seuil 3 m — étaient des défauts posés à
+// l'écriture, jamais confrontés aux données. Balayage de douze couples, écart au D+
+// Strava, par terrain (biais médian = erreur signée ; négatif = le lissage rabote) :
+//
+//   terrain ROULANT (350 tracés)      50/3 (ancien) : −50,0 %   30/1 : −1,4 %
+//   terrain VALLONNÉ  (79 tracés)     50/3 (ancien) :  −9,3 %   30/1 : −1,9 %
+//   terrain MONTAGNEUX (72 tracés)    50/3 (ancien) :  −4,0 %   30/1 : −1,0 %
+//
+// L'ancien réglage coupait donc la MOITIÉ du dénivelé des parcours roulants — pas du
+// bruit, un biais parfaitement systématique. C'est ce que le banc chiffrait sans en
+// connaître la cause : en donnant au moteur le D+ exact, l'erreur sur route passait de
+// 10,9 % à 8,8 %.
+//
+// 30 m / 1 m gagne sur les TROIS terrains, en biais comme en dispersion — il n'y a aucun
+// compromis à arbitrer. La crainte légitime (« baisser le seuil réintroduit le bruit »)
+// ne se vérifie pas : la dispersion s'améliore aussi (14,3 % contre 50,0 % sur route).
+// L'explication tient au fait que le filtre médian et la moyenne glissante assurent déjà
+// tout le débruitage ; le seuil de 3 m était une seconde couche redondante qui ne coupait
+// plus que du signal.
+//
+// Reproduire : `npm run calibrate:elevation` (lecture seule).
+
 // Nettoyage / lissage altimétrique ROBUSTE d'un tracé GPS, pour le moteur et le banc.
 //
 // Problème : les altitudes brutes Strava (baromètre + GPS) oscillent de ±1-3 m à
@@ -25,13 +49,10 @@ export interface SmoothElevationInput {
   points: GpxPoint[]
   /** total_elevation_gain Strava (m) pour recalage optionnel. Absent/incohérent → pas de recalage. */
   targetElevationGainM?: number | null
-  /** Fenêtre de lissage par distance (m). Défaut 50 — l'essentiel de l'anti-bruit
-   *  passe par ce lissage (plutôt que par un seuil élevé qui rognerait les vraies
-   *  montées douces). */
+  /** Fenêtre de lissage par distance (m). Défaut 30 — CALIBRÉ, cf. en-tête. */
   smoothingDistanceM?: number
-  /** Seuil vertical minimal d'accumulation du D+ (m, hystérésis). Défaut 3 —
-   *  absorbe la dérive barométrique/GPS résiduelle tout en conservant les vraies
-   *  montées soutenues (montée douce +20 m ≈ +18 m conservés). */
+  /** Seuil vertical minimal d'accumulation du D+ (m, hystérésis). Défaut 1 —
+   *  CALIBRÉ, cf. en-tête. */
   minVerticalM?: number
   /** Taille (impaire) de la fenêtre du filtre médian (points). Défaut 5. */
   medianWindow?: number
@@ -136,8 +157,8 @@ function scalePositiveDeltas(ele: number[], k: number): number[] {
  */
 export function smoothElevationProfile(input: SmoothElevationInput): SmoothElevationResult {
   const { points } = input
-  const smoothingDistanceM = input.smoothingDistanceM ?? 50
-  const minVerticalM = input.minVerticalM ?? 3
+  const smoothingDistanceM = input.smoothingDistanceM ?? 30
+  const minVerticalM = input.minVerticalM ?? 1
   const medianWindow = Math.max(1, (input.medianWindow ?? 5) | 1) // force impaire ≥ 1
   const n = points.length
 
