@@ -77,8 +77,20 @@
  *  Nouvelles valeurs : +20 % / 1000 m, plafond +22 % — posé À la dernière valeur
  *  MESURÉE, sans extrapoler au-delà de 1250 m où nous n'avons pas de données.
  *  Ne touche QUE les montées longues : une course sans dénivelé cumulé notable est
- *  strictement inchangée. */
-export const ENGINE_VERSION = '2026.07-12'
+ *  strictement inchangée.
+ *  2026.07-13 : LISSAGE ALTIMÉTRIQUE calibré sur 501 tracés réels. Ses deux réglages
+ *  — fenêtre 50 m, seuil vertical 3 m — étaient des défauts posés à l'écriture. Mesurés
+ *  contre le D+ Strava, par terrain (biais médian, négatif = le lissage rabote) :
+ *  ROULANT 350 tracés −50,0 % · VALLONNÉ 79 tracés −9,3 % · MONTAGNEUX 72 tracés −4,0 %.
+ *  L'ancien réglage coupait donc la MOITIÉ du dénivelé des parcours roulants — un biais
+ *  parfaitement systématique, pas du bruit. Nouveaux réglages 30 m / 1 m : −1,4 %, −1,9 %
+ *  et −1,0 % sur les mêmes terrains. Ils gagnent sur les TROIS, en biais comme en
+ *  dispersion (14,3 % contre 50,0 % sur route) : aucun compromis à arbitrer. La crainte
+ *  d'un bruit réintroduit ne se vérifie pas — le filtre médian et la moyenne glissante
+ *  assurent déjà le débruitage, le seuil de 3 m ne coupait plus que du signal. Le banc
+ *  avait chiffré ce défaut sans en connaître la cause : donner le D+ exact au moteur
+ *  faisait passer l'erreur sur route de 10,9 % à 8,8 %. */
+export const ENGINE_VERSION = '2026.07-13'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses
