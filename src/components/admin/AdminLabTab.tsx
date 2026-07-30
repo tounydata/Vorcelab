@@ -8,7 +8,7 @@ import CalibrationPopup from '../coach/CalibrationPopup'
 import OneRMTestPopup from '../coach/OneRMTestPopup'
 import PostRaceModal from '../races/PostRaceModal'
 import ShareStickers from '../ShareStickers'
-import StravaActivityPermissionModal from '../StravaActivityPermissionModal'
+import StravaLinkPromptCard from '../StravaLinkPromptCard'
 import Onboarding from '../onboarding/Onboarding'
 
 interface LabUser {
@@ -65,7 +65,7 @@ interface AccessLog {
 type PopupKey = 'strava' | 'calibration' | 'one-rm' | 'post-race' | 'share' | 'onboarding' | null
 
 const POPUPS: Array<{ key: Exclude<PopupKey, null> | 'upgrade'; title: string; description: string }> = [
-  { key: 'strava', title: 'Autorisation Strava', description: 'Blocage obligatoire si le scope activités manque.' },
+  { key: 'strava', title: 'Invite Strava', description: 'Relance non bloquante quand le moteur ne peut lire aucune activité.' },
   { key: 'upgrade', title: 'Conversion PRO', description: 'Offre PRO chiffrée, sans ouvrir Stripe en mode test.' },
   { key: 'calibration', title: 'Calibrage VMA', description: 'Demi-Cooper, validation et calcul des allures.' },
   { key: 'one-rm', title: 'Test de force 1RM', description: 'Parcours complet, sauvegarde simulée.' },
@@ -444,11 +444,12 @@ export default function AdminLabTab({ users }: { users: LabUser[] }) {
       </section>
 
       {popup === 'strava' ? (
-        <StravaActivityPermissionModal
+        <StravaLinkPromptCard
           previewMode
+          state="missing_scope"
           error={stravaMessage}
-          onPreviewClose={() => setPopup(null)}
-          onAuthorize={() => setStravaMessage('Simulation réussie : en production, ce bouton ouvre l’autorisation Strava forcée.')}
+          onDismiss={() => setPopup(null)}
+          onConnect={() => setStravaMessage('Simulation réussie : en production, ce bouton ouvre l’autorisation Strava forcée.')}
         />
       ) : null}
       {popup === 'calibration' ? (

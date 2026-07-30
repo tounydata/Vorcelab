@@ -48,12 +48,12 @@ const adminSupportTab = readFileSync(
   resolve('src/components/admin/AdminSupportTab.tsx'),
   'utf8',
 )
-const stravaPermissionGate = readFileSync(
-  resolve('src/components/StravaActivityPermissionGate.tsx'),
+const stravaLinkPrompt = readFileSync(
+  resolve('src/components/StravaLinkPrompt.tsx'),
   'utf8',
 )
-const stravaPermissionModal = readFileSync(
-  resolve('src/components/StravaActivityPermissionModal.tsx'),
+const stravaLinkPromptCard = readFileSync(
+  resolve('src/components/StravaLinkPromptCard.tsx'),
   'utf8',
 )
 const upgradeModal = readFileSync(resolve('src/components/UpgradeModal.tsx'), 'utf8')
@@ -290,33 +290,23 @@ describe('mode assistance administrateur', () => {
   // et le pop-up revenait — sans issue, et en bloquant tout le dépannage derrière la modale.
   it('n’offre jamais l’autorisation Strava depuis une fenêtre d’assistance', () => {
     // Le mode est déduit de la fenêtre elle-même, pas d'une prop passée à la main.
-    expect(stravaPermissionGate).toContain('isSupportSessionWindow')
-    expect(stravaPermissionGate).toContain('supportMode={supportWindow}')
+    expect(stravaLinkPrompt).toContain('isSupportSessionWindow')
+    expect(stravaLinkPrompt).toContain('supportMode={supportWindow}')
 
-    // L'unique action de la modale en assistance : poursuivre. Jamais « autoriser ».
-    expect(stravaPermissionModal).toContain(
-      'onClick={supportMode ? (onDismiss ?? refuseClose) : onAuthorize}',
-    )
-    expect(stravaPermissionModal).toContain('CONTINUER L’ASSISTANCE')
-
-    // Le raccourci « changer de compte Strava » est masqué : l'admin n'a pas le mot de
-    // passe Strava de l'athlète, et se déconnecter du sien n'y changerait rien.
-    expect(stravaPermissionModal).toContain('{wrongAthlete && !supportMode ? (')
+    // Le bouton de connexion n'EXISTE pas en assistance — il n'est pas seulement désactivé.
+    expect(stravaLinkPromptCard).toContain('{!supportMode ? (')
+    expect(stravaLinkPromptCard).toContain('CONTINUER L’ASSISTANCE')
 
     // La marche à suivre remplace l'action impossible : générer le lien, l'envoyer, attendre.
-    expect(stravaPermissionModal).toContain('Générer et copier le lien Strava')
-    expect(stravaPermissionModal).toContain('Seul l’athlète peut valider, sur son appareil.')
-    expect(stravaPermissionModal).toContain('Le statut se met à jour tout seul ici')
+    expect(stravaLinkPromptCard).toContain('Générer et copier le lien Strava')
+    expect(stravaLinkPromptCard).toContain('Seul l’athlète peut valider, sur son appareil.')
+    expect(stravaLinkPromptCard).toContain('Le statut se met à jour tout seul ici')
 
-    // La modale reste franchissable en assistance (sinon le dépannage est impossible).
-    expect(stravaPermissionGate).toContain('if (supportWindow && dismissed) return null')
-    expect(stravaPermissionModal).toContain(
-      'supportMode && onDismiss ? onDismiss : refuseClose',
-    )
+    // Le code d'échec OAuth est masqué en assistance : il désignerait le compte de l'admin.
+    expect(stravaLinkPrompt).toContain('supportWindow ? null : stravaOAuthFailureMessage')
 
-    // …mais JAMAIS pour l'athlète : sans le scope activités, le moteur ne calcule rien.
-    expect(stravaPermissionModal).toContain('CETTE ÉTAPE EST REQUISE POUR CONTINUER')
-    expect(stravaPermissionGate).toContain('startStravaOAuth({ forceApproval: true })')
+    // L'athlète, lui, garde la vraie autorisation forcée (les deux scopes recochés).
+    expect(stravaLinkPrompt).toContain('startStravaOAuth({ forceApproval: true })')
   })
 
   // Le pop-up de permission ne couvre QUE « lié sans le scope ». Quand la cible n'a aucun
