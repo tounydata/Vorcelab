@@ -120,6 +120,8 @@ export interface Sample {
   speedKmH: number
   /** Dénivelé positif déjà accumulé depuis le DÉBUT de la sortie, en mètres. */
   cumulativeGainM: number
+  /** Dénivelé NÉGATIF déjà encaissé depuis le début (m, valeur positive). */
+  cumulativeLossM: number
 }
 
 /**
@@ -143,6 +145,7 @@ export function extractSamples(streams: WalkTransitionStreams): Sample[] {
   const out: Sample[] = []
   let anchor = 0
   let cumulativeGainM = 0
+  let cumulativeLossM = 0
   for (let i = 1; i < n; i++) {
     const dd = dist[i] - dist[anchor]
     if (!(dd >= MIN_SEGMENT_M)) continue
@@ -163,11 +166,16 @@ export function extractSamples(streams: WalkTransitionStreams): Sample[] {
     // Dénivelé cumulé : compté AVANT d'émettre l'échantillon, pour que la valeur portée
     // par un segment soit le dénivelé déjà dans les jambes en l'abordant.
     const gainBefore = cumulativeGainM
+    const lossBefore = cumulativeLossM
     if (da > 0) cumulativeGainM += da
+    else cumulativeLossM += -da
     // Vitesse : le stream si disponible, sinon dérivée de la distance et du temps.
     const speedKmH = vCount > 0 ? (vSum / vCount) * 3.6 : (dd / dt) * 3.6
     if (!(speedKmH > 0.3)) continue // arrêt / pause : n'informe pas sur l'allure
-    out.push({ gradePct, seconds: dt, cadence: cSum / cCount, speedKmH, cumulativeGainM: gainBefore })
+    out.push({
+      gradePct, seconds: dt, cadence: cSum / cCount, speedKmH,
+      cumulativeGainM: gainBefore, cumulativeLossM: lossBefore,
+    })
   }
   return out
 }
@@ -328,4 +336,110 @@ export function measureClimbFatigue(streamSets: WalkTransitionStreams[]): ClimbF
   const samples: Sample[] = []
   for (const s of streamSets) samples.push(...extractSamples(s))
   return aggregateByClimbFatigue(samples)
+}
+
+// ── DESCENTE : le versant jamais mesuré ──────────────────────────────────────────
+//
+// La descente pèse autant de temps de course que la montée, et rien n'y a jamais été
+// mesuré. Deux questions distinctes, et il faut se garder de les confondre :
+//
+//   1. À quelle vitesse descend-on, selon la pente ? En descente la vitesse ne croît pas
+//      indéfiniment quand ça plonge : au-delà d'une certaine pente on freine, le coût
+//      excentrique explose et l'allure REPART à la baisse. C'est l'inverse de la montée,
+//      où la VAM est à peu près stable.
+//   2. Cette vitesse tient-elle sur la durée ? C'est l'effet « quadriceps détruits » —
+//      familier de tous les traileurs, jamais quantifié ici.
+//
+// Le même garde-fou que pour la montée s'applique à la question 2 : la vitesse de
+// descente dépend fortement de la pente, donc comparer début et fin de sortie sans
+// contrôler le relief mesurerait le TERRAIN. La bande est donc étroite, et la pente
+// moyenne de chaque tranche est publiée pour que le lecteur puisse invalider lui-même
+// la comparaison.
+
+/** Bande de pente DESCENDANTE sur laquelle la fatigue est mesurée (%, valeurs positives). */
+export const DESCENT_FATIGUE_GRADE_MIN_PCT = 8
+export const DESCENT_FATIGUE_GRADE_MAX_PCT = 20
+
+export interface DescentGradeBin {
+  /** Borne basse de la pente descendante (%, valeur positive). */
+  gradeMinPct: number
+  seconds: number
+  meanSpeedKmH: number | null
+  meanCadence: number | null
+}
+
+/** Vitesse de descente par intervalle de pente. Pente exprimée en valeur POSITIVE. */
+export function aggregateDescentByGrade(samples: Sample[]): DescentGradeBin[] {
+  const binCount = Math.ceil(MAX_GRADE_PCT / GRADE_BIN_WIDTH)
+  const acc = Array.from({ length: binCount }, (_, k) => ({
+    gradeMinPct: k * GRADE_BIN_WIDTH, seconds: 0, spd: 0, cad: 0,
+  }))
+  for (const s of samples) {
+    const down = -s.gradePct
+    if (!(down > 0) || down >= MAX_GRADE_PCT) continue
+    const b = acc[Math.floor(down / GRADE_BIN_WIDTH)]
+    if (!b) continue
+    b.seconds += s.seconds
+    b.spd += s.speedKmH * s.seconds
+    b.cad += s.cadence * s.seconds
+  }
+  return acc.map((b) => ({
+    gradeMinPct: b.gradeMinPct,
+    seconds: Math.round(b.seconds),
+    meanSpeedKmH: b.seconds > 0 ? +(b.spd / b.seconds).toFixed(2) : null,
+    meanCadence: b.seconds > 0 ? +(b.cad / b.seconds).toFixed(1) : null,
+  }))
+}
+
+export interface DescentFatigueBin {
+  /** Borne basse du dénivelé NÉGATIF déjà encaissé (m). */
+  cumulativeLossMinM: number
+  seconds: number
+  meanSpeedKmH: number | null
+  meanGradePct: number | null
+  /** Vitesse rapportée à celle de la première tranche (1 = pas de perte). */
+  speedRatioToFresh: number | null
+}
+
+/** Vitesse de descente selon le dénivelé négatif DÉJÀ encaissé, à pente comparable. */
+export function aggregateDescentFatigue(samples: Sample[]): DescentFatigueBin[] {
+  const acc = Array.from({ length: FATIGUE_BIN_COUNT }, (_, k) => ({
+    cumulativeLossMinM: k * FATIGUE_BIN_M, seconds: 0, spd: 0, grade: 0,
+  }))
+  for (const s of samples) {
+    const down = -s.gradePct
+    if (down < DESCENT_FATIGUE_GRADE_MIN_PCT || down > DESCENT_FATIGUE_GRADE_MAX_PCT) continue
+    const k = Math.min(FATIGUE_BIN_COUNT - 1, Math.floor(s.cumulativeLossM / FATIGUE_BIN_M))
+    const b = acc[k]
+    if (!b) continue
+    b.seconds += s.seconds
+    b.spd += s.speedKmH * s.seconds
+    b.grade += down * s.seconds
+  }
+  const bins: DescentFatigueBin[] = acc.map((b) => ({
+    cumulativeLossMinM: b.cumulativeLossMinM,
+    seconds: Math.round(b.seconds),
+    meanSpeedKmH: b.seconds > 0 ? +(b.spd / b.seconds).toFixed(2) : null,
+    meanGradePct: b.seconds > 0 ? +(b.grade / b.seconds).toFixed(1) : null,
+    speedRatioToFresh: null,
+  }))
+  const fresh = bins.find((b) => b.seconds >= 300 && b.meanSpeedKmH != null)
+  if (fresh?.meanSpeedKmH) {
+    for (const b of bins) {
+      if (b.meanSpeedKmH != null && b.seconds >= 300) {
+        b.speedRatioToFresh = +(b.meanSpeedKmH / fresh.meanSpeedKmH).toFixed(3)
+      }
+    }
+  }
+  return bins
+}
+
+/** Chaîne complète : streams d'un athlète → descente (vitesse par pente + fatigue). */
+export function measureDescent(streamSets: WalkTransitionStreams[]): {
+  byGrade: DescentGradeBin[]
+  fatigue: DescentFatigueBin[]
+} {
+  const samples: Sample[] = []
+  for (const s of streamSets) samples.push(...extractSamples(s))
+  return { byGrade: aggregateDescentByGrade(samples), fatigue: aggregateDescentFatigue(samples) }
 }
