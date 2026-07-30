@@ -89,8 +89,47 @@
  *  d'un bruit réintroduit ne se vérifie pas — le filtre médian et la moyenne glissante
  *  assurent déjà le débruitage, le seuil de 3 m ne coupait plus que du signal. Le banc
  *  avait chiffré ce défaut sans en connaître la cause : donner le D+ exact au moteur
- *  faisait passer l'erreur sur route de 10,9 % à 8,8 %. */
-export const ENGINE_VERSION = '2026.07-13'
+ *  faisait passer l'erreur sur route de 10,9 % à 8,8 %.
+ *  2026.07-14 : MARCHER et COURIR cessent d'être moyennés. Un seau de pente ne portait
+ *  qu'UNE allure — or « montée raide » couvre tout ce qui dépasse 12 %, sans limite haute :
+ *  du 13 % couru et du 25 % marché finissaient dans le même nombre. Cette moyenne n'est
+ *  valable que pour la proportion de marche rencontrée à l'ENTRAÎNEMENT ; appliquée à une
+ *  course plus raide, elle fait courir l'athlète là où il marchera.
+ *  Le profil apprend maintenant deux choses distinctes, l'une et l'autre mesurées sur la
+ *  CADENCE (seul signal qui sépare les deux locomotions — l'allure, elle, confond « marcher »
+ *  et « courir épuisé ») : (1) la part de temps marchée à CHAQUE pente, par intervalles de
+ *  5 % ; (2) les performances propres à chaque régime dans chaque seau (allure et VAM de
+ *  marche, allure et VAM de course). Le temps d'une section de montée devient un mélange
+ *  continu des deux, à la part de marche correspondant à la pente RÉELLE de la section.
+ *  AUCUN SEUIL DE PENTE n'est introduit — c'était l'erreur d'une tentative précédente,
+ *  retirée après cinq secondes de gain sur vingt et une courses. La marche est un RÉGIME :
+ *  elle se produit là où elle se produit, et cela varie fortement d'un coureur à l'autre
+ *  (de 0,5 % à 12,6 % du temps dans la zone de transition, chez nos athlètes ; pente de
+ *  bascule de 7,5 % à 10,6 %). Là où la part mesurée vaut zéro, le mélange rend exactement
+ *  le temps de course : la section est strictement inchangée, et un coureur qui court tout
+ *  garde sa projection au chiffre près.
+ *  Le modèle ne s'active que sur données suffisantes (assez de temps classé par la cadence,
+ *  et une couverture suffisante du seau) ; sinon le moteur garde son chemin d'avant, correct,
+ *  simplement moins fin. Le recalage à l'effort de course s'applique aux deux régimes, jamais
+ *  à la part de marche : courir plus fort le jour J ne déplace pas la pente de bascule.
+ *  2026.07-15 : DESCENTE apprise coureur par coureur. Le moteur n'avait aucun modèle de
+ *  fatigue en descente, alors qu'elle pèse autant de temps de course que la montée. La
+ *  tentation était d'y poser un coefficient global : mesurée sur l'ensemble des athlètes,
+ *  la perte de vitesse après 1000 m de D− encaissé n'est que de 5 %, contre 18 % en montée.
+ *  Cette lecture est fausse, et un athlète l'a signalée — « des fois les quadriceps sont
+ *  morts et je n'arrivais plus à descendre fort ». Les deux vécus sont réels ; c'est
+ *  exactement ce qu'une moyenne détruit. La tenue en descente dépend de la qualité
+ *  excentrique des quadriceps, qui s'entraîne spécifiquement et ne se déduit d'aucune autre
+ *  donnée : il faut la mesurer sur chaque coureur, ou s'abstenir.
+ *  Le profil apprend donc, par athlète, la vitesse de descente par pente et sa TENUE selon
+ *  le D− déjà encaissé, à PENTE CONTRÔLÉE (bande 8-20 % — sans ce garde-fou, comparer le
+ *  début et la fin d'une sortie mesurerait le terrain, pas la fatigue). Aucune valeur par
+ *  défaut : sans courbe mesurée, le facteur vaut 1 et les descentes sont inchangées.
+ *  Trois bornes : jamais d'accélération (un athlète parti prudemment finit « plus vite
+ *  qu'à jambes fraîches » — c'est une gestion d'allure, pas un gain de fraîcheur) ;
+ *  aucune extrapolation au-delà du D− réellement couvert par l'historique ; et un plafond
+ *  qui refuse de propager un effondrement invraisemblable plutôt que de le croire. */
+export const ENGINE_VERSION = '2026.07-15'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

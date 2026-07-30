@@ -206,6 +206,12 @@ export interface BacktestRow {
   global_climb_fatigue_active: boolean
   global_climb_fatigue_max_multiplier: number
   global_climb_fatigue_seconds_added: number
+  /** Diagnostics du modèle de marche (régimes séparés par seau de pente). */
+  walk_model_sections: number
+  walk_model_seconds_added: number
+  /** Diagnostics de la fatigue de descente apprise sur le coureur. */
+  descent_fatigue_seconds_added: number
+  descent_fatigue_max_multiplier: number
   /** Meilleure VAM détectée (m/h) sur les sorties de l'athlète (record de trail), ou null. */
   best_climb_vam_mh: number | null
   /** Temps projeté SANS records/durabilité auto (contrefactuel A/B) — = predicted_s si non utilisés. */
@@ -575,6 +581,10 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
     global_climb_fatigue_active: proj.global_climb_fatigue_active,
     global_climb_fatigue_max_multiplier: proj.global_climb_fatigue_max_multiplier,
     global_climb_fatigue_seconds_added: proj.global_climb_fatigue_seconds_added,
+    walk_model_sections: proj.walk_model_sections,
+    walk_model_seconds_added: proj.walk_model_seconds_added,
+    descent_fatigue_seconds_added: proj.descent_fatigue_seconds_added,
+    descent_fatigue_max_multiplier: proj.descent_fatigue_max_multiplier,
     best_climb_vam_mh: athleteBest.bestClimb?.vamMh ?? null,
     predicted_s_no_be: predictedNoBe,
     used_fallback: proj.usedFallback,

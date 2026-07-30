@@ -22,7 +22,7 @@ function currentProfile(): Record<string, unknown> {
 
 describe('runner profile schema — compatibilité (§2)', () => {
   it('la version de schéma est celle attendue', () => {
-    expect(RUNNER_PROFILE_SCHEMA_VERSION).toBe('runner-profile-2026.07-2')
+    expect(RUNNER_PROFILE_SCHEMA_VERSION).toBe('runner-profile-2026.07-3')
     expect(MOBILE_VERSION).toBe(RUNNER_PROFILE_SCHEMA_VERSION)
   })
 

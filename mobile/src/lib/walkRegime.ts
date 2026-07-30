@@ -70,6 +70,13 @@ export interface SectionTimeInput {
   climbM: number
   /** Allure de COURSE de l'athlète sur ce terrain (km/h). */
   runSpeedKmH: number | null
+  /**
+   * Temps de course de la section déjà calculé par l'appelant (s), prioritaire sur
+   * `runSpeedKmH`. Le moteur, en montée, ne déduit pas le temps de course d'une simple
+   * vitesse au sol : il mélange VAM et vitesse. Lui imposer de repasser par une vitesse
+   * unique perdrait cette finesse — il passe donc son temps directement.
+   */
+  runTimeS?: number | null
   /** Vitesse ascensionnelle de MARCHE de l'athlète (m/h). */
   walkVamMH: number | null
   /** Vitesse au sol en MARCHE (km/h). Indispensable : cf. `blendedSectionTimeS`. */
@@ -102,7 +109,9 @@ export function blendedSectionTimeS(input: SectionTimeInput): number | null {
   const { distanceM, climbM, runSpeedKmH, walkVamMH } = input
   if (!(distanceM > 0)) return null
 
-  const runTimeS = runSpeedKmH && runSpeedKmH > 0 ? distanceM / (runSpeedKmH / 3.6) : null
+  const runTimeS = input.runTimeS != null && input.runTimeS > 0
+    ? input.runTimeS
+    : runSpeedKmH && runSpeedKmH > 0 ? distanceM / (runSpeedKmH / 3.6) : null
 
   // Marche : la plus contraignante des deux limites (cf. en-tête).
   const walkFlatS = input.walkSpeedKmH && input.walkSpeedKmH > 0

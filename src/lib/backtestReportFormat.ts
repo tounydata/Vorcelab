@@ -42,6 +42,8 @@ const CSV_COLUMNS: (keyof BacktestRow)[] = [
   'used_personal_fade', 'personal_fade_exponent', 'personal_fade_r2', 'personal_fade_confidence',
   'personal_fade_distinct_activity_count', 'personal_fade_spread_ratio', 'personal_fade_reason',
   'global_climb_fatigue_active', 'global_climb_fatigue_max_multiplier', 'global_climb_fatigue_seconds_added',
+  'walk_model_sections', 'walk_model_seconds_added',
+  'descent_fatigue_seconds_added', 'descent_fatigue_max_multiplier',
   'best_climb_vam_mh', 'predicted_s_no_be',
   'used_fallback', 'fcmax_source',
   'profile_quality', 'has_weather', 'has_hr', 'engine_version', 'profile_version', 'computed_at', 'as_of_at',

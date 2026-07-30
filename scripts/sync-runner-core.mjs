@@ -12,6 +12,10 @@ export const CORE_FILES = [
   'gpxCore', 'runnerProfile', 'runnerProfileSchema', 'engineHistory',
   'elevationSmoothing', 'raceValidation', 'raceDetection', 'raceDetectionPersistence',
   'projectionSnapshot', 'validationPolicy',
+  // Le profil apprend la marche et la descente depuis la cadence : runnerProfileAtDate
+  // importe ce module, il doit donc voyager avec lui. Un import manquant ici ne casse
+  // aucun test Node — il ne casse que l'Edge Function, au déploiement.
+  'walkTransition',
 ]
 
 const MOD_TS = `// Point d'entrée runner-core — GÉNÉRÉ par scripts/sync-runner-core.mjs (ne pas éditer).

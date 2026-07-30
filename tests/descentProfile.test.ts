@@ -106,3 +106,36 @@ describe('descente', () => {
     expect(b.meanGradePct).toBeCloseTo(12, 0)
   })
 })
+
+// L'allure (mm:ss/km) est l'unité dans laquelle un coureur pense. « 9,9 km/h » ne parle
+// à personne, « 6:04/km » se lit immédiatement. Seule la MONTÉE garde la VAM, où l'allure
+// perd son sens (18:00/km à 25 % de pente ne se compare à rien).
+describe('conversion vitesse → allure', () => {
+  // Réplique de la fonction du script, verrouillée ici car c'est elle qui rend les
+  // rapports lisibles — une erreur d'arrondi y passerait inaperçue à la lecture.
+  const pace = (kmh: number | null): string => {
+    if (kmh == null || !(kmh > 0)) return '—'
+    const s = 3600 / kmh
+    const m = Math.floor(s / 60)
+    const sec = Math.round(s - m * 60)
+    return sec === 60 ? `${m + 1}:00/km` : `${m}:${String(sec).padStart(2, '0')}/km`
+  }
+
+  it('convertit les vitesses réellement mesurées', () => {
+    expect(pace(9.9)).toBe('6:04/km')   // descente 5-10 %, la plus rapide
+    expect(pace(5.2)).toBe('11:32/km')  // descente 30-35 %, on freine
+    expect(pace(12)).toBe('5:00/km')
+  })
+
+  it('ne produit jamais 60 secondes', () => {
+    // Sans le garde-fou, 3599,5 s/km s'afficherait « 59:60/km ».
+    for (let kmh = 3; kmh <= 20; kmh += 0.01) {
+      expect(pace(kmh)).not.toMatch(/:60\/km$/)
+    }
+  })
+
+  it('se tait sur une vitesse absente ou nulle', () => {
+    expect(pace(null)).toBe('—')
+    expect(pace(0)).toBe('—')
+  })
+})

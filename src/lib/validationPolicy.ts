@@ -27,15 +27,16 @@ export interface ValidationCampaign {
  * `ENGINE_VERSION` à l'ouverture (garanti par `validationPolicy.test.ts`). Pour geler une
  * nouvelle version, on ouvre une nouvelle campagne (nouveau label + date).
  */
-// Nouvelle campagne ouverte avec 2026.07-13 : le lissage altimétrique est calibré sur
-// 501 tracés (30 m / 1 m au lieu de 50 m / 3 m). L'ancien réglage coupait la moitié du
-// dénivelé des parcours roulants ; les profils vus par le moteur changent donc partout,
-// et le plus fortement sur route. Les preuves prospectives collectées sous les versions antérieures
-// restent valides POUR CES VERSIONS-LÀ — elles ne sont pas requalifiées, d'où une
-// campagne distincte. La comparaison entre versions se lit dans EngineAccuracyCard.
+// Nouvelle campagne ouverte avec 2026.07-15 : le moteur distingue désormais MARCHER et
+// COURIR au lieu de moyenner les deux dans un seul chiffre par seau de pente (les temps de
+// montée changent partout où l'athlète marche, et seulement là), et il apprend la tenue en
+// DESCENTE de chaque coureur au lieu de l'ignorer. Les preuves prospectives
+// collectées sous les versions antérieures restent valides POUR CES VERSIONS-LÀ — elles ne
+// sont pas requalifiées, d'où une campagne distincte. La comparaison entre versions se lit
+// dans EngineAccuracyCard.
 export const VALIDATION_CAMPAIGN: ValidationCampaign = {
-  label: 'campagne-2026.07-g',
-  frozenEngineVersion: '2026.07-13',
+  label: 'campagne-2026.07-h',
+  frozenEngineVersion: '2026.07-15',
   startAtISO: '2026-07-30T00:00:00.000Z',
 }
 

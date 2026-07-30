@@ -384,6 +384,93 @@ export interface DownhillFatigueProfile {
   accumulatedDminusImpact: number | null
 }
 
+// ─── Régimes de locomotion (marche / course) ──────────────────────────────────
+//
+// POURQUOI CE DÉCOUPAGE EXISTE.
+// Un seau de pente ne stockait qu'UNE allure moyenne. Or dans « montée raide », un
+// coureur alterne deux locomotions qui n'ont rien à voir : il court une partie, il
+// marche l'autre. La moyenne des deux ne décrit ni l'une ni l'autre — et surtout,
+// elle n'est valable que pour la PROPORTION de marche observée à l'entraînement.
+// Une course plus longue ou plus raide fait marcher davantage : le moteur appliquait
+// alors une allure apprise sur un mélange qui n'est plus le bon.
+//
+// LA MARCHE EST UN RÉGIME, PAS UNE PENTE. On ne la déclenche pas à un seuil de pente :
+// on MESURE, à chaque pente, quelle fraction du temps est marchée. Certains marchent
+// à 8 %, d'autres courent à 20 % — c'est une propriété du coureur, pas du terrain.
+//
+// La classification se fait sur la CADENCE, seul signal qui distingue directement les
+// deux locomotions (l'allure, elle, confond « marcher » et « courir épuisé »).
+// Un échantillon sans cadence est NON CLASSÉ, jamais rangé par défaut : d'où
+// `classifiedSeconds`, qui permet à un consommateur de refuser une fraction de marche
+// estimée sur trop peu de signal.
+
+export interface RegimeStats {
+  /** Temps passé dans ce régime (s). */
+  totalSeconds: number
+  /** Allure moyenne du régime, en km/h (pondérée par le temps). */
+  avgSpeedKmH: number | null
+  /** VAM du régime en m/h — montées uniquement. C'est l'invariant de la marche en côte. */
+  vamMH: number | null
+  /** Cadence moyenne du régime, en unités API Strava (foulées/min ; ×2 = pas/min). */
+  avgCadence: number | null
+  /** Distance horizontale parcourue dans ce régime (m). */
+  totalDistanceM: number
+  /** Dénivelé positif accumulé dans ce régime (m). */
+  altGainM: number
+}
+
+export interface BucketRegimes {
+  /** Fraction du temps CLASSÉ passée en marche (0..1). Mesurée, jamais supposée. */
+  walkFraction: number
+  /** Secondes effectivement classées (cadence disponible) — dénominateur de walkFraction. */
+  classifiedSeconds: number
+  /** Statistiques du régime marche, ou null si jamais observé dans ce seau. */
+  walk: RegimeStats | null
+  /** Statistiques du régime course, ou null si jamais observé dans ce seau. */
+  run: RegimeStats | null
+}
+
+/**
+ * La fraction de marche est-elle exploitable pour ce seau ?
+ *
+ * Deux garde-fous, tous deux nécessaires :
+ *  • assez de temps CLASSÉ (une minute de cadence ne décrit pas un comportement) ;
+ *  • une couverture suffisante du seau — si 90 % des secondes n'ont pas de cadence,
+ *    la fraction mesurée sur les 10 % restants n'est pas représentative du reste.
+ *
+ * En dessous, le moteur ne devine pas : il retombe sur le comportement d'avant ce
+ * découpage (allure unique du seau), qui reste correct, simplement moins fin.
+ */
+export const REGIME_MIN_CLASSIFIED_SECONDS = 180
+export const REGIME_MIN_CLASSIFIED_COVERAGE = 0.5
+
+export function isRegimeSplitUsable(
+  regimes: BucketRegimes | undefined,
+  bucketTotalSeconds: number,
+): boolean {
+  if (!regimes) return false
+  if (regimes.classifiedSeconds < REGIME_MIN_CLASSIFIED_SECONDS) return false
+  if (bucketTotalSeconds <= 0) return false
+  return regimes.classifiedSeconds / bucketTotalSeconds >= REGIME_MIN_CLASSIFIED_COVERAGE
+}
+
+/**
+ * Applique un facteur d'intensité (recalage effort d'entraînement → effort de course)
+ * aux DEUX régimes. Le facteur porte sur les vitesses — allure au sol et vitesse
+ * ascensionnelle —, jamais sur la part de marche : courir plus fort ne change pas la
+ * pente à laquelle on bascule, et le supposer reviendrait à inventer une donnée.
+ */
+export function scaleRegimes(regimes: BucketRegimes, factor: number): BucketRegimes {
+  if (!Number.isFinite(factor) || factor === 1) return regimes
+  const scale = (r: RegimeStats | null): RegimeStats | null =>
+    r == null ? null : {
+      ...r,
+      avgSpeedKmH: r.avgSpeedKmH != null ? r.avgSpeedKmH * factor : null,
+      vamMH: r.vamMH != null ? r.vamMH * factor : null,
+    }
+  return { ...regimes, walk: scale(regimes.walk), run: scale(regimes.run) }
+}
+
 // ─── Bucket stats type ────────────────────────────────────────────────────────
 
 export interface BucketStats {
@@ -415,6 +502,8 @@ export interface BucketStats {
   statusReason: string
   /** Post-climb relance behavior (optional, only if ≥2 events) */
   relanceStatus?: 'strong' | 'normal' | 'limited' | 'unknown'
+  /** Découpage marche/course mesuré sur la cadence (optionnel — profils anciens sans). */
+  regimes?: BucketRegimes
 }
 
 // ─── Full profile type ────────────────────────────────────────────────────────
@@ -477,6 +566,34 @@ export interface RunnerProfileComputed {
   criticalSpeed?: import('./criticalSpeed').CriticalSpeedResult | null
   /** Meilleure ascension détectée (VAM), record de trail. */
   bestClimb?: import('./bestEfforts').ClimbEffort | null
+  // ── Courbe de marche apprise, par pente (optionnel) ──────────────────────────
+  /**
+   * Part de temps marchée à CHAQUE pente, mesurée sur la cadence (intervalles de 5 %).
+   *
+   * C'est le complément indispensable de `buckets[k].regimes`. Le seau « montée raide »
+   * couvre tout ce qui dépasse 12 %, sans limite haute : sa part de marche moyenne est
+   * celle du terrain que l'athlète a rencontré à l'entraînement. Or on ne marche pas
+   * pareil à 13 % et à 28 %. Cette courbe permet d'estimer la part de marche à la pente
+   * RÉELLE de chaque section de la course visée, au lieu de rejouer le mélange
+   * d'entraînement.
+   */
+  walkProfile?: import('./walkTransition').WalkTransitionProfile
+
+  /**
+   * Descente APPRISE : vitesse par pente descendante, et tenue de cette vitesse selon le
+   * D− déjà encaissé (à pente contrôlée).
+   *
+   * Volontairement PERSONNELLE et sans valeur par défaut. Sur l'ensemble des athlètes, la
+   * perte après 1000 m de D− n'est que de 5 % — mais cette moyenne mélange celui qui
+   * déroule et celui dont les quadriceps lâchent, deux vécus opposés. La tenue en descente
+   * dépend de la qualité excentrique des quadriceps, qui ne se déduit d'aucune autre donnée :
+   * il faut la mesurer sur chaque coureur, ou s'abstenir.
+   */
+  descentProfile?: {
+    byGrade: import('./walkTransition').DescentGradeBin[]
+    fatigue: import('./walkTransition').DescentFatigueBin[]
+  }
+
   /** Courbe verticale : meilleure ascension par palier de D+ (100/300/500/1000 m). §11 */
   bestClimbByTier?: Record<number, import('./bestEfforts').VerticalEffort>
 }

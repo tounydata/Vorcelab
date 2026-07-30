@@ -7,7 +7,11 @@ import { hav, minettiGradePenalty, buildDetailedSections, sectionTurnDegPerKm } 
 import { terrainTimePenalty, slipRisk, type TerrainWeather } from './terrain'
 // @ts-ignore
 import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity } from './racePredictor'
-import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket } from './runnerProfile'
+import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket, BucketRegimes } from './runnerProfile'
+import { isRegimeSplitUsable, scaleRegimes } from './runnerProfile'
+import { walkFractionAtGrade, blendedSectionTimeS } from './walkRegime'
+import type { WalkTransitionProfile, DescentFatigueBin } from './walkTransition'
+import { descentFatigueFactor } from './descentFatigue'
 import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
@@ -168,6 +172,14 @@ export interface ProjectionResult {
   global_climb_fatigue_max_multiplier: number
   /** Secondes réellement ajoutées par la fatigue globale de montée (diagnostic). */
   global_climb_fatigue_seconds_added: number
+  /** Sections de montée rejouées avec les deux régimes séparés (diagnostic). */
+  walk_model_sections: number
+  /** Secondes ajoutées (ou retirées) par le modèle de marche (diagnostic). */
+  walk_model_seconds_added: number
+  /** Secondes ajoutées par la fatigue de descente APPRISE sur ce coureur (diagnostic). */
+  descent_fatigue_seconds_added: number
+  /** Ralentissement maximal atteint en descente (1 = aucun ; diagnostic). */
+  descent_fatigue_max_multiplier: number
 }
 
 export function computeRaceProjection(
@@ -382,7 +394,16 @@ export function computeRaceProjection(
     confidence: string
     cardioCost: string
     status: string
+    totalSeconds?: number
+    regimes?: BucketRegimes
   }> | undefined
+
+  // Courbe de marche apprise (part de temps marchée à chaque pente). Cf. walkProfile.
+  const walkProfile = runnerProfile?.walkProfile as WalkTransitionProfile | undefined
+  // Descente APPRISE sur ce coureur : vitesse par pente, et tenue selon le D− encaissé.
+  const descentProfile = runnerProfile?.descentProfile as
+    | { byGrade: unknown[]; fatigue: DescentFatigueBin[] }
+    | undefined
 
   // Helper: map section grade to bucket key
   function sectionBucketKey(grade: number, type: string): string | null {
@@ -506,8 +527,83 @@ export function computeRaceProjection(
         ...b,
         avgSpeedKmH: b.avgSpeedKmH != null ? b.avgSpeedKmH * rif.factor : b.avgSpeedKmH,
         vamMH: b.vamMH != null ? b.vamMH * rif.factor : b.vamMH,
+        // Les deux RÉGIMES suivent le même recalage à l'effort de course. Les oublier
+        // ferait cohabiter une course recalée et une marche restée à l'entraînement :
+        // le modèle mélangerait alors deux intensités différentes.
+        regimes: b.regimes ? scaleRegimes(b.regimes, rif.factor) : undefined,
       }]))
     : rBuckets) as typeof rBuckets
+
+  // ── 7 bis. MODÈLE DE MARCHE ──────────────────────────────────────────────────
+  //
+  // Ce que ça corrige. Un seau de pente ne portait qu'UNE allure moyenne, mélange de
+  // deux locomotions sans rapport : dans « montée raide » (≥ 12 %, sans limite haute),
+  // du 13 % couru et du 25 % marché finissaient dans le même nombre. Ce mélange n'est
+  // valable que pour la proportion de marche rencontrée à l'ENTRAÎNEMENT. Appliqué à
+  // une course plus raide, il fait courir l'athlète là où il marchera.
+  //
+  // Comment. Deux apprentissages distincts, tous deux mesurés sur la cadence :
+  //   • la part de temps marchée à CHAQUE pente (courbe fine, intervalles de 5 %) ;
+  //   • les performances propres à chaque régime dans le seau (allure et VAM de marche,
+  //     allure et VAM de course), au lieu de leur moyenne.
+  // Le temps de la section devient un mélange continu des deux, à la part de marche
+  // correspondant à la pente RÉELLE de la section.
+  //
+  // AUCUN SEUIL DE PENTE. La marche n'est pas « ce qui arrive au-delà de X % » — c'est un
+  // régime, qui se produit là où il se produit, et qui varie d'un coureur à l'autre
+  // (de 0,5 % à 12,6 % du temps dans la zone de transition, chez nos athlètes). Là où la
+  // part mesurée vaut zéro, le mélange rend exactement le temps de course : la section
+  // est strictement inchangée. C'est ce qui rend le modèle sûr à activer partout.
+  //
+  // Il ne s'active QUE sur données suffisantes (cf. isRegimeSplitUsable) ; sinon le
+  // moteur garde son chemin d'avant, correct, simplement moins fin.
+  let sectionsUsingWalkModel = 0
+  let walkModelSecondsAdded = 0
+  let descentFatigueSecondsAdded = 0
+  let descentFatigueMaxMultiplier = 1
+
+  function walkAwareClimbTimeS(
+    grade: number,
+    distM: number,
+    dplusM: number,
+    bucket: { totalSeconds?: number; regimes?: BucketRegimes } | null,
+    vamWeight: number,
+    /** Temps de course de la section calculé sur le seau MÉLANGÉ (chemin actuel). */
+    mixedTimeS: number,
+  ): number {
+    if (!walkProfile || !bucket) return mixedTimeS
+    if (!isRegimeSplitUsable(bucket.regimes, bucket.totalSeconds ?? 0)) return mixedTimeS
+    const { walk, run } = bucket.regimes!
+    if (!walk || !run) return mixedTimeS
+
+    const w = walkFractionAtGrade(walkProfile.bins, grade)
+    if (w == null || w <= 0) return mixedTimeS
+
+    // Côté COURSE : mêmes règles que le chemin actuel (mélange VAM / vitesse au sol),
+    // mais sur les valeurs du seul régime course. Réutiliser le seau mélangé ici
+    // compterait la marche deux fois.
+    if (!(run.vamMH != null && run.vamMH > 0) || !(run.avgSpeedKmH != null && run.avgSpeedKmH > 0)) {
+      return mixedTimeS
+    }
+    const runVamTimeS = (dplusM / run.vamMH) * 3600
+    const runSpeedTimeS = distM / (run.avgSpeedKmH / 3.6)
+    const runTimeS = runVamTimeS * vamWeight + runSpeedTimeS * (1 - vamWeight)
+
+    const blended = blendedSectionTimeS({
+      distanceM: distM,
+      climbM: dplusM,
+      runSpeedKmH: run.avgSpeedKmH,
+      runTimeS,
+      walkVamMH: walk.vamMH,
+      walkSpeedKmH: walk.avgSpeedKmH,
+      walkFraction: w,
+    })
+    if (blended == null || !Number.isFinite(blended) || blended <= 0) return mixedTimeS
+
+    sectionsUsingWalkModel++
+    walkModelSecondsAdded += blended - mixedTimeS
+    return blended
+  }
 
   // ── 8. Section times (bucket-based when data available, else Minetti) ───────
   const sectionTimes: number[] = []
@@ -601,6 +697,8 @@ export function computeRaceProjection(
   // 1 250 m de D+ cumulé nous n'avons pas de données, et extrapoler une dégradation
   // qu'on n'a pas observée serait exactement le travers que le banc a déjà sanctionné.
   let cumClimbDplus = 0
+  // D− déjà encaissé à l'entrée de la section — variable de la fatigue de DESCENTE.
+  let cumDescentDminus = 0
   const GLOBAL_CLIMB_FATIGUE_V1_PER_1000M = 0.20 // +20 % de temps de montée par 1000 m déjà grimpés
   const GLOBAL_CLIMB_FATIGUE_V1_MAX = 0.22
   // Diagnostics (explicabilité) — n'altèrent PAS le temps calculé.
@@ -618,6 +716,11 @@ export function computeRaceProjection(
       globalClimbFatigueMaxMultiplier = Math.max(globalClimbFatigueMaxMultiplier, climbFatigue)
     }
     cumClimbDplus += s.dplus
+    // Cumulé APRÈS lecture : une section est ralentie par ce qui la précède, jamais par
+    // elle-même. Poser l'incrément avant reviendrait à faire payer à la première descente
+    // une fatigue qu'elle vient tout juste de créer.
+    const dminusBeforeSection = cumDescentDminus
+    cumDescentDminus += s.dminus
 
     const bkey = sectionBucketKey(s.grade, s.type)
     const bdata = bkey && rBucketsScaled ? rBucketsScaled[bkey] : null
@@ -645,7 +748,13 @@ export function computeRaceProjection(
         // Blend: steep = 85% VAM, mod = 70% VAM
         const vamWeight = bkey === 'steep_up' ? 0.85 : 0.70
         // Fatigue de montée intra-course (croît avec le D+ déjà grimpé).
-        const baseTimeNoFatigueS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight))
+        const mixedTimeS = (vamTimeS * vamWeight + speedTimeS * (1 - vamWeight))
+        // Modèle de marche : rejoue la section avec les DEUX régimes séparés, à la part
+        // de marche correspondant à la pente réelle. Renvoie `mixedTimeS` inchangé si la
+        // donnée manque ou si l'athlète ne marche pas à cette pente.
+        const baseTimeNoFatigueS = walkAwareClimbTimeS(
+          s.grade, s.dist, s.dplus, bdata, vamWeight, mixedTimeS,
+        )
         const baseTimeS = baseTimeNoFatigueS * climbFatigue
         // Apply drift/recovery penalties to baseTimeS directly, then push and continue
         let missionOnePenalty = 1.0
@@ -763,7 +872,20 @@ export function computeRaceProjection(
       penaltyFactor = Math.min(penaltyFactor, 1.10)
 
       const adjPaceS = bucketPaceS * penaltyFactor
-      const t = adjPaceS * s.dist / 1000
+      let t = adjPaceS * s.dist / 1000
+
+      // FATIGUE DE DESCENTE, apprise sur CE coureur. Elle n'a pas de valeur par défaut :
+      // sur l'ensemble des athlètes la perte n'est que de 5 % après 1000 m de D−, mais
+      // cette moyenne mélange celui qui déroule et celui dont les quadriceps lâchent.
+      // Sans courbe mesurée, le facteur vaut 1 et la section est inchangée.
+      if (s.type === 'down') {
+        const df = descentFatigueFactor(descentProfile?.fatigue, dminusBeforeSection)
+        if (df > 1) {
+          descentFatigueSecondsAdded += t * (df - 1)
+          descentFatigueMaxMultiplier = Math.max(descentFatigueMaxMultiplier, df)
+          t *= df
+        }
+      }
       sectionTimes.push(t)
       estTimeS += t
     } else {
@@ -1285,5 +1407,12 @@ export function computeRaceProjection(
     global_climb_fatigue_active: globalClimbFatigueActive,
     global_climb_fatigue_max_multiplier: +globalClimbFatigueMaxMultiplier.toFixed(4),
     global_climb_fatigue_seconds_added: Math.round(globalClimbFatigueSecondsAdded),
+    // Modèle de marche : diagnostic seul, jamais lu par le calcul. `sections` à zéro
+    // signifie que le moteur a gardé son chemin d'avant (donnée insuffisante, ou athlète
+    // qui ne marche pas aux pentes du parcours) — pas qu'il a échoué.
+    walk_model_sections: sectionsUsingWalkModel,
+    walk_model_seconds_added: Math.round(walkModelSecondsAdded),
+    descent_fatigue_seconds_added: Math.round(descentFatigueSecondsAdded),
+    descent_fatigue_max_multiplier: +descentFatigueMaxMultiplier.toFixed(4),
   }
 }
