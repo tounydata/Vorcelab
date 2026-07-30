@@ -35,7 +35,14 @@ import {
   type DownhillFatigueProfile,
   type TechnicalDescentProfile,
   type TechDescentFactor,
+  type RegimeStats,
 } from './runnerProfile.ts'
+import {
+  WALK_CADENCE_THRESHOLD,
+  extractSamples as extractWalkSamples,
+  aggregateByGrade,
+  type Sample as WalkSample,
+} from './walkTransition.ts'
 
 const RUN_TYPES = new Set(['run', 'trailrun', 'virtualrun', 'hike', 'walk'])
 
@@ -109,9 +116,45 @@ interface BucketAccum {
   cadenceSum: number
   cadenceCount: number
   runIds: Set<string>
+  /** Découpage marche/course mesuré sur la cadence — cf. BucketRegimes. */
+  walk: RegimeAccum
+  run: RegimeAccum
+  /** Secondes pour lesquelles la cadence permettait de trancher. */
+  classifiedSeconds: number
 }
 function newAccum(): BucketAccum {
-  return { totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0, altGainM: 0, totalDistanceM: 0, sampleCount: 0, cadenceSum: 0, cadenceCount: 0, runIds: new Set() }
+  return {
+    totalSeconds: 0, weightedSpeedSum: 0, weightedHrSum: 0, hrWeightedSeconds: 0,
+    altGainM: 0, totalDistanceM: 0, sampleCount: 0, cadenceSum: 0, cadenceCount: 0,
+    runIds: new Set(),
+    walk: newRegimeAccum(), run: newRegimeAccum(), classifiedSeconds: 0,
+  }
+}
+
+/** Accumulateur d'UN régime de locomotion (marche ou course) — cf. BucketRegimes. */
+interface RegimeAccum {
+  seconds: number
+  weightedSpeedSum: number
+  altGainM: number
+  distanceM: number
+  cadenceWeightedSum: number
+}
+
+function newRegimeAccum(): RegimeAccum {
+  return { seconds: 0, weightedSpeedSum: 0, altGainM: 0, distanceM: 0, cadenceWeightedSum: 0 }
+}
+
+/** Finalise un régime — null s'il n'a jamais été observé (ne pas inventer un zéro). */
+function finalizeRegime(r: RegimeAccum, isClimb: boolean): RegimeStats | null {
+  if (r.seconds <= 0) return null
+  return {
+    totalSeconds: r.seconds,
+    avgSpeedKmH: r.weightedSpeedSum / r.seconds,
+    vamMH: isClimb ? (r.altGainM / r.seconds) * 3600 : null,
+    avgCadence: r.cadenceWeightedSum / r.seconds,
+    totalDistanceM: r.distanceM,
+    altGainM: r.altGainM,
+  }
 }
 
 type ClimbBucket = 'mild_up' | 'mod_up' | 'steep_up'
@@ -148,6 +191,8 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
   const runs = activitiesInWindowBefore(input.activities, asOfDate, windowDays).filter(isRun)
 
   const bucketAccum: Partial<Record<BucketKey, BucketAccum>> = {}
+  // Échantillons pente/cadence pour la COURBE DE MARCHE par pente (cf. walkProfile).
+  const walkSamples: WalkSample[] = []
   const driftSamples: number[] = []
   const recoveryEvents: { hrDropBpmPerMin: number; resumeSpeedKmH: number }[] = []
   const climbRecoveryAccum: Partial<Record<ClimbBucket, RecoveryEvent[]>> = {}
@@ -172,6 +217,10 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
     const latlng = raw.latlng != null ? pairArray(raw.latlng) : undefined
 
     if (altitude.length === 0 || velocity.length === 0) continue
+
+    // Courbe de marche par pente : même extraction que le script de mesure, pour que le
+    // moteur apprenne exactement ce que les rapports affichent.
+    walkSamples.push(...extractWalkSamples(raw as never))
 
     const n = time.length
     const actDur = time[n - 1] - time[0]
@@ -237,7 +286,19 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
       acc.totalDistanceM += distDelta
       acc.sampleCount++
       if (hrPct != null) { acc.weightedHrSum += hrPct * dt; acc.hrWeightedSeconds += dt }
-      if (cadenceArr && cadenceArr[j] > 0) { acc.cadenceSum += cadenceArr[j]; acc.cadenceCount++ }
+      if (cadenceArr && cadenceArr[j] > 0) {
+        acc.cadenceSum += cadenceArr[j]; acc.cadenceCount++
+        // Régime de locomotion, tranché sur la CADENCE et sur elle seule — jamais sur la
+        // pente. Cadence nulle = arrêt, pas marche : ces secondes restent NON CLASSÉES,
+        // sinon les pauses ravito compteraient comme de la marche lente.
+        const reg = cadenceArr[j] < WALK_CADENCE_THRESHOLD ? acc.walk : acc.run
+        reg.seconds += dt
+        reg.weightedSpeedSum += speedKmH * dt
+        reg.distanceM += distDelta
+        reg.cadenceWeightedSum += cadenceArr[j] * dt
+        if (altDelta > 0) reg.altGainM += altDelta
+        acc.classifiedSeconds += dt
+      }
       if (altDelta > 0) acc.altGainM += altDelta
       acc.runIds.add(String(act.id ?? act.strava_activity_id))
     }
@@ -330,6 +391,12 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
       totalSeconds: acc.totalSeconds, totalDistanceM: acc.totalDistanceM, altGainM: acc.altGainM,
       sampleCount: acc.sampleCount, runCount, confidence, status: statusResult.status,
       efficiencyScore, cardioCost, statusReason: statusResult.statusReason,
+      regimes: {
+        walkFraction: acc.classifiedSeconds > 0 ? acc.walk.seconds / acc.classifiedSeconds : 0,
+        classifiedSeconds: acc.classifiedSeconds,
+        walk: finalizeRegime(acc.walk, btype === 'up'),
+        run: finalizeRegime(acc.run, btype === 'up'),
+      },
     }
   }
 
@@ -420,6 +487,7 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
     downhillFatigue,
     conditionPenalties: undefined,
     technicalDescent: hasTech ? techDescent : undefined,
+    walkProfile: walkSamples.length > 0 ? aggregateByGrade(walkSamples) : undefined,
   }
 }
 

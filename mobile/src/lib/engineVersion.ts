@@ -89,8 +89,30 @@
  *  d'un bruit réintroduit ne se vérifie pas — le filtre médian et la moyenne glissante
  *  assurent déjà le débruitage, le seuil de 3 m ne coupait plus que du signal. Le banc
  *  avait chiffré ce défaut sans en connaître la cause : donner le D+ exact au moteur
- *  faisait passer l'erreur sur route de 10,9 % à 8,8 %. */
-export const ENGINE_VERSION = '2026.07-13'
+ *  faisait passer l'erreur sur route de 10,9 % à 8,8 %.
+ *  2026.07-14 : MARCHER et COURIR cessent d'être moyennés. Un seau de pente ne portait
+ *  qu'UNE allure — or « montée raide » couvre tout ce qui dépasse 12 %, sans limite haute :
+ *  du 13 % couru et du 25 % marché finissaient dans le même nombre. Cette moyenne n'est
+ *  valable que pour la proportion de marche rencontrée à l'ENTRAÎNEMENT ; appliquée à une
+ *  course plus raide, elle fait courir l'athlète là où il marchera.
+ *  Le profil apprend maintenant deux choses distinctes, l'une et l'autre mesurées sur la
+ *  CADENCE (seul signal qui sépare les deux locomotions — l'allure, elle, confond « marcher »
+ *  et « courir épuisé ») : (1) la part de temps marchée à CHAQUE pente, par intervalles de
+ *  5 % ; (2) les performances propres à chaque régime dans chaque seau (allure et VAM de
+ *  marche, allure et VAM de course). Le temps d'une section de montée devient un mélange
+ *  continu des deux, à la part de marche correspondant à la pente RÉELLE de la section.
+ *  AUCUN SEUIL DE PENTE n'est introduit — c'était l'erreur d'une tentative précédente,
+ *  retirée après cinq secondes de gain sur vingt et une courses. La marche est un RÉGIME :
+ *  elle se produit là où elle se produit, et cela varie fortement d'un coureur à l'autre
+ *  (de 0,5 % à 12,6 % du temps dans la zone de transition, chez nos athlètes ; pente de
+ *  bascule de 7,5 % à 10,6 %). Là où la part mesurée vaut zéro, le mélange rend exactement
+ *  le temps de course : la section est strictement inchangée, et un coureur qui court tout
+ *  garde sa projection au chiffre près.
+ *  Le modèle ne s'active que sur données suffisantes (assez de temps classé par la cadence,
+ *  et une couverture suffisante du seau) ; sinon le moteur garde son chemin d'avant, correct,
+ *  simplement moins fin. Le recalage à l'effort de course s'applique aux deux régimes, jamais
+ *  à la part de marche : courir plus fort le jour J ne déplace pas la pente de bascule. */
+export const ENGINE_VERSION = '2026.07-14'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

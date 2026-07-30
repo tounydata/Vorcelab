@@ -17,8 +17,18 @@
  *  (`schemaVersion`, `computedAt`, `asOfAt`, `historyDays`, `detailedProfileDays`) et
  *  garantit la présence des records découplés (`bestEfforts`), de la vitesse critique
  *  (`criticalSpeed`) et de la meilleure ascension (`bestClimb`) exigés par le moteur.
+ *
+ *  runner-profile-2026.07-3 : chaque seau de pente porte désormais le DÉCOUPAGE
+ *  MARCHE / COURSE (`buckets[k].regimes`) mesuré sur la cadence. Un seau ne stockait
+ *  qu'une allure moyenne, mélangeant deux locomotions distinctes : dans « montée raide »,
+ *  du 12 % couru et du 25 % marché finissaient dans le même nombre. Cette moyenne n'est
+ *  valable que pour la proportion de marche observée à l'entraînement — une course plus
+ *  longue fait marcher davantage, et le moteur appliquait alors un mélange périmé.
+ *  Le champ est ADDITIF (les consommateurs le traitent comme optionnel), mais la version
+ *  est incrémentée pour que les profils existants se reconstruisent et l'acquièrent :
+ *  sans lui, le moteur reste sur son comportement d'avant, correct mais moins fin.
  */
-export const RUNNER_PROFILE_SCHEMA_VERSION = 'runner-profile-2026.07-2'
+export const RUNNER_PROFILE_SCHEMA_VERSION = 'runner-profile-2026.07-3'
 
 /** Champs de provenance que TOUT profil au schéma courant doit porter. */
 export const REQUIRED_PROFILE_META_FIELDS = [
