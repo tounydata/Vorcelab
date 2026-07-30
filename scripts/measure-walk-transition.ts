@@ -51,6 +51,21 @@ function fmt(n: number | null, digits = 0): string {
   return n == null ? '—' : n.toFixed(digits)
 }
 
+/**
+ * Vitesse (km/h) → ALLURE (mm:ss/km), l'unité dans laquelle un coureur pense.
+ *
+ * « 9,9 km/h » ne parle à personne ; « 6:04/km » se lit immédiatement. La seule
+ * exception est la MONTÉE, où l'allure perd son sens (18:00/km à 25 % de pente ne se
+ * compare à rien) : c'est la VAM en m/h qui y sert de référence, cf. tableaux de montée.
+ */
+function pace(speedKmH: number | null): string {
+  if (speedKmH == null || !(speedKmH > 0)) return '—'
+  const secPerKm = 3600 / speedKmH
+  const m = Math.floor(secPerKm / 60)
+  const sec = Math.round(secPerKm - m * 60)
+  return sec === 60 ? `${m + 1}:00/km` : `${m}:${String(sec).padStart(2, '0')}/km`
+}
+
 function renderProfile(label: string, p: WalkTransitionProfile, activities: number): string {
   const lines: string[] = []
   lines.push('')
@@ -58,7 +73,7 @@ function renderProfile(label: string, p: WalkTransitionProfile, activities: numb
   lines.push('')
   // Cadence affichée en PAS PAR MINUTE. L'API Strava renvoie des FOULÉES :
   // brut, « 52 » se lit comme une anomalie, alors que 104 pas/min est une marche normale.
-  lines.push('| Pente | Temps | Cadence (pas/min) | Vitesse | VAM | % marche |')
+  lines.push('| Pente | Temps | Cadence (pas/min) | Allure | VAM | % marche |')
   lines.push('|---|--:|--:|--:|--:|--:|')
   for (const b of p.bins) {
     if (b.seconds < 30) continue // sous 30 s, la ligne n'informe pas
@@ -66,7 +81,7 @@ function renderProfile(label: string, p: WalkTransitionProfile, activities: numb
       `| ${b.gradeMinPct}-${b.gradeMinPct + GRADE_BIN_WIDTH} % ` +
       `| ${(b.seconds / 60).toFixed(0)} min ` +
       `| ${fmt(toStepsPerMinute(b.meanCadence))} ` +
-      `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${pace(b.meanSpeedKmH)} ` +
       `| ${fmt(b.meanVamMH)} m/h ` +
       `| ${Math.round(b.walkFraction * 100)} % |`,
     )
@@ -85,7 +100,7 @@ function renderFatigue(label: string, bins: ClimbFatigueBin[]): string {
   lines.push('')
   lines.push(`### ${label} — VAM selon le dénivelé DÉJÀ grimpé`)
   lines.push('')
-  lines.push('| D+ déjà dans les jambes | Temps | Pente moy. | Vitesse | VAM | vs frais |')
+  lines.push('| D+ déjà dans les jambes | Temps | Pente moy. | Allure | VAM | vs frais |')
   lines.push('|---|--:|--:|--:|--:|--:|')
   for (const b of bins) {
     if (b.seconds < 60) continue
@@ -94,7 +109,7 @@ function renderFatigue(label: string, bins: ClimbFatigueBin[]): string {
       `| ${b.cumulativeGainMinM}-${last} m ` +
       `| ${(b.seconds / 60).toFixed(0)} min ` +
       `| ${fmt(b.meanGradePct, 1)} % ` +
-      `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${pace(b.meanSpeedKmH)} ` +
       `| ${fmt(b.meanVamMH)} m/h ` +
       `| ${b.vamRatioToFresh == null ? '—' : (b.vamRatioToFresh * 100).toFixed(0) + ' %'} |`,
     )
@@ -217,27 +232,27 @@ async function main() {
   console.log('')
   console.log('### Vitesse selon la pente descendante — tous athlètes')
   console.log('')
-  console.log('| Pente (descente) | Temps | Vitesse | Cadence (pas/min) |')
+  console.log('| Pente (descente) | Temps | Allure | Cadence (pas/min) |')
   console.log('|---|--:|--:|--:|')
   for (const b of d.byGrade) {
     if (b.seconds < 120) continue
     console.log(
       `| ${b.gradeMinPct}-${b.gradeMinPct + GRADE_BIN_WIDTH} % ` +
-      `| ${(b.seconds / 60).toFixed(0)} min | ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${(b.seconds / 60).toFixed(0)} min | ${pace(b.meanSpeedKmH)} ` +
       `| ${fmt(toStepsPerMinute(b.meanCadence))} |`,
     )
   }
   console.log('')
   console.log('### Tenue de la vitesse selon le D− déjà encaissé — tous athlètes')
   console.log('')
-  console.log('| D− déjà encaissé | Temps | Pente moy. | Vitesse | vs frais |')
+  console.log('| D− déjà encaissé | Temps | Pente moy. | Allure | vs frais |')
   console.log('|---|--:|--:|--:|--:|')
   for (const b of d.fatigue) {
     if (b.seconds < 60) continue
     console.log(
       `| ${b.cumulativeLossMinM}-${b.cumulativeLossMinM + FATIGUE_BIN_M} m ` +
       `| ${(b.seconds / 60).toFixed(0)} min | ${fmt(b.meanGradePct, 1)} % ` +
-      `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${pace(b.meanSpeedKmH)} ` +
       `| ${b.speedRatioToFresh == null ? '—' : (b.speedRatioToFresh * 100).toFixed(0) + ' %'} |`,
     )
   }
