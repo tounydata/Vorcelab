@@ -64,8 +64,21 @@
  *  classement, absence de motif de séance, temps d'arrêt ≤ 3 % et FC dans le top 15 %
  *  PERSONNEL — rang, et non %FCmax, car `fc_max` est saisi à la main et souvent faux.
  *  Calibré sur les compétitions déjà étiquetées de la base. PRÉCISION avant rappel : une
- *  fausse course entre dans l'ancrage et y déplace durablement les projections. */
-export const ENGINE_VERSION = '2026.07-11'
+ *  fausse course entre dans l'ancrage et y déplace durablement les projections.
+ *  2026.07-12 : FATIGUE DE MONTÉE recalibrée sur mesure. Le banc avait éliminé deux
+ *  autres pistes pour l'optimisme des courses verticales : l'altimétrie (donner le D+
+ *  exact ne gagne que 22 s sur une erreur de 41 min) et le découpage des pentes (une
+ *  correction au-delà de 20 % n'a rien changé — les sections si raides n'existent
+ *  quasiment pas, 48 m de D+ par km PARCOURU faisant une pente moyenne de 4,8 %).
+ *  Restait la fatigue, et elle est désormais mesurée : sur 67 h de montées réelles à
+ *  PENTE CONTRÔLÉE (bande 10-25 %), la VAM tombe à 92 / 88 / 86 / 82 % de sa valeur à
+ *  jambes fraîches par tranches de 250 m de D+ cumulé. Le moteur appliquait +9 % de
+ *  temps de montée par 1000 m ; la mesure dit +22 %. Il était calé 2,4 fois trop bas.
+ *  Nouvelles valeurs : +20 % / 1000 m, plafond +22 % — posé À la dernière valeur
+ *  MESURÉE, sans extrapoler au-delà de 1250 m où nous n'avons pas de données.
+ *  Ne touche QUE les montées longues : une course sans dénivelé cumulé notable est
+ *  strictement inchangée. */
+export const ENGINE_VERSION = '2026.07-12'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

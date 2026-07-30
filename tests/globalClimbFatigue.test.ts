@@ -53,11 +53,15 @@ describe('global_climb_fatigue_v1 — diagnostics (§10/§20)', () => {
     expect(p.global_climb_fatigue_max_multiplier).toBeGreaterThan(1)
   })
 
-  it('le multiplicateur reste plafonné à 1.18 (cap respecté, valeurs inchangées)', () => {
-    // Très gros D+ cumulé (>2500 m) → plafond 0.18 atteint.
+  it('le multiplicateur reste plafonné à 1.22 — la dernière valeur MESURÉE', () => {
+    // Le plafond est posé à la dégradation observée sur 67 h de montées réelles à pente
+    // contrôlée (VAM à 82 % du frais après 1000-1250 m de D+ cumulé, soit un temps ×1,22).
+    // Il n'est délibérément PAS placé au-delà : au-dessus de 1250 m nous n'avons pas de
+    // données, et extrapoler une dégradation non observée est le travers que le banc a
+    // déjà sanctionné une fois.
     const p = computeRaceProjection(bigClimbTrail(220, 600), [trailRun(), trailRun()], vamProfile, trailRace)
-    expect(p.global_climb_fatigue_max_multiplier).toBeLessThanOrEqual(1.18)
-    expect(p.global_climb_fatigue_max_multiplier).toBeCloseTo(1.18, 2)
+    expect(p.global_climb_fatigue_max_multiplier).toBeLessThanOrEqual(1.22)
+    expect(p.global_climb_fatigue_max_multiplier).toBeCloseTo(1.22, 2)
   })
 
   it('les secondes ajoutées sont exposées et jamais négatives', () => {
