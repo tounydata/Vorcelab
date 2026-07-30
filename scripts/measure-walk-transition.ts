@@ -18,6 +18,9 @@
 import {
   measureWalkTransition,
   measureClimbFatigue,
+  measureDescent,
+  DESCENT_FATIGUE_GRADE_MIN_PCT,
+  DESCENT_FATIGUE_GRADE_MAX_PCT,
   toStepsPerMinute,
   WALK_CADENCE_THRESHOLD_SPM,
   GRADE_BIN_WIDTH,
@@ -195,6 +198,49 @@ async function main() {
     console.log(renderFatigue(`A${idx + 1}`, measureClimbFatigue(entry.streams)))
   })
   console.log(renderFatigue('TOUS ATHLÈTES CONFONDUS', measureClimbFatigue(all)))
+
+  // ── Descente ───────────────────────────────────────────────────────────────────
+  console.log('')
+  console.log('---')
+  console.log('')
+  console.log('# Descente')
+  console.log('')
+  console.log(
+    'La descente pèse autant de temps de course que la montée et n’a jamais été mesurée. ' +
+    'Deux questions distinctes : la vitesse selon la pente, et sa TENUE dans la durée ' +
+    '(« quadriceps détruits »). La seconde est restreinte aux pentes de ' +
+    `${DESCENT_FATIGUE_GRADE_MIN_PCT} à ${DESCENT_FATIGUE_GRADE_MAX_PCT} % ` +
+    'pour que la comparaison porte sur l’athlète et non sur le relief ; la pente moyenne ' +
+    'de chaque tranche est publiée pour permettre d’invalider la comparaison.',
+  )
+  const d = measureDescent(all)
+  console.log('')
+  console.log('### Vitesse selon la pente descendante — tous athlètes')
+  console.log('')
+  console.log('| Pente (descente) | Temps | Vitesse | Cadence (pas/min) |')
+  console.log('|---|--:|--:|--:|')
+  for (const b of d.byGrade) {
+    if (b.seconds < 120) continue
+    console.log(
+      `| ${b.gradeMinPct}-${b.gradeMinPct + GRADE_BIN_WIDTH} % ` +
+      `| ${(b.seconds / 60).toFixed(0)} min | ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${fmt(toStepsPerMinute(b.meanCadence))} |`,
+    )
+  }
+  console.log('')
+  console.log('### Tenue de la vitesse selon le D− déjà encaissé — tous athlètes')
+  console.log('')
+  console.log('| D− déjà encaissé | Temps | Pente moy. | Vitesse | vs frais |')
+  console.log('|---|--:|--:|--:|--:|')
+  for (const b of d.fatigue) {
+    if (b.seconds < 60) continue
+    console.log(
+      `| ${b.cumulativeLossMinM}-${b.cumulativeLossMinM + FATIGUE_BIN_M} m ` +
+      `| ${(b.seconds / 60).toFixed(0)} min | ${fmt(b.meanGradePct, 1)} % ` +
+      `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${b.speedRatioToFresh == null ? '—' : (b.speedRatioToFresh * 100).toFixed(0) + ' %'} |`,
+    )
+  }
   console.log('')
   console.log(
     '_Aucune coordonnée GPS ni donnée nominative. Lecture seule : aucun coefficient ' +
