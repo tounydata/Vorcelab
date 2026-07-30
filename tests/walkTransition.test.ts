@@ -4,6 +4,7 @@ import {
   aggregateByGrade,
   findTransition,
   measureWalkTransition,
+  measureClimbFatigue,
   toStepsPerMinute,
   WALK_CADENCE_THRESHOLD,
   WALK_CADENCE_THRESHOLD_SPM,
@@ -169,5 +170,64 @@ describe('mesure de la bascule course → marche', () => {
     expect(p.totalSeconds).toBe(0)
     expect(p.transitionGradePct).toBeNull()
     expect(p.bins.every((b) => b.meanCadence === null)).toBe(true)
+  })
+})
+
+// ── Fatigue de montée ────────────────────────────────────────────────────────────
+// La VAM dépend fortement de la pente : comparer le début et la fin d'une sortie sans
+// contrôler le relief mesurerait le TERRAIN, pas la fatigue. Ces tests verrouillent le
+// garde-fou — c'est lui qui rend la mesure interprétable.
+describe('fatigue de montée', () => {
+  it('compte le dénivelé DÉJÀ grimpé en abordant chaque segment', () => {
+    const s = extractSamples(streamsOf(leg({ gradePct: 20, speedKmH: 4, cadence: 55, seconds: 600 })))
+    expect(s[0].cumulativeGainM).toBe(0) // le premier segment se fait jambes fraîches
+    expect(s[s.length - 1].cumulativeGainM).toBeGreaterThan(100)
+    for (let i = 1; i < s.length; i++) {
+      expect(s[i].cumulativeGainM).toBeGreaterThanOrEqual(s[i - 1].cumulativeGainM)
+    }
+  })
+
+  it('détecte une VAM qui s’effondre à pente CONSTANTE', () => {
+    // Même pente du début à la fin : toute baisse est imputable à l'athlète.
+    const bins = measureClimbFatigue([
+      streamsOf(
+        leg({ gradePct: 15, speedKmH: 5, cadence: 58, seconds: 900 }),   // frais
+        leg({ gradePct: 15, speedKmH: 2.5, cadence: 52, seconds: 1800 }), // cuit
+      ),
+    ])
+    const usable = bins.filter((b) => b.vamRatioToFresh != null)
+    expect(usable.length).toBeGreaterThan(1)
+    expect(usable[usable.length - 1].vamRatioToFresh!).toBeLessThan(0.8)
+  })
+
+  it('ne crie pas à la fatigue quand l’athlète tient son rythme', () => {
+    const bins = measureClimbFatigue([
+      streamsOf(
+        leg({ gradePct: 15, speedKmH: 5, cadence: 58, seconds: 1200 }),
+        leg({ gradePct: 15, speedKmH: 5, cadence: 58, seconds: 1200 }),
+      ),
+    ])
+    for (const b of bins) {
+      if (b.vamRatioToFresh != null) expect(b.vamRatioToFresh).toBeCloseTo(1, 1)
+    }
+  })
+
+  it('ignore le terrain hors de la bande de pente contrôlée', () => {
+    // Du plat et du très raide : ni l'un ni l'autre ne doit entrer dans la mesure.
+    const bins = measureClimbFatigue([
+      streamsOf(
+        leg({ gradePct: 2, speedKmH: 11, cadence: 85, seconds: 900 }),
+        leg({ gradePct: 40, speedKmH: 2, cadence: 50, seconds: 900 }),
+      ),
+    ])
+    expect(bins.every((b) => b.seconds === 0)).toBe(true)
+  })
+
+  it('publie la pente moyenne, pour que le lecteur puisse invalider la comparaison', () => {
+    const bins = measureClimbFatigue([
+      streamsOf(leg({ gradePct: 15, speedKmH: 5, cadence: 58, seconds: 1200 })),
+    ])
+    const b = bins.find((x) => x.seconds > 60)!
+    expect(b.meanGradePct).toBeCloseTo(15, 0)
   })
 })

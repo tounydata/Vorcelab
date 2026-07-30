@@ -17,9 +17,14 @@
 
 import {
   measureWalkTransition,
+  measureClimbFatigue,
   toStepsPerMinute,
   WALK_CADENCE_THRESHOLD_SPM,
   GRADE_BIN_WIDTH,
+  FATIGUE_BIN_M,
+  FATIGUE_GRADE_MIN_PCT,
+  FATIGUE_GRADE_MAX_PCT,
+  type ClimbFatigueBin,
   type WalkTransitionProfile,
   type WalkTransitionStreams,
 } from '../src/lib/walkTransition'
@@ -69,6 +74,28 @@ function renderProfile(label: string, p: WalkTransitionProfile, activities: numb
       ? `**Bascule (50 % du temps en marche) : ${p.transitionGradePct} %**`
       : '**Bascule : non atteinte** (pas assez de terrain raide dans l’historique)',
   )
+  return lines.join('\n')
+}
+
+function renderFatigue(label: string, bins: ClimbFatigueBin[]): string {
+  const lines: string[] = []
+  lines.push('')
+  lines.push(`### ${label} — VAM selon le dénivelé DÉJÀ grimpé`)
+  lines.push('')
+  lines.push('| D+ déjà dans les jambes | Temps | Pente moy. | Vitesse | VAM | vs frais |')
+  lines.push('|---|--:|--:|--:|--:|--:|')
+  for (const b of bins) {
+    if (b.seconds < 60) continue
+    const last = b.cumulativeGainMinM + FATIGUE_BIN_M
+    lines.push(
+      `| ${b.cumulativeGainMinM}-${last} m ` +
+      `| ${(b.seconds / 60).toFixed(0)} min ` +
+      `| ${fmt(b.meanGradePct, 1)} % ` +
+      `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
+      `| ${fmt(b.meanVamMH)} m/h ` +
+      `| ${b.vamRatioToFresh == null ? '—' : (b.vamRatioToFresh * 100).toFixed(0) + ' %'} |`,
+    )
+  }
   return lines.join('\n')
 }
 
@@ -150,6 +177,24 @@ async function main() {
   console.log('')
   console.log('---')
   console.log(renderProfile('TOUS ATHLÈTES CONFONDUS', measureWalkTransition(all), all.length))
+
+  // ── Fatigue de montée ──────────────────────────────────────────────────────────
+  console.log('')
+  console.log('---')
+  console.log('')
+  console.log('# Fatigue de montée : la VAM tient-elle sur la durée ?')
+  console.log('')
+  console.log(
+    `Mesure restreinte aux pentes de ${FATIGUE_GRADE_MIN_PCT} à ${FATIGUE_GRADE_MAX_PCT} % : ` +
+    'la VAM dépend fortement de la pente, comparer le début et la fin d’une sortie sans ce ' +
+    'garde-fou mesurerait le TERRAIN et non la fatigue. La colonne « Pente moy. » permet de ' +
+    'vérifier que les tranches portent bien sur un relief équivalent — si elles divergent, ' +
+    'la comparaison ne vaut rien.',
+  )
+  ordered.forEach(([, entry], idx) => {
+    console.log(renderFatigue(`A${idx + 1}`, measureClimbFatigue(entry.streams)))
+  })
+  console.log(renderFatigue('TOUS ATHLÈTES CONFONDUS', measureClimbFatigue(all)))
   console.log('')
   console.log(
     '_Aucune coordonnée GPS ni donnée nominative. Lecture seule : aucun coefficient ' +
