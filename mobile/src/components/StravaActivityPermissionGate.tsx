@@ -7,12 +7,26 @@ import { colors, font, radius, space } from '@/lib/theme'
 
 type GateState = 'checking' | 'clear' | 'blocked'
 
-export default function StravaActivityPermissionGate({ accessToken }: { accessToken: string }) {
-  const [state, setState] = useState<GateState>('checking')
+export default function StravaActivityPermissionGate({
+  accessToken, previewMode = false, onPreviewClose,
+}: {
+  accessToken?: string
+  /**
+   * Labo admin : affiche le blocage tel quel, sans interroger le statut Strava et sans
+   * lancer d'OAuth — le bouton simule seulement l'issue (comme sur le web).
+   */
+  previewMode?: boolean
+  onPreviewClose?: () => void
+}) {
+  const [state, setState] = useState<GateState>(previewMode ? 'blocked' : 'checking')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const getStatus = useCallback(async (): Promise<GateState> => {
+    // Aperçu : le blocage est affiché tel quel, sans appel réseau. Sans jeton, on ne
+    // bloque JAMAIS par défaut (même principe que le repli du `catch` ci-dessous).
+    if (previewMode) return 'blocked'
+    if (!accessToken) return 'clear'
     try {
       const response = await fetch(`${SUPA_URL}/functions/v1/strava-status`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -24,26 +38,32 @@ export default function StravaActivityPermissionGate({ accessToken }: { accessTo
       // Une panne de statut ne doit pas bloquer tous les utilisateurs par erreur.
       return 'clear'
     }
-  }, [accessToken])
+  }, [accessToken, previewMode])
 
   useEffect(() => {
+    if (previewMode) return
     let active = true
     getStatus().then((next) => {
       if (active) setState(next)
     })
     return () => { active = false }
-  }, [getStatus])
+  }, [getStatus, previewMode])
 
   useEffect(() => {
+    if (previewMode) return
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
         getStatus().then(setState)
       }
     })
     return () => sub.remove()
-  }, [getStatus])
+  }, [getStatus, previewMode])
 
   async function authorize() {
+    if (previewMode) {
+      setError('Simulation réussie : en production, ce bouton ouvre l’autorisation Strava forcée.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -68,7 +88,7 @@ export default function StravaActivityPermissionGate({ accessToken }: { accessTo
       visible={state === 'blocked'}
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={() => undefined}
+      onRequestClose={onPreviewClose ?? (() => undefined)}
     >
       <View style={{
         flex: 1, justifyContent: 'center', padding: space.xl,
@@ -79,6 +99,19 @@ export default function StravaActivityPermissionGate({ accessToken }: { accessTo
           borderWidth: 1, borderColor: 'rgba(252,76,2,0.5)',
           backgroundColor: colors.surf, padding: space.xxl,
         }}>
+          {previewMode && onPreviewClose ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fermer l’aperçu"
+              onPress={onPreviewClose}
+              style={{ alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 5, marginBottom: 6 }}
+            >
+              <Text style={{ color: colors.text3, fontFamily: font.monoSemiBold, fontSize: 10, letterSpacing: 1 }}>
+                FERMER
+              </Text>
+            </Pressable>
+          ) : null}
+
           <View style={{
             alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8,
             paddingHorizontal: 12, paddingVertical: 6, marginBottom: 20,

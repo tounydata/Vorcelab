@@ -35,7 +35,7 @@ const ALLOWED_DIVERGENCES: Record<string, string> = {
   'planResolver.ts': 'effectiveTier inliné (le chemin supabase/_shared n’existe pas côté mobile).',
   'crewPlan.ts': 'Export du plan d’assistance : Share/impression natifs vs window.print.',
   'useTrackEvent.ts': 'Source d’auth : useAuth natif vs store Zustand web.',
-  'usePlanTier.ts': 'Hook : loader Supabase natif vs TanStack Query web.',
+  'usePlanTier.ts': 'Hook : loader Supabase natif vs TanStack Query web ; source du mode « vue en tant que » (émetteur natif vs store Zustand).',
   'useRaceProjection.ts': 'Hook : loader Supabase natif vs TanStack Query web.',
   'useHydrationHabits.ts': 'Hook : loader Supabase natif vs TanStack Query web (calcul pur partagé).',
   'coach/useCoachPlan.ts': 'Hook : loaders Supabase natifs vs TanStack Query web (calculs identiques).',

@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { estimate1RM, workingLoad, FORCE_MAX_SCHEME } from '@/lib/oneRepMax'
-import { colors } from '@/lib/theme'
+import { colors, font } from '@/lib/theme'
 import { Card, HButton, MLabel } from './ui'
 
 // Test de force 1RM GUIDÉ et SÛR : jamais un vrai 1RM brut. On guide l'athlète pas
@@ -27,10 +27,12 @@ type Step = 'setup' | 'warmup' | 'test' | 'result'
 
 function mmss(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
 
-export default function OneRMTestPopup({ open, onClose, onSaved }: {
+export default function OneRMTestPopup({ open, onClose, onSaved, previewMode = false }: {
   open: boolean
   onClose: () => void
   onSaved?: () => void
+  /** Labo admin : parcours complet, aucune écriture en base (comme sur le web). */
+  previewMode?: boolean
 }) {
   const { session } = useAuth()
   const userId = session?.user.id ?? null
@@ -68,6 +70,7 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
   }, [rest])  
 
   async function save(oneRm: number) {
+    if (previewMode) { setSavedRm(oneRm); onSaved?.(); return }
     if (!userId) return
     setSaving(true)
     const { error } = await supabase.from('renfo_max_lifts').upsert({
@@ -92,6 +95,19 @@ export default function OneRMTestPopup({ open, onClose, onSaved }: {
         <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 440, maxHeight: '92%' }}>
           <Card style={{ padding: 20, borderLeftWidth: 4, borderLeftColor: colors.ember }}>
             <ScrollView>
+              {previewMode ? (
+                <View style={{
+                  alignSelf: 'flex-start', marginBottom: 8, borderRadius: 999,
+                  paddingHorizontal: 8, paddingVertical: 3,
+                  borderWidth: 1, borderColor: colors.line2,
+                }}>
+                  <Text style={{
+                    fontFamily: font.monoSemiBold, fontSize: 8, letterSpacing: 1, color: colors.text3,
+                  }}>
+                    MODE TEST · AUCUNE ÉCRITURE
+                  </Text>
+                </View>
+              ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
                 <Text style={{ fontWeight: '700', fontSize: 18, color: colors.text }}>Test de force · {lift.label}</Text>
                 <HButton label="Fermer" onPress={onClose} style={{ paddingVertical: 3, paddingHorizontal: 8 }} />

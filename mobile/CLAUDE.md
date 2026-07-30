@@ -88,6 +88,24 @@ fonctionnalité ou d'un contenu en moins.
   compte (email + changement de mot de passe), préférences nutrition (sans caféine +
   catalogue produits par marque). Branché depuis l'onglet Profil.
 
+- `Admin` : `AdminPage.tsx` et ses quatre onglets portés en full → `app/admin`, atteignable
+  par le bouton `⚙ ADMIN` des Réglages (visible seulement si `is_admin`). UTILISATEURS
+  (accès rapide +1 mois, flux d'activité, recherche, octroi/révocation PRO, reset mdp,
+  historique des octrois, activité par user, bascule assistée), STATISTIQUES
+  (`EngineAccuracyCard` + `StatsTab` : KPI, inscriptions 30 j, DAU, funnel, usage des
+  features, rétention), ASSISTANCE (`AdminSupportTab` : 4 modes de consentement,
+  attestation de présence, motif ≥ 8 car., polling contexte/historique, 9 actions serveur
+  dont `DISCONNECT_STRAVA`, profil complet, journal live + historique) et LABO
+  (`AdminLabTab` : galerie de pop-ups sans écriture, scénarios FREE/PRO via `viewAs`,
+  accès aux écrans, dossier support réel en lecture tracée, journal des consultations).
+  Aucune logique dupliquée : mêmes RPC `admin_*` et même edge function `admin-support`.
+  Libs de précision (`engineBacktest`, `projectionAccuracy`, `loadProjectionAccuracy`)
+  copiées à l'octet près. Limites physiques / règles App Store (≠ simplification) :
+  fenêtre d'assistance isolée → bascule de session + bannière non masquable ;
+  `<select>` → puces ; `<details>` → `Collapsible` ; tableaux larges → blocs ; aperçu de
+  la modale PRO chiffrée → `ProGate` (Guideline 3.1.3(b)) ; pas d'aperçu d'onboarding
+  (non embarqué sur natif).
+
 ### Dette connue à résorber (portages incomplets à reprendre EN FULL)
 - **Abonnement PRO (`SubscriptionCard`) volontairement absent sur iOS** : Apple impose
   l'In-App Purchase (Guideline 3.1.1) pour l'abonnement — Stripe hors-app = rejet. À

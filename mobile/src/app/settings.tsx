@@ -9,6 +9,7 @@ import { NUTRITION_TYPE_LABELS, nutritionBrands } from '@/lib/nutritionProducts'
 import { useHydrationHabits } from '@/lib/useHydrationHabits'
 import { HYDRATION_CONFIDENCE_LABELS, NUTRITION_LEVEL_LABELS } from '@/lib/hydrationHabits'
 import { LEGAL, openLegal, openSupport } from '@/lib/legal'
+import { usePlanTier } from '@/lib/usePlanTier'
 import StravaConnectionCard from '@/components/profile/StravaConnectionCard'
 import OneRMSettingsCard from '@/components/profile/OneRMSettingsCard'
 import { Card, FL, CLabel, MLabel, HButton, BackLink, colors, radius, space } from '@/components/coach/ui'
@@ -68,6 +69,7 @@ export default function SettingsScreen() {
   const userId = session?.user.id ?? null
   const email = session?.user.email ?? ''
   const router = useRouter()
+  const { isAdmin } = usePlanTier()
 
   const [tab, setTab] = useState<TabKey>('reglages')
   const [row, setRow] = useState<SettingsRow | null>(null)
@@ -357,6 +359,17 @@ export default function SettingsScreen() {
             </Card>
           </>
         )}
+
+        {/* Admin — l'écran vérifie lui-même les droits, et chaque RPC les revérifie
+            côté serveur. Ce bouton n'est qu'un raccourci, jamais une habilitation. */}
+        {isAdmin ? (
+          <HButton
+            label="⚙  ADMIN"
+            onPress={() => router.push('/admin')}
+            style={{ marginTop: 8, borderColor: colors.ember }}
+            textStyle={{ color: colors.ember }}
+          />
+        ) : null}
 
         {/* Déconnexion */}
         <HButton label="Se déconnecter" onPress={() => supabase.auth.signOut()} style={{ marginTop: 8 }} />
