@@ -5,7 +5,7 @@ import { colors, font, radius } from '@/lib/theme'
 import { Card, CLabel, HButton, PrimaryButton } from '@/components/coach/ui'
 import ProGate from '@/components/ProGate'
 import ShareStickers from '@/components/ShareStickers'
-import StravaActivityPermissionGate from '@/components/StravaActivityPermissionGate'
+import StravaLinkPrompt from '@/components/StravaLinkPrompt'
 import CalibrationPopup from '@/components/coach/CalibrationPopup'
 import OneRMTestPopup from '@/components/coach/OneRMTestPopup'
 import PostRaceModal from '@/components/races/PostRaceModal'
@@ -37,7 +37,7 @@ import {
 type PopupKey = 'strava' | 'progate' | 'calibration' | 'one-rm' | 'post-race' | 'share' | null
 
 const POPUPS: { key: Exclude<PopupKey, null>; title: string; description: string }[] = [
-  { key: 'strava', title: 'Autorisation Strava', description: 'Blocage obligatoire si le scope activités manque.' },
+  { key: 'strava', title: 'Invite Strava', description: 'Relance non bloquante quand le moteur ne peut lire aucune activité.' },
   { key: 'progate', title: 'Gate PRO', description: 'Écran de conversion embarqué : sans prix ni lien d’achat (App Store 3.1.3b).' },
   { key: 'calibration', title: 'Calibrage VMA', description: 'Demi-Cooper, validation et calcul des allures.' },
   { key: 'one-rm', title: 'Test de force 1RM', description: 'Parcours complet, sauvegarde simulée.' },
@@ -465,7 +465,7 @@ export default function AdminLabTab({ users }: { users: AdminUser[] }) {
       {/* ── Pop-ups, tous en mode aperçu ─────────────────────────────────────── */}
 
       {popup === 'strava' ? (
-        <StravaActivityPermissionGate previewMode onPreviewClose={() => setPopup(null)} />
+        <StravaLinkPrompt previewMode onPreviewClose={() => setPopup(null)} />
       ) : null}
 
       {popup === 'progate' ? (

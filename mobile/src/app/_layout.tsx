@@ -11,7 +11,7 @@ import {
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { colors } from '@/lib/theme'
-import StravaActivityPermissionGate from '@/components/StravaActivityPermissionGate'
+import StravaLinkPrompt from '@/components/StravaLinkPrompt'
 import AssistedSessionBanner from '@/components/admin/AssistedSessionBanner'
 
 // Big Shoulders : fichiers EMBARQUÉS localement (audit — le paquet
@@ -57,7 +57,7 @@ function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
           animation: 'fade',
         }}
       />
-      {session?.access_token ? <StravaActivityPermissionGate accessToken={session.access_token} /> : null}
+      {session?.access_token ? <StravaLinkPrompt accessToken={session.access_token} /> : null}
     </>
   )
 }

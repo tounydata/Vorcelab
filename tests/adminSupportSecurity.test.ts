@@ -48,6 +48,14 @@ const adminSupportTab = readFileSync(
   resolve('src/components/admin/AdminSupportTab.tsx'),
   'utf8',
 )
+const stravaLinkPrompt = readFileSync(
+  resolve('src/components/StravaLinkPrompt.tsx'),
+  'utf8',
+)
+const stravaLinkPromptCard = readFileSync(
+  resolve('src/components/StravaLinkPromptCard.tsx'),
+  'utf8',
+)
 const upgradeModal = readFileSync(resolve('src/components/UpgradeModal.tsx'), 'utf8')
 const subscriptionCard = readFileSync(
   resolve('src/components/SubscriptionCard.tsx'),
@@ -274,5 +282,51 @@ describe('mode assistance administrateur', () => {
     expect(adminSupportTab).toContain(
       'confirme une écriture effectuée par la base ou une opération validée par le serveur',
     )
+  })
+
+  // Boucle constatée en production : dans la fenêtre d'assistance, le pop-up de permission
+  // proposait « Réautoriser Strava ». OAuth s'appuyant sur la session strava.com de l'ADMIN,
+  // l'autorisation reliait le mauvais athlète, le serveur la refusait (`different_strava_athlete`)
+  // et le pop-up revenait — sans issue, et en bloquant tout le dépannage derrière la modale.
+  it('n’offre jamais l’autorisation Strava depuis une fenêtre d’assistance', () => {
+    // Le mode est déduit de la fenêtre elle-même, pas d'une prop passée à la main.
+    expect(stravaLinkPrompt).toContain('isSupportSessionWindow')
+    expect(stravaLinkPrompt).toContain('supportMode={supportWindow}')
+
+    // Le bouton de connexion n'EXISTE pas en assistance — il n'est pas seulement désactivé.
+    expect(stravaLinkPromptCard).toContain('{!supportMode ? (')
+    expect(stravaLinkPromptCard).toContain('CONTINUER L’ASSISTANCE')
+
+    // La marche à suivre remplace l'action impossible : générer le lien, l'envoyer, attendre.
+    expect(stravaLinkPromptCard).toContain('Générer et copier le lien Strava')
+    expect(stravaLinkPromptCard).toContain('Seul l’athlète peut valider, sur son appareil.')
+    expect(stravaLinkPromptCard).toContain('Le statut se met à jour tout seul ici')
+
+    // Le code d'échec OAuth est masqué en assistance : il désignerait le compte de l'admin.
+    expect(stravaLinkPrompt).toContain('supportWindow ? null : stravaOAuthFailureMessage')
+
+    // L'athlète, lui, garde la vraie autorisation forcée (les deux scopes recochés).
+    expect(stravaLinkPrompt).toContain('startStravaOAuth({ forceApproval: true })')
+  })
+
+  // Le pop-up de permission ne couvre QUE « lié sans le scope ». Quand la cible n'a aucun
+  // jeton (cas constaté), l'admin passe par la carte Strava des Réglages — c'est ce chemin
+  // qui a produit `strava_athlete_already_linked` deux fois en six secondes.
+  it('n’expose aucun bouton OAuth dans la carte Strava en fenêtre d’assistance', () => {
+    expect(stravaConnection).toContain('isSupportSessionWindow')
+
+    // Les trois entrées OAuth du composant sont conditionnées au mode normal.
+    expect(stravaConnection).toContain('status?.activity_access_granted === false && !supportWindow')
+    expect(stravaConnection).toContain('{!supportWindow ? (')
+    expect(stravaConnection).toContain('{supportWindow ? supportHint : stravaConfigured() && (')
+
+    // La marche à suivre remplace le bouton, y compris dans la variante compacte.
+    expect(stravaConnection).toContain('Autorisation impossible depuis cette fenêtre')
+    expect(stravaConnection).toContain('Générer et copier le lien Strava')
+    expect(stravaConnection).toContain('LIEN À ENVOYER')
+
+    // Déconnecter reste possible : l'action passe par le serveur avec la session
+    // d'assistance, elle est journalisée et ne dépend d'aucun compte de navigateur.
+    expect(stravaConnection).toContain('supportSessionId')
   })
 })
