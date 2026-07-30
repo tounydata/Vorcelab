@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { resolvePlanTier, resolveExpiry, type EntitlementRow, type ProfileFallback, type EntStatus } from './planResolver'
+import { subscribeViewAs, type ViewAsUser } from './viewAs'
 
 export type PlanTier = 'free' | 'pro'
 
@@ -21,6 +22,9 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; expiresAt: Da
   // On mémorise le userId de l'état pour dériver `isLoading` sans setState
   // synchrone dans l'effet (évite les rendus en cascade — react-hooks).
   const [data, setData] = useState<PlanState | null>(null)
+  const [viewAs, setViewAsState] = useState<ViewAsUser | null>(null)
+
+  useEffect(() => subscribeViewAs(setViewAsState), [])
 
   useEffect(() => {
     if (!userId) return
@@ -53,6 +57,15 @@ export function usePlanTier(): { tier: PlanTier; isAdmin: boolean; expiresAt: Da
     })()
     return () => { cancelled = true }
   }, [userId])
+
+  // Mode « Vue en tant que » (admin) : on simule le plan du user ciblé via ses
+  // champs profiles (l'impersonation reste basée sur la lecture admin).
+  if (viewAs) {
+    const profile = { plan_tier: viewAs.plan_tier, plan_expires_at: viewAs.plan_expires_at }
+    const tier = resolvePlanTier({ isAdmin: viewAs.is_admin === true, entitlement: null, profile })
+    const expiresAt = resolveExpiry({ entitlement: null, profile })
+    return { tier, isAdmin: viewAs.is_admin === true, expiresAt, isLoading: false }
+  }
 
   // État courant seulement si celui-ci correspond au user connecté (sinon on est
   // encore en train de charger, ou déconnecté).

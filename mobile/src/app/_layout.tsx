@@ -12,6 +12,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-goog
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { colors } from '@/lib/theme'
 import StravaActivityPermissionGate from '@/components/StravaActivityPermissionGate'
+import AssistedSessionBanner from '@/components/admin/AssistedSessionBanner'
 
 // Big Shoulders : fichiers EMBARQUÉS localement (audit — le paquet
 // @expo-google-fonts/big-shoulders-display est déprécié/retiré de Google Fonts).
@@ -46,6 +47,9 @@ function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   return (
     <>
+      {/* Session assistée : bannière non masquable au-dessus de TOUT l'écran — quand
+          l'app affiche le compte d'un autre utilisateur, aucun doute n'est permis. */}
+      <AssistedSessionBanner />
       <Stack
         screenOptions={{
           headerShown: false,
