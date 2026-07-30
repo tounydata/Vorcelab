@@ -111,8 +111,25 @@
  *  Le modèle ne s'active que sur données suffisantes (assez de temps classé par la cadence,
  *  et une couverture suffisante du seau) ; sinon le moteur garde son chemin d'avant, correct,
  *  simplement moins fin. Le recalage à l'effort de course s'applique aux deux régimes, jamais
- *  à la part de marche : courir plus fort le jour J ne déplace pas la pente de bascule. */
-export const ENGINE_VERSION = '2026.07-14'
+ *  à la part de marche : courir plus fort le jour J ne déplace pas la pente de bascule.
+ *  2026.07-15 : DESCENTE apprise coureur par coureur. Le moteur n'avait aucun modèle de
+ *  fatigue en descente, alors qu'elle pèse autant de temps de course que la montée. La
+ *  tentation était d'y poser un coefficient global : mesurée sur l'ensemble des athlètes,
+ *  la perte de vitesse après 1000 m de D− encaissé n'est que de 5 %, contre 18 % en montée.
+ *  Cette lecture est fausse, et un athlète l'a signalée — « des fois les quadriceps sont
+ *  morts et je n'arrivais plus à descendre fort ». Les deux vécus sont réels ; c'est
+ *  exactement ce qu'une moyenne détruit. La tenue en descente dépend de la qualité
+ *  excentrique des quadriceps, qui s'entraîne spécifiquement et ne se déduit d'aucune autre
+ *  donnée : il faut la mesurer sur chaque coureur, ou s'abstenir.
+ *  Le profil apprend donc, par athlète, la vitesse de descente par pente et sa TENUE selon
+ *  le D− déjà encaissé, à PENTE CONTRÔLÉE (bande 8-20 % — sans ce garde-fou, comparer le
+ *  début et la fin d'une sortie mesurerait le terrain, pas la fatigue). Aucune valeur par
+ *  défaut : sans courbe mesurée, le facteur vaut 1 et les descentes sont inchangées.
+ *  Trois bornes : jamais d'accélération (un athlète parti prudemment finit « plus vite
+ *  qu'à jambes fraîches » — c'est une gestion d'allure, pas un gain de fraîcheur) ;
+ *  aucune extrapolation au-delà du D− réellement couvert par l'historique ; et un plafond
+ *  qui refuse de propager un effondrement invraisemblable plutôt que de le croire. */
+export const ENGINE_VERSION = '2026.07-15'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

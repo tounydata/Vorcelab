@@ -41,6 +41,8 @@ import {
   WALK_CADENCE_THRESHOLD,
   extractSamples as extractWalkSamples,
   aggregateByGrade,
+  aggregateDescentByGrade,
+  aggregateDescentFatigue,
   type Sample as WalkSample,
 } from './walkTransition.ts'
 
@@ -488,6 +490,12 @@ export function buildRunnerProfileAtDate(input: BuildProfileAtDateInput): Runner
     conditionPenalties: undefined,
     technicalDescent: hasTech ? techDescent : undefined,
     walkProfile: walkSamples.length > 0 ? aggregateByGrade(walkSamples) : undefined,
+    descentProfile: walkSamples.length > 0
+      ? {
+          byGrade: aggregateDescentByGrade(walkSamples),
+          fatigue: aggregateDescentFatigue(walkSamples),
+        }
+      : undefined,
   }
 }
 

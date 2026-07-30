@@ -10,7 +10,8 @@ import { computeProgressionFactor, computeFreshnessAdjustment, type RaceActivity
 import type { PostClimbRecoveryByBucket, PostDownhillRecoveryByBucket, BucketRegimes } from './runnerProfile'
 import { isRegimeSplitUsable, scaleRegimes } from './runnerProfile'
 import { walkFractionAtGrade, blendedSectionTimeS } from './walkRegime'
-import type { WalkTransitionProfile } from './walkTransition'
+import type { WalkTransitionProfile, DescentFatigueBin } from './walkTransition'
+import { descentFatigueFactor } from './descentFatigue'
 import { deriveAutoPrs } from './runnerPaces'
 import { resolveFcMax, ageFromBirthdate } from './fcMax'
 import { dayAnchoredNow } from './dayAnchor'
@@ -175,6 +176,10 @@ export interface ProjectionResult {
   walk_model_sections: number
   /** Secondes ajoutées (ou retirées) par le modèle de marche (diagnostic). */
   walk_model_seconds_added: number
+  /** Secondes ajoutées par la fatigue de descente APPRISE sur ce coureur (diagnostic). */
+  descent_fatigue_seconds_added: number
+  /** Ralentissement maximal atteint en descente (1 = aucun ; diagnostic). */
+  descent_fatigue_max_multiplier: number
 }
 
 export function computeRaceProjection(
@@ -395,6 +400,10 @@ export function computeRaceProjection(
 
   // Courbe de marche apprise (part de temps marchée à chaque pente). Cf. walkProfile.
   const walkProfile = runnerProfile?.walkProfile as WalkTransitionProfile | undefined
+  // Descente APPRISE sur ce coureur : vitesse par pente, et tenue selon le D− encaissé.
+  const descentProfile = runnerProfile?.descentProfile as
+    | { byGrade: unknown[]; fatigue: DescentFatigueBin[] }
+    | undefined
 
   // Helper: map section grade to bucket key
   function sectionBucketKey(grade: number, type: string): string | null {
@@ -550,6 +559,8 @@ export function computeRaceProjection(
   // moteur garde son chemin d'avant, correct, simplement moins fin.
   let sectionsUsingWalkModel = 0
   let walkModelSecondsAdded = 0
+  let descentFatigueSecondsAdded = 0
+  let descentFatigueMaxMultiplier = 1
 
   function walkAwareClimbTimeS(
     grade: number,
@@ -686,6 +697,8 @@ export function computeRaceProjection(
   // 1 250 m de D+ cumulé nous n'avons pas de données, et extrapoler une dégradation
   // qu'on n'a pas observée serait exactement le travers que le banc a déjà sanctionné.
   let cumClimbDplus = 0
+  // D− déjà encaissé à l'entrée de la section — variable de la fatigue de DESCENTE.
+  let cumDescentDminus = 0
   const GLOBAL_CLIMB_FATIGUE_V1_PER_1000M = 0.20 // +20 % de temps de montée par 1000 m déjà grimpés
   const GLOBAL_CLIMB_FATIGUE_V1_MAX = 0.22
   // Diagnostics (explicabilité) — n'altèrent PAS le temps calculé.
@@ -703,6 +716,11 @@ export function computeRaceProjection(
       globalClimbFatigueMaxMultiplier = Math.max(globalClimbFatigueMaxMultiplier, climbFatigue)
     }
     cumClimbDplus += s.dplus
+    // Cumulé APRÈS lecture : une section est ralentie par ce qui la précède, jamais par
+    // elle-même. Poser l'incrément avant reviendrait à faire payer à la première descente
+    // une fatigue qu'elle vient tout juste de créer.
+    const dminusBeforeSection = cumDescentDminus
+    cumDescentDminus += s.dminus
 
     const bkey = sectionBucketKey(s.grade, s.type)
     const bdata = bkey && rBucketsScaled ? rBucketsScaled[bkey] : null
@@ -854,7 +872,20 @@ export function computeRaceProjection(
       penaltyFactor = Math.min(penaltyFactor, 1.10)
 
       const adjPaceS = bucketPaceS * penaltyFactor
-      const t = adjPaceS * s.dist / 1000
+      let t = adjPaceS * s.dist / 1000
+
+      // FATIGUE DE DESCENTE, apprise sur CE coureur. Elle n'a pas de valeur par défaut :
+      // sur l'ensemble des athlètes la perte n'est que de 5 % après 1000 m de D−, mais
+      // cette moyenne mélange celui qui déroule et celui dont les quadriceps lâchent.
+      // Sans courbe mesurée, le facteur vaut 1 et la section est inchangée.
+      if (s.type === 'down') {
+        const df = descentFatigueFactor(descentProfile?.fatigue, dminusBeforeSection)
+        if (df > 1) {
+          descentFatigueSecondsAdded += t * (df - 1)
+          descentFatigueMaxMultiplier = Math.max(descentFatigueMaxMultiplier, df)
+          t *= df
+        }
+      }
       sectionTimes.push(t)
       estTimeS += t
     } else {
@@ -1381,5 +1412,7 @@ export function computeRaceProjection(
     // qui ne marche pas aux pentes du parcours) — pas qu'il a échoué.
     walk_model_sections: sectionsUsingWalkModel,
     walk_model_seconds_added: Math.round(walkModelSecondsAdded),
+    descent_fatigue_seconds_added: Math.round(descentFatigueSecondsAdded),
+    descent_fatigue_max_multiplier: +descentFatigueMaxMultiplier.toFixed(4),
   }
 }

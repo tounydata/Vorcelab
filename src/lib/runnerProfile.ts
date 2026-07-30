@@ -579,6 +579,21 @@ export interface RunnerProfileComputed {
    */
   walkProfile?: import('./walkTransition').WalkTransitionProfile
 
+  /**
+   * Descente APPRISE : vitesse par pente descendante, et tenue de cette vitesse selon le
+   * D− déjà encaissé (à pente contrôlée).
+   *
+   * Volontairement PERSONNELLE et sans valeur par défaut. Sur l'ensemble des athlètes, la
+   * perte après 1000 m de D− n'est que de 5 % — mais cette moyenne mélange celui qui
+   * déroule et celui dont les quadriceps lâchent, deux vécus opposés. La tenue en descente
+   * dépend de la qualité excentrique des quadriceps, qui ne se déduit d'aucune autre donnée :
+   * il faut la mesurer sur chaque coureur, ou s'abstenir.
+   */
+  descentProfile?: {
+    byGrade: import('./walkTransition').DescentGradeBin[]
+    fatigue: import('./walkTransition').DescentFatigueBin[]
+  }
+
   /** Courbe verticale : meilleure ascension par palier de D+ (100/300/500/1000 m). §11 */
   bestClimbByTier?: Record<number, import('./bestEfforts').VerticalEffort>
 }
