@@ -1,0 +1,47 @@
+name: Mesure de la bascule course → marche
+
+# LECTURE SEULE : mesure, sur les vrais tracés, la pente à laquelle chaque athlète cesse
+# de courir — et la vitesse ascensionnelle (VAM) au-delà.
+#
+# Pourquoi : le profil coureur range toutes les pentes ≥ 12 % dans UN seau sans limite
+# haute. La bascule vers la marche se produit dans cette zone, si bien que du 12 % couru
+# (~6,5 km/h) et du 30 % marché (~3 km/h) y sont moyennés ensemble. C'est le suspect
+# principal du défaut mesuré au banc : au-delà de 40 m/km, MAPE 15 %, optimisme sur
+# 100 % des cas, une course projetée 41 minutes trop vite.
+#
+# Le banc a montré que corriger l'altimétrie n'y change RIEN (22 s de mieux sur 41 min) :
+# le moteur voit bien la pente, c'est son découpage qui ne fait pas la différence.
+#
+# Déclenchement MANUEL : la clé service role n'est jamais exposée sur un simple push.
+# Prérequis : les mêmes secrets que `engine-backtest.yml`, rien de neuf à créer.
+#
+# Sortie : tableau pseudonymisé (A1, A2…) lisible directement dans les logs du run —
+# aucune coordonnée GPS, aucun nom, rien à télécharger.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: walk-transition
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          # Node 22+ : @supabase/supabase-js s'appuie sur le WebSocket natif.
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Mesurer (lecture seule)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run measure:walk
