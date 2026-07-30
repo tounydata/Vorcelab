@@ -20,6 +20,15 @@ name: Engine backtest (real)
 
 on:
   workflow_dispatch:
+    inputs:
+      elevation_mode:
+        description: "Référence altimétrique — gpx_only = parité production (métrique publiable). post_race_strava_dplus = DIAGNOSTIC du lissage (recale sur le D+ Strava d'APRÈS la course : fuite temporelle assumée, ne jamais publier comme précision du moteur)."
+        required: false
+        default: gpx_only
+        type: choice
+        options:
+          - gpx_only
+          - post_race_strava_dplus
 
 permissions:
   contents: read
@@ -46,7 +55,7 @@ jobs:
           # Réutilise l'URL déjà configurée (VITE_SUPABASE_URL) si SUPABASE_URL absent.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run backtest:real
+        run: npm run backtest:real -- --elevation-mode "${{ inputs.elevation_mode || 'gpx_only' }}"
       - name: Print report to logs (lisible sur mobile, sans téléchargement)
         if: always()
         run: |

@@ -12,6 +12,16 @@
 //        npm run backtest:real -- --fixture <chemin>.backtest-fixture.json
 //      (une fixture peut contenir des coordonnées réelles → gitignorée, jamais poussée.)
 //
+// RÉFÉRENCE ALTIMÉTRIQUE (`--elevation-mode`, défaut `gpx_only`) :
+//   • `gpx_only`               lissage du tracé SEUL — parité production, MÉTRIQUE
+//                              PRINCIPALE : avant une course, on ne connaît pas son D+ réel.
+//   • `post_race_strava_dplus` recale le profil lissé sur le D+ Strava constaté APRÈS la
+//                              course. C'est une FUITE temporelle assumée, donc JAMAIS une
+//                              métrique publiable — c'est un DIAGNOSTIC : il isole ce que
+//                              coûte l'erreur d'altimétrie dans l'erreur de projection.
+//                              Comparer les deux runs répond à « le lissage est-il bon ? »
+//                              avec des chiffres au lieu d'une opinion.
+//
 // Sorties (dossier gitignoré artifacts/engine-backtest/) :
 //   summary.json · results.csv · report.md
 //
@@ -24,6 +34,7 @@ import { validateRaceCandidate, type RaceCandidateInput } from '../src/lib/raceV
 import {
   runRealBacktest,
   type BacktestActivity,
+  type ElevationReferenceMode,
   type RaceCaseInput,
   type ValidationBreakdown,
 } from '../src/lib/realBacktest'
@@ -73,7 +84,10 @@ function toValidationInput(a: BacktestActivity): RaceCandidateInput {
   }
 }
 
-function buildCasesAndValidation(data: LoadedData): { cases: RaceCaseInput[]; validation: ValidationBreakdown } {
+function buildCasesAndValidation(
+  data: LoadedData,
+  elevationReferenceMode: ElevationReferenceMode,
+): { cases: RaceCaseInput[]; validation: ValidationBreakdown } {
   const candidates = data.activities.filter(isRaceCandidate)
   const rejectedReasons: Record<string, number> = {}
   const pendingReasons: Record<string, number> = {}
@@ -106,6 +120,7 @@ function buildCasesAndValidation(data: LoadedData): { cases: RaceCaseInput[]; va
       hasHr: data.hrRaces?.has(rid),
       surfaces: null,
       windowDays: WINDOW_DAYS,
+      elevationReferenceMode,
     }
   })
 
@@ -256,11 +271,25 @@ async function main() {
   const fixtureIdx = args.indexOf('--fixture')
   const source = fixtureIdx >= 0 && args[fixtureIdx + 1] ? `fixture:${args[fixtureIdx + 1]}` : 'supabase'
 
-  console.log(`[backtest] source = ${source}`)
+  const modeIdx = args.indexOf('--elevation-mode')
+  const rawMode = modeIdx >= 0 ? args[modeIdx + 1] : undefined
+  const ALLOWED_MODES: ElevationReferenceMode[] = ['gpx_only', 'post_race_strava_dplus']
+  if (rawMode !== undefined && !ALLOWED_MODES.includes(rawMode as ElevationReferenceMode)) {
+    throw new Error(`--elevation-mode invalide : « ${rawMode} ». Attendu : ${ALLOWED_MODES.join(' | ')}.`)
+  }
+  const elevationMode = (rawMode as ElevationReferenceMode | undefined) ?? 'gpx_only'
+
+  console.log(`[backtest] source = ${source} · altimétrie = ${elevationMode}`)
+  if (elevationMode !== 'gpx_only') {
+    console.warn(
+      `[backtest] ⚠ mode « ${elevationMode} » : le profil est recalé sur une donnée POSTÉRIEURE ` +
+      `à la course. Résultat de DIAGNOSTIC uniquement — ne jamais le publier comme précision du moteur.`,
+    )
+  }
   const data = fixtureIdx >= 0 ? loadFixture(args[fixtureIdx + 1]) : await loadFromSupabase()
   console.log(`[backtest] ${data.activities.length} activités chargées · ${Object.keys(data.streams).length} streams`)
 
-  const { cases, validation } = buildCasesAndValidation(data)
+  const { cases, validation } = buildCasesAndValidation(data, elevationMode)
   console.log(`[backtest] candidats=${validation.candidates} confirmées=${validation.confirmed} rejetées=${validation.rejected} en_attente=${validation.pending}`)
 
   const report = runRealBacktest(cases, { validation })
