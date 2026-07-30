@@ -1,0 +1,42 @@
+name: Calibration du lissage altimétrique
+
+# LECTURE SEULE : balaye les réglages du lissage altimétrique sur les vrais tracés et
+# publie, par type de terrain, le biais et la dispersion de chacun.
+#
+# Pourquoi : le lissage divise systématiquement par deux le dénivelé des parcours
+# roulants (66 m réels → 18 lissés, 52 → 24, 37 → 21). Ce n'est pas du bruit, c'est un
+# BIAIS — toujours dans le même sens. Le banc a chiffré ce qu'il coûte : en donnant au
+# moteur le D+ exact, l'erreur sur route passe de 10,9 % à 8,8 %. Deux points entiers.
+#
+# Le seuil d'accumulation existe pour tuer le bruit GPS. Sur le plat, les vraies bosses
+# et le bruit ont la même amplitude — d'où un balayage plutôt qu'un réglage deviné.
+#
+# Déclenchement MANUEL : la clé service role n'est jamais exposée sur un push.
+# Sortie : tableaux dans les logs du run. Aucune coordonnée, aucun nom.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elevation-calibration
+  cancel-in-progress: true
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Calibrer (lecture seule)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run calibrate:elevation
