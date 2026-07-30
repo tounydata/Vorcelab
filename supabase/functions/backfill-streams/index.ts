@@ -98,13 +98,33 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
 
   // Sécurité : endpoint de MAINTENANCE réservé au service (cron/admin). La clé anon
-  // étant publique, on exige explicitement la clé service_role en Bearer — sinon 403.
+  // étant publique, on exige une clé de niveau service.
+  //
+  // Vérification de POUVOIRS, pas comparaison de texte : le projet a deux générations de
+  // clés (ancienne `eyJ…` JWT, nouvelle `sb_secret_…`) aux droits identiques mais de
+  // formats différents, et le runtime n'injecte que l'ancienne dans
+  // `SUPABASE_SERVICE_ROLE_KEY`. L'égalité stricte refusait donc un appelant légitime
+  // configuré avec la nouvelle clé (panne du 2026-07-30 sur `engine-data-refresh`).
+  // Lister les utilisateurs est réservé au rôle service : une clé anon ou publishable
+  // échoue, quelle que soit sa génération. Miroir de `_shared/auth.ts:requireServiceRole`,
+  // inline par la convention d'autonomie de ce fichier (cf. en-tête).
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  const auth = req.headers.get('Authorization') ?? ''
-  if (!serviceKey || auth !== `Bearer ${serviceKey}`) {
+  const presented = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? ''
+  if (!serviceKey || !presented) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
   }
+  {
+    const prober = createClient(Deno.env.get('SUPABASE_URL')!, presented, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+    const { error } = await prober.auth.admin.listUsers({ page: 1, perPage: 1 })
+    if (error) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
+    }
+  }
 
+  // Les écritures passent par la clé du RUNTIME, pas par celle de l'appelant : la clé
+  // présentée sert à prouver l'autorisation, pas à opérer.
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
 
   try {

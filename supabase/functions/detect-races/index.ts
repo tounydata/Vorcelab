@@ -19,6 +19,7 @@
 // Bearer (la clé anon publique est refusée) — endpoint de maintenance.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireServiceRole } from '../_shared/auth.ts'
 import {
   buildRaceDetectionRows,
   changedRows,
@@ -128,17 +129,24 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
 
   // Sécurité : endpoint de MAINTENANCE réservé au service (cron/admin). La clé anon
-  // étant publique, on exige explicitement la clé service_role en Bearer — sinon 403.
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  const auth = req.headers.get('Authorization') ?? ''
-  if (!serviceKey || auth !== `Bearer ${serviceKey}`) {
+  // étant publique, on exige une clé de niveau service — vérifiée sur ses POUVOIRS, pas
+  // comparée à un texte (cf. `requireServiceRole` : les deux générations de clés
+  // Supabase sont valides et n'ont pas le même format).
+  try {
+    await requireServiceRole(req)
+  } catch {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
+  // Les écritures passent par la clé du RUNTIME, pas par celle de l'appelant : la clé
+  // présentée sert à prouver l'autorisation, pas à opérer.
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
 
   try {
     const body = (await req.json().catch(() => ({}))) as { maxAthletes?: number; userId?: string }
