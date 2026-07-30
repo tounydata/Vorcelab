@@ -27,12 +27,14 @@ describe('runner-core : source unique src/lib → artefacts Deno (§1, option B)
     expect(edge).not.toContain('function processStreams')
   })
 
-  it('couvre bien les 13 fichiers du cœur', () => {
-    expect(CORE_FILES).toHaveLength(13)
+  it('couvre bien les 14 fichiers du cœur', () => {
+    expect(CORE_FILES).toHaveLength(14)
     expect(CORE_FILES).toContain('buildRunnerProfileCore')
     expect(CORE_FILES).toContain('projectionSnapshot')
     // raceValidation importe raceDetection : sans lui, les artefacts régénérés
     // importeraient un fichier absent et l'edge function casserait au déploiement.
     expect(CORE_FILES).toContain('raceDetection')
+    // Consommé par l'edge function detect-races (qualification de l'historique).
+    expect(CORE_FILES).toContain('raceDetectionPersistence')
   })
 })

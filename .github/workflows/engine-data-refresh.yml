@@ -1,0 +1,103 @@
+name: Engine data refresh (streams + détection de courses)
+
+# ALIMENTE le moteur. Deux jobs de maintenance, dans cet ordre :
+#   1. backfill-streams — met en cache les tracés GPS manquants (le carburant du profil).
+#   2. detect-races     — qualifie les compétitions de l'historique (l'ancrage + le banc).
+#
+# POURQUOI CE WORKFLOW EXISTE : `backfill-streams` a été écrit pour être appelé en boucle
+# par un cron (~15 min) — mais RIEN ne l'appelait. Vérifié sur la base `runnerdata` le
+# 2026-07-30 : ni `pg_cron` ni `pg_net` ne sont installés. Conséquence mesurée, sur la
+# fenêtre moteur de 183 jours :
+#
+#   athlète   activités   streams   couverture
+#   …f7558c8c    151         17        11 %   ← qualité « poor » (< 50 %)
+#   …06cdf8d3    161         75        47 %   ← qualité « poor »
+#   …99ae235f    120        119        99 %
+#
+# Deux athlètes sur six tournaient donc sur des replis génériques, quelle que soit la
+# qualité des formules du moteur. Ce workflow est le chaînon manquant.
+#
+# Prérequis (Settings → Secrets and variables → Actions) — les MÊMES que
+# `engine-backtest.yml`, rien de neuf à créer :
+#   • SUPABASE_SERVICE_ROLE_KEY  (Dashboard Supabase → Project Settings → API)
+#   • l'URL est reprise de SUPABASE_URL, sinon VITE_SUPABASE_URL
+#
+# ⚠ SUPABASE_ACCESS_TOKEN (sbp_…) est un jeton de DÉPLOIEMENT — ce n'est pas la
+#   service_role key et il ne convient pas ici.
+
+on:
+  schedule:
+    # 04:00 et 16:00 UTC. Deux passages par jour suffisent : la fenêtre moteur est de
+    # 183 jours et le quota Strava (100 appels / 15 min) borne de toute façon le débit.
+    - cron: '0 4,16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Jamais deux passages en parallèle : ils se disputeraient le quota Strava.
+  group: engine-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier les secrets
+        env:
+          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "::error::Secrets manquants (SUPABASE_URL ou VITE_SUPABASE_URL, et SUPABASE_SERVICE_ROLE_KEY)."
+            exit 1
+          fi
+
+      # Boucle jusqu'à `remaining = 0`. S'arrête net sur quota Strava (429) : la fonction
+      # renvoie `rateLimited: true` et le reste sera repris au passage suivant — le cache
+      # n'est jamais supprimé, un rattrapage partiel n'est donc jamais perdu.
+      - name: Backfill des streams (jusqu'à épuisement ou quota)
+        env:
+          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            body=$(curl -sS -X POST "$URL/functions/v1/backfill-streams" \
+              -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
+            echo "passage $i : $body"
+            remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2 || echo '')
+            limited=$(printf '%s' "$body" | grep -o '"rateLimited":true' || true)
+            if [ -n "$limited" ]; then
+              echo "::notice::Quota Strava atteint — reprise au prochain passage."
+              break
+            fi
+            if [ -z "$remaining" ]; then
+              echo "::error::Réponse inattendue de backfill-streams (voir ci-dessus)."
+              exit 1
+            fi
+            [ "$remaining" -eq 0 ] && { echo "Cache des streams à jour."; break; }
+            sleep 20
+          done
+
+      # Idempotent : n'écrit que les verdicts qui changent. Tourne APRÈS le backfill pour
+      # qualifier l'historique le plus complet possible.
+      - name: Détection des courses (jusqu'à épuisement)
+        env:
+          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            body=$(curl -sS -X POST "$URL/functions/v1/detect-races" \
+              -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
+            echo "passage $i : $body"
+            remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2 || echo '')
+            if [ -z "$remaining" ]; then
+              echo "::error::Réponse inattendue de detect-races (voir ci-dessus)."
+              exit 1
+            fi
+            [ "$remaining" -eq 0 ] && { echo "Détection à jour."; break; }
+            sleep 5
+          done

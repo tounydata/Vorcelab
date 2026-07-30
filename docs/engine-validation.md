@@ -243,6 +243,60 @@ order by s.engine_version desc, s.data_split, s.status;
 Tant que `evaluated` reste à 0 (aucune course terminée avec résultat enregistré), le MAPE
 est `null` : **ne pas** en tirer de promesse publique de précision (cf. §7 de l'audit).
 
+## Alimenter le banc : streams + qualification des courses
+
+Le banc ci-dessus ne vaut que par son échantillon. État mesuré sur la base `runnerdata`
+le **2026-07-30** : 3 739 activités, 6 athlètes avec historique — mais **12** activités
+seulement portent `is_race`, et **aucun** snapshot prospectif n'est encore `evaluated`
+(les 13 existants portent sur des courses des 2 et 23 août). Deux goulots, tous deux
+opérationnels et non algorithmiques :
+
+**1. Les tracés GPS manquants.** `backfill-streams` a été écrit pour être appelé en boucle
+par un cron — mais rien ne l'appelait : ni `pg_cron` ni `pg_net` ne sont installés sur le
+projet. Résultat sur la fenêtre moteur (183 j) : deux athlètes sur six sous les 50 % de
+couverture (11 % et 47 %), donc en `historical_data_quality = poor`, donc servis par des
+replis génériques quelle que soit la qualité des formules.
+→ `.github/workflows/engine-data-refresh.yml` appelle les deux jobs (04:00 et 16:00 UTC,
+plus `workflow_dispatch`), en boucle jusqu'à `remaining = 0`, avec arrêt net sur quota
+Strava. Il réutilise les secrets déjà en place pour `engine-backtest.yml`.
+
+**2. Les compétitions jamais étiquetées.** La détection automatique (`2026.07-11`) ne
+tournait qu'**en mémoire**, au moment de la projection : son verdict n'était écrit nulle
+part, donc ni comptable, ni auditable, ni exploitable par le banc. Trois athlètes
+cumulaient 501, 662 et 677 sorties à pied avec zéro course en base.
+→ `detect-races` (Edge Function, mode service) persiste le verdict dans
+`strava_activities.race_detection_status | _reasons | _version | _at`
+(migration `20260730090000_race_detection_persistence`). Estimation par requête sur la
+base actuelle : **33 compétitions confirmées, dont 30 jamais étiquetées** — l'échantillon
+du banc passe donc d'environ 12 à ~42 courses.
+
+### Ce que ce lot ne fait PAS
+
+Il ne change **aucune projection**. Le moteur continue de recalculer son verdict en
+mémoire au moment de la projection ; les colonnes persistées servent à observer et à
+alimenter le banc. `ENGINE_VERSION` reste à `2026.07-11`.
+
+Une différence de périmètre est assumée et tracée dans `RACE_DETECTION_VERSION` : en
+production le rang de FC est calculé sur la fenêtre moteur (183 j, seul historique
+chargé par la projection), tandis que le job le calcule sur **tout** l'historique de
+course à pied de l'athlète — sans quoi aucune course de 2018-2025 ne pourrait être
+qualifiée pour le banc.
+
+Écriture **réservée au serveur** : un client capable d'écrire
+`race_detection_status = 'confirmed'` s'auto-déclarerait des compétitions et déplacerait
+durablement son propre ancrage. Même garde-fou que les colonnes sensibles de `profiles`
+(trigger `SECURITY INVOKER` rejetant `authenticated`/`anon`), et l'écriture par lot passe
+par `apply_race_detection(jsonb)`, `SECURITY DEFINER`, dont l'`EXECUTE` n'est accordé
+qu'à `service_role`.
+
+### Prochaine calibration (inchangée, et toujours en attente de données)
+
+La cible connue reste l'**optimisme sur les très forts D+/km** : au dernier banc, la seule
+course hors intervalle était la plus raide (D+/km ≈ 51) à ≈ −23 %. Au-delà d'environ
+40 m/km on ne court plus, on marche, et le modèle continue de raisonner en vitesse de
+course dégradée plutôt qu'en VAM. Corriger demande plusieurs courses très verticales avec
+résultat réel — d'où l'ordre : récolter (ci-dessus), puis recalibrer.
+
 ## Honnêteté
 
 Ne pas prétendre que le moteur est « le plus puissant au monde » sans ce benchmark.
