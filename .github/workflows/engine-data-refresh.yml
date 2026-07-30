@@ -1,21 +1,27 @@
 name: Engine data refresh (streams + détection de courses)
 
-# ALIMENTE le moteur. Deux jobs de maintenance, dans cet ordre :
-#   1. backfill-streams — met en cache les tracés GPS manquants (le carburant du profil).
-#   2. detect-races     — qualifie les compétitions de l'historique (l'ancrage + le banc).
+# ALIMENTE le moteur. Deux jobs de maintenance, dans cet ordre — qui n'est PAS anodin :
+#   1. detect-races     — qualifie les compétitions de l'historique. Ne lit que les
+#                         résumés d'activité (FC moyenne, temps, titre) : aucun tracé
+#                         requis, donc rien ne l'oblige à attendre le rattrapage.
+#   2. backfill-streams — met en cache les tracés GPS manquants. Il PRIORISE les
+#                         compétitions confirmées à l'étape 1, y compris hors fenêtre
+#                         glissante — d'où l'ordre : détecter d'abord, pour savoir quoi
+#                         rattraper en priorité.
 #
 # POURQUOI CE WORKFLOW EXISTE : `backfill-streams` a été écrit pour être appelé en boucle
 # par un cron (~15 min) — mais RIEN ne l'appelait. Vérifié sur la base `runnerdata` le
-# 2026-07-30 : ni `pg_cron` ni `pg_net` ne sont installés. Conséquence mesurée, sur la
-# fenêtre moteur de 183 jours :
+# 2026-07-30 : ni `pg_cron` ni `pg_net` ne sont installés. Le cache des tracés ne se
+# maintenait donc que par les visites des athlètes dans l'app, et dérivait dès qu'un
+# athlète synchronisait de nouvelles sorties sans ouvrir les écrans qui déclenchent le
+# calcul de profil.
 #
-#   athlète   activités   streams   couverture
-#   …f7558c8c    151         17        11 %   ← qualité « poor » (< 50 %)
-#   …06cdf8d3    161         75        47 %   ← qualité « poor »
-#   …99ae235f    120        119        99 %
-#
-# Deux athlètes sur six tournaient donc sur des replis génériques, quelle que soit la
-# qualité des formules du moteur. Ce workflow est le chaînon manquant.
+# (Note : une version antérieure de ce commentaire annonçait deux athlètes à 11 % et 47 %
+# de couverture GPS. C'était FAUX — le calcul divisait les tracés par TOUTES les activités,
+# vélo et natation compris, au lieu des seules sorties à pied. Sur les sorties à pied, les
+# seules qui alimentent le moteur, la couverture était déjà d'environ 97 %, et le premier
+# passage réel n'a ajouté que 14 tracés. Ce workflow reste nécessaire — pour empêcher la
+# dérive et pour le rattrapage ciblé des courses — mais il ne rattrape pas un retard massif.)
 #
 # Prérequis (Settings → Secrets and variables → Actions) — les MÊMES que
 # `engine-backtest.yml`, rien de neuf à créer :
@@ -54,6 +60,31 @@ jobs:
             exit 1
           fi
 
+      # Idempotent : n'écrit que les verdicts qui changent. Tourne APRÈS le backfill pour
+      # qualifier l'historique le plus complet possible.
+      - name: Détection des courses (jusqu'à épuisement)
+        env:
+          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            body=$(curl -sS -X POST "$URL/functions/v1/detect-races" \
+              -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
+            echo "passage $i : $body"
+            remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2 || echo '')
+            if printf '%s' "$body" | grep -q '"error":"Forbidden"'; then
+              echo "::error::403 de detect-races : même cause que ci-dessus (secret sans droits service)."
+              exit 1
+            fi
+            if [ -z "$remaining" ]; then
+              echo "::error::Réponse inattendue de detect-races (voir ci-dessus)."
+              exit 1
+            fi
+            [ "$remaining" -eq 0 ] && { echo "Détection à jour."; break; }
+            sleep 5
+          done
+
       # Boucle jusqu'à `remaining = 0`. S'arrête net sur quota Strava (429) : la fonction
       # renvoie `rateLimited: true` et le reste sera repris au passage suivant — le cache
       # n'est jamais supprimé, un rattrapage partiel n'est donc jamais perdu.
@@ -83,29 +114,4 @@ jobs:
             fi
             [ "$remaining" -eq 0 ] && { echo "Cache des streams à jour."; break; }
             sleep 20
-          done
-
-      # Idempotent : n'écrit que les verdicts qui changent. Tourne APRÈS le backfill pour
-      # qualifier l'historique le plus complet possible.
-      - name: Détection des courses (jusqu'à épuisement)
-        env:
-          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
-          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 12); do
-            body=$(curl -sS -X POST "$URL/functions/v1/detect-races" \
-              -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
-            echo "passage $i : $body"
-            remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2 || echo '')
-            if printf '%s' "$body" | grep -q '"error":"Forbidden"'; then
-              echo "::error::403 de detect-races : même cause que ci-dessus (secret sans droits service)."
-              exit 1
-            fi
-            if [ -z "$remaining" ]; then
-              echo "::error::Réponse inattendue de detect-races (voir ci-dessus)."
-              exit 1
-            fi
-            [ "$remaining" -eq 0 ] && { echo "Détection à jour."; break; }
-            sleep 5
           done

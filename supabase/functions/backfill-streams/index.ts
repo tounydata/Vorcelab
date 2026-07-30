@@ -144,8 +144,9 @@ Deno.serve(async (req: Request) => {
     const { data: tokenRows } = await supabase.from('strava_tokens').select('user_id')
     const userIds = (tokenRows ?? []).map((r: { user_id: string }) => r.user_id)
 
-    type Work = { userId: string; activityId: number; date: string }
+    type Work = { userId: string; activityId: number; date: string; isRace: boolean }
     const work: Work[] = []
+    let raceWork = 0
     // Diagnostic de couverture de la FENÊTRE MOTEUR (183 j, comptage LECTURE SEULE).
     let sixMonthAll = 0, sixMonthRunning = 0, sixMonthOther = 0, sixMonthRunsWithStreams = 0
     for (const userId of userIds) {
@@ -158,7 +159,7 @@ Deno.serve(async (req: Request) => {
         const cached = cachedSet.has(String(a.strava_activity_id))
         // Le RATTRAPAGE couvre toute la fenêtre de cache (190 j) : streams running non
         // encore en cache → à récupérer (marge incluse).
-        if (isRun(a) && !cached) work.push({ userId, activityId: a.strava_activity_id, date: a.start_date })
+        if (isRun(a) && !cached) work.push({ userId, activityId: a.strava_activity_id, date: a.start_date, isRace: false })
         // Le DIAGNOSTIC ne compte que la fenêtre MOTEUR (183 j) : couverture honnête.
         if (a.start_date < engineCutoffISO) continue
         sixMonthAll++
@@ -170,11 +171,35 @@ Deno.serve(async (req: Request) => {
           sixMonthOther++
         }
       }
+
+      // ── COMPÉTITIONS CONFIRMÉES : hors fenêtre glissante, à TOUTE date ─────────
+      // La fenêtre de 190 j sert la FORME DU JOUR (CTL 42 j) : au-delà, une sortie
+      // d'entraînement n'apprend plus rien au profil. Une COURSE, elle, garde toute sa
+      // valeur : c'est un point de mesure « projection vs réel » pour le banc, et il ne
+      // se périme pas. Sans tracé GPS, le banc ne peut pas rejouer le parcours et exclut
+      // la course (`no_latlng`) — 9 des 24 courses du run du 2026-07-30 ont été perdues
+      // ainsi, dont les plus anciennes.
+      //
+      // On ne pouvait pas faire ce ciblage avant : rien n'identifiait une course en base.
+      // C'est précisément ce que `race_detection_status` débloque.
+      const { data: raceActs } = await supabase.from('strava_activities')
+        .select('strava_activity_id,type,sport_type,start_date')
+        .eq('user_id', userId).is('deleted_at', null)
+        .eq('race_detection_status', 'confirmed')
+        .lt('start_date', cutoffISO) // les plus récentes sont déjà couvertes ci-dessus
+      for (const a of (raceActs ?? []) as Array<{ strava_activity_id: number; type?: string; sport_type?: string; start_date: string }>) {
+        if (!isRun(a) || cachedSet.has(String(a.strava_activity_id))) continue
+        work.push({ userId, activityId: a.strava_activity_id, date: a.start_date, isRace: true })
+        raceWork++
+      }
     }
     const sixMonthStreamCoveragePct = sixMonthRunning > 0
       ? +((sixMonthRunsWithStreams / sixMonthRunning) * 100).toFixed(1)
       : 0
-    work.sort((a, b) => (a.date < b.date ? 1 : -1)) // plus récentes d'abord
+    // Les COURSES d'abord (valeur pour le banc, et elles sont peu nombreuses), puis les
+    // entraînements du plus récent au plus ancien. Le quota Strava est la ressource rare :
+    // il doit servir en priorité ce qui ne peut pas être rattrapé autrement.
+    work.sort((a, b) => (a.isRace !== b.isRace ? (a.isRace ? -1 : 1) : a.date < b.date ? 1 : -1))
     const remainingBefore = work.length
     const batch = work.slice(0, budget)
 
@@ -193,6 +218,8 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       ok: true, users: userIds.length, cached, empty, notFound, processed,
       remaining: remainingBefore - processed, rateLimited,
+      // Courses confirmées hors fenêtre encore sans tracé (priorité haute, cf. tri).
+      confirmed_races_pending: raceWork,
       // Fenêtres : cache (rattrapage, marge) vs moteur (diagnostic de couverture).
       cache_window_days: sinceDays,
       engine_history_days: engineWindowDays,
