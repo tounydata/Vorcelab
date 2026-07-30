@@ -6,6 +6,15 @@ interface StravaActivityPermissionModalProps {
   busy?: boolean
   error?: string | null
   wrongAthlete?: boolean
+  /**
+   * Fenêtre d'assistance : l'autorisation Strava N'EST PAS délégable. OAuth s'appuie sur
+   * la session strava.com du NAVIGATEUR qui l'ouvre — celle de l'admin. Proposer
+   * « Autoriser » ici ne peut donc que relier le mauvais athlète (Vorcelab le bloque) et
+   * ramener au même pop-up : une boucle sans issue. Dans ce mode, on explique et on donne
+   * la seule action qui aboutit (envoyer le lien), sans bloquer l'assistance en cours.
+   */
+  supportMode?: boolean
+  onDismiss?: () => void
   /** Uniquement pour le labo admin : permet de sortir de la prévisualisation. */
   previewMode?: boolean
   onPreviewClose?: () => void
@@ -16,13 +25,17 @@ export default function StravaActivityPermissionModal({
   busy = false,
   error = null,
   wrongAthlete = false,
+  supportMode = false,
+  onDismiss,
   previewMode = false,
   onPreviewClose,
 }: StravaActivityPermissionModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const refuseClose = useCallback(() => undefined, [])
-  const handleClose = previewMode && onPreviewClose ? onPreviewClose : refuseClose
-  useDialogA11y({ open: true, onClose: handleClose, containerRef: dialogRef })
+  const escapable = previewMode && onPreviewClose
+    ? onPreviewClose
+    : supportMode && onDismiss ? onDismiss : refuseClose
+  useDialogA11y({ open: true, onClose: escapable, containerRef: dialogRef })
 
   useEffect(() => {
     const previous = document.body.style.overflow
@@ -79,7 +92,9 @@ export default function StravaActivityPermissionModal({
             fontWeight: 700, letterSpacing: '.16em',
           }}>
             <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: '#FC4C02', boxShadow: '0 0 12px #FC4C02' }} />
-            {wrongAthlete ? 'COMPTE STRAVA INCORRECT' : 'ACTION OBLIGATOIRE'}
+            {supportMode
+              ? 'AUTORISATION NON DÉLÉGABLE'
+              : wrongAthlete ? 'COMPTE STRAVA INCORRECT' : 'ACTION OBLIGATOIRE'}
           </div>
 
           <h1 id="strava-permission-title" style={{
@@ -88,7 +103,9 @@ export default function StravaActivityPermissionModal({
             fontSize: 'clamp(2.3rem, 8vw, 4rem)', lineHeight: .92,
             letterSpacing: '.01em', textTransform: 'uppercase',
           }}>
-            {wrongAthlete ? (
+            {supportMode ? (
+              <>Envoie le lien<br /><span style={{ color: '#FC4C02' }}>à l’athlète</span></>
+            ) : wrongAthlete ? (
               <>Change de<br /><span style={{ color: '#FC4C02' }}>compte Strava</span></>
             ) : (
               <>Autorise tes<br /><span style={{ color: '#FC4C02' }}>activités Strava</span></>
@@ -99,7 +116,9 @@ export default function StravaActivityPermissionModal({
             margin: '22px 0 20px', maxWidth: 470,
             color: 'var(--vl-text-2)', fontSize: 14, lineHeight: 1.65,
           }}>
-            {wrongAthlete
+            {supportMode
+              ? 'Cette autorisation ne peut pas être donnée depuis ici. Strava s’appuie sur le compte connecté dans CE navigateur — le tien — et non sur le compte Vorcelab que tu assistes. Autoriser depuis cette fenêtre relierait ton propre Strava : Vorcelab le refuse, et le pop-up revient. Seul l’athlète peut valider, sur son appareil.'
+              : wrongAthlete
               ? 'La session Vorcelab assistée ne change pas le compte actuellement connecté sur strava.com. Vorcelab a donc bloqué l’autorisation pour éviter de rattacher les données du mauvais athlète.'
               : 'Ton compte Strava est lié, mais tu n’as pas autorisé Vorcelab à lire tes sorties. Sans elles, le moteur ne peut pas calculer ton profil, adapter ton entraînement ni synchroniser tes performances.'}
           </p>
@@ -110,7 +129,17 @@ export default function StravaActivityPermissionModal({
             color: 'var(--vl-text)', fontFamily: 'var(--vl-mono)',
             fontSize: 11, lineHeight: 1.65,
           }}>
-            {wrongAthlete
+            {supportMode ? (
+              <>
+                1. Dans ta fenêtre admin, onglet <strong>Assistance</strong> :
+                {' '}« Générer et copier le lien Strava ».
+                <br />
+                2. Envoie ce lien à l’athlète (SMS, mail, WhatsApp…). Les permissions y sont
+                {' '}déjà cochées : il n’a que le bouton final à valider.
+                <br />
+                3. Le statut se met à jour tout seul ici dès qu’il a validé.
+              </>
+            ) : wrongAthlete
               ? 'Ouvre Strava, déconnecte le compte actuellement ouvert, connecte le compte Strava de l’athlète assisté, puis reviens ici et réessaie.'
               : 'Sur l’écran Strava, coche impérativement la case concernant l’accès à tes activités.'}
           </div>
@@ -124,7 +153,7 @@ export default function StravaActivityPermissionModal({
             </div>
           ) : null}
 
-          {wrongAthlete ? (
+          {wrongAthlete && !supportMode ? (
             <a
               href="https://www.strava.com/settings/profile"
               target="_blank"
@@ -142,21 +171,25 @@ export default function StravaActivityPermissionModal({
             </a>
           ) : null}
 
+          {/* En assistance, le bouton « Autoriser » est structurellement voué à l'échec :
+              on ne l'affiche pas, et on laisse l'admin poursuivre son dépannage. */}
           <button
             autoFocus
-            disabled={busy}
-            onClick={onAuthorize}
+            disabled={busy && !supportMode}
+            onClick={supportMode ? (onDismiss ?? refuseClose) : onAuthorize}
             style={{
               width: '100%', minHeight: 58, padding: '15px 20px',
-              border: 'none', borderRadius: 14, cursor: busy ? 'wait' : 'pointer',
+              border: 'none', borderRadius: 14, cursor: busy && !supportMode ? 'wait' : 'pointer',
               background: '#FC4C02', color: '#fff',
               boxShadow: '0 14px 35px rgba(252,76,2,.28)',
               fontFamily: 'var(--vl-display)', fontSize: '1.2rem',
               fontWeight: 900, letterSpacing: '.07em',
-              opacity: busy ? .68 : 1,
+              opacity: busy && !supportMode ? .68 : 1,
             }}
           >
-            {busy
+            {supportMode
+              ? 'CONTINUER L’ASSISTANCE'
+              : busy
               ? 'OUVERTURE STRAVA…'
               : wrongAthlete
               ? 'RÉESSAYER AVEC LE BON COMPTE'
@@ -168,7 +201,9 @@ export default function StravaActivityPermissionModal({
             color: 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)',
             fontSize: 9, letterSpacing: '.12em',
           }}>
-            CETTE ÉTAPE EST REQUISE POUR CONTINUER · POWERED BY STRAVA
+            {supportMode
+              ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL · POWERED BY STRAVA'
+              : 'CETTE ÉTAPE EST REQUISE POUR CONTINUER · POWERED BY STRAVA'}
           </div>
         </div>
       </div>

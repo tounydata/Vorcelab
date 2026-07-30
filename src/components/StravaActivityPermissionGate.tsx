@@ -7,11 +7,20 @@ import {
 } from '../lib/stravaOAuthResult'
 import { needsStravaActivityPermission, type StravaPermissionStatus } from '../lib/stravaScopes'
 import { supabase, SUPA_URL } from '../lib/supabase'
+import { isSupportSessionWindow } from '../lib/supportSession'
 import StravaActivityPermissionModal from './StravaActivityPermissionModal'
 
 type GateState = 'checking' | 'clear' | 'blocked'
 
+// Le blocage est LÉGITIME pour l'athlète : sans le scope activités, le moteur ne peut rien
+// calculer. Il est en revanche une IMPASSE dans une fenêtre d'assistance : OAuth utilise la
+// session strava.com de l'admin, donc autoriser depuis là relie le mauvais athlète, Vorcelab
+// refuse, et le pop-up réapparaît — la boucle constatée en production. On y remplace donc
+// l'action impossible par la marche à suivre, et on laisse l'admin poursuivre son dépannage
+// (profil, sync, jeton…) au lieu de le coincer derrière une modale infranchissable.
 export default function StravaActivityPermissionGate() {
+  const supportWindow = isSupportSessionWindow()
+  const [dismissed, setDismissed] = useState(false)
   const [state, setState] = useState<GateState>('checking')
   const [oauthFailure, setOauthFailure] = useState<StravaRedirectFailureResult | null>(() => {
     try {
@@ -52,13 +61,18 @@ export default function StravaActivityPermissionGate() {
   }, [])
 
   if (state !== 'blocked') return null
+  if (supportWindow && dismissed) return null
 
   const wrongAthlete = oauthFailure === 'wrong_athlete'
 
   return (
     <StravaActivityPermissionModal
-      error={stravaOAuthFailureMessage(oauthFailure)}
+      // En assistance, l'échec `wrong_athlete` n'apporte rien : le message explique déjà
+      // pourquoi l'autorisation est impossible depuis cette fenêtre.
+      error={supportWindow ? null : stravaOAuthFailureMessage(oauthFailure)}
       wrongAthlete={wrongAthlete}
+      supportMode={supportWindow}
+      onDismiss={() => setDismissed(true)}
       onAuthorize={() => {
         setOauthFailure(null)
         startStravaOAuth({ forceApproval: true })

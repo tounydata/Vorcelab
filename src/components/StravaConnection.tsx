@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase, SUPA_URL } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
-import { readSupportSessionMeta } from '../lib/supportSession'
+import { isSupportSessionWindow, readSupportSessionMeta } from '../lib/supportSession'
 
 // Connexion Strava — composant partagé. `compact` = état + sync (header mobile,
 // non envahissant) ; `full` = état + connecter/déconnecter/forcer sync (sidebar
 // desktop, onglet Réglages).
+//
+// IMPORTANT — en fenêtre d'assistance, AUCUN bouton ne doit lancer OAuth. Strava
+// s'appuie sur le compte strava.com du NAVIGATEUR, c'est-à-dire celui de l'admin :
+// autoriser depuis ici rattacherait le Strava de l'admin au compte assisté. Le serveur
+// le refuse (`strava_athlete_already_linked` si la cible n'a pas de jeton,
+// `different_strava_athlete` si elle en a un) et l'admin retombe sur le même écran —
+// boucle observée en production sur deux comptes. On remplace donc l'action impossible
+// par la seule qui aboutit : générer le lien côté admin et l'envoyer à l'athlète.
 
 interface StravaStatus {
   connected: boolean
@@ -39,6 +47,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   const [status, setStatus] = useState<StravaStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
   const supportSessionId = readSupportSessionMeta()?.id
+  const supportWindow = isSupportSessionWindow()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -49,7 +58,9 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   }, [])
 
   async function sync() {
-    if (status?.activity_access_granted === false) {
+    // En assistance, on laisse la synchro tenter sa chance côté serveur : elle échouera
+    // proprement et sera journalisée, au lieu d'ouvrir un OAuth qui relierait l'admin.
+    if (status?.activity_access_granted === false && !supportWindow) {
       startStravaOAuth({ forceApproval: true })
       return
     }
@@ -87,6 +98,18 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   const connected = status.connected
   const activityAccessMissing = connected && status.activity_access_granted === false
 
+  /** Marche à suivre en assistance, là où un bouton d'autorisation serait sans issue. */
+  const supportHint = (
+    <p style={{
+      margin: '0 0 6px', color: 'var(--vl-text-3)',
+      fontFamily: 'var(--vl-mono)', fontSize: 8.5, lineHeight: 1.5,
+    }}>
+      Autorisation impossible depuis cette fenêtre : Strava utiliserait TON compte.
+      Onglet <strong>Assistance</strong> → « Générer et copier le lien Strava », puis envoie-le
+      à l’athlète. Il valide sur son appareil.
+    </p>
+  )
+
   // ── COMPACT : pastille d'état + icône sync (header mobile) ──
   if (variant === 'compact') {
     return (
@@ -98,7 +121,14 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
             : connected ? `Strava connecté · sync ${formatSync(status.last_sync_at)}` : 'Strava non connecté'}
           style={activityAccessMissing ? { background: 'var(--vl-ember)' } : undefined}
         />
-        {activityAccessMissing ? (
+        {activityAccessMissing && supportWindow ? (
+          <span
+            title="L’autorisation ne peut pas être donnée depuis la fenêtre d’assistance : envoie le lien Strava à l’athlète depuis l’onglet Assistance."
+            style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-ember)' }}
+          >
+            LIEN À ENVOYER
+          </span>
+        ) : activityAccessMissing ? (
           <button
             onClick={() => startStravaOAuth({ forceApproval: true })}
             title="Réautoriser Strava pour donner accès aux activités"
@@ -127,16 +157,20 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
           </span>
         </div>
         <p style={{ margin: '0 0 8px', color: 'var(--vl-text-2)', fontSize: 10, lineHeight: 1.45 }}>
-          Strava est lié, mais Vorcelab ne peut pas lire les sorties. Réautorise puis coche la case concernant tes activités.
+          Strava est lié, mais Vorcelab ne peut pas lire les sorties.
+          {supportWindow ? '' : ' Réautorise puis coche la case concernant tes activités.'}
         </p>
+        {supportWindow ? supportHint : null}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <button
-            className="hbtn"
-            style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)' }}
-            onClick={() => startStravaOAuth({ forceApproval: true })}
-          >
-            RÉAUTORISER STRAVA
-          </button>
+          {!supportWindow ? (
+            <button
+              className="hbtn"
+              style={{ fontSize: 9, padding: '4px 8px', width: '100%', borderColor: 'var(--vl-ember)', color: 'var(--vl-ember)' }}
+              onClick={() => startStravaOAuth({ forceApproval: true })}
+            >
+              RÉAUTORISER STRAVA
+            </button>
+          ) : null}
           <button className="hbtn" style={{ fontSize: 9, padding: '4px 8px', width: '100%' }} onClick={disconnect}>
             DÉCONNECTER
           </button>
@@ -179,7 +213,9 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
         <div className="dot dot-off" />
         <span className="mlabel" style={{ margin: 0, fontSize: 9 }}>STRAVA NON CONNECTÉ</span>
       </div>
-      {stravaConfigured() && (
+      {/* Cas le plus fréquent en assistance : la cible n'a AUCUN jeton. Connecter depuis
+          ici rattacherait le Strava de l'admin — le serveur refuse, et on boucle. */}
+      {supportWindow ? supportHint : stravaConfigured() && (
         <button
           className="hbtn"
           style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
