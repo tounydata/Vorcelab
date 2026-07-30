@@ -578,10 +578,31 @@ export function computeRaceProjection(
   // ⚠️ Coefficient GLOBAL (niveau population), PAS personnel : il ne dépend d'aucune donnée
   // de l'athlète, seulement du D+ déjà grimpé dans LA course. Nommé explicitement
   // `global_climb_fatigue_v1` pour ne pas le confondre avec la durabilité personnelle
-  // (fadeModel) ou les buckets appris. Valeurs INCHANGÉES dans cette PR (pas de hausse).
+  // (fadeModel) ou les buckets appris.
+  //
+  // ── RECALIBRÉ SUR MESURE (2026.07-12) ──────────────────────────────────────────
+  // Les valeurs précédentes (+9 % / 1000 m, plafond +18 %) étaient posées à dire
+  // d'expert. Mesurées sur 67 h de montées réelles, à PENTE CONTRÔLÉE (bande 10-25 %,
+  // pour que la comparaison porte sur l'athlète et non sur le relief) :
+  //
+  //   D+ déjà grimpé   0-250   250-500   500-750   750-1000   1000-1250
+  //   VAM / frais      100 %     92 %      88 %       86 %        82 %
+  //   ⇒ temps ×        1,00     1,087     1,136      1,163       1,220
+  //
+  // Décroissance monotone sur 4 000 minutes de mesure. Le garde-fou tient : la pente
+  // moyenne ne varie que de 14,1 à 15,7 % — et elle AUGMENTE, ce qui devrait faire
+  // monter la VAM. La chute réelle est donc au moins celle-ci, jamais moins.
+  //
+  // Un modèle linéaire à +20 % / 1000 m colle à la mesure sur toute la plage :
+  //   375 m → +7,5 % (mesuré +8,7 %) · 625 m → +12,5 % (mesuré +13,6 %)
+  //   875 m → +17,5 % (mesuré +16,3 %) · 1125 m → plafond +22 % (mesuré +22,0 %)
+  //
+  // Le plafond est posé À la dernière valeur MESURÉE, pas au-delà : au-dessus de
+  // 1 250 m de D+ cumulé nous n'avons pas de données, et extrapoler une dégradation
+  // qu'on n'a pas observée serait exactement le travers que le banc a déjà sanctionné.
   let cumClimbDplus = 0
-  const GLOBAL_CLIMB_FATIGUE_V1_PER_1000M = 0.09 // +9 % de temps de montée par 1000 m déjà grimpés
-  const GLOBAL_CLIMB_FATIGUE_V1_MAX = 0.18
+  const GLOBAL_CLIMB_FATIGUE_V1_PER_1000M = 0.20 // +20 % de temps de montée par 1000 m déjà grimpés
+  const GLOBAL_CLIMB_FATIGUE_V1_MAX = 0.22
   // Diagnostics (explicabilité) — n'altèrent PAS le temps calculé.
   let globalClimbFatigueActive = false
   let globalClimbFatigueMaxMultiplier = 1
