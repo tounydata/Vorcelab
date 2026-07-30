@@ -73,6 +73,10 @@ jobs:
               echo "::notice::Quota Strava atteint — reprise au prochain passage."
               break
             fi
+            if printf '%s' "$body" | grep -q '"error":"Forbidden"'; then
+              echo "::error::403 de backfill-streams : le secret SUPABASE_SERVICE_ROLE_KEY n'a pas les droits service. Vérifier qu'il s'agit bien d'une clé secrète (Dashboard → Project Settings → API Keys), et non de la clé publishable/anon ni du jeton de déploiement sbp_…"
+              exit 1
+            fi
             if [ -z "$remaining" ]; then
               echo "::error::Réponse inattendue de backfill-streams (voir ci-dessus)."
               exit 1
@@ -94,6 +98,10 @@ jobs:
               -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
             echo "passage $i : $body"
             remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2 || echo '')
+            if printf '%s' "$body" | grep -q '"error":"Forbidden"'; then
+              echo "::error::403 de detect-races : même cause que ci-dessus (secret sans droits service)."
+              exit 1
+            fi
             if [ -z "$remaining" ]; then
               echo "::error::Réponse inattendue de detect-races (voir ci-dessus)."
               exit 1
