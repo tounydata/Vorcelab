@@ -13,15 +13,53 @@
 //
 // ── Pourquoi la cadence, et pas la vitesse ────────────────────────────────────────
 // La vitesse seule confond « marche » et « course lente en montée raide ». La cadence,
-// elle, s'effondre franchement au passage à la marche : ~85 pas/min par jambe en course,
-// ~55-60 en marche. Le seuil retenu (65) est celui déjà utilisé par le profil pour
-// étiqueter la marche (`runnerProfile.ts` : cadence < 130 pas/min DEUX jambes), et il
-// tombe au creux du trou entre les deux régimes.
+// elle, s'effondre franchement au passage à la marche.
 //
-// Les streams Strava donnent la cadence PAR JAMBE pour la course à pied.
+// ── UNITÉ : l'API renvoie des FOULÉES par minute, pas des PAS ─────────────────────
+// Pour la course à pied, le flux `cadence` de l'API Strava compte un CYCLE DE FOULÉE
+// (les deux jambes) comme une unité — pas un appui. Il faut donc DOUBLER pour obtenir des
+// pas par minute (cf. `toStepsPerMinute`).
+//
+// Attention au piège : l'application Strava, elle, affiche bien des PAS par minute (~180).
+// L'écart n'est donc pas entre Strava et une autre montre, il est entre l'écran de Strava
+// et son API. Référence : communityhub.strava.com — « if the Strava app shows 185 steps
+// per minute, the API returns 92.4 ».
+//
+// Recoupé sur NOS données plutôt que sur la seule doc : 78 à 9,2 km/h sur le plat. Lu
+// comme des pas, cela ferait 1,3 appui par seconde à 9,2 km/h, soit des foulées de deux
+// mètres en footing — impossible. Lu comme des foulées, cela donne 156 pas/min : une
+// cadence de course banale. Même contrôle en montée raide : 52 → 104 pas/min, une cadence
+// de marche normale.
+//
+// ── Le seuil est MESURÉ, pas conventionnel ────────────────────────────────────────
+// Histogramme de cadence sur les courses à fort D+/km (pas par minute → nombre de points) :
+//
+//   100 → 838     110 → 1369 ◄ pic MARCHE      120 → 465
+//   130 →  37 ◄ creux        140 →  28 ◄ creux
+//   150 → 105     160 →  954 ◄ pic COURSE      170 → 946
+//
+// Deux populations franchement séparées, et le creux tombe exactement à 130-140 pas/min :
+// 65 points dans le creux contre 1369 et 954 sur les pics (rapport de 20 à 40). Le seuil
+// est donc posé au fond de la vallée — c'est aussi la valeur que le profil utilise déjà
+// pour son étiquette « Technique marche trail » (`runnerProfile.ts` : < 130 pas/min).
 
-/** Seuil de cadence (pas/min, UNE jambe) sous lequel l'athlète marche. */
+/**
+ * Seuil de marche dans l'unité BRUTE de l'API Strava (foulées/min) : 65.
+ * Soit **130 pas par minute**. Voir `WALK_CADENCE_THRESHOLD_SPM`.
+ */
 export const WALK_CADENCE_THRESHOLD = 65
+
+/** Le même seuil en pas par minute — l'unité lisible par un humain. */
+export const WALK_CADENCE_THRESHOLD_SPM = WALK_CADENCE_THRESHOLD * 2
+
+/**
+ * Convertit une cadence de l'API Strava (foulées/min) en pas par minute.
+ * À utiliser pour TOUT affichage : « 52 » se lit comme une erreur de mesure,
+ * « 104 pas/min » se lit immédiatement comme de la marche.
+ */
+export function toStepsPerMinute(stravaCadence: number | null): number | null {
+  return stravaCadence == null ? null : stravaCadence * 2
+}
 
 /** Largeur d'un intervalle de pente (%) dans les statistiques produites. */
 export const GRADE_BIN_WIDTH = 5

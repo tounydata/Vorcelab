@@ -17,7 +17,8 @@
 
 import {
   measureWalkTransition,
-  WALK_CADENCE_THRESHOLD,
+  toStepsPerMinute,
+  WALK_CADENCE_THRESHOLD_SPM,
   GRADE_BIN_WIDTH,
   type WalkTransitionProfile,
   type WalkTransitionStreams,
@@ -47,14 +48,16 @@ function renderProfile(label: string, p: WalkTransitionProfile, activities: numb
   lines.push('')
   lines.push(`### ${label} — ${activities} activité(s), ${(p.totalSeconds / 3600).toFixed(1)} h analysées`)
   lines.push('')
-  lines.push('| Pente | Temps | Cadence | Vitesse | VAM | % marche |')
+  // Cadence affichée en PAS PAR MINUTE. L'API Strava renvoie des FOULÉES :
+  // brut, « 52 » se lit comme une anomalie, alors que 104 pas/min est une marche normale.
+  lines.push('| Pente | Temps | Cadence (pas/min) | Vitesse | VAM | % marche |')
   lines.push('|---|--:|--:|--:|--:|--:|')
   for (const b of p.bins) {
     if (b.seconds < 30) continue // sous 30 s, la ligne n'informe pas
     lines.push(
       `| ${b.gradeMinPct}-${b.gradeMinPct + GRADE_BIN_WIDTH} % ` +
       `| ${(b.seconds / 60).toFixed(0)} min ` +
-      `| ${fmt(b.meanCadence)} ` +
+      `| ${fmt(toStepsPerMinute(b.meanCadence))} ` +
       `| ${fmt(b.meanSpeedKmH, 1)} km/h ` +
       `| ${fmt(b.meanVamMH)} m/h ` +
       `| ${Math.round(b.walkFraction * 100)} % |`,
@@ -130,9 +133,11 @@ async function main() {
   console.log('# Bascule course → marche (mesurée)')
   console.log('')
   console.log(
-    `Seuil de marche : cadence < ${WALK_CADENCE_THRESHOLD} pas/min (une jambe). ` +
-    'Agrégation pondérée par le TEMPS. Pente calculée sur des segments d’au moins 40 m ' +
-    '(sous cette distance, le bruit d’altitude domine).',
+    `Seuil de marche : **${WALK_CADENCE_THRESHOLD_SPM} pas/min** (l’API Strava renvoie ` +
+    'des FOULÉES, soit la moitié — l’application, elle, affiche bien des pas). Seuil posé au creux mesuré ' +
+    'entre les deux populations de cadence, pas choisi par convention. Agrégation pondérée ' +
+    'par le TEMPS. Pente calculée sur des segments d’au moins 40 m — sous cette distance, ' +
+    'le bruit d’altitude domine le dénivelé réel.',
   )
 
   const all: WalkTransitionStreams[] = []

@@ -4,7 +4,9 @@ import {
   aggregateByGrade,
   findTransition,
   measureWalkTransition,
+  toStepsPerMinute,
   WALK_CADENCE_THRESHOLD,
+  WALK_CADENCE_THRESHOLD_SPM,
   MIN_SEGMENT_M,
   type GradeBinStats,
 } from '../src/lib/walkTransition'
@@ -150,6 +152,16 @@ describe('mesure de la bascule course → marche', () => {
     ])
     const b = p.bins.find((x) => x.gradeMinPct === 20)!
     expect(b.seconds).toBeGreaterThan(500)
+  })
+
+  // L'API Strava renvoie des FOULÉES, pas des pas. Confondre les deux unités ferait passer
+  // une cadence de course (156 pas/min) pour de la marche, et inverserait la mesure.
+  it('convertit la cadence de l’API Strava (foulées/min) en pas par minute', () => {
+    expect(toStepsPerMinute(78)).toBe(156)   // course sur le plat (78 foulées/min)
+    expect(toStepsPerMinute(52)).toBe(104)   // marche en montée raide (52 foulées/min)
+    expect(toStepsPerMinute(null)).toBeNull()
+    expect(WALK_CADENCE_THRESHOLD_SPM).toBe(130)
+    expect(WALK_CADENCE_THRESHOLD_SPM).toBe(WALK_CADENCE_THRESHOLD * 2)
   })
 
   it('agrège correctement sur des échantillons vides', () => {
