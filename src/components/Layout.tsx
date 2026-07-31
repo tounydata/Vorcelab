@@ -279,6 +279,27 @@ export default function Layout() {
           </NavLink>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StravaConnection variant="compact" />
+            {/* ADMIN — le lien de la barre latérale est INACCESSIBLE en mobile :
+                `.sidebar` est masquée sous 900 px (style.css) et le menu du bas ne rend
+                que NAV_ITEMS, où l'admin ne figure pas. Sur téléphone, il n'existait donc
+                AUCUN chemin vers /admin. Ce raccourci rétablit l'accès, pas les droits :
+                la page vérifie l'habilitation et chaque RPC la revérifie côté serveur. */}
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                title="Admin"
+                aria-label="Admin"
+                className="hbtn"
+                style={{
+                  padding: '4px 11px', textDecoration: 'none', lineHeight: 1.4,
+                  color: 'var(--vl-ember)',
+                  borderColor: 'color-mix(in oklab, var(--vl-ember) 45%, transparent)',
+                  background: 'color-mix(in oklab, var(--vl-ember) 10%, transparent)',
+                }}
+              >
+                ⚙
+              </NavLink>
+            )}
             <button className="hbtn" title="Revoir le tuto" aria-label="Revoir le tuto" onClick={openFeatureTour} style={{ padding: '4px 11px', fontFamily: 'var(--vl-display)', fontWeight: 700 }}>?</button>
             {themeBtn}
           </div>
