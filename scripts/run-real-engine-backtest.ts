@@ -54,7 +54,7 @@ const OUT_DIR = resolve(process.cwd(), 'artifacts/engine-backtest')
 // résumés d'activités des six mois sont, eux, filtrés par le moteur (ENGINE_HISTORY_DAYS).
 const WINDOW_DAYS = RUNNER_PROFILE_WINDOW_DAYS
 
-interface LoadedData {
+export interface LoadedData {
   activities: BacktestActivity[]
   /** FC max SAISIE au profil (nullable) — la cascade FCmax est résolue dans le moteur. */
   profileFcByUser: Record<string, number | null>
@@ -125,7 +125,7 @@ function toValidationInput(a: BacktestActivity, hrOf?: HrResolver): RaceCandidat
   }
 }
 
-function buildCasesAndValidation(
+export function buildCasesAndValidation(
   data: LoadedData,
   elevationReferenceMode: ElevationReferenceMode,
 ): { cases: RaceCaseInput[]; validation: ValidationBreakdown } {
@@ -189,7 +189,7 @@ interface Fixture {
   hrRaces?: string[]
 }
 
-function loadFixture(path: string): LoadedData {
+export function loadFixture(path: string): LoadedData {
   const raw = JSON.parse(readFileSync(resolve(process.cwd(), path), 'utf8')) as Fixture
   const streams = raw.streams ?? {}
   const profileFcByUser: Record<string, number | null> = { ...(raw.profileFcByUser ?? raw.fcMaxByUser ?? {}) }
@@ -210,7 +210,7 @@ function loadFixture(path: string): LoadedData {
 
 // ── Source 2 : Supabase (lecture seule) ─────────────────────────────────────────
 
-async function loadFromSupabase(): Promise<LoadedData> {
+export async function loadFromSupabase(): Promise<LoadedData> {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
@@ -349,7 +349,14 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('[backtest] échec :', err instanceof Error ? err.message : err)
-  process.exit(1)
-})
+// Exécuté directement (`npm run backtest:real`) — mais les fonctions de chargement
+// ci-dessus sont aussi importées par `sweep-engine-params.ts`, qui rejoue le banc pour
+// plusieurs réglages sans recharger les données. On ne lance donc `main()` que lorsque ce
+// fichier est le point d'entrée.
+const isEntryPoint = process.argv[1] && resolve(process.argv[1]).endsWith('run-real-engine-backtest.ts')
+if (isEntryPoint) {
+  main().catch((err) => {
+    console.error('[backtest] échec :', err instanceof Error ? err.message : err)
+    process.exit(1)
+  })
+}

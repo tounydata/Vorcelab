@@ -6,7 +6,7 @@
 // est testable et DÉTERMINISTE. Les identifiants sont PSEUDONYMISÉS : les lignes
 // publiques ne contiennent ni UUID brut, ni nom, ni coordonnées GPS.
 
-import { computeRaceProjection, type GpxPoint } from './computeRaceProjection'
+import { type EngineTuning, computeRaceProjection, type GpxPoint } from './computeRaceProjection'
 import type { TerrainWeather } from './terrain'
 import { reconstructGpx, type RawStreams } from './gpxReconstruct'
 import { smoothElevationProfile } from './elevationProfile'
@@ -355,7 +355,7 @@ function buildExplanations(input: {
  * `computedAtISO` = instant d'EXÉCUTION du banc (déterministe si fourni). La date
  * historique du moteur (`as_of_at`) est TOUJOURS le départ de la course.
  */
-export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): ProjectOutcome {
+export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string, tuning?: EngineTuning): ProjectOutcome {
   const race = c.race
   const rawUserId = race.user_id
   const rawRaceId = String(race.strava_activity_id)
@@ -460,7 +460,7 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string): Proje
   // Horloge HISTORIQUE : le moteur se replace au départ de la course (récence,
   // fenêtres 7 j/42 j, ACWR, PR… calculées par rapport à la course, pas au script).
   const asOfMs = Date.parse(race.start_date)
-  const engineCtx = { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs }
+  const engineCtx = { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs, tuning }
   const proj = computeRaceProjection(
     points,
     engineActivities,
@@ -893,6 +893,8 @@ export interface RunRealBacktestOptions {
   confirmedCount?: number
   validation?: ValidationBreakdown
   now?: Date
+  /** Surcharges de constantes moteur — balayage de calibration UNIQUEMENT (cf. EngineTuning). */
+  tuning?: EngineTuning
 }
 
 /** Percentile (interpolation linéaire) d'une liste triée croissante. */
@@ -973,7 +975,7 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
   // de `as_of_at` (date historique de la course, portée par chaque ligne).
   const computedAtISO = (opts.now ?? new Date()).toISOString()
   for (const c of cases) {
-    const out = projectRaceCase(c, computedAtISO)
+    const out = projectRaceCase(c, computedAtISO, opts.tuning)
     if (out.row) rawRows.push(out.row)
     if (out.excluded) rawExcluded.push(out.excluded)
   }

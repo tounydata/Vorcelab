@@ -1,0 +1,47 @@
+name: Engine param sweep (calibration)
+
+# BALAYAGE de constantes moteur, jugé HORS ÉCHANTILLON (leave-one-athlete-out).
+#
+# Pourquoi ce workflow existe : tester un réglage coûtait un aller-retour complet du banc
+# (~3 min) pour UNE seule valeur. Ici les données sont chargées une fois et toutes les
+# combinaisons sont évaluées dans le même run.
+#
+# ⚠ CE N'EST PAS UN OUTIL DE DÉCISION AUTOMATIQUE. Le script publie la MACRO-moyenne des
+#   MAPE par athlète, et refuse explicitement tout gain inférieur à 0,5 pt — sur 7
+#   athlètes, en dessous, on optimise du bruit. Un réglage n'est adopté que s'il gagne
+#   hors échantillon ET qu'un argument de FORME explique pourquoi.
+#
+# LECTURE SEULE : mêmes SELECT que `engine-backtest.yml`, aucune écriture.
+# Déclenchement MANUEL uniquement → la clé service role n'est jamais exposée sur un push.
+#
+# Secrets requis : les MÊMES que `engine-backtest.yml`, rien de neuf à créer.
+#   • SUPABASE_SERVICE_ROLE_KEY
+#   • SUPABASE_URL (ou VITE_SUPABASE_URL)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-sweep
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          # Node 22+ : @supabase/supabase-js s'appuie sur le WebSocket natif.
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run parameter sweep (read-only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/sweep-engine-params.ts
