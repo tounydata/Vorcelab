@@ -44,10 +44,27 @@ function raceActivity(workoutType: number): Record<string, unknown> {
 const points = buildPoints()
 const race = { type: 'Trail' as const, goal_time: null }
 
+// Le FIC est DÉSACTIVÉ par défaut depuis `2026.07-17` : mesuré au banc d'ablation, il
+// dégradait la précision (−0,40 pt seul, et il fait partie des quatre corrections dont le
+// retrait conjoint gagne 0,67 pt). Le mécanisme est conservé et réactivable — ces tests le
+// réactivent explicitement pour continuer à le couvrir.
+const FIC_ON = { ablate: { raceIntensityFactor: false } }
+
 describe('Facteur d\'Intensité de Course (FIC)', () => {
-  it('une course étiquetée accélère la projection (effort course > entraînement)', () => {
+  it('désactivé par DÉFAUT (2026.07-17) — plus aucun ajustement « Allure de course »', () => {
+    // La projection reste influencée par une course étiquetée : c'est l'ANCRAGE qui s'en
+    // sert (et lui SERT — le retirer coûte +3,44 pt au banc). Ce qui disparaît, c'est la
+    // correction FIC elle-même, dont l'ajustement n'est plus produit.
     const withRace = computeRaceProjection(points, [raceActivity(1)], profile, race)
-    const without = computeRaceProjection(points, [raceActivity(0)], profile, race)
+    expect(withRace.personalAdjustments.some((a) => a.label.startsWith('Allure de course'))).toBe(false)
+    // Et le FIC réactivé accélère bien PLUS que l'ancrage seul.
+    const ficOn = computeRaceProjection(points, [raceActivity(1)], profile, race, null, FIC_ON)
+    expect(ficOn.estTimeS).toBeLessThan(withRace.estTimeS)
+  })
+
+  it('réactivé : une course étiquetée accélère la projection (effort course > entraînement)', () => {
+    const withRace = computeRaceProjection(points, [raceActivity(1)], profile, race, null, FIC_ON)
+    const without = computeRaceProjection(points, [raceActivity(0)], profile, race, null, FIC_ON)
     expect(withRace.estTimeS).toBeLessThan(without.estTimeS)
     // Gain cohérent avec un FIC ~1.2 (≈ -15 à -20 %)
     const ratio = withRace.estTimeS / without.estTimeS
@@ -55,8 +72,8 @@ describe('Facteur d\'Intensité de Course (FIC)', () => {
     expect(ratio).toBeLessThan(0.92)
   })
 
-  it('affiche l\'ajustement « Allure de course »', () => {
-    const withRace = computeRaceProjection(points, [raceActivity(1)], profile, race)
+  it('réactivé : affiche l\'ajustement « Allure de course »', () => {
+    const withRace = computeRaceProjection(points, [raceActivity(1)], profile, race, null, FIC_ON)
     expect(withRace.personalAdjustments.some((a) => a.label.startsWith('Allure de course'))).toBe(true)
   })
 
@@ -70,8 +87,8 @@ describe('Facteur d\'Intensité de Course (FIC)', () => {
   it('le FIC est plafonné (jamais > +50 %)', () => {
     // Course absurdement rapide → le plafond protège.
     const insane = { ...raceActivity(1), average_speed: 8, total_elevation_gain: 50 }
-    const withRace = computeRaceProjection(points, [insane], profile, race)
-    const without = computeRaceProjection(points, [raceActivity(0)], profile, race)
+    const withRace = computeRaceProjection(points, [insane], profile, race, null, FIC_ON)
+    const without = computeRaceProjection(points, [raceActivity(0)], profile, race, null, FIC_ON)
     expect(withRace.estTimeS / without.estTimeS).toBeGreaterThanOrEqual(1 / 1.5 - 0.001)
   })
 })

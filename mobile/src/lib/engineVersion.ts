@@ -129,7 +129,7 @@
  *  qu'à jambes fraîches » — c'est une gestion d'allure, pas un gain de fraîcheur) ;
  *  aucune extrapolation au-delà du D− réellement couvert par l'historique ; et un plafond
  *  qui refuse de propager un effondrement invraisemblable plutôt que de le croire. */
-export const ENGINE_VERSION = '2026.07-16'
+export const ENGINE_VERSION = '2026.07-17'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses
