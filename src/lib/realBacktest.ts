@@ -6,7 +6,7 @@
 // est testable et DÉTERMINISTE. Les identifiants sont PSEUDONYMISÉS : les lignes
 // publiques ne contiennent ni UUID brut, ni nom, ni coordonnées GPS.
 
-import { type EngineTuning, computeRaceProjection, type GpxPoint } from './computeRaceProjection'
+import { type EngineAblation, type EngineTuning, computeRaceProjection, type GpxPoint } from './computeRaceProjection'
 import type { TerrainWeather } from './terrain'
 import { reconstructGpx, type RawStreams } from './gpxReconstruct'
 import { smoothElevationProfile } from './elevationProfile'
@@ -355,7 +355,7 @@ function buildExplanations(input: {
  * `computedAtISO` = instant d'EXÉCUTION du banc (déterministe si fourni). La date
  * historique du moteur (`as_of_at`) est TOUJOURS le départ de la course.
  */
-export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string, tuning?: EngineTuning): ProjectOutcome {
+export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string, tuning?: EngineTuning, ablate?: EngineAblation): ProjectOutcome {
   const race = c.race
   const rawUserId = race.user_id
   const rawRaceId = String(race.strava_activity_id)
@@ -460,7 +460,7 @@ export function projectRaceCase(c: RaceCaseInput, computedAtISO?: string, tuning
   // Horloge HISTORIQUE : le moteur se replace au départ de la course (récence,
   // fenêtres 7 j/42 j, ACWR, PR… calculées par rapport à la course, pas au script).
   const asOfMs = Date.parse(race.start_date)
-  const engineCtx = { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs, tuning }
+  const engineCtx = { asOfMs: Number.isNaN(asOfMs) ? undefined : asOfMs, tuning, ablate }
   const proj = computeRaceProjection(
     points,
     engineActivities,
@@ -895,6 +895,8 @@ export interface RunRealBacktestOptions {
   now?: Date
   /** Surcharges de constantes moteur — balayage de calibration UNIQUEMENT (cf. EngineTuning). */
   tuning?: EngineTuning
+  /** Corrections à désactiver — banc d'ablation UNIQUEMENT (cf. EngineAblation). */
+  ablate?: EngineAblation
 }
 
 /** Percentile (interpolation linéaire) d'une liste triée croissante. */
@@ -975,7 +977,7 @@ export function runRealBacktest(cases: RaceCaseInput[], opts: RunRealBacktestOpt
   // de `as_of_at` (date historique de la course, portée par chaque ligne).
   const computedAtISO = (opts.now ?? new Date()).toISOString()
   for (const c of cases) {
-    const out = projectRaceCase(c, computedAtISO, opts.tuning)
+    const out = projectRaceCase(c, computedAtISO, opts.tuning, opts.ablate)
     if (out.row) rawRows.push(out.row)
     if (out.excluded) rawExcluded.push(out.excluded)
   }

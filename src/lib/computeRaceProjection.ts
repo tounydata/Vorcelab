@@ -69,8 +69,42 @@ export const DEFAULT_ENGINE_TUNING: Required<EngineTuning> = {
   anchorMax: 1.5,
 }
 
+/**
+ * ABLATION : désactive une correction pour MESURER ce qu'elle apporte réellement.
+ *
+ * Le moteur applique sept corrections successives par-dessus les seaux d'allure appris
+ * par athlète. Plusieurs sont apprises sur les MÊMES 3-4 courses étiquetées et corrigent
+ * la même chose par des chemins différents — le code lui-même le reconnaît en retenant
+ * « la contrainte la plus lente, pas leur produit » pour éviter de compter deux fois.
+ *
+ * Une correction qu'on ne peut pas retirer est une correction qu'on ne peut pas justifier.
+ * Ces interrupteurs permettent au banc de répondre, pour chacune : si je l'enlève, la
+ * précision se dégrade-t-elle ? Si non, elle ne sert à rien et doit partir.
+ *
+ * `true` = correction DÉSACTIVÉE. Absent → toutes actives, comportement de production
+ * strictement inchangé.
+ */
+export interface EngineAblation {
+  /** FIC — recale les allures d'entraînement vers l'effort de course. */
+  raceIntensityFactor?: boolean
+  /** Fraîcheur — ajuste selon la charge récente (ACWR). */
+  freshness?: boolean
+  /** Ancrage — réaligne sur l'allure plat-équivalente des courses réelles. */
+  anchor?: boolean
+  /** Axe DURÉE de l'ancrage (l'allure se dégrade quand l'effort s'allonge). */
+  durationCalibration?: boolean
+  /** Axe PENTE de l'ancrage (écart personnel à Minetti). */
+  steepnessCalibration?: boolean
+  /** Fade d'endurance au-delà de la plus longue sortie vécue (Riegel). */
+  enduranceFade?: boolean
+  /** Fatigue du dénivelé au-delà du plus gros D+ vécu. */
+  verticalFatigue?: boolean
+}
+
 export interface ProjectionTimeContext {
   asOfMs?: number
+  /** Corrections à désactiver — banc d'ablation UNIQUEMENT (cf. EngineAblation). */
+  ablate?: EngineAblation
   /** Surcharges de constantes pour le banc de calibration. Absent → valeurs de production. */
   tuning?: EngineTuning
   /**
@@ -230,6 +264,8 @@ export function computeRaceProjection(
   // Constantes réglables : valeurs de production par défaut (aucun changement possible
   // par omission). Seul le banc de calibration en fournit d'autres.
   const TUNE = { ...DEFAULT_ENGINE_TUNING, ...(ctx?.tuning ?? {}) }
+  // Ablations : toutes absentes en production → aucune correction désactivée.
+  const ABL: EngineAblation = ctx?.ablate ?? {}
 
   // Nettoyage altimétrique optionnel (production) : écrase le bruit baro/GPS qui
   // gonfle le D+. Si le D+ OFFICIEL est connu (règlement/saisie), on recale le profil
@@ -557,7 +593,7 @@ export function computeRaceProjection(
     const factor = Math.min(1.5, Math.max(1.0, raw))
     return { factor, pct: Math.round((factor - 1) * 100) }
   }
-  const rif = computeRaceIntensityFactor()
+  const rif = ABL.raceIntensityFactor ? { factor: 1, pct: 0 } : computeRaceIntensityFactor()
   // Buckets recalés à l'effort de course (vitesses & VAM × FIC), sinon inchangés.
   const rBucketsScaled = (rif.factor !== 1 && rBuckets
     ? Object.fromEntries(Object.entries(rBuckets).map(([k, b]) => [k, {
@@ -1034,7 +1070,7 @@ export function computeRaceProjection(
 
   // ── 9. Freshness adjustment (CHARGE GÉNÉRALE = tous sports éligibles) ───────
   const freshness = computeFreshnessAdjustment(loadActivities as unknown as RaceActivity[], FC_MAX, asOfMs)
-  if (freshness.multiplier !== 1 && freshness.label) {
+  if (!ABL.freshness && freshness.multiplier !== 1 && freshness.label) {
     estTimeS *= freshness.multiplier
     personalAdjustments.push({
       label: `Charge : ${freshness.label}`,
@@ -1165,7 +1201,9 @@ export function computeRaceProjection(
         pts.map((p) => ({ dplusPerKm: p.dpkm, flatEquivalentPaceS: p.flatPaceS, weight: p.w })),
         { targetDplusPerKm: raceDpKm2 },
       )
-      const steepFlatPaceS = steepnessCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
+      const steepFlatPaceS = ABL.steepnessCalibration
+        ? wAvgFlatPaceS
+        : (steepnessCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS)
       const slopeApplied = steepnessCalibration.active
 
       // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
@@ -1192,7 +1230,9 @@ export function computeRaceProjection(
         let calib = 1
         for (let it = 0; it < 12; it++) {
           durationCalibration = computePersonalDurationCalibration(durationPoints, { targetDurationS })
-          const durFlatPaceS = durationCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS
+          const durFlatPaceS = ABL.durationCalibration
+            ? wAvgFlatPaceS
+            : (durationCalibration.predictedFlatEquivalentPaceS ?? wAvgFlatPaceS)
           // Composition PRUDENTE des deux calibrations : chacune ne sait RALENTIR, et
           // elles décrivent deux axes distincts (pente / durée) appris sur les MÊMES
           // 3-4 courses. Les multiplier reviendrait à compter deux fois un effet déjà
@@ -1237,7 +1277,7 @@ export function computeRaceProjection(
           if (converged) break
         }
         const durationApplied = durationCalibration?.active ?? false
-        estTimeS *= calib
+        if (!ABL.anchor) estTimeS *= calib
         const pct = Math.round((calib - 1) * 100)
         if (pct >= 1) {
           // Le libellé nomme l'axe RÉELLEMENT déterminant (durée, pente, ou les deux) :
@@ -1294,7 +1334,7 @@ export function computeRaceProjection(
       : TUNE.fadeBaseK
     const k = (baseK + TUNE.fadeExtraK * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
     const fade = Math.min(TUNE.fadeCap, Math.pow(extrapolationRatio, k))
-    estTimeS *= fade
+    if (!ABL.enduranceFade) estTimeS *= fade
     const pct = Math.round((fade - 1) * 100)
     if (pct >= 1) personalAdjustments.push({
       label: `Endurance longue distance : +${pct}%`,
@@ -1324,7 +1364,7 @@ export function computeRaceProjection(
     const vRatio = dplus / demoDplus // D+ de la course vs ton plus gros D+ vécu
     const vExtra = Math.min(0.20, Math.max(0, vRatio - 1) * 0.30 * durabilityMult)
     if (vExtra > 0) {
-      estTimeS *= 1 + vExtra
+      if (!ABL.verticalFatigue) estTimeS *= 1 + vExtra
       const pct = Math.round(vExtra * 100)
       if (pct >= 1) personalAdjustments.push({
         label: `Fatigue du dénivelé : +${pct}%`,
