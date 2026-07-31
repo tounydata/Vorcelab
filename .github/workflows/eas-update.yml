@@ -1,0 +1,98 @@
+name: Mise à jour mobile (EAS Update) — sans rebuild
+
+# LIVRE les changements JavaScript aux apps DÉJÀ INSTALLÉES, en quelques secondes,
+# sans reconstruire ni réinstaller quoi que ce soit.
+#
+# ── Pourquoi ce workflow existe ──────────────────────────────────────────────────
+# `expo-updates` était configuré depuis le début (`app.json` → `updates.url`, et les
+# canaux `preview`/`production` dans `eas.json`) mais RIEN ne s'en servait : `eas update`
+# n'apparaissait nulle part dans le dépôt. Seul `eas-build.yml` existait, et un build
+# complet est long, produit un nouvel APK, et oblige à réinstaller.
+#
+# Conséquence constatée le 2026-07-31 : le bouton ADMIN mobile, livré dans le code le
+# 30 juillet, n'était sur aucun téléphone. Le seul build jamais lancé datait du 23 juillet
+# et avait échoué (`EXPO_TOKEN` absent). Le code était juste — il n'avait aucun moyen
+# d'arriver jusqu'à l'appareil.
+#
+# ── Ce que ce workflow peut et ne peut PAS faire ─────────────────────────────────
+# ✅ Tout changement JS/TS : écrans, logique, styles, textes, corrections de bug.
+# ❌ Changement NATIF : ajout/mise à jour d'un module natif, permissions, icône,
+#    version d'SDK Expo. Ces cas exigent un vrai build (`eas-build.yml`).
+#
+# La règle Expo : une mise à jour n'est servie qu'aux apps ayant le MÊME
+# `runtimeVersion` (ici `policy: sdkVersion`). Un changement natif fait donc
+# naturellement diverger la version et l'update n'est pas servie à tort.
+#
+# ── Prérequis (une seule fois) ───────────────────────────────────────────────────
+#   • Secret `EXPO_TOKEN` (expo.dev → Account settings → Access tokens).
+#     C'est le MÊME secret que `eas-build.yml`, qui a échoué faute de l'avoir.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Canal cible — preview = builds internes (QR) · production = App Store / Play"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+      message:
+        description: "Message de la mise à jour (visible dans expo.dev)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  # Deux publications simultanées sur le même canal se marcheraient dessus.
+  group: eas-update-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Vérifier que le secret EXPO_TOKEN existe
+        # Sans lui, `eas` échoue plus loin avec « An Expo user account is required »,
+        # un message qui n'indique pas quoi faire. On échoue tôt, en l'expliquant.
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::Secret EXPO_TOKEN absent. expo.dev → Account settings → Access tokens, puis GitHub → Settings → Secrets and variables → Actions → New repository secret nommé EXPO_TOKEN."
+            exit 1
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Typecheck (une mise à jour cassée part en production sans filet)
+        working-directory: mobile
+        run: npx tsc --noEmit
+
+      - name: Lint
+        working-directory: mobile
+        run: npm run lint
+
+      - name: Publier la mise à jour
+        working-directory: mobile
+        run: |
+          eas update \
+            --channel "${{ inputs.channel }}" \
+            --message "${{ inputs.message || format('{0} — {1}', github.sha, github.event.head_commit.message || 'mise à jour manuelle') }}" \
+            --non-interactive

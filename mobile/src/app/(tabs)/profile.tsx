@@ -16,6 +16,7 @@ import HrZonesCard from '@/components/HrZonesCard'
 import type { HrZoneConfig } from '@/lib/hrZones'
 import { recomputeRunnerProfileServer } from '@/lib/recomputeRunnerProfile'
 import { useLoadEffect } from '@/lib/useLoadEffect'
+import { usePlanTier } from '@/lib/usePlanTier'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -322,6 +323,7 @@ export default function ProfileScreen() {
   const { session } = useAuth()
   const user = session?.user
   const router = useRouter()
+  const { isAdmin } = usePlanTier()
   const [activeTab, setActiveTab] = useState<TabKey>('compte')
   const [loading, setLoading] = useState(true)
   const [row, setRow] = useState<ProfileRow | null>(null)
@@ -433,6 +435,34 @@ export default function ProfileScreen() {
             <Text style={{ color: colors.text3, fontSize: 12 }} numberOfLines={1}>{user?.email}</Text>
           </View>
         </View>
+
+        {/* ADMIN — raccourci VISIBLE, sans scroll.
+            Sur le web, l'admin est une entrée permanente de la barre latérale
+            (`Layout.tsx`). Sur mobile il n'existait que tout en bas de Réglages,
+            à deux niveaux de profondeur : présent dans le code, introuvable à l'usage.
+            Ce raccourci rétablit la parité d'ACCÈS, pas de droits — l'écran vérifie
+            lui-même l'habilitation et chaque RPC la revérifie côté serveur. */}
+        {isAdmin ? (
+          <Pressable
+            onPress={() => router.push('/admin')}
+            style={({ pressed }) => [
+              cardS,
+              {
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                borderColor: colors.ember, opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              <Text style={{ fontSize: 16 }}>⚙</Text>
+              <View>
+                <Text style={{ color: colors.ember, fontSize: 12, fontFamily: font.monoSemiBold, letterSpacing: 1 }}>ADMIN</Text>
+                <Text style={{ color: colors.text3, fontSize: 11 }}>Utilisateurs · Labo · Assistance</Text>
+              </View>
+            </View>
+            <Text style={{ color: colors.ember, fontSize: 18 }}>›</Text>
+          </Pressable>
+        ) : null}
 
         {/* Sous-onglets */}
         <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line, marginBottom: space.md }}>
