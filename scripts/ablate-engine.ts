@@ -60,6 +60,21 @@ const COMBOS: { label: string; ablate: EngineAblation }[] = [
     label: 'sans les inertes (DURÉE + FRAÎCHEUR)',
     ablate: { durationCalibration: true, freshness: true },
   },
+  {
+    // LA SEULE COMBINAISON DÉFENDABLE en l'état. « Ancrage seul » gagne 1,03 pt, mais
+    // l'essentiel de ce gain vient de retirer le FADE et la FATIGUE DU DÉNIVELÉ —
+    // précisément les deux mécanismes conçus pour l'ULTRA, sur un échantillon qui
+    // plafonne à 57 km. Les supprimer reviendrait à optimiser pour les données qu'on a
+    // en sacrifiant le format qu'on prétend servir.
+    //
+    // Cette variante ne retire QUE les corrections sans domaine ultra spécifique. Si
+    // elle capture l'essentiel du gain, elle est adoptable sans paris sur l'inconnu.
+    label: 'sans les QUATRE non-ultra (FIC + PENTE + DURÉE + FRAÎCHEUR)',
+    ablate: {
+      raceIntensityFactor: true, steepnessCalibration: true,
+      durationCalibration: true, freshness: true,
+    },
+  },
 ]
 
 const ABLATIONS: { key: keyof EngineAblation | 'none'; label: string }[] = [
