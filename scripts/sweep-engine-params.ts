@@ -42,7 +42,12 @@ const GRID: Record<keyof EngineTuning, number[]> = {
   // centième sur les 58 courses — le plafond n'est jamais atteint. Le balayer coûtait le
   // double de combinaisons pour zéro information.
   fadeCap: [1.4],
-  anchorMax: [1.35, 1.5, 1.65],
+  anchorMax: [1.5],
+  // HYPOTHÈSE PRINCIPALE de ce balayage. L'ablation a montré que l'ancrage est la seule
+  // correction utile (+3,44 pt si retiré) et que `kilometre_effort` — un ancrage épuré —
+  // bat encore le moteur. Si le cœur (somme des seaux) est plus faible que le recalage,
+  // augmenter la confiance accordée à l'ancrage doit améliorer. Encadré des DEUX côtés.
+  anchorTrustHigh: [0.7, 0.8, 0.9, 0.95, 1.0],
 }
 
 function combinations(): EngineTuning[] {
@@ -92,9 +97,17 @@ function score(cases: RaceCaseInput[], tuning: EngineTuning): Scored | null {
   return { tuning, inSampleMape, macroMape: macro, biasS, n: rows.length, athletes: byAthlete.size }
 }
 
+/** Affiche TOUTES les clés de `DEFAULT_ENGINE_TUNING`, sans liste codée en dur.
+ *
+ *  Un formateur énumérant les paramètres à la main devient faux dès qu'on en ajoute un —
+ *  c'est arrivé au run du 2026-07-31 06:32 : `anchorTrustHigh` était bien balayé
+ *  (80 combinaisons) mais n'apparaissait dans aucune ligne, rendant impossible de savoir
+ *  quelle valeur avait gagné. Le verdict restait juste, l'information était perdue. */
 function fmtTuning(t: EngineTuning): string {
   const merged = { ...DEFAULT_ENGINE_TUNING, ...t }
-  return `baseK=${merged.fadeBaseK.toFixed(2)} extraK=${merged.fadeExtraK.toFixed(2)} cap=${merged.fadeCap.toFixed(2)} anchor=${merged.anchorMax.toFixed(2)}`
+  return (Object.keys(DEFAULT_ENGINE_TUNING) as (keyof EngineTuning)[])
+    .map((k) => `${k}=${(merged[k] as number).toFixed(2)}`)
+    .join(' ')
 }
 
 function isDefault(t: EngineTuning): boolean {
