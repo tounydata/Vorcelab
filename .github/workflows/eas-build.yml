@@ -38,6 +38,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Vérifier que le secret EXPO_TOKEN existe
+        # Le seul build jamais lancé (2026-07-23) a échoué ici même, sur
+        # « An Expo user account is required to proceed » — un message qui ne dit pas
+        # quoi faire. Le lot admin mobile livré le 30 juillet n'est donc jamais arrivé
+        # sur un téléphone. On échoue désormais tôt, en expliquant quoi faire.
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::Secret EXPO_TOKEN absent. expo.dev → Account settings → Access tokens, puis GitHub → Settings → Secrets and variables → Actions → New repository secret nommé EXPO_TOKEN."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
