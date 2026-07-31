@@ -1163,8 +1163,37 @@ export function computeRaceProjection(
           // sur-ajuster. On retient donc la contrainte LA PLUS LENTE, pas leur produit.
           const demoFlatPaceS = Math.max(steepFlatPaceS, durFlatPaceS)
           const targetFlat = projFlatPaceS * (1 - trust) + demoFlatPaceS * trust
-          // Ralentissement seul (≥1) : ne double pas l'accélération du FIC. Plafonné +50 %.
-          const next = Math.min(1.5, Math.max(1.0, targetFlat / projFlatPaceS))
+          // ── Ancrage SYMÉTRIQUE (2026.07-16) ────────────────────────────────────
+          // Cette borne était `Math.max(1.0, …)` : l'ancrage ne pouvait que RALENTIR,
+          // pour « ne pas doubler l'accélération du FIC ».
+          //
+          // Le banc du 2026-07-31 (49 courses, 7 athlètes) a montré que cette asymétrie
+          // coûte cher. `targetFlat / projFlatPaceS` est une ESTIMATION BRUITÉE qui
+          // oscille autour de 1. Or `max(1, x)` sur une variable centrée sur 1 a une
+          // espérance STRICTEMENT SUPÉRIEURE à 1 : c'est un cliquet. Chaque écart vers
+          // le bas est écrasé à 1, chaque écart vers le haut est conservé — le biais
+          // s'accumule dans un seul sens, quelle que soit la qualité du modèle en amont.
+          //
+          // Mesuré : biais moyen +5:10, et la projection est PESSIMISTE sur 68 à 83 %
+          // des courses selon le bucket (83 % sous 15 km, 90 % sur vallonné). Un modèle
+          // non biaisé se tromperait dans les deux sens à parts égales. Ce n'était donc
+          // pas un défaut de calibration mais un défaut de FORME.
+          //
+          // La borne devient symétrique, avec la MÊME tolérance dans les deux sens
+          // (±50 % en rapport d'allure). Aucune valeur n'est choisie pour plaire aux
+          // données : c'est le plafond existant, appliqué aussi vers le bas.
+          //
+          // ⚠ L'enveloppe de ±50 % reste GLOBALE, partagée avec le FIC — elle n'est pas
+          // dupliquée. Le FIC accélère en amont (il met à l'échelle les seaux d'allure),
+          // donc `projFlatPaceS` l'inclut déjà et l'ancrage n'en mesure que le RÉSIDU.
+          // Les laisser se cumuler librement autoriserait ×2,25 d'accélération sur une
+          // seule activité aberrante — ce que le garde-fou historique interdisait à
+          // juste titre. Le plancher de l'ancrage est donc relevé à proportion de ce que
+          // le FIC a déjà consommé : FIC au maximum ⇒ l'ancrage ne peut plus accélérer
+          // du tout, et le comportement d'avant est retrouvé exactement.
+          const ANCHOR_MAX = 1.5
+          const speedFloor = Math.min(1, Math.max(1 / ANCHOR_MAX, rif.factor / ANCHOR_MAX))
+          const next = Math.min(ANCHOR_MAX, Math.max(speedFloor, targetFlat / projFlatPaceS))
           const converged = Math.abs(next - calib) < 1e-4
           calib = next
           targetDurationS = estTimeS * calib
