@@ -42,7 +42,12 @@ const GRID: Record<keyof EngineTuning, number[]> = {
   // centième sur les 58 courses — le plafond n'est jamais atteint. Le balayer coûtait le
   // double de combinaisons pour zéro information.
   fadeCap: [1.4],
-  anchorMax: [1.35, 1.5, 1.65],
+  anchorMax: [1.5],
+  // HYPOTHÈSE PRINCIPALE de ce balayage. L'ablation a montré que l'ancrage est la seule
+  // correction utile (+3,44 pt si retiré) et que `kilometre_effort` — un ancrage épuré —
+  // bat encore le moteur. Si le cœur (somme des seaux) est plus faible que le recalage,
+  // augmenter la confiance accordée à l'ancrage doit améliorer. Encadré des DEUX côtés.
+  anchorTrustHigh: [0.7, 0.8, 0.9, 0.95, 1.0],
 }
 
 function combinations(): EngineTuning[] {

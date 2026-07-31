@@ -60,6 +60,16 @@ export interface EngineTuning {
   fadeCap?: number
   /** Enveloppe de l'ancrage, PARTAGÉE avec le FIC (cf. §9.5). */
   anchorMax?: number
+  /** Poids de l'ancrage quand l'athlète a ≥ 3 courses de référence (défaut 0,9).
+   *
+   *  Hypothèse à tester : le banc d'ablation (2026-07-31) montre que l'ANCRAGE est la
+   *  SEULE des sept corrections qui serve — le retirer coûte +3,44 pt, toutes les autres
+   *  étaient neutres ou nuisibles. Or la meilleure baseline, `kilometre_effort`, n'est
+   *  elle-même qu'un ancrage épuré (médiane des allures par km-effort des courses
+   *  passées) et elle bat encore le moteur. Cela suggère que le CŒUR de la projection
+   *  (somme des seaux d'allure) est plus faible que le recalage qui le rattrape — donc
+   *  qu'il faudrait donner plus de poids à ce dernier. */
+  anchorTrustHigh?: number
 }
 
 export const DEFAULT_ENGINE_TUNING: Required<EngineTuning> = {
@@ -67,6 +77,7 @@ export const DEFAULT_ENGINE_TUNING: Required<EngineTuning> = {
   fadeExtraK: 0.06,
   fadeCap: 1.4,
   anchorMax: 1.5,
+  anchorTrustHigh: 0.9,
 }
 
 /**
@@ -1233,7 +1244,7 @@ export function computeRaceProjection(
       const slopeApplied = steepnessCalibration.active
 
       // Confiance : JAMAIS 100 % (résumé de course, pas la trace GPS) — croît avec le nb de courses.
-      const trust = n >= 3 ? 0.9 : n === 2 ? 0.7 : 0.45
+      const trust = n >= 3 ? TUNE.anchorTrustHigh : n === 2 ? 0.7 : 0.45
       const projFlatPaceS = (estTimeS / (totalDistM / 1000)) / meanGradeFactor(raceDpKm2)
       if (projFlatPaceS > 0) {
         // ── Calibration de DURÉE (fonction PURE, testable) ───────────────────────
