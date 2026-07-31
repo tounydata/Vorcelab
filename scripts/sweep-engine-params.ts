@@ -97,9 +97,17 @@ function score(cases: RaceCaseInput[], tuning: EngineTuning): Scored | null {
   return { tuning, inSampleMape, macroMape: macro, biasS, n: rows.length, athletes: byAthlete.size }
 }
 
+/** Affiche TOUTES les clés de `DEFAULT_ENGINE_TUNING`, sans liste codée en dur.
+ *
+ *  Un formateur énumérant les paramètres à la main devient faux dès qu'on en ajoute un —
+ *  c'est arrivé au run du 2026-07-31 06:32 : `anchorTrustHigh` était bien balayé
+ *  (80 combinaisons) mais n'apparaissait dans aucune ligne, rendant impossible de savoir
+ *  quelle valeur avait gagné. Le verdict restait juste, l'information était perdue. */
 function fmtTuning(t: EngineTuning): string {
   const merged = { ...DEFAULT_ENGINE_TUNING, ...t }
-  return `baseK=${merged.fadeBaseK.toFixed(2)} extraK=${merged.fadeExtraK.toFixed(2)} cap=${merged.fadeCap.toFixed(2)} anchor=${merged.anchorMax.toFixed(2)}`
+  return (Object.keys(DEFAULT_ENGINE_TUNING) as (keyof EngineTuning)[])
+    .map((k) => `${k}=${(merged[k] as number).toFixed(2)}`)
+    .join(' ')
 }
 
 function isDefault(t: EngineTuning): boolean {
