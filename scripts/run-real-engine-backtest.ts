@@ -31,6 +31,7 @@
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { validateRaceCandidate, type RaceCandidateInput } from '../src/lib/raceValidation'
+import { detectRace, buildHrPercentileLookup } from '../src/lib/raceDetection'
 import {
   runRealBacktest,
   type BacktestActivity,
@@ -71,16 +72,56 @@ interface LoadedData {
 
 // ── Sélection & validation des candidats ────────────────────────────────────────
 
-function isRaceCandidate(a: BacktestActivity): boolean {
-  return a.is_race === true || a.workout_type === 1 || a.workout_type === '1'
+/** Rang de FC personnel, par athlète — indispensable à la DÉTECTION automatique.
+ *
+ *  Sans lui, `validateRaceCandidate` appelle `detectRace` sans `hrPercentile`, qui
+ *  répond `no_intensity_signal` : la détection était donc MORTE dans le banc, et seules
+ *  les courses étiquetées à la main pouvaient être testées.
+ */
+type HrResolver = (a: BacktestActivity) => number | null
+
+function buildHrResolver(activities: BacktestActivity[]): HrResolver {
+  const byUser = new Map<string, BacktestActivity[]>()
+  for (const a of activities) {
+    if (!isRunType(a)) continue
+    const list = byUser.get(a.user_id)
+    if (list) list.push(a)
+    else byUser.set(a.user_id, [a])
+  }
+  const lookups = new Map<string, (hr?: number | null) => number | null>()
+  for (const [user, list] of byUser) {
+    lookups.set(user, buildHrPercentileLookup(list.map((a) => ({ averageHeartrate: a.average_heartrate }))))
+  }
+  return (a) => lookups.get(a.user_id)?.(a.average_heartrate) ?? null
 }
 
-function toValidationInput(a: BacktestActivity): RaceCandidateInput {
+/** Candidat = course ÉTIQUETÉE, ou compétition DÉTECTÉE automatiquement.
+ *
+ *  Le banc ne retenait auparavant que `is_race`/`workout_type = 1`. La détection
+ *  automatique n'était appliquée qu'À L'INTÉRIEUR de ce vivier : elle pouvait donc
+ *  seulement REJETER, jamais AJOUTER. Conséquence mesurée sur la base `runnerdata`
+ *  (2026-07-31) : 28 des 31 sorties de 30 km et plus restaient invisibles au banc —
+ *  dont un 78,5 km / 3 914 m D+ — alors qu'elles portaient toutes leur tracé GPS.
+ *  Le moteur était donc validé uniquement sur ce que les athlètes avaient pensé à
+ *  cocher, c'est-à-dire presque exclusivement de la route et du format court.
+ */
+function isRaceCandidate(a: BacktestActivity, hrOf?: HrResolver): boolean {
+  if (a.is_race === true || a.workout_type === 1 || a.workout_type === '1') return true
+  if (!hrOf) return false
+  return detectRace({
+    name: a.name, sportType: a.sport_type, type: a.type,
+    distanceM: a.distance ?? null, movingTimeS: a.moving_time ?? null,
+    elapsedTimeS: a.elapsed_time ?? null, hrPercentile: hrOf(a),
+  }).detected
+}
+
+function toValidationInput(a: BacktestActivity, hrOf?: HrResolver): RaceCandidateInput {
   return {
     name: a.name, sportType: a.sport_type, type: a.type, startDate: a.start_date,
     distanceM: a.distance ?? null, movingTimeS: a.moving_time ?? null, elapsedTimeS: a.elapsed_time ?? null,
     totalElevationGainM: a.total_elevation_gain ?? null, isRace: a.is_race ?? null,
     workoutType: a.workout_type ?? null, deletedAt: a.deleted_at ?? null,
+    hrPercentile: hrOf ? hrOf(a) : null,
   }
 }
 
@@ -88,14 +129,15 @@ function buildCasesAndValidation(
   data: LoadedData,
   elevationReferenceMode: ElevationReferenceMode,
 ): { cases: RaceCaseInput[]; validation: ValidationBreakdown } {
-  const candidates = data.activities.filter(isRaceCandidate)
+  const hrOf = buildHrResolver(data.activities)
+  const candidates = data.activities.filter((a) => isRaceCandidate(a, hrOf))
   const rejectedReasons: Record<string, number> = {}
   const pendingReasons: Record<string, number> = {}
   let confirmed = 0, rejected = 0, pending = 0
   const confirmedRaces: BacktestActivity[] = []
 
   for (const a of candidates) {
-    const v = validateRaceCandidate(toValidationInput(a))
+    const v = validateRaceCandidate(toValidationInput(a, hrOf))
     if (v.status === 'confirmed') { confirmed++; confirmedRaces.push(a) }
     else if (v.status === 'rejected') { rejected++; for (const r of v.reasons) rejectedReasons[r] = (rejectedReasons[r] ?? 0) + 1 }
     else { pending++; for (const r of v.reasons) pendingReasons[r] = (pendingReasons[r] ?? 0) + 1 }
@@ -221,8 +263,9 @@ async function loadFromSupabase(): Promise<LoadedData> {
   //    besoin de la mémoire longue ; le profil de pente n'utilise qu'un sous-ensemble
   //    (56 j) des mêmes streams. Seules les activités course à pied/trail ont besoin de
   //    streams (profil + records) → on ne charge pas les autres sports.
-  const candidates = activities.filter(isRaceCandidate)
-  const confirmed = candidates.filter((a) => validateRaceCandidate(toValidationInput(a)).status === 'confirmed')
+  const hrOf = buildHrResolver(activities)
+  const candidates = activities.filter((a) => isRaceCandidate(a, hrOf))
+  const confirmed = candidates.filter((a) => validateRaceCandidate(toValidationInput(a, hrOf)).status === 'confirmed')
   const neededIds = new Set<string>()
   for (const race of confirmed) {
     neededIds.add(String(race.strava_activity_id))
