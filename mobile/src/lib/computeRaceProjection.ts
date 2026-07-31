@@ -37,8 +37,42 @@ export interface GpxPoint { lat: number; lon: number; ele: number | null }
  * un backtest réellement historique et déterministe (une course de mars n'est plus
  * calculée comme si ses entraînements dataient de juillet).
  */
+/**
+ * Constantes du moteur rendues INJECTABLES pour permettre un balayage mesuré au banc
+ * (`scripts/sweep-engine-params.ts`), sans jamais changer le comportement par défaut.
+ *
+ * ⚠️ Ce n'est PAS une invitation à régler ces valeurs « au feeling ». Un balayage qui
+ * minimise l'erreur sur l'échantillon courant SURAJUSTE : avec 58 courses et 7 athlètes,
+ * on trouverait le réglage parfait pour ces athlètes-là et il se dégraderait sur le
+ * suivant. Toute modification d'une valeur par défaut doit être justifiée par un gain qui
+ * SURVIT au hors-échantillon (leave-one-athlete-out), et de préférence par un argument de
+ * forme — comme le cliquet d'ancrage corrigé en `2026.07-16`, qui améliorait les sept
+ * ventilations d'un coup, ce qu'un coefficient tuné ne fait jamais.
+ *
+ * Absent → valeurs de production ci-dessous, comportement strictement inchangé.
+ */
+export interface EngineTuning {
+  /** Exposant de Riegel de base (k = b − 1) quand l'exposant personnel n'est pas fiable. */
+  fadeBaseK?: number
+  /** Supplément d'exposant quand on extrapole loin au-delà du vécu (Riegel sous-estime l'ultra). */
+  fadeExtraK?: number
+  /** Plafond du facteur de fade (borne de sécurité). */
+  fadeCap?: number
+  /** Enveloppe de l'ancrage, PARTAGÉE avec le FIC (cf. §9.5). */
+  anchorMax?: number
+}
+
+export const DEFAULT_ENGINE_TUNING: Required<EngineTuning> = {
+  fadeBaseK: 0.06,
+  fadeExtraK: 0.06,
+  fadeCap: 1.4,
+  anchorMax: 1.5,
+}
+
 export interface ProjectionTimeContext {
   asOfMs?: number
+  /** Surcharges de constantes pour le banc de calibration. Absent → valeurs de production. */
+  tuning?: EngineTuning
   /**
    * Nettoie/lisse le profil altimétrique d'entrée avant projection (anti-bruit
    * barométrique/GPS). Recommandé en PRODUCTION sur les GPX importés (dont
@@ -193,6 +227,9 @@ export function computeRaceProjection(
   // Horloge de référence. Absent → instant réel (production inchangée). Présent →
   // date historique (banc). Toutes les fenêtres de récence en découlent.
   const asOfMs = ctx?.asOfMs
+  // Constantes réglables : valeurs de production par défaut (aucun changement possible
+  // par omission). Seul le banc de calibration en fournit d'autres.
+  const TUNE = { ...DEFAULT_ENGINE_TUNING, ...(ctx?.tuning ?? {}) }
 
   // Nettoyage altimétrique optionnel (production) : écrase le bruit baro/GPS qui
   // gonfle le D+. Si le D+ OFFICIEL est connu (règlement/saisie), on recale le profil
@@ -1191,7 +1228,7 @@ export function computeRaceProjection(
           // juste titre. Le plancher de l'ancrage est donc relevé à proportion de ce que
           // le FIC a déjà consommé : FIC au maximum ⇒ l'ancrage ne peut plus accélérer
           // du tout, et le comportement d'avant est retrouvé exactement.
-          const ANCHOR_MAX = 1.5
+          const ANCHOR_MAX = TUNE.anchorMax
           const speedFloor = Math.min(1, Math.max(1 / ANCHOR_MAX, rif.factor / ANCHOR_MAX))
           const next = Math.min(ANCHOR_MAX, Math.max(speedFloor, targetFlat / projFlatPaceS))
           const converged = Math.abs(next - calib) < 1e-4
@@ -1254,9 +1291,9 @@ export function computeRaceProjection(
     // sous-estime les ultras) → +0.06 ; puis modulé par TA durabilité (dérive cardiaque).
     const baseK = usePersonalFade
       ? Math.min(0.14, Math.max(0.03, personalFade.exponent - 1))
-      : 0.06
-    const k = (baseK + 0.06 * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
-    const fade = Math.min(1.40, Math.pow(extrapolationRatio, k))
+      : TUNE.fadeBaseK
+    const k = (baseK + TUNE.fadeExtraK * Math.min(1, Math.max(0, (extrapolationRatio - 1.5) / 2))) * durabilityMult
+    const fade = Math.min(TUNE.fadeCap, Math.pow(extrapolationRatio, k))
     estTimeS *= fade
     const pct = Math.round((fade - 1) * 100)
     if (pct >= 1) personalAdjustments.push({
