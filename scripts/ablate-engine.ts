@@ -34,6 +34,34 @@ import type { EngineAblation } from '../src/lib/computeRaceProjection'
 /** Seuil de matérialité (points de MAPE). En dessous : indiscernable du bruit. */
 const MATERIALITY_PT = 0.5
 
+/** Combinaisons testées APRÈS le premier passage individuel.
+ *
+ *  Motivation : au run du 2026-07-31 05:15, les SIX corrections autres que l'ancrage
+ *  avaient toutes un delta NÉGATIF (les retirer améliore), aucune ne franchissant seule
+ *  le seuil de 0,5 pt. Six signaux indépendants de même signe ne sont plus du bruit ;
+ *  leur effet cumulé doit être mesuré. */
+const COMBOS: { label: string; ablate: EngineAblation }[] = [
+  {
+    label: 'ANCRAGE SEUL (les six autres retirées)',
+    ablate: {
+      raceIntensityFactor: true, freshness: true, durationCalibration: true,
+      steepnessCalibration: true, enduranceFade: true, verticalFatigue: true,
+    },
+  },
+  {
+    label: 'sans FATIGUE dénivelé + FIC (les deux plus gros)',
+    ablate: { verticalFatigue: true, raceIntensityFactor: true },
+  },
+  {
+    label: 'sans FATIGUE dénivelé + FIC + FADE',
+    ablate: { verticalFatigue: true, raceIntensityFactor: true, enduranceFade: true },
+  },
+  {
+    label: 'sans les inertes (DURÉE + FRAÎCHEUR)',
+    ablate: { durationCalibration: true, freshness: true },
+  },
+]
+
 const ABLATIONS: { key: keyof EngineAblation | 'none'; label: string }[] = [
   { key: 'none', label: 'AUCUNE (production complète)' },
   { key: 'raceIntensityFactor', label: 'sans FIC (intensité de course)' },
@@ -87,6 +115,10 @@ async function main() {
   const results: Scored[] = []
   for (const { key, label } of ABLATIONS) {
     const ablate: EngineAblation = key === 'none' ? {} : { [key]: true }
+    const s = score(cases, label, ablate)
+    if (s) results.push(s)
+  }
+  for (const { label, ablate } of COMBOS) {
     const s = score(cases, label, ablate)
     if (s) results.push(s)
   }
