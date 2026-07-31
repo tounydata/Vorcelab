@@ -192,7 +192,10 @@ describe('detectRace — formats longs (ultras réellement présents en base)', 
   it('22. l’intensité exigée baisse avec la durée — un ultra se court en endurance', () => {
     expect(minHrPercentileFor(3600)).toBe(MIN_HR_PERCENTILE)          // 1 h : inchangé
     expect(minHrPercentileFor(5 * 3600)).toBeLessThan(MIN_HR_PERCENTILE)
-    expect(minHrPercentileFor(12 * 3600)).toBeCloseTo(0.5, 6)         // plancher
+    // Plancher à ZÉRO : sur un format long la FC ne porte aucune information sur le fait
+    // qu'il s'agisse d'une course (un ultra se court en Z2). Le critère est inapplicable,
+    // pas mal calibré — ce sont les autres portes qui assurent la précision.
+    expect(minHrPercentileFor(12 * 3600)).toBe(0)
     expect(maxStopRatioPctFor(3600)).toBe(MAX_STOP_RATIO_PCT)         // 1 h : inchangé
     expect(maxStopRatioPctFor(12 * 3600)).toBeCloseTo(15, 6)          // plafond
   })
@@ -231,5 +234,35 @@ describe('detectRace — une sortie longue en montagne n’est PAS une course', 
   it('27. parité web ↔ mobile sur un format long', () => {
     const input = { ...longRun, name: 'Trail du GRAND BALLON', movingTimeS: 41833, elapsedTimeS: 45152 }
     expect(mobileDetect(input)).toEqual(detectRace(input))
+  })
+})
+
+// Cas RÉEL qui a motivé le plancher d'intensité à zéro sur les formats longs.
+describe('detectRace — un ultra couru en Z2 (cas Grand Ballon)', () => {
+  const grandBallon = {
+    sportType: 'TrailRun' as const,
+    name: 'Trail du GRAND BALLON 🏔️🎈',
+    distanceM: 78452.9,
+    movingTimeS: 41833,
+    elapsedTimeS: 45152,
+  }
+
+  it('33. détecté malgré une FC moyenne SOUS la médiane de son auteur', () => {
+    // 135,8 bpm sur 12h32 : rang personnel bas, ce qui est NORMAL sur un ultra.
+    const r = detectRace({ ...grandBallon, hrPercentile: 0.2 })
+    expect(r.detected).toBe(true)
+    expect(r.reasons).toContain('long_format')
+  })
+
+  it('34. mais une SORTIE longue de même profil reste exclue', () => {
+    // Même durée, même FC : seul le nom change. La précision vient des autres portes.
+    expect(detectRace({ ...grandBallon, name: 'Sortie trail grand ballon', hrPercentile: 0.2 }).detected).toBe(false)
+    expect(detectRace({ ...grandBallon, name: 'Rando course 12h', hrPercentile: 0.2 }).detected).toBe(false)
+  })
+
+  it('35. et une course COURTE à FC basse reste exclue (seuil intact sous 2 h)', () => {
+    const r = detectRace({ ...grandBallon, distanceM: 11000, movingTimeS: 3600, elapsedTimeS: 3620, hrPercentile: 0.2 })
+    expect(r.detected).toBe(false)
+    expect(r.reasons).toContain('intensity_too_low')
   })
 })

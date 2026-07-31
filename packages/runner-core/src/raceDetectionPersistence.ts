@@ -34,7 +34,7 @@ import { validateRaceCandidate, type RaceValidationStatus } from './raceValidati
  * À incrémenter dès que l'un des deux change, pour pouvoir re-qualifier les lignes
  * obtenues sous une règle antérieure sans les confondre avec les nouvelles.
  */
-export const RACE_DETECTION_VERSION = '2026.07-31+trail-vocabulary'
+export const RACE_DETECTION_VERSION = '2026.07-31+ultra-z2'
 
 /** Familles de sport dont la FC alimente la distribution personnelle de l'athlète. */
 const RUN_SPORTS = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])

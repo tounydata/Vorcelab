@@ -65,8 +65,37 @@ const SHORT_RACE_HOURS = 2
 const LONG_RACE_HOURS = 8
 /** Part d'arrêt tolérée sur un format long (%) — ravitaillements inclus. */
 const MAX_STOP_RATIO_PCT_LONG = 15
-/** Centile de FC minimal exigé sur un format long. */
-const MIN_HR_PERCENTILE_LONG = 0.5
+/** Centile de FC minimal exigé sur un format long.
+ *
+ *  ── Pourquoi ZÉRO, et pourquoi ce n'est pas « baisser un seuil jusqu'à ce que ça passe »
+ *  Un ultra se court en ENDURANCE — en Z2. Ce n'est pas une tendance, c'est la nature du
+ *  format : au-delà de plusieurs heures, personne ne tient une intensité élevée. Et plus
+ *  l'athlète gère bien sa course, plus sa FC moyenne est BASSE. Le critère d'intensité
+ *  punissait donc exactement la course la mieux courue.
+ *
+ *  Sur un format long, la FC ne porte donc AUCUNE information sur le fait qu'il s'agisse
+ *  d'une compétition. Le critère n'est pas mal calibré : il est INAPPLICABLE. Le laisser
+ *  actif avec un seuil abaissé serait garder un test qui ne teste rien, tout en continuant
+ *  d'exclure des courses réelles.
+ *
+ *  Cas mesuré : `Trail du Grand Ballon`, 78,5 km, 3 914 m D+, 12h32, FC moyenne 135,8 —
+ *  sous la médiane de son auteur, donc rejeté quel que soit le seuil au-dessus de zéro.
+ *
+ *  ── Ce qui assure la PRÉCISION à la place ────────────────────────────────────────
+ *  Les autres portes restent toutes actives et sont cumulatives : sport de course à pied,
+ *  distance suffisante, titre personnalisé, NOM D'ÉVÉNEMENT reconnaissable, aucun motif
+ *  de séance (« sortie », « rando », « footing »…), temps d'arrêt cohérent avec le format.
+ *  Une sortie longue en montagne s'appelle « Sortie trail » et reste exclue ; une
+ *  compétition s'appelle « Trail du Grand Ballon » et passe.
+ *
+ *  ── Une piste explorée puis ABANDONNÉE ───────────────────────────────────────────
+ *  Comparer la FC aux efforts de DURÉE COMPARABLE plutôt qu'à toute la distribution
+ *  semblait plus élégant. Vérifié sur les vraies données : l'auteur du 78,5 km a
+ *  5 sorties de plus de 3 h sur 217 — une seule dépasse 6 h. Ni une bande de durée, ni un
+ *  voisinage par rang ne disposent d'assez de points comparables. L'information n'existe
+ *  pas dans les données ; aucune sophistication ne peut la fabriquer.
+ */
+const MIN_HR_PERCENTILE_LONG = 0
 
 /** Progression 0..1 de « course courte » vers « format long », selon la durée. */
 function longFormatRatio(movingTimeS: number): number {
