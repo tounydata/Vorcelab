@@ -40,7 +40,12 @@ describe('calibration de pente individuelle', () => {
       labeledTrail(60, 14000, 30, 2.3),
       labeledTrail(90, 13000, 50, 1.7),
     ]
-    const proj = computeRaceProjection(steepTrail(), steepSensitive, profile, race, null, { asOfMs: now })
+    // Axe PENTE désactivé par défaut depuis `2026.07-17` (banc d'ablation) — réactivé
+    // ici pour continuer à couvrir le mécanisme, qui reste conservé et réactivable.
+    const proj = computeRaceProjection(steepTrail(), steepSensitive, profile, race, null, {
+      asOfMs: now,
+      ablate: { steepnessCalibration: false },
+    })
     // Assertion STRUCTURÉE (indépendante du libellé) : c'est bien l'axe pente qui s'active.
     expect(proj.steepness_calibration_active).toBe(true)
     const labels = proj.personalAdjustments.map((a) => a.label)

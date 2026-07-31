@@ -27,7 +27,7 @@ export interface ValidationCampaign {
  * `ENGINE_VERSION` à l'ouverture (garanti par `validationPolicy.test.ts`). Pour geler une
  * nouvelle version, on ouvre une nouvelle campagne (nouveau label + date).
  */
-// Nouvelle campagne ouverte avec 2026.07-16 : le moteur distingue désormais MARCHER et
+// Nouvelle campagne ouverte avec 2026.07-17 : le moteur distingue désormais MARCHER et
 // COURIR au lieu de moyenner les deux dans un seul chiffre par seau de pente (les temps de
 // montée changent partout où l'athlète marche, et seulement là), et il apprend la tenue en
 // DESCENTE de chaque coureur au lieu de l'ignorer. Les preuves prospectives
@@ -36,7 +36,7 @@ export interface ValidationCampaign {
 // dans EngineAccuracyCard.
 export const VALIDATION_CAMPAIGN: ValidationCampaign = {
   label: 'campagne-2026.07-h',
-  frozenEngineVersion: '2026.07-16',
+  frozenEngineVersion: '2026.07-17',
   startAtISO: '2026-07-30T00:00:00.000Z',
 }
 

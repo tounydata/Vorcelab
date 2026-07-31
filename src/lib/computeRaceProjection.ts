@@ -264,8 +264,34 @@ export function computeRaceProjection(
   // Constantes réglables : valeurs de production par défaut (aucun changement possible
   // par omission). Seul le banc de calibration en fournit d'autres.
   const TUNE = { ...DEFAULT_ENGINE_TUNING, ...(ctx?.tuning ?? {}) }
-  // Ablations : toutes absentes en production → aucune correction désactivée.
-  const ABL: EngineAblation = ctx?.ablate ?? {}
+  // ── Corrections DÉSACTIVÉES par défaut depuis `2026.07-17` ──────────────────────
+  // Mesuré au banc d'ablation du 2026-07-31 (58 courses, 7 athlètes, macro-moyenne des
+  // MAPE par athlète) : retirer ces quatre corrections ENSEMBLE améliore la précision de
+  // **0,67 pt** (12,60 % → 11,93 %). Individuellement, chacune était sous le seuil de
+  // bruit (FIC −0,40 · pente −0,28 · durée −0,03 · fraîcheur −0,03) — mais les quatre
+  // pointaient dans le MÊME sens, et leur effet cumulé est matériel.
+  //
+  // Pourquoi elles nuisaient : toutes les quatre sont apprises sur les MÊMES 3-4 courses
+  // étiquetées que l'ancrage, et corrigent la même chose par des chemins différents. Le
+  // code le reconnaissait déjà en retenant « la contrainte la plus lente, pas leur
+  // produit » — un contournement, pas une solution. L'ancrage seul fait le travail :
+  // le retirer, LUI, coûte +3,44 pt.
+  //
+  // ⚠️ Le FADE d'endurance et la FATIGUE DU DÉNIVELÉ sont VOLONTAIREMENT CONSERVÉS.
+  // Les retirer améliorerait encore le chiffre (−1,03 pt au total), mais ce sont les deux
+  // mécanismes du format ULTRA, et l'échantillon plafonne à 57 km. Les supprimer
+  // reviendrait à optimiser pour les données qu'on a en sacrifiant le format qu'on
+  // prétend servir. À réexaminer quand le banc contiendra des courses de plus de 60 km.
+  //
+  // Le code de ces quatre corrections est CONSERVÉ et réactivable (`ablate: { … : false }`)
+  // — leur verdict dépend de l'échantillon, il pourra changer.
+  const DEFAULT_ABLATED: EngineAblation = {
+    raceIntensityFactor: true,
+    steepnessCalibration: true,
+    durationCalibration: true,
+    freshness: true,
+  }
+  const ABL: EngineAblation = { ...DEFAULT_ABLATED, ...(ctx?.ablate ?? {}) }
 
   // Nettoyage altimétrique optionnel (production) : écrase le bruit baro/GPS qui
   // gonfle le D+. Si le D+ OFFICIEL est connu (règlement/saisie), on recale le profil
