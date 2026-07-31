@@ -32,10 +32,17 @@ import { DEFAULT_ENGINE_TUNING, type EngineTuning } from '../src/lib/computeRace
 /** Grille explorée. Volontairement PETITE et centrée sur les valeurs de production :
  *  un balayage large sur 58 courses ne mesurerait que du bruit. */
 const GRID: Record<keyof EngineTuning, number[]> = {
-  fadeBaseK: [0.06, 0.09, 0.12],
-  fadeExtraK: [0.06, 0.12, 0.20],
-  fadeCap: [1.4, 1.8],
-  anchorMax: [1.5],
+  // Encadre la production (0,06) DES DEUX CÔTÉS. Le premier balayage ne testait que des
+  // valeurs supérieures ou égales : la tendance étant monotone (plus de fade = plus
+  // d'erreur), il ne pouvait pas voir un optimum situé EN DESSOUS. Une grille à sens
+  // unique ne mesure pas un optimum, elle mesure une pente.
+  fadeBaseK: [0.02, 0.04, 0.06, 0.09],
+  fadeExtraK: [0.0, 0.03, 0.06, 0.12],
+  // `fadeCap` retiré de la grille : 1,40 et 1,80 donnent des résultats IDENTIQUES au
+  // centième sur les 58 courses — le plafond n'est jamais atteint. Le balayer coûtait le
+  // double de combinaisons pour zéro information.
+  fadeCap: [1.4],
+  anchorMax: [1.35, 1.5, 1.65],
 }
 
 function combinations(): EngineTuning[] {
