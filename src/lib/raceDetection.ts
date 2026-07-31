@@ -25,12 +25,67 @@
 // certains athlètes (des footings à 88 % de FCmax). On utilise donc le rang de la FC
 // dans la PROPRE distribution de l'athlète — insensible à une FCmax mal renseignée.
 
-/** Part maximale de temps d'arrêt (%) — une course ne s'arrête pas. */
+/** Part maximale de temps d'arrêt (%) — une course COURTE ne s'arrête pas. */
 export const MAX_STOP_RATIO_PCT = 3
-/** Centile minimal de FC dans la distribution personnelle de l'athlète. */
+/** Centile minimal de FC dans la distribution personnelle, sur une course COURTE. */
 export const MIN_HR_PERCENTILE = 0.85
 /** Distance minimale considérée (m). */
 export const MIN_DISTANCE_M = 3000
+
+// ── Pourquoi deux seuils dépendent désormais de la DURÉE ─────────────────────────
+// Les deux constantes ci-dessus ont été calibrées sur des marathons et des semis. Sur
+// la base `runnerdata` (2026-07-31), elles rejetaient 28 des 31 sorties de 30 km et
+// plus — dont un 78,5 km / 3 914 m D+ — et les 2 seules confirmées étaient deux
+// marathons ROUTE. Autrement dit : le détecteur était aveugle au format ULTRA,
+// c'est-à-dire précisément au marché visé.
+//
+// La cause n'est pas un mauvais réglage, c'est un changement de régime :
+//
+//  • ARRÊTS. « Une course ne s'arrête pas » est vrai sur un semi (médiane 0,2 %). Sur
+//    un ultra, les ravitaillements FONT PARTIE de la course : temps d'arrêt moyen
+//    mesuré à 17,9 % au-delà de 42 km, contre 4,0 % en dessous.
+//  • INTENSITÉ. Un ultra se court en ENDURANCE : sa FC moyenne est structurellement
+//    plus basse que celle d'un 10 km. Exiger le top 15 % personnel revient à exiger
+//    qu'un 12 h soit couru à l'intensité d'un cross — ce qui n'arrive jamais.
+//
+// Les deux seuils s'assouplissent donc avec la durée, et UNIQUEMENT avec elle. Les
+// courses courtes gardent EXACTEMENT le comportement d'avant (aucune régression
+// possible sous 2 h). Le garde-fou de précision reste le cumul : nom d'événement
+// reconnaissable, aucun motif de séance, arrêts et intensité cohérents avec le format.
+//
+// ⚠ Les pentes ci-dessous sont des interpolations PRUDENTES, pas des valeurs mesurées
+// course par course : l'échantillon d'ultras confirmés est encore vide, donc il n'y a
+// rien à ajuster dessus. Elles sont volontairement plus strictes que les moyennes
+// observées (15 % d'arrêts tolérés contre 17,9 % mesurés). À revalider au banc dès que
+// des ultras y entrent.
+
+/** Durée (h) en dessous de laquelle les seuils « course courte » s'appliquent tels quels. */
+const SHORT_RACE_HOURS = 2
+/** Durée (h) à partir de laquelle l'assouplissement est maximal. */
+const LONG_RACE_HOURS = 8
+/** Part d'arrêt tolérée sur un format long (%) — ravitaillements inclus. */
+const MAX_STOP_RATIO_PCT_LONG = 15
+/** Centile de FC minimal exigé sur un format long. */
+const MIN_HR_PERCENTILE_LONG = 0.5
+
+/** Progression 0..1 de « course courte » vers « format long », selon la durée. */
+function longFormatRatio(movingTimeS: number): number {
+  const h = movingTimeS / 3600
+  if (!Number.isFinite(h) || h <= SHORT_RACE_HOURS) return 0
+  return Math.min(1, (h - SHORT_RACE_HOURS) / (LONG_RACE_HOURS - SHORT_RACE_HOURS))
+}
+
+/** Part d'arrêt tolérée (%) pour une course de cette durée. 3 % sous 2 h → 15 % à 8 h. */
+export function maxStopRatioPctFor(movingTimeS: number): number {
+  const t = longFormatRatio(movingTimeS)
+  return MAX_STOP_RATIO_PCT + t * (MAX_STOP_RATIO_PCT_LONG - MAX_STOP_RATIO_PCT)
+}
+
+/** Centile de FC exigé pour une course de cette durée. 0,85 sous 2 h → 0,50 à 8 h. */
+export function minHrPercentileFor(movingTimeS: number): number {
+  const t = longFormatRatio(movingTimeS)
+  return MIN_HR_PERCENTILE + t * (MIN_HR_PERCENTILE_LONG - MIN_HR_PERCENTILE)
+}
 
 /**
  * Titres AUTOMATIQUES de Strava. Un athlète qui court un dossard renomme son activité ;
@@ -51,14 +106,39 @@ const SESSION_PATTERNS = [
   /footing/, /chauffement/, /crassage/, /r[ée]cup/,
   /rando/, /sortie\s+longue/, /jardinage/, /\breco\b/,
   /\btest\b/, /entra[îi]n/,
+  // « Sortie trail », « Sorti trail avec Max », « Sortie grand ballon » : on ne baptise
+  // pas une compétition « sortie ». Signal négatif indispensable depuis que le
+  // vocabulaire trail ci-dessous est reconnu — sans lui, toute sortie longue en
+  // montagne deviendrait une course. Vérifié : AUCUNE des 50 compétitions confirmées
+  // de la base ne contient ce mot.
+  /\bsorti(e|es)?\b/,
 ]
 
-/** Motifs de COURSE : nom d'événement ou classement annoncé. */
+/** Motifs de COURSE : nom d'événement ou classement annoncé.
+ *
+ *  ⚠ Cette liste était PUREMENT ROUTIÈRE (marathon, semi, corrida, foulée, ekiden,
+ *  cross). Aucun terme de trail. Conséquence mesurée sur la base : « Trail du Grand
+ *  Ballon » (78,5 km, 3 914 m D+), « Belfortrail », « Trail du petit ballon »,
+ *  « Munster trail 82 » étaient tous rejetés en `no_race_name_signal` — la porte qui
+ *  fermait le plus d'ultras, loin devant les seuils d'arrêt et d'intensité.
+ *
+ *  Les motifs trail ajoutés ci-dessous décrivent des NOMS D'ÉVÉNEMENT (« Trail du… »,
+ *  « …trail » accolé, « trail » suivi du format), jamais le mot « trail » seul — sans
+ *  quoi la moindre sortie en sentier deviendrait une compétition.
+ */
 const RACE_PATTERNS = [
   /marathon/, /semi/, /corrida/, /foul[ée]e/, /ekiden/,
   /challenge/, /championnat/, /\bcross\b/, /course\s+de\s+/,
   /[0-9]{1,3}\s*\/\s*[0-9]{2,4}/,          // « 42/389 »
   /[0-9]{1,3}\s*(e|er|[èe]me)\s+(au\s+g[ée]n[ée]ral|scratch)/, // « 29e au général »
+  // ── Vocabulaire TRAIL ──────────────────────────────────────────────────────────
+  /\btrail\s+(du|de|des|d[’']|le|la)\b/,   // « Trail du Grand Ballon », « Trail des collines »
+  /\b\w{2,}trail\b/,                        // « Belfortrail », « Tetrail », « ultratrail »
+  /\btrail\s+\d{2,3}\b/,                    // « Munster trail 82 »
+  /\btrail\b.*\b\d{2,3}\s*km\b/,            // « Trail grand ballon 32km », « Thur trail 18km »
+  /\bultra[\s-]?trail\b/, /\bskyrace\b/,
+  /kilom[èe]tre\s+vertical/, /\bkv\b/,
+  /temps\s+officiel/,                       // « Temps officiel 6h59,41 » — signal fort
 ]
 
 const RUN_SPORTS = new Set(['run', 'trailrun', 'trail run', 'running', 'virtualrun'])
@@ -123,20 +203,28 @@ export function detectRace(input: RaceDetectionInput): RaceDetectionResult {
   if (!RACE_PATTERNS.some((re) => re.test(name))) return { detected: false, reasons: ['no_race_name_signal'] }
   reasons.push('race_name_signal')
 
-  // Temps d'arrêt : une course ne s'arrête pas (médiane mesurée 0,2 %).
+  // Temps d'arrêt : une course COURTE ne s'arrête pas (médiane mesurée 0,2 %). Sur un
+  // format long, les ravitaillements en font partie → tolérance croissante (cf. en-tête).
+  const longFormat = longFormatRatio(moving) > 0
+  if (longFormat) reasons.push('long_format')
   const elapsed = input.elapsedTimeS
   if (typeof elapsed === 'number' && elapsed > 0) {
     const stopPct = ((elapsed - moving) / moving) * 100
-    if (stopPct > MAX_STOP_RATIO_PCT) return { detected: false, reasons: ['too_many_stops'] }
+    if (stopPct > maxStopRatioPctFor(moving)) {
+      return { detected: false, reasons: [...reasons, 'too_many_stops'] }
+    }
     reasons.push('low_stop_ratio')
   }
 
-  // Intensité RELATIVE à l'athlète (immunisée contre une FCmax mal saisie).
+  // Intensité RELATIVE à l'athlète (immunisée contre une FCmax mal saisie). Le seuil
+  // s'abaisse avec la durée : un ultra se court en endurance, pas au seuil.
   const pct = input.hrPercentile
   if (typeof pct !== 'number' || !Number.isFinite(pct)) {
     return { detected: false, reasons: [...reasons, 'no_intensity_signal'] }
   }
-  if (pct < MIN_HR_PERCENTILE) return { detected: false, reasons: [...reasons, 'intensity_too_low'] }
+  if (pct < minHrPercentileFor(moving)) {
+    return { detected: false, reasons: [...reasons, 'intensity_too_low'] }
+  }
   reasons.push('personal_intensity_high')
 
   return { detected: true, reasons }

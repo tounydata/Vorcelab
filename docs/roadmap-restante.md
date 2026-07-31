@@ -1,5 +1,16 @@
 # Roadmap restante & décision — état au 2026-07-15
 
+> ⚠️ **DOCUMENT PÉRIMÉ — conservé pour l'historique. Voir `docs/audit-2026-07-31.md`.**
+>
+> 50 commits ont atterri depuis. Deux affirmations ci-dessous sont désormais FAUSSES :
+> - le **webhook Stripe n'est plus bloqué** — il est implémenté (signature HMAC, idempotence
+>   par ledger, écriture de `user_entitlements`). Il reste à le tester en test-mode ;
+> - le **goulot de données est levé** — couverture GPS 100 % sur les sorties à pied,
+>   50 compétitions qualifiées par la détection automatique.
+>
+> Ce qui reste vrai : `leaked_password_protection` n'est **toujours pas activé**, l'IAP
+> mobile reste à faire, et la validation juridique reste à obtenir.
+
 Récapitulatif de l'audit « produit commercial sécurisé ». Ce qui est fait, ce qui
 reste, et la décision go/no-go, avec les preuves.
 
