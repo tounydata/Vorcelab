@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import type { ProjectionResult } from '../../../lib/computeRaceProjection'
 import type { RaceConditions, WeatherImpact } from '../../../lib/raceWeather'
-import type { NutritionRow } from '../../../lib/nutritionPlan'
+import type { NutritionRow, NutritionIntakePlan } from '../../../lib/nutritionPlan'
 import type { RavitoPoint } from '../../../lib/crewPlan'
+import PrepChecklist from './PrepChecklist'
 import ElevationProfile, { type ProfileMarker, type ProfileSection } from './ElevationProfile'
 import {
   HEAT_COLORS, HEAT_NAMES, sectionHeat, profilePoints, elapsedSecAtKm, fmtHM, fmtRaceTimeS, altAtKm,
@@ -20,6 +21,10 @@ interface Props {
   race: RaceMeta
   athleteName: string
   nutritionRows: NutritionRow[]
+  /** Plan de prises (source de la checklist « à préparer la veille »). */
+  intakePlan?: NutritionIntakePlan | null
+  /** Identifiant de course : isole les cases cochées de la checklist. */
+  raceId?: string | null
   ravitos: RavitoPoint[]
   forecast: RaceConditions | null
   weather: WeatherImpact | null
@@ -65,7 +70,7 @@ function Confidence({ level }: { level: number }) {
   )
 }
 
-export default function StrategyView({ projection: p, race, athleteName, nutritionRows, ravitos, forecast, weather }: Props) {
+export default function StrategyView({ projection: p, race, athleteName, nutritionRows, intakePlan, raceId, ravitos, forecast, weather }: Props) {
   const [hoverKm, setHoverKm] = useState<number | null>(null)
   const totalKm = p.totalDistM / 1000
   // Temps cible en count-up, synchronisé avec le dessin du profil d'élévation
@@ -190,6 +195,11 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
 
       {/* ── SECTIONS CLÉS ────────────────────────────────────────────────── */}
       <KeySections p={p} ravitos={ravitos} />
+
+      {/* ── CHECKLIST J-1 ────────────────────────────────────────────────── */}
+      {/* Le plan nutrition dit quoi avaler et quand ; la checklist dit quoi
+          poser sur la table la veille au soir. */}
+      {intakePlan && <PrepChecklist plan={intakePlan} estTimeS={p.estTimeS} storageId={raceId ?? null} />}
 
       {/* ── ACCORDÉONS ───────────────────────────────────────────────────── */}
       <Accordion label="PLAN DE COURSE — TOUTES LES SECTIONS" meta={`${p.sections.length} SECTIONS`}>
