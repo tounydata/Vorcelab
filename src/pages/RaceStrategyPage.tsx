@@ -7,7 +7,7 @@ import { maybeLockProjectionSnapshot } from '../lib/saveProjectionSnapshot'
 import { RUNNER_PROFILE_SCHEMA_VERSION } from '../lib/runnerProfileSchema'
 import { fetchRaceForecast, computeWeatherImpact } from '../lib/raceWeather'
 import type { ConditionPenalties } from '../lib/runnerProfile'
-import { computeNutritionPlan } from '../lib/nutritionPlan'
+import { computeNutritionPlan, computeNutritionIntakes } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import { useHydrationHabits } from '../lib/useHydrationHabits'
 import { extractGpxWaypoints, type RavitoPoint, type UnclassifiedWaypoint } from '../lib/crewPlan'
@@ -510,8 +510,10 @@ export default function RaceStrategyPage() {
   const nutritionLevel = (profileData?.nutrition_level as string | undefined)
     ?? hydrationHabits.suggestedNutritionLevel
     ?? undefined
-  const nutritionRows = projection
-    ? computeNutritionPlan(
+  // Mêmes entrées pour le tableau (vue « pendant la course ») et pour le plan de
+  // prises brut (vue « à préparer la veille ») : une seule vérité nutritionnelle.
+  const nutritionArgs = projection
+    ? [
         projection.totalDistM,
         projection.estTimeS,
         nutritionLevel,
@@ -520,8 +522,10 @@ export default function RaceStrategyPage() {
         ravitos, // fusionne les prises glucidiques avec les ravitaillements réels
         undefined, // cadence par défaut
         hydrationHabits.fluidMlPerH, // débit d'hydratation appris (mL/h) → personnalise la cible
-      )
-    : []
+      ] as const
+    : null
+  const nutritionRows = nutritionArgs ? computeNutritionPlan(...nutritionArgs) : []
+  const intakePlan = nutritionArgs ? computeNutritionIntakes(...nutritionArgs) : null
 
   return (
     <>
@@ -729,6 +733,8 @@ export default function RaceStrategyPage() {
               race={race}
               athleteName={athleteName}
               nutritionRows={nutritionRows}
+              intakePlan={intakePlan}
+              raceId={raceId ?? null}
               ravitos={ravitos}
               forecast={forecast ?? null}
               weather={weather}

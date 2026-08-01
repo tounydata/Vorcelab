@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { computeRaceProjection, type GpxPoint } from '../lib/computeRaceProjection'
-import { computeNutritionPlan } from '../lib/nutritionPlan'
+import { computeNutritionPlan, computeNutritionIntakes } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 import StrategyView from '../components/races/strategy/StrategyView'
 import type { RavitoPoint } from '../lib/crewPlan'
@@ -73,6 +73,11 @@ export default function DemoStrategyPage() {
     [projection],
   )
 
+  const intakePlan = useMemo(
+    () => computeNutritionIntakes(projection.totalDistM, projection.estTimeS, 'standard', resolveNutritionProducts(undefined)),
+    [projection],
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--vl-bg)' }}>
       {/* ── Bandeau démo ── */}
@@ -123,6 +128,8 @@ export default function DemoStrategyPage() {
           race={DEMO_RACE}
           athleteName="Toi sur ce parcours"
           nutritionRows={nutritionRows}
+          intakePlan={intakePlan}
+          raceId="demo"
           ravitos={DEMO_RAVITOS}
           forecast={null}
           weather={null}
