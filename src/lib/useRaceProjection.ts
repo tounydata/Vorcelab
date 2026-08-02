@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from './computeRaceProjection'
-import { fetchRaceForecast } from './raceWeather'
+import { fetchRaceForecast, computeWeatherImpact } from './raceWeather'
+import { applyWeatherToProjection } from './applyWeatherToProjection'
+import type { ConditionPenalties } from './runnerProfile'
 import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from './engineHistory'
 
 // ─── Projection de course PARTAGÉE (page Stratégie ↔ dashboard). ──────────────
@@ -95,7 +97,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
   })
 
   // Passe 2 : surfaces en cache (persistées par la stratégie) + précipitations.
-  return useMemo<ProjectionResult | null>(() => {
+  const terrainProjection = useMemo<ProjectionResult | null>(() => {
     if (!baseProjection || !pts || !race) return null
     const cached = race.surfaces
     if (Array.isArray(cached) && cached.length === baseProjection.sections.length && (cached as (string | null)[]).some((s) => s != null)) {
@@ -113,4 +115,19 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
     }
     return baseProjection
   }, [baseProjection, pts, race, forecast, activitiesData, profileData])
+
+  // Passe 3 : la météo du jour J entre dans la CIBLE, comme sur la page Stratégie.
+  // Sans cette passe, le dashboard afficherait un temps plus optimiste que la page
+  // stratégie pour la même course — exactement la divergence que ce hook existe
+  // pour empêcher.
+  return useMemo<ProjectionResult | null>(() => {
+    if (!terrainProjection) return null
+    const impact = forecast
+      ? computeWeatherImpact(
+          forecast,
+          (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties,
+        )
+      : null
+    return applyWeatherToProjection(terrainProjection, impact, race?.goal_time ?? null)
+  }, [terrainProjection, forecast, profileData, race?.goal_time])
 }

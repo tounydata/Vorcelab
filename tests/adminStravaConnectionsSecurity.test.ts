@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// La migration CORRECTIVE fait foi : c'est elle qui décrit la fonction telle
+// qu'elle tourne en production (cf. 20260802010000, qui remplace la première
+// version — celle-ci référençait une colonne absente du schéma réel).
 const migration = readFileSync(
-  resolve('supabase/migrations/20260802000000_admin_strava_connections.sql'),
+  resolve('supabase/migrations/20260802010000_fix_admin_strava_connections.sql'),
   'utf8',
 ).toLowerCase()
 
@@ -40,6 +43,13 @@ describe('inventaire des connexions Strava (admin)', () => {
     expect(sql).not.toContain('raw_data')
   })
 
+  it('n’utilise que des colonnes réellement présentes en production', () => {
+    // strava_tokens n'a PAS de created_at en base : la première version de la
+    // fonction levait « column st.created_at does not exist » à chaque appel.
+    expect(sql).not.toContain('st.created_at')
+    expect(sql).toContain('st.updated_at')
+  })
+
   it('expose la dernière connexion, la dernière activité et la dernière synchro', () => {
     expect(migration).toContain('u.last_sign_in_at')
     expect(migration).toContain('max(sa.start_date) as last_activity_at')
@@ -48,8 +58,11 @@ describe('inventaire des connexions Strava (admin)', () => {
     expect(migration).toContain('sa.deleted_at is null')
   })
 
-  it('classe les comptes les plus endormis en tête', () => {
-    expect(migration).toContain('asc nulls first')
+  it('mesure l’inactivité sur l’usage Strava, pas sur l’ouverture de l’app', () => {
+    // Un jeton sert à récupérer des activités : c'est la dernière activité qui
+    // dit si la place est occupée pour rien, pas la dernière connexion.
+    expect(sql).toContain('order by act.last_activity_at asc nulls first')
+    expect(sql).not.toContain('greatest(u.last_sign_in_at')
   })
 
   it('la carte admin ne déclenche aucune déconnexion : lecture seule', () => {
@@ -58,5 +71,6 @@ describe('inventaire des connexions Strava (admin)', () => {
     expect(card).not.toContain('strava_disconnect')
     expect(card).not.toContain('.delete()')
     expect(card).toContain("supabase.rpc('admin_list_strava_connections')")
+    expect(card).toContain('token_updated_at')
   })
 })

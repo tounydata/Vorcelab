@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { supabase } from '../lib/supabase'
@@ -6,6 +6,7 @@ import { computeRaceProjection, type GpxPoint, type ProjectionResult } from '../
 import { maybeLockProjectionSnapshot } from '../lib/saveProjectionSnapshot'
 import { RUNNER_PROFILE_SCHEMA_VERSION } from '../lib/runnerProfileSchema'
 import { fetchRaceForecast, computeWeatherImpact } from '../lib/raceWeather'
+import { applyWeatherToProjection } from '../lib/applyWeatherToProjection'
 import type { ConditionPenalties } from '../lib/runnerProfile'
 import { computeNutritionPlan, computeNutritionIntakes } from '../lib/nutritionPlan'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
@@ -241,6 +242,15 @@ export default function RaceStrategyPage() {
   const weather = forecast
     ? computeWeatherImpact(forecast, (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties)
     : null
+
+  // La météo entre dans la CIBLE, plus à côté d'elle. `projection` reste la sortie
+  // BRUTE du moteur (snapshot de validation, banc historique) ; tout ce qui est
+  // MONTRÉ ou PLANIFIÉ — heures de passage, nutrition, plan d'assistance — part de
+  // la version ajustée, sinon le plan se contredit lui-même.
+  const shownProjection = useMemo(
+    () => applyWeatherToProjection(projection, weather, race?.goal_time ?? null),
+    [projection, weather, race?.goal_time],
+  )
 
   // `shouldSave` : import GPX explicite → on persiste + affiche le statut « enregistré ».
   // `silentSync` : recalcul auto au chargement → on re-persiste la projection fraîche
@@ -512,10 +522,12 @@ export default function RaceStrategyPage() {
     ?? undefined
   // Mêmes entrées pour le tableau (vue « pendant la course ») et pour le plan de
   // prises brut (vue « à préparer la veille ») : une seule vérité nutritionnelle.
-  const nutritionArgs = projection
+  // Nutrition/hydratation calées sur la durée RÉELLEMENT annoncée : s'il fait chaud,
+  // la course dure plus longtemps et il faut davantage de gels et de boisson.
+  const nutritionArgs = shownProjection
     ? [
-        projection.totalDistM,
-        projection.estTimeS,
+        shownProjection.totalDistM,
+        shownProjection.estTimeS,
         nutritionLevel,
         resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined),
         profileData?.nutrition_no_caffeine === true,
@@ -729,7 +741,7 @@ export default function RaceStrategyPage() {
           {/* onglet STRATEGIE (refonte direction A) */}
           <div className={`strategie-section${tab !== 'strategie' ? ' tab-screen-hidden' : ''}`}>
             <StrategyView
-              projection={projection}
+              projection={shownProjection!}
               race={race}
               athleteName={athleteName}
               nutritionRows={nutritionRows}
@@ -744,7 +756,7 @@ export default function RaceStrategyPage() {
           {/* ── ONGLET ASSISTANCE ─────────────────────────────────────────────── */}
           <div className={`plan-assistance-section crew-plan-page-break${tab !== 'assistance' ? ' tab-screen-hidden' : ''}`}>
             <CrewPlan
-              projection={projection}
+              projection={shownProjection!}
               nutritionRows={nutritionRows}
               ravitos={ravitos}
               unclassifiedWaypoints={unclassifiedWaypoints}
@@ -763,7 +775,7 @@ export default function RaceStrategyPage() {
           {isPast && (
             <div className={`${tab !== 'resultat' ? 'tab-screen-hidden' : ''}`}>
               <RaceResult
-                projection={projection}
+                projection={shownProjection!}
                 activities={activitiesData ?? []}
                 resultActivityId={race.result_activity_id}
                 raceDateISO={race.date}

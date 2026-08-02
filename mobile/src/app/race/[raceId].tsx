@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -10,6 +10,7 @@ import { computeRaceProjection, type GpxPoint, type ProjectionResult } from '@/l
 import { maybeLockProjectionSnapshot } from '@/lib/saveProjectionSnapshot'
 import { RUNNER_PROFILE_SCHEMA_VERSION } from '@/lib/runnerProfileSchema'
 import { fetchRaceForecast, computeWeatherImpact } from '@/lib/raceWeather'
+import { applyWeatherToProjection } from '@/lib/applyWeatherToProjection'
 import type { ConditionPenalties } from '@/lib/runnerProfile'
 import { computeNutritionPlan } from '@/lib/nutritionPlan'
 import { resolveNutritionProducts } from '@/lib/nutritionProducts'
@@ -183,6 +184,14 @@ export default function RaceStrategyScreen() {
   }, [startPt, race?.date, race?.start_time, baseEstTimeS])
   const weather = forecast ? computeWeatherImpact(forecast, (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties) : null
 
+  // La météo entre dans la CIBLE (parité web) : `projection` reste la sortie brute
+  // du moteur pour le snapshot de validation, `shownProjection` est ce qu'on montre
+  // et ce sur quoi on planifie.
+  const shownProjection = useMemo(
+    () => applyWeatherToProjection(projection, weather, race?.goal_time ?? null),
+    [projection, weather, race?.goal_time],
+  )
+
   // Terrain → re-projection avec malus.
   const surfacesDoneRef = useRef(false)
   useEffect(() => {
@@ -277,7 +286,7 @@ export default function RaceStrategyScreen() {
   // Profil glucidique : choix explicite (Réglages) sinon profil suggéré par les g/h observés.
   const nutritionLevel = (profileData?.nutrition_level as string | undefined) ?? hydrationHabits.suggestedNutritionLevel ?? undefined
   const nutritionRows = projection
-    ? computeNutritionPlan(projection.totalDistM, projection.estTimeS, nutritionLevel, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true, ravitos, undefined, hydrationHabits.fluidMlPerH)
+    ? computeNutritionPlan(shownProjection!.totalDistM, shownProjection!.estTimeS, nutritionLevel, resolveNutritionProducts(profileData?.nutrition_products as string[] | undefined), profileData?.nutrition_no_caffeine === true, ravitos, undefined, hydrationHabits.fluidMlPerH)
     : []
 
 
@@ -328,12 +337,12 @@ export default function RaceStrategyScreen() {
             </View>
 
             {tab === 'strategie' ? (
-              <StrategyView projection={projection} race={race} athleteName={athleteName} nutritionRows={nutritionRows} ravitos={ravitos} forecast={forecast ?? null} weather={weather} />
+              <StrategyView projection={shownProjection!} race={race} athleteName={athleteName} nutritionRows={nutritionRows} ravitos={ravitos} forecast={forecast ?? null} weather={weather} />
             ) : null}
 
             {tab === 'assistance' ? (
               <CrewPlan
-                projection={projection} nutritionRows={nutritionRows} ravitos={ravitos} unclassifiedWaypoints={unclassifiedWaypoints}
+                projection={shownProjection!} nutritionRows={nutritionRows} ravitos={ravitos} unclassifiedWaypoints={unclassifiedWaypoints}
                 onAddRavito={(r) => updateRavitos([...ravitos.filter((x) => x.km !== r.km), r])}
                 onRemoveRavito={(km) => updateRavitos(ravitos.filter((r) => r.km !== km))}
                 onPromoteWaypoint={(w) => { updateRavitos([...ravitos.filter((x) => x.km !== w.km), { km: w.km, label: w.label, source: 'gpx' as const }]); setUnclassifiedWaypoints((prev) => prev.filter((u) => u.km !== w.km)) }}
@@ -342,7 +351,7 @@ export default function RaceStrategyScreen() {
             ) : null}
 
             {tab === 'resultat' && isPast ? (
-              <RaceResult projection={projection} activities={activitiesData ?? []} resultActivityId={race.result_activity_id} raceDateISO={race.date} fcMax={(profileData?.fc_max as number | undefined) ?? null} annotations={annotations} onChangeAnnotations={updateAnnotations} ravitos={ravitos} onLink={(id) => linkResult(id)} onUnlink={() => linkResult(null)} />
+              <RaceResult projection={shownProjection!} activities={activitiesData ?? []} resultActivityId={race.result_activity_id} raceDateISO={race.date} fcMax={(profileData?.fc_max as number | undefined) ?? null} annotations={annotations} onChangeAnnotations={updateAnnotations} ravitos={ravitos} onLink={(id) => linkResult(id)} onUnlink={() => linkResult(null)} />
             ) : null}
           </>
         ) : null}

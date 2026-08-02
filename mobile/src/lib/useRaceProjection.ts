@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { computeRaceProjection, type GpxPoint, type ProjectionResult } from './computeRaceProjection'
-import { fetchRaceForecast } from './raceWeather'
+import { fetchRaceForecast, computeWeatherImpact } from './raceWeather'
+import { applyWeatherToProjection } from './applyWeatherToProjection'
+import type { ConditionPenalties } from './runnerProfile'
 import { ENGINE_COLUMNS_SELECT, engineHistoryBounds } from './engineHistory'
 
 // ─── Projection de course PARTAGÉE (page Stratégie ↔ dashboard). ──────────────
@@ -50,7 +52,7 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
     fetchRaceForecast({ lat: startPt.lat, lon: startPt.lon, dateISO: race.date.slice(0, 10), startTime: race.start_time ?? null, estDurationS: baseProjection.estTimeS }).then(setForecast).catch(() => {})
   }, [startPt, race?.date, race?.start_time, baseProjection])
 
-  return useMemo<ProjectionResult | null>(() => {
+  const terrainProjection = useMemo<ProjectionResult | null>(() => {
     if (!baseProjection || !pts || !race) return null
     const cached = race.surfaces
     if (Array.isArray(cached) && cached.length === baseProjection.sections.length && (cached as (string | null)[]).some((s) => s != null)) {
@@ -61,4 +63,13 @@ export function useRaceProjection(race: RaceForProjection | null | undefined): P
     }
     return baseProjection
   }, [baseProjection, pts, race, forecast, activitiesData, profileData])
+
+  // Passe 3 : la météo du jour J entre dans la CIBLE (parité avec la page Stratégie).
+  return useMemo<ProjectionResult | null>(() => {
+    if (!terrainProjection) return null
+    const impact = forecast
+      ? computeWeatherImpact(forecast, (profileData?.runner_profile as { conditionPenalties?: ConditionPenalties } | undefined)?.conditionPenalties)
+      : null
+    return applyWeatherToProjection(terrainProjection, impact, race?.goal_time ?? null)
+  }, [terrainProjection, forecast, profileData, race?.goal_time])
 }

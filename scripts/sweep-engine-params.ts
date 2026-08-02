@@ -7,6 +7,15 @@
 //
 // ⚠️ CE SCRIPT NE DOIT PAS SERVIR À CHOISIR LE MEILLEUR RÉGLAGE EN ÉCHANTILLON.
 //
+// CORRECTION DE MÉTHODE (2026-08-02). Ce qui suit était ANNONCÉ mais pas fait : le
+// script classait les réglages sur la macro-moyenne des MAPE de TOUS les athlètes,
+// puis élisait le meilleur — c'est-à-dire qu'il faisait juger le réglage par les
+// athlètes qui l'avaient choisi. La macro corrige le poids d'un athlète prolifique,
+// elle ne corrige pas d'avoir vu ses données avant de décider. Le verdict passe
+// désormais par `selectTuningLeaveOneAthleteOut` : pour chaque athlète, le réglage
+// est élu sur les AUTRES, puis mesuré sur lui. Les colonnes en échantillon restent
+// affichées, mais comme description — plus comme décision.
+//
 // Avec 58 courses et 7 athlètes, minimiser la MAPE sur l'échantillon complet revient à
 // apprendre les particularités de CES athlètes : on trouverait un réglage parfait ici et
 // dégradé sur le 8ᵉ arrivant. C'est le mode d'échec classique, et il est silencieux.
@@ -28,6 +37,7 @@
 import { loadFixture, loadFromSupabase, buildCasesAndValidation } from './run-real-engine-backtest'
 import { runRealBacktest, type RaceCaseInput } from '../src/lib/realBacktest'
 import { DEFAULT_ENGINE_TUNING, type EngineTuning } from '../src/lib/computeRaceProjection'
+import { selectTuningLeaveOneAthleteOut, type TuningErrors } from '../src/lib/backtestLoao'
 
 /** Grille explorée. Volontairement PETITE et centrée sur les valeurs de production :
  *  un balayage large sur 58 courses ne mesurerait que du bruit. */
@@ -65,8 +75,10 @@ interface Scored {
   tuning: EngineTuning
   /** MAPE (%) sur toutes les courses — À NE PAS UTILISER SEULE pour choisir. */
   inSampleMape: number
-  /** Macro-moyenne des MAPE par athlète — la métrique de décision. */
+  /** Macro-moyenne des MAPE par athlète — DESCRIPTIVE, toujours en échantillon. */
   macroMape: number
+  /** Erreurs absolues par athlète — matière première du leave-one-athlete-out. */
+  errorsByAthlete: Map<string, number[]>
   /** Biais moyen signé (s), toutes courses. */
   biasS: number
   n: number
@@ -94,7 +106,7 @@ function score(cases: RaceCaseInput[], tuning: EngineTuning): Scored | null {
   for (const [, errs] of byAthlete) macro += errs.reduce((a, b) => a + b, 0) / errs.length
   macro /= byAthlete.size
 
-  return { tuning, inSampleMape, macroMape: macro, biasS, n: rows.length, athletes: byAthlete.size }
+  return { tuning, inSampleMape, macroMape: macro, errorsByAthlete: byAthlete, biasS, n: rows.length, athletes: byAthlete.size }
 }
 
 /** Affiche TOUTES les clés de `DEFAULT_ENGINE_TUNING`, sans liste codée en dur.
@@ -158,21 +170,46 @@ async function main() {
   console.log(`[sweep] production : macro ${base.macroMape.toFixed(2)} % · échantillon ${base.inSampleMape.toFixed(2)} %`)
   console.log(`[sweep] meilleur   : macro ${best.macroMape.toFixed(2)} % · échantillon ${best.inSampleMape.toFixed(2)} % (${fmtTuning(best.tuning)})`)
 
-  const macroGain = base.macroMape - best.macroMape
-  if (isDefault(best.tuning)) {
-    console.log('\n[sweep] ✅ Aucun réglage ne bat la production HORS ÉCHANTILLON. Ne rien changer.')
-  } else if (macroGain < 0.5) {
+  // ── VERDICT : leave-one-athlete-out ────────────────────────────────────────
+  // Les colonnes ci-dessus sont DESCRIPTIVES : elles classent les réglages sur les
+  // athlètes qui les ont élus. Le verdict, lui, choisit le réglage sans voir
+  // l'athlète sur lequel il sera mesuré. Sur sept athlètes, c'est toute la
+  // différence entre « ce réglage marche » et « ce réglage marche sur eux ».
+  const verdict = selectTuningLeaveOneAthleteOut<EngineTuning>(
+    scored.map((s): TuningErrors<EngineTuning> => ({ tuning: s.tuning, errorsByAthlete: s.errorsByAthlete })),
+    isDefault,
+  )
+
+  console.log('')
+  if (!verdict) {
+    console.log('[sweep] ⚠ Leave-one-athlete-out impossible (moins de deux athlètes exploitables).')
+    return
+  }
+
+  console.log('── LEAVE-ONE-ATHLETE-OUT ──')
+  console.log('| athlète tenu à l’écart | réglage élu par les autres | MAPE hors éch. | MAPE production |')
+  console.log('|---|---|--:|--:|')
+  for (const p of verdict.perAthlete) {
     console.log(
-      `\n[sweep] ⚠ Le meilleur réglage ne gagne que ${macroGain.toFixed(2)} pt en macro — sous le seuil ` +
-      `de 0,5 pt. Sur 7 athlètes, c'est indiscernable du bruit : NE PAS retenir.`,
-    )
-  } else {
-    console.log(
-      `\n[sweep] Gain macro de ${macroGain.toFixed(2)} pt. À confirmer avant adoption : vérifier qu'AUCUNE ` +
-      `ventilation ne régresse (rapport complet du banc), et qu'un argument de FORME explique le gain — ` +
-      `un coefficient qui marche sans qu'on sache pourquoi est un surajustement qui s'ignore.`,
+      `| ${p.athleteId} | ${fmtTuning(p.chosen)} | ${p.heldOutMape.toFixed(1)} % | ${p.baselineMape.toFixed(1)} % |`,
     )
   }
+  console.log('')
+  console.log(`[loao] production      : ${verdict.baselineMape.toFixed(2)} %`)
+  console.log(`[loao] hors échantillon: ${verdict.loaoMape.toFixed(2)} % (${verdict.gain >= 0 ? '+' : ''}${verdict.gain.toFixed(2)} pt)`)
+  console.log(`[loao] stabilité de la sélection : ${Math.round(verdict.selectionStability * 100)} % (${verdict.selectionCounts.length} réglage(s) élu(s))`)
+  console.log('')
+  console.log(verdict.adopt
+    ? `[sweep] ✅ ADOPTABLE — ${verdict.reason}\n         Reste à fournir un argument de FORME : un coefficient qui marche sans qu'on sache pourquoi est un surajustement qui s'ignore.`
+    : `[sweep] ⛔ NE PAS RETENIR — ${verdict.reason}`)
+
+  // Repère de lecture : l'écart entre le classement en échantillon et le verdict
+  // hors échantillon est la mesure directe du surajustement de ce balayage.
+  const macroGain = base.macroMape - best.macroMape
+  console.log(
+    `\n[sweep] Pour mémoire : en échantillon, le meilleur réglage gagnait ${macroGain.toFixed(2)} pt — ` +
+    `hors échantillon, ${verdict.gain.toFixed(2)} pt.`,
+  )
 }
 
 main().catch((err) => {

@@ -191,6 +191,8 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
 function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: WeatherImpact | null; forecast: RaceConditions | null }) {
   const rows = p.personalAdjustments ?? []
   const hasWeather = !!weather && weather.totalPct !== 0
+  // La météo est INCLUSE dans le temps cible affiché (cf. applyWeatherToProjection).
+  const weatherInTarget = (p.weatherAppliedPct ?? 0) !== 0
   const weatherFirm = !!forecast?.available && forecast.daysToRace <= 3
   if (!rows.length && !hasWeather) return null
   return (
@@ -200,7 +202,7 @@ function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: W
         {rows.map((a, i) => <Row key={i} color={a.color} label={a.label} detail={a.detail} />)}
         {hasWeather ? (
           <Row color={weatherFirm ? colors.ember : colors.text3} label={weatherFirm ? 'Météo (jour J)' : 'Météo (indicative)'}
-            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'}${weatherFirm ? ' · appliqué au temps « prudent »' : ` · prévision à J−${forecast!.daysToRace}, se précise vers J-3`}`} />
+            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'}${weatherInTarget ? ' · déjà compris dans le temps cible' : ''}${weatherFirm ? '' : ` · prévision à J−${forecast!.daysToRace}, se précise vers J-3`}`} />
         ) : null}
       </View>
     </View>
@@ -213,7 +215,9 @@ function ScenarioBand({ p, weather, forecast }: { p: ProjectionResult; weather: 
   const span = Math.max(1, hi - lo)
   const pos = (s: number) => Math.max(0, Math.min(100, ((s - lo) / span) * 100))
   const pTarget = pos(p.estTimeS)
-  const weatherS = weather ? p.estTimeS * weather.factor : null
+  // La cible porte déjà la météo : pas de second repère, sinon on la compte deux fois.
+  const weatherPending = weather != null && (p.weatherAppliedPct ?? 0) === 0
+  const weatherS = weatherPending ? p.estTimeS * weather!.factor : null
   const pW = weatherS != null ? pos(weatherS) : null
   return (
     <View style={{ width: '100%' }}>
@@ -263,7 +267,8 @@ function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | '
 }
 
 function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; race: RaceMeta; forecast: RaceConditions; weather: WeatherImpact | null }) {
-  const adj = weather ? p.estTimeS * weather.factor : p.estTimeS
+  const applied = (p.weatherAppliedPct ?? 0) !== 0
+  const adj = applied || !weather ? p.estTimeS : p.estTimeS * weather.factor
   const pct = weather?.totalPct ?? 0
   return (
     <View style={[cardStyle, { padding: 20, gap: 16 }]}>
@@ -272,7 +277,7 @@ function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; 
           <Eyebrow>CONDITIONS LE JOUR J · J−{forecast.daysToRace}</Eyebrow>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
             <Text style={{ fontSize: 38, color: colors.ember, fontWeight: '700' }}>{fmtHM(adj / 60)}</Text>
-            <Text style={{ fontSize: 13, color: colors.text2 }}>cible ajustée météo</Text>
+            <Text style={{ fontSize: 13, color: colors.text2 }}>{applied ? 'temps cible — météo comprise' : 'cible ajustée météo'}</Text>
             {pct > 0 ? <Text style={{ fontSize: 12, color: colors.ember, fontWeight: '600' }}>+{pct}%</Text> : null}
           </View>
         </View>

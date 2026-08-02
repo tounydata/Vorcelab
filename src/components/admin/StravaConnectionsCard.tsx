@@ -14,7 +14,12 @@ import { supabase } from '../../lib/supabase'
  */
 const STRAVA_ATHLETE_LIMIT = 10
 
-/** Au-delà, un compte est considéré endormi (aucun signe de vie). */
+/**
+ * Au-delà, un compte est considéré endormi. Le critère est la dernière ACTIVITÉ
+ * Strava, pas la dernière connexion : un jeton sert à récupérer des activités,
+ * donc quelqu'un qui ouvre l'app sans plus jamais courir occupe une place pour
+ * rien — c'est exactement le compte qu'on cherche quand le quota est plein.
+ */
 const IDLE_DAYS = 30
 
 interface StravaConnection {
@@ -25,7 +30,8 @@ interface StravaConnection {
   athlete_id: number
   athlete_name: string | null
   scope: string | null
-  connected_at: string | null
+  /** Dernier rafraîchissement du jeton (la date de liaison n'existe pas en base). */
+  token_updated_at: string | null
   last_sign_in_at: string | null
   last_sync_at: string | null
   last_activity_at: string | null
@@ -90,7 +96,7 @@ export default function StravaConnectionsCard() {
             Qui occupe un jeton athlète
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--vl-text-2)', marginTop: 4 }}>
-            Trié du plus endormi au plus actif — dernier signe de vie = connexion ou activité.
+            Trié du plus endormi au plus actif — l'ordre suit la dernière activité Strava, pas la dernière connexion.
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -148,7 +154,7 @@ export default function StravaConnectionsCard() {
                 {r.email}
               </div>
               <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 9, color: 'var(--vl-text-3)', marginTop: 2 }}>
-                Strava #{r.athlete_id} · relié {fmtDate(r.connected_at)}
+                Strava #{r.athlete_id} · jeton MAJ {fmtDate(r.token_updated_at)}
               </div>
             </div>
             <Cell label="Dernière connexion" value={since(r.last_sign_in_at)} sub={fmtDate(r.last_sign_in_at)} dim={!r.last_sign_in_at} />
