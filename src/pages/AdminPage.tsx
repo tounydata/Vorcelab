@@ -9,6 +9,7 @@ import StatsTab from '../components/admin/StatsTab'
 import EngineAccuracyCard from '../components/admin/EngineAccuracyCard'
 import AdminLabTab from '../components/admin/AdminLabTab'
 import AdminSupportTab from '../components/admin/AdminSupportTab'
+import StravaConnectionsCard from '../components/admin/StravaConnectionsCard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -567,6 +568,9 @@ export default function AdminPage() {
       {tab === 'lab' && <AdminLabTab users={users} />}
 
       {tab === 'users' && <>
+      {/* Occupation du quota d'athlètes Strava — qui dort, qui court */}
+      <StravaConnectionsCard />
+
       {/* Accès rapide : passer tous les utilisateurs en test */}
       <div className="card" style={{ marginBottom: '1.5rem', padding: '14px 16px' }}>
         <div className="clabel" style={{ marginBottom: 8 }}>ACCÈS RAPIDE — TEST GLOBAL</div>
