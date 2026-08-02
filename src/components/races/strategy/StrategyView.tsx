@@ -133,6 +133,14 @@ export default function StrategyView({ projection: p, race, athleteName, nutriti
               <span className="display tnum" style={{ fontSize: 82, color: 'var(--vl-growth-2)', lineHeight: .82 }}>{fmtRaceTimeS(animatedTimeS)}</span>
               <div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--vl-text-2)', letterSpacing: '.18em' }}>TEMPS CIBLE</div>
+                {/* Le grand chiffre porte la météo du jour J : on le dit ICI, à côté
+                    de lui, et pas seulement dans un encart plus bas que personne ne
+                    lit avant de partir. */}
+                {(p.weatherAppliedPct ?? 0) !== 0 && (
+                  <div className="mono" style={{ fontSize: 9.5, color: 'var(--vl-ember)', letterSpacing: '.12em', marginTop: 5 }}>
+                    MÉTÉO COMPRISE · +{p.weatherAppliedPct}%
+                  </div>
+                )}
                 <div style={{ marginTop: 9 }}><Confidence level={confLevel} /></div>
                 <div className="mono" style={{ fontSize: 9.5, color: 'var(--vl-text-3)', marginTop: 7 }}>CONFIANCE {p.confidence === 'good' ? 'BONNE' : p.confidence === 'medium' ? 'MOYENNE' : 'À CONFIRMER'}</div>
               </div>
@@ -220,6 +228,8 @@ function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: W
   const hasWeather = !!weather && weather.totalPct !== 0
   // Avant J-3, la prévision est encore instable → on l'annonce comme indicative.
   const weatherFirm = !!forecast?.available && forecast.daysToRace <= 3
+  // La météo est INCLUSE dans le temps cible affiché (cf. applyWeatherToProjection).
+  const weatherInTarget = (p.weatherAppliedPct ?? 0) !== 0
   if (!rows.length && !hasWeather) return null
   const Row = ({ color, label, detail }: { color: string; label: string; detail: string }) => (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, fontSize: 12.5, lineHeight: 1.45 }}>
@@ -237,7 +247,7 @@ function WhyThisTime({ p, weather, forecast }: { p: ProjectionResult; weather: W
           <Row
             color={weatherFirm ? 'var(--vl-ember)' : 'var(--vl-text-3)'}
             label={weatherFirm ? 'Météo (jour J)' : 'Météo (indicative)'}
-            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'}${weatherFirm ? ' · appliqué au temps « prudent »' : ` · prévision à J−${forecast!.daysToRace}, se précise vers J-3`}`}
+            detail={`+${weather!.totalPct}% — ${weather!.items.map((it) => it.label.toLowerCase()).join(', ') || 'conditions'}${weatherInTarget ? ' · déjà compris dans le temps cible' : ''}${weatherFirm ? '' : ` · prévision à J−${forecast!.daysToRace}, se précise vers J-3`}`}
           />
         )}
       </div>
@@ -252,7 +262,11 @@ function ScenarioBand({ p, weather, forecast }: { p: ProjectionResult; weather: 
   const span = Math.max(1, hi - lo)
   const pos = (s: number) => Math.max(0, Math.min(100, ((s - lo) / span) * 100))
   const pTarget = pos(p.estTimeS)
-  const weatherS = weather ? p.estTimeS * weather.factor : null
+  // Le curseur « cible » INCLUT déjà la météo quand elle s'applique : afficher un
+  // second point météo reviendrait à compter la chaleur deux fois. On ne garde un
+  // repère distinct que si, pour une raison quelconque, elle n'a pas été appliquée.
+  const weatherPending = weather != null && (p.weatherAppliedPct ?? 0) === 0
+  const weatherS = weatherPending ? p.estTimeS * weather!.factor : null
   const pW = weatherS != null ? pos(weatherS) : null
   return (
     <div style={{ width: '100%' }}>
@@ -316,7 +330,10 @@ function KeyCard({ variant, sec, passageHM }: { variant: 'risk' | 'recovery' | '
 
 // ── ConditionsBlock ───────────────────────────────────────────────────────────
 function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; race: RaceMeta; forecast: RaceConditions; weather: WeatherImpact | null }) {
-  const adj = weather ? p.estTimeS * weather.factor : p.estTimeS
+  // `p.estTimeS` porte DÉJÀ la météo (applyWeatherToProjection) : on ne remultiplie
+  // que dans le cas résiduel où elle n'aurait pas été appliquée en amont.
+  const applied = (p.weatherAppliedPct ?? 0) !== 0
+  const adj = applied || !weather ? p.estTimeS : p.estTimeS * weather.factor
   const pct = weather?.totalPct ?? 0
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -325,7 +342,7 @@ function ConditionsBlock({ p, race, forecast, weather }: { p: ProjectionResult; 
           <Eyebrow>CONDITIONS LE JOUR J · J−{forecast.daysToRace}</Eyebrow>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
             <span className="display tnum" style={{ fontSize: 38, color: 'var(--vl-ember)' }}>{fmtHM(adj / 60)}</span>
-            <span style={{ fontSize: 13, color: 'var(--vl-text-2)' }}>cible ajustée météo</span>
+            <span style={{ fontSize: 13, color: 'var(--vl-text-2)' }}>{applied ? 'temps cible — météo comprise' : 'cible ajustée météo'}</span>
             {pct > 0 && <span className="mono" style={{ fontSize: 12, color: 'var(--vl-ember)', fontWeight: 600 }}>+{pct}%</span>}
           </div>
         </div>

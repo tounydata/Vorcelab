@@ -23,6 +23,7 @@ import { isEligiblePersonalCalibrationRace, selectActivitiesForTrainingLoad, typ
 import { buildHrPercentileLookup } from './raceDetection'
 import { assessBestEffortQuality, type MergedBestEffort } from './bestEfforts'
 import { fitFadeExponent } from './fadeModel'
+import { compareToGoal } from './raceGoalCompare'
 
 export interface GpxPoint { lat: number; lon: number; ele: number | null }
 
@@ -186,6 +187,13 @@ export interface ProjectionResult {
   estTimeS: number
   timeMin: number
   timeMax: number
+  /**
+   * % de météo DÉJÀ intégré à `estTimeS`, `timeMin`, `timeMax` et `sectionTimes`
+   * (absent ou 0 = sortie brute du moteur). Le moteur ne le renseigne jamais
+   * lui-même : il est posé en aval par `applyWeatherToProjection`, au moment de
+   * l'affichage. Sert à ne PAS recompter la météo une seconde fois côté UI.
+   */
+  weatherAppliedPct?: number
   confidence: 'good' | 'medium' | 'low'
   basePaceS: number
   isTrail: boolean
@@ -1468,26 +1476,10 @@ export function computeRaceProjection(
   const timeMax = estTimeS * (1 + halfWidth)
 
   // ── 11. Goal comparison ───────────────────────────────────────────────────
-  let goalLabel: string | undefined
-  let goalCompareColor: string | undefined
-  let goalCompareStr: string | undefined
-
-  if (race?.goal_time) {
-    const m = race.goal_time.match(/(\d+)[hH](\d*)/)
-    if (m) {
-      const goalSec = parseInt(m[1]) * 3600 + (parseInt(m[2]) || 0) * 60
-      const absDiff = Math.abs(goalSec - Math.round(estTimeS))
-      const diffH = Math.floor(absDiff / 3600)
-      const diffM = Math.floor((absDiff % 3600) / 60)
-      const diffStr = `${diffH > 0 ? diffH + 'h' : ''}${String(diffM).padStart(diffH > 0 ? 2 : 1, '0')}min`
-      const ratio = Math.round(estTimeS) / goalSec
-      if (ratio < 0.94) { goalLabel = 'Très conservateur'; goalCompareColor = 'var(--vl-text-3)'; goalCompareStr = `Projection ${diffStr} plus rapide que ton objectif` }
-      else if (ratio < 0.97) { goalLabel = 'Conservateur'; goalCompareColor = 'var(--vl-growth)'; goalCompareStr = `Projection ${diffStr} plus rapide que ton objectif` }
-      else if (ratio <= 1.03) { goalLabel = 'Réaliste'; goalCompareColor = 'var(--vl-growth)'; goalCompareStr = 'Objectif aligné avec la projection Vorcelab' }
-      else if (ratio <= 1.10) { goalLabel = 'Ambitieux'; goalCompareColor = 'var(--vl-amber)'; goalCompareStr = `Objectif ${diffStr} plus rapide que la projection Vorcelab` }
-      else { goalLabel = 'Très ambitieux'; goalCompareColor = 'var(--vl-ember)'; goalCompareStr = `Objectif ${diffStr} plus rapide que la projection Vorcelab` }
-    }
-  }
+  // Seuils déplacés dans `raceGoalCompare` (fonction pure) : le verdict doit
+  // pouvoir être RECALCULÉ quand le temps affiché change — la météo du jour J
+  // s'applique désormais à la cible, en aval du moteur.
+  const { goalLabel, goalCompareColor, goalCompareStr } = compareToGoal(estTimeS, race?.goal_time)
 
   // Repli si TOUTES (ou l'écrasante majorité) des sections sont retombées sur le
   // modèle générique faute de bucket appris. Seuil : > 50 % des sections chronométrées.

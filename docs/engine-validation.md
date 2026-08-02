@@ -170,6 +170,18 @@ porte `error_vs_moving_*`, `error_vs_elapsed_*`, `stop_gap_s/pct` et `stop_class
 l'intégrité des groupes et expose la sensibilité (macro-moyenne des MAPE par fold). Le
 rapport publie `in_sample`, `leave_one_date_out`, `leave_one_athlete_out`.
 
+**Balayage de constantes — correction de méthode (2026-08-02).** Quand un réglage est
+*choisi* (et non seulement mesuré), la macro-moyenne ne suffit plus : `sweep-engine-params`
+classait les combinaisons sur les MAPE de **tous** les athlètes puis élisait la meilleure —
+le réglage était donc jugé par les athlètes qui l'avaient élu. La macro corrige le poids
+d'un athlète prolifique, pas le fait d'avoir vu ses données avant de décider. Le verdict
+passe désormais par `selectTuningLeaveOneAthleteOut` (`src/lib/backtestLoao.ts`) : pour
+chaque athlète, le réglage est élu **sur les autres**, puis mesuré sur lui. Un réglage
+n'est déclaré adoptable qu'en réunissant trois conditions — gain hors échantillon
+≥ 0,5 pt, sélection stable (≥ 60 % des athlètes élisent le même réglage), et aucun athlète
+qui régresse de plus de 0,5 pt. Un gain de moyenne payé par quelqu'un n'est pas une
+amélioration.
+
 ### 6. `used_fallback` réel + qualité des données
 
 `used_fallback` / `fallback_sources` reflètent les **vraies** sources mobilisées (allure
