@@ -128,8 +128,20 @@
  *  Trois bornes : jamais d'accélération (un athlète parti prudemment finit « plus vite
  *  qu'à jambes fraîches » — c'est une gestion d'allure, pas un gain de fraîcheur) ;
  *  aucune extrapolation au-delà du D− réellement couvert par l'historique ; et un plafond
- *  qui refuse de propager un effondrement invraisemblable plutôt que de le croire. */
-export const ENGINE_VERSION = '2026.07-17'
+ *  qui refuse de propager un effondrement invraisemblable plutôt que de le croire.
+ *  2026.08-1 : l'axe DURÉE de l'ancrage accepte désormais AUSSI les compétitions sur
+ *  ROUTE quand la course visée est un trail (l'axe PENTE et la moyenne pondérée restent,
+ *  eux, terrain-cohérents). Motif de FORME, pas de coefficient : l'allure est neutralisée
+ *  du D+ par Minetti AVANT la régression `allure ~ durée`, donc la dégradation mesurée est
+ *  physiologique et non propre au terrain — un semi sur route dit quelque chose de vrai sur
+ *  ce que le coureur tient au bout de deux heures. Réserver cet axe aux trails coûtait cher
+ *  en pratique : un traileur avec trois trails et un semi n'atteignait pas le minimum de
+ *  quatre points, l'axe restait éteint, et la projection gardait l'allure d'un format court
+ *  pour un format long — exactement l'erreur que cet axe existe pour corriger (cas mesuré :
+ *  Trail du Jura Alsacien 02/08/2026, cible 3h42 pour 4h16 réalisées, axe durée inactif
+ *  faute d'une quatrième course). Le garde-fou de colinéarité durée ↔ pente est conservé :
+ *  si « long » et « raide » sont le même axe chez un coureur, la calibration se coupe seule. */
+export const ENGINE_VERSION = '2026.08-1'
 
 export type ProjectionSource =
   | 'history' // historique réel d'allures/courses

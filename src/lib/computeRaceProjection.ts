@@ -1196,12 +1196,17 @@ export function computeRaceProjection(
   //      couverte, le temps s'allonge un peu plus que proportionnellement (fatigue).
   const raceDpKm2 = totalDistM > 0 ? dplus / (totalDistM / 1000) : 0
 
-  function labeledRacePool(): Record<string, unknown>[] {
-    const races = activities.filter((a) => {
+  /** Toutes les compétitions confirmées à pied, tous terrains. */
+  function allRacePool(): Record<string, unknown>[] {
+    return activities.filter((a) => {
       const t = a.type as string, st = a.sport_type as string
       const run = ['Run', 'TrailRun', 'Trail Run'].includes(t) || ['Run', 'TrailRun', 'Trail Run'].includes(st)
       return isRaceEffort(a) && run && (a.distance as number) > 3000 && (a.average_speed as number) > 0
     })
+  }
+
+  function labeledRacePool(): Record<string, unknown>[] {
+    const races = allRacePool()
     // Un trail se cale sur tes trails uniquement (route ≠ trail, musculairement).
     return isTrail
       ? races.filter((a) => TRAIL_TYPES.includes(a.type as string) || (a.sport_type as string) === 'TrailRun')
@@ -1218,20 +1223,21 @@ export function computeRaceProjection(
     // constante quelle que soit la pente. Si elle DÉRIVE avec le D+/km sur tes courses,
     // c'est TON écart personnel à Minetti (tu encaisses plus/moins la pente que la
     // moyenne). On l'apprend par régression et on l'applique à la pente de LA course.
-    const pts: { dpkm: number; flatPaceS: number; w: number; durationS: number }[] = []
-    for (const a of anchorPool) {
-      const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
-      const flatPaceS = (1000 / (a.average_speed as number)) / meanGradeFactor(dpkm)
-      const ageDays = Math.max(0, (now - new Date(a.start_date as string).getTime()) / 86_400_000)
-      const wRec = 1 / (1 + ageDays / 180)                            // récence (demi-vie ~6 mois)
-      const dist = a.distance as number
-      const sim = 1 - Math.min(1, Math.abs(dist - totalDistM) / Math.max(totalDistM, dist)) // 1 = même distance
-      const w = wRec * (0.4 + 0.6 * sim)
-      num += flatPaceS * w; den += w
-      // Durée réelle de la course : axe de la calibration de DURÉE (cf. plus bas).
-      const durationS = (a.moving_time as number) || 0
-      pts.push({ dpkm, flatPaceS, w, durationS })
+    type AnchorPoint = { dpkm: number; flatPaceS: number; w: number; durationS: number }
+    /** Allure plat-équivalente + poids (récence × proximité de distance) d'un pool. */
+    function pointsFor(pool: Record<string, unknown>[]): AnchorPoint[] {
+      return pool.map((a) => {
+        const dpkm = ((a.total_elevation_gain as number) || 0) / ((a.distance as number) / 1000)
+        const flatPaceS = (1000 / (a.average_speed as number)) / meanGradeFactor(dpkm)
+        const ageDays = Math.max(0, (now - new Date(a.start_date as string).getTime()) / 86_400_000)
+        const wRec = 1 / (1 + ageDays / 180)                          // récence (demi-vie ~6 mois)
+        const dist = a.distance as number
+        const sim = 1 - Math.min(1, Math.abs(dist - totalDistM) / Math.max(totalDistM, dist)) // 1 = même distance
+        return { dpkm, flatPaceS, w: wRec * (0.4 + 0.6 * sim), durationS: (a.moving_time as number) || 0 }
+      })
     }
+    const pts: AnchorPoint[] = pointsFor(anchorPool)
+    for (const p of pts) { num += p.flatPaceS * p.w; den += p.w }
     if (den > 0) {
       const wAvgFlatPaceS = num / den
       const n = anchorPool.length
@@ -1265,7 +1271,23 @@ export function computeRaceProjection(
         // Point fixe : la durée visée dépend de l'allure prédite, qui dépend de la
         // durée visée. La boucle converge vite (l'exposant est borné ≤ 0,15 → facteur
         // de contraction < 1) ; on part de la projection courante.
-        const durationPoints = pts.map((p) => ({
+        //
+        // TERRAIN (2026.08-1) : cet axe-là — et lui seul — accepte AUSSI les
+        // compétitions sur route. La dégradation de l'allure avec la durée est
+        // physiologique, pas propre au terrain : l'allure est déjà neutralisée du
+        // D+ par Minetti avant la régression, donc un semi sur route dit quelque
+        // chose de vrai sur ce que le coureur tient au bout de deux heures.
+        // Les réserver aux trails coûtait cher en pratique : un traileur qui court
+        // trois trails et un semi n'avait que trois points, sous le minimum de
+        // quatre, et l'axe durée restait éteint — c'est-à-dire que la projection
+        // gardait l'allure d'un format court pour un format long, précisément
+        // l'erreur que cet axe existe pour corriger.
+        // L'axe PENTE et la moyenne pondérée, eux, restent terrain-cohérents : la
+        // sensibilité à la pente ne s'apprend pas sur du plat. Le garde-fou de
+        // colinéarité durée ↔ pente continue de trancher : si, chez ce coureur,
+        // « long » et « raide » sont le même axe, la calibration se coupe seule.
+        const durationPts = isTrail ? pointsFor(allRacePool()) : pts
+        const durationPoints = durationPts.map((p) => ({
           durationS: p.durationS,
           flatEquivalentPaceS: p.flatPaceS,
           weight: p.w,
