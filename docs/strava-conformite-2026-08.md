@@ -27,9 +27,33 @@ Ces points sont des arguments à mettre en avant dans la resoumission.
 
 ---
 
+## État au 2026-08-07
+
+| # | Écart | État |
+|---|---|---|
+| 2.1 | Purge sur déconnexion | ✅ corrigé |
+| 2.2 | Désautorisation via webhook non détectée | ✅ corrigé |
+| 2.3 | Rétention au-delà de 7 jours | ⛔ **ouvert** — décision produit requise |
+| 2.4 | Banc agrégeant plusieurs athlètes | ✅ corrigé (restreint à un athlète) |
+| 2.5 | Base commune de GPX | ⚠ à vérifier |
+| 3 | Points annexes | ⚠ à traiter |
+
+**§6.2 reste le point ouvert, et il conditionne l'honnêteté de la resoumission.**
+Ne pas envoyer de dossier affirmant une conformité totale tant qu'il n'est pas
+tranché.
+
+---
+
 ## 2. Écarts bloquants
 
-### 2.1 — Révocation d'autorisation : les données ne sont pas supprimées (§7.4 b)
+### 2.1 — Révocation d'autorisation : les données ne sont pas supprimées (§7.4 b) — ✅ CORRIGÉ
+
+**Corrigé** par `20260807000000_strava_revocation_purge.sql` (fonction
+`purge_strava_data`), appelée par `strava-disconnect`. La politique de
+confidentialité §7 a été réécrite en conséquence et sa version incrémentée
+(`2026-08-07`) pour déclencher un re-consentement.
+
+Description d'origine ci-dessous.
 
 **Le plus grave.** La Policy impose, lorsqu'un utilisateur révoque l'autorisation,
 la suppression de *toutes* les Strava Data et Personal Data qui en dérivent, sous
@@ -48,7 +72,14 @@ explicite. » Ce texte est directement contraire à §7.4 et il est public.
 - `strava-disconnect` supprime l'intégralité des données dérivées de Strava.
 - Réécrire §7 de la politique de confidentialité en conséquence.
 
-### 2.2 — La révocation côté Strava n'est jamais détectée (§7.4 b)
+### 2.2 — La révocation côté Strava n'est jamais détectée (§7.4 b) — ✅ CORRIGÉ
+
+**Corrigé** : `strava-webhook` traite désormais `object_type: 'athlete'` avec
+`updates.authorized === 'false'` et déclenche la même purge que la déconnexion
+manuelle (`handleDeauthorization`). Un seul chemin de suppression, partagé.
+
+Description d'origine ci-dessous.
+
 
 `supabase/functions/strava-webhook/index.ts:105` :
 
@@ -91,7 +122,18 @@ Piste de résolution — séparer strictement :
 Cette séparation doit être explicite dans le code **et** décrite dans la
 resoumission — c'est très probablement le point que le relecteur regardera.
 
-### 2.4 — Le banc de validation tombe sous §5.4
+### 2.4 — Le banc de validation tombe sous §5.4 — ✅ CORRIGÉ
+
+**Corrigé** : le banc est restreint à **un athlète à la fois**
+(`restrictToSingleAthlete`, option `--athlete`). Si les données chargées couvrent
+plusieurs athlètes sans sélection explicite, le script s'arrête. Vérifié sur la base
+réelle : le lancement sans `--athlete` échoue désormais.
+
+Le coût méthodologique est réel et documenté dans `engine-validation.md` :
+échantillon plus petit, intervalles plus larges, bootstrap par athlète sans objet.
+
+Description d'origine ci-dessous.
+
 
 §5.4 : « You may not process or disclose Strava Data — even publicly viewable
 Strava Data — including in an aggregated, de-identified, or anonymized manner, for

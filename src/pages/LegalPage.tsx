@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MISSING_LEGAL_INFO } from '../lib/legalVersions'
 
-const UPDATED = '21 juillet 2026'
+const UPDATED = '7 août 2026'
 const CONTACT_EMAIL = 'vorcelab@gmail.com'
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
@@ -420,9 +420,21 @@ export function PrivacyPage() {
       <H2>7. Connexion et déconnexion Strava</H2>
       <p>
         Les identifiants Strava ne sont jamais demandés directement par Vorcelab. L'autorisation utilise OAuth et
-        les jetons sont stockés côté serveur. Lors de la déconnexion, les jetons sont supprimés, le compte Vorcelab
-        reste ouvert et l'utilisateur peut choisir de supprimer ou de conserver les activités déjà importées.
-        Aucune suppression de ces activités n'est effectuée sans accord explicite.
+        les jetons sont stockés côté serveur.
+      </p>
+      <p>
+        La déconnexion de Strava entraîne la suppression immédiate et définitive des jetons, des activités
+        importées, des flux détaillés associés, des données météo rattachées, des projections enregistrées et
+        du profil coureur reconstruit à partir de ces activités. Cette suppression est imposée par les règles
+        de l'API Strava et ne peut pas être refusée : conserver ces données après une révocation n'est pas
+        autorisé. Elle s'applique de la même façon lorsque l'autorisation est révoquée depuis Strava plutôt
+        que depuis Vorcelab.
+      </p>
+      <p>
+        Le compte Vorcelab, lui, reste ouvert. Les informations saisies par l'utilisateur sont conservées :
+        fréquence cardiaque maximale, mensurations, objectifs, tests manuels, courses inscrites au calendrier
+        et séances de renforcement journalisées. Les courses et séances qui référençaient une activité Strava
+        sont conservées, seul le lien vers l'activité est retiré.
       </p>
 
       <H2>8. Partages</H2>

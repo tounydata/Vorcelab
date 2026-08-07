@@ -5,6 +5,7 @@ import {
   getValidStravaAccessToken,
   upsertStravaActivity,
 } from '../_shared/strava.ts'
+import { purgeStravaData } from '../_shared/stravaPurge.ts'
 
 // Client « permissif » (§7) : sans types de base générés, le schéma se paramètre en `never`
 // et `.from(...).upsert({...})` ne type-check plus. `any` rétablit un typage exploitable.
@@ -91,32 +92,75 @@ Deno.serve(async (req: Request) => {
   return new Response('Method Not Allowed', { status: 405 })
 })
 
+/** Retrouve l'utilisateur Supabase depuis l'identifiant athlète Strava (`owner_id`). */
+async function resolveUserId(
+  supabase: AnySupabaseClient,
+  ownerId: number,
+): Promise<string | null> {
+  const { data: tokenRow } = await supabase
+    .from('strava_tokens')
+    .select('user_id')
+    .eq('strava_athlete_id', ownerId)
+    .single()
+
+  if (!tokenRow) {
+    console.warn(`No user found for strava_athlete_id=${ownerId}`)
+    return null
+  }
+  return tokenRow.user_id as string
+}
+
+/**
+ * Révocation d'autorisation notifiée par Strava.
+ *
+ * API Policy §7.4 (b) : toutes les Strava Data et les données qui en dérivent
+ * doivent être supprimées. On applique exactement la même purge que la
+ * déconnexion depuis l'application — un seul chemin, une seule définition.
+ *
+ * Idempotent : si l'utilisateur s'est déjà déconnecté depuis Vorcelab, le jeton
+ * a disparu, `resolveUserId` ne trouve rien et il n'y a plus rien à purger.
+ */
+async function handleDeauthorization(
+  supabase: AnySupabaseClient,
+  ownerId: number,
+): Promise<void> {
+  const userId = await resolveUserId(supabase, ownerId)
+  if (!userId) return
+
+  const purged = await purgeStravaData(supabase, userId)
+  console.info(
+    `Strava deauthorization purge for athlete=${ownerId}: ` +
+      `${purged.activities} activities, ${purged.streams} streams`,
+  )
+}
+
 async function processWebhookEvent(
   supabase: AnySupabaseClient,
   event: {
     object_type: string
     object_id: number
     aspect_type: string
+    updates?: Record<string, unknown>
     owner_id: number
     subscription_id: number
     event_time: number
   }
 ): Promise<void> {
-  if (event.object_type !== 'activity') return
-
-  // Find the Supabase user from the Strava athlete id (owner_id)
-  const { data: tokenRow } = await supabase
-    .from('strava_tokens')
-    .select('user_id')
-    .eq('strava_athlete_id', event.owner_id)
-    .single()
-
-  if (!tokenRow) {
-    console.warn(`No user found for strava_athlete_id=${event.owner_id}`)
+  // Désautorisation depuis Strava : `object_type: 'athlete'` porte
+  // `updates.authorized === 'false'`. C'est le chemin normal quand l'utilisateur
+  // révoque l'accès depuis ses réglages Strava plutôt que depuis Vorcelab —
+  // sans ce traitement, la révocation ne serait jamais connue et les données
+  // resteraient en base, en violation de l'API Policy §7.4 (b).
+  if (event.object_type === 'athlete') {
+    if (String(event.updates?.authorized) !== 'false') return
+    await handleDeauthorization(supabase, event.owner_id)
     return
   }
 
-  const userId = tokenRow.user_id as string
+  if (event.object_type !== 'activity') return
+
+  const userId = await resolveUserId(supabase, event.owner_id)
+  if (!userId) return
 
   if (event.aspect_type === 'delete') {
     await supabase

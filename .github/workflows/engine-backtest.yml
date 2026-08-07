@@ -21,6 +21,10 @@ name: Engine backtest (real)
 on:
   workflow_dispatch:
     inputs:
+      athlete:
+        description: "user_id de l'athlète à mesurer. OBLIGATOIRE dès que la base couvre plusieurs athlètes : l'API Policy Strava §5.4 interdit l'analyse agrégée de plusieurs athlètes, même pseudonymisée, à des fins d'amélioration produit."
+        required: true
+        type: string
       elevation_mode:
         description: "Référence altimétrique — gpx_only = parité production (métrique publiable). post_race_strava_dplus = DIAGNOSTIC du lissage (recale sur le D+ Strava d'APRÈS la course : fuite temporelle assumée, ne jamais publier comme précision du moteur)."
         required: false
@@ -55,7 +59,10 @@ jobs:
           # Réutilise l'URL déjà configurée (VITE_SUPABASE_URL) si SUPABASE_URL absent.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run backtest:real -- --elevation-mode "${{ inputs.elevation_mode || 'gpx_only' }}"
+        run: |
+          npm run backtest:real -- \
+            --athlete "${{ inputs.athlete }}" \
+            --elevation-mode "${{ inputs.elevation_mode || 'gpx_only' }}"
       - name: Print report to logs (lisible sur mobile, sans téléchargement)
         if: always()
         run: |
