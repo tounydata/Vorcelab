@@ -5,7 +5,8 @@ Brouillon des réponses à recopier dans le formulaire de demande. Rédigé pour
 dépôt public. Ne rien y écrire qui ne soit constatable.
 
 > ⚠ **À lire avant d'envoyer.** Le point §6.2 (rétention au-delà de 7 jours) n'est
-> pas résolu. Le texte ci-dessous ne prétend donc **pas** à une conformité totale : il
+> que partiellement résolu : le payload brut est purgé à 7 jours, les résumés
+> d'activité et les streams ne le sont pas encore. Le texte ci-dessous ne prétend donc **pas** à une conformité totale : il
 > pose la question ouvertement. C'est délibéré. Affirmer une conformité qu'on n'a pas
 > se retourne contre l'app au premier contrôle, et une fausse déclaration se sanctionne
 > par la révocation de l'accès API, pas par un simple refus.
@@ -76,7 +77,12 @@ described above triggered a new version and re-consent.
 
 À inclure telle quelle. Mieux vaut poser la question que se faire prendre.
 
-> We would like guidance on §6.2 (seven-day cache limit). Our projection engine needs
+> We would like guidance on §6.2 (seven-day cache limit). We have already put a
+> seven-day retention job in place for the raw activity payload: beyond that window we
+> strip it to the four scalar fields we actually consume, which removes every piece of
+> location data — encoded polylines, start and end coordinates — in line with §5.7.
+>
+> What remains is the athlete's activity summaries and streams. Our projection engine needs
 > roughly six months of the athlete's own training history to produce a meaningful
 > race prediction — this is inherent to endurance modelling, not an implementation
 > choice. We currently retain the athlete's activity summaries and streams for that

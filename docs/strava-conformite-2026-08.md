@@ -33,14 +33,16 @@ Ces points sont des arguments à mettre en avant dans la resoumission.
 |---|---|---|
 | 2.1 | Purge sur déconnexion | ✅ corrigé |
 | 2.2 | Désautorisation via webhook non détectée | ✅ corrigé |
-| 2.3 | Rétention au-delà de 7 jours | ⛔ **ouvert** — décision produit requise |
+| 2.3 | Rétention au-delà de 7 jours | 🟡 **partiel** — payload brut purgé, résumés et streams ouverts |
 | 2.4 | Banc agrégeant plusieurs athlètes | ✅ corrigé (restreint à un athlète) |
 | 2.5 | Base commune de GPX | ⚠ à vérifier |
 | 3 | Points annexes | ⚠ à traiter |
 
-**§6.2 reste le point ouvert, et il conditionne l'honnêteté de la resoumission.**
-Ne pas envoyer de dossier affirmant une conformité totale tant qu'il n'est pas
-tranché.
+**§6.2 reste partiellement ouvert, et il conditionne l'honnêteté de la
+resoumission.** Le payload brut (tracés, positions de départ/arrivée) est désormais
+purgé à 7 jours ; les résumés d'activité et les streams ne le sont pas. Ne pas
+envoyer de dossier affirmant une conformité totale sur ce point : le poser en
+question, comme le fait `strava-resoumission-2026-08.md`.
 
 ---
 
@@ -97,7 +99,36 @@ consentement.
 
 À faire : traiter l'événement athlète et déclencher la même purge qu'en 2.1.
 
-### 2.3 — Rétention au-delà du cache de 7 jours (§6.2, §5.5, §5.7)
+### 2.3 — Rétention au-delà du cache de 7 jours (§6.2, §5.5, §5.7) — 🟡 PARTIELLEMENT CORRIGÉ
+
+**Fait.** `20260807010000_strava_raw_payload_retention.sql` +
+`supabase/functions/purge-strava-raw` : au-delà de 7 jours, `strava_activities.raw_data`
+est réduit aux quatre clés réellement consommées (`workout_type`, `average_temp`,
+`exercise_sets`, `source`). Tout le reste du payload Strava est effacé — dont
+`map.summary_polyline`, `start_latlng` et `end_latlng`, c'est-à-dire l'intégralité des
+données de localisation visées par §5.7. La migration purge aussi l'existant.
+
+Aucun changement fonctionnel : les quatre clés conservées sont exactement celles que
+le code lit. Seul effet de bord, assumé : `fillMissingWeather` ne pourra plus rattraper
+la météo d'une sortie de plus de 7 jours, faute de position de départ.
+
+**Reste ouvert.** Les résumés d'activité (`strava_activities` : distance, temps, D+) et
+`activity_streams` sont toujours conservés sans limite.
+
+Pourquoi ce n'est pas fait ici : le moteur consomme 183 jours de résumés et 56 jours de
+streams. Les purger à 7 jours suppose d'avoir d'abord extrait, **par activité**, les
+grandeurs dérivées que le profil consomme (allures par tranche de pente, VAM, dérive
+cardiaque, récupération, sinuosité des descentes, records) et de faire lire ces
+contributions au constructeur de profil à la place des streams.
+
+Or `buildRunnerProfile` construit ces grandeurs dans une boucle de ~340 lignes qui
+écrit dans une dizaine d'accumulateurs partagés. Extraire une contribution pure par
+activité est faisable mais c'est une refonte du cœur du moteur, à mener avec ses
+propres tests de parité — pas un effet de bord d'un lot de conformité. La tenter à la
+va-vite dégraderait silencieusement les projections.
+
+Description d'origine ci-dessous.
+
 
 §6.2 : « You may not retain Strava Data in your cache for longer than seven (7)
 days. » §5.5 interdit d'accumuler les données en un corpus persistant ; §5.7
