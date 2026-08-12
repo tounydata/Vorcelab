@@ -28,9 +28,19 @@ The application is open source: https://github.com/tounydata/Vorcelab
 
 ## Champ « Why do you need increased athlete capacity? »
 
-Vorcelab is past its testing phase and has reached the current athlete ceiling. The
-increase is needed to onboard real users, not to collect data — each athlete's data is
-used solely to serve projections back to that same athlete.
+Vorcelab has reached the 10 connected athletes of the current tier and is ready to
+scale further, which is the point at which your documentation asks developers to submit
+their app for review.
+
+The increase is needed to onboard real users, not to collect data — each athlete's data
+is used solely to serve projections back to that same athlete, and is deleted as soon as
+they revoke access.
+
+> **À compléter avec tes chiffres réels avant envoi.** Une ou deux phrases sur la
+> demande concrète : liste d'attente, club, coureurs qui attendent un accès. Des
+> chiffres vérifiables valent mieux qu'une projection ambitieuse — et ne rien inventer :
+> une demande gonflée qui ne se matérialise pas se voit dans les statistiques d'usage
+> que Strava collecte (§6.5).
 
 ## Compliance statement
 
