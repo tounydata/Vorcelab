@@ -101,12 +101,16 @@ described above triggered a new version and re-consent.
 
 - [ ] Trancher §6.2 : soit implémenter la séparation brut / dérivé, soit envoyer la
       question ci-dessus. Ne pas laisser le sujet muet.
-- [ ] Vérifier que la base commune de GPX n'est alimentée par aucune trace
-      reconstruite depuis `activity_streams` (§2.5 de l'audit).
-- [ ] Ajouter la mention Usage Data à la politique de confidentialité (§6.5).
-- [ ] Publier la liste des sous-traitants (§7.7) : Supabase, Sentry, Stripe, Cloudflare.
-- [ ] Relire la formulation de l'offre payante : elle facture des fonctionnalités que
-      Strava ne fournit pas, jamais l'accès aux données Strava (§5.8).
+- [x] Base commune de GPX vérifiée (§2.5) : `race_calendar.gpx_data` n'est écrit que
+      depuis un fichier téléversé par l'utilisateur (`handleFileChange`).
+      `reconstructGpx` n'est utilisé que par le banc et un script de calibration,
+      jamais dans un chemin d'écriture de l'application. Aucune donnée Strava dans la
+      base mutualisée.
+- [x] Mention Usage Data ajoutée à la politique de confidentialité (§6.5).
+- [x] Liste des sous-traitants publiée avec leurs lieux de traitement (§7.7).
+- [x] Offre payante reformulée (§5.8) : l'abonnement ne rémunère que les
+      fonctionnalités propres à Vorcelab. Vérifié dans le code — seules les stratégies
+      GPX et les semaines de plan sont limitées, jamais la synchronisation Strava.
 - [ ] Faire tourner la clé `service_role` si elle a circulé hors d'un coffre.
 
 ## Ce qu'il ne faut pas faire

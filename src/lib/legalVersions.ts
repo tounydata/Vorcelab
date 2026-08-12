@@ -6,7 +6,7 @@
 export type LegalDoc = 'cgu' | 'privacy'
 
 export const CURRENT_LEGAL_VERSIONS: Record<LegalDoc, string> = {
-  cgu: '2026-07-21',
+  cgu: '2026-08-07',
   privacy: '2026-08-07',
 }
 

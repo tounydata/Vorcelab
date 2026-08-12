@@ -35,8 +35,8 @@ Ces points sont des arguments à mettre en avant dans la resoumission.
 | 2.2 | Désautorisation via webhook non détectée | ✅ corrigé |
 | 2.3 | Rétention au-delà de 7 jours | 🟡 **partiel** — payload brut purgé, résumés et streams ouverts |
 | 2.4 | Banc agrégeant plusieurs athlètes | ✅ corrigé (restreint à un athlète) |
-| 2.5 | Base commune de GPX | ⚠ à vérifier |
-| 3 | Points annexes | ⚠ à traiter |
+| 2.5 | Base commune de GPX | ✅ vérifié — aucune donnée Strava |
+| 3 | Points annexes (Usage Data, sous-traitants, offre payante) | ✅ traités |
 
 **§6.2 reste partiellement ouvert, et il conditionne l'honnêteté de la
 resoumission.** Le payload brut (tracés, positions de départ/arrivée) est désormais
@@ -126,6 +126,35 @@ Or `buildRunnerProfile` construit ces grandeurs dans une boucle de ~340 lignes q
 activité est faisable mais c'est une refonte du cœur du moteur, à mener avec ses
 propres tests de parité — pas un effet de bord d'un lot de conformité. La tenter à la
 va-vite dégraderait silencieusement les projections.
+
+#### Plan de fermeture du point (lot dédié)
+
+L'analyse de faisabilité est faite. Les accumulateurs de la boucle
+(`bucketAccum`, `driftSamples`, `recoveryEvents`, `climbRecoveryAccum`,
+`descentRecoveryAccum`, `descentTechAccum`, `walkSamples`, `bestEffortRecordsPerAct`,
+`bestDistByDuration`, `bestClimbOverall`, `verticalEffortsPerAct`, compteurs de durée)
+sont **tous commutatifs** : sommes, `push`, et maxima. Une contribution par activité
+peut donc être extraite puis fusionnée sans changer le résultat, à condition de
+conserver l'ordre des activités (l'addition flottante n'est pas associative).
+
+Étapes, dans cet ordre, chacune vérifiable :
+
+1. **Extraire** `extractActivityContribution(act, streams) → ActivityContribution`,
+   en déplaçant le corps de boucle sans le modifier, les accumulateurs devenant
+   locaux. `buildRunnerProfile` fusionne ensuite les contributions dans l'ordre.
+   *Vérification : test de parité — profil construit par l'ancien chemin et par le
+   nouveau, identiques au bit près sur un jeu de streams figé.*
+2. **Persister** la contribution dans `activity_derived_metrics` au moment de
+   l'ingestion (webhook + rattrapage), et rattraper l'existant.
+3. **Lire** les contributions persistées quand les streams ont disparu, en gardant la
+   lecture des streams comme chemin de repli tant que le rattrapage n'est pas terminé.
+4. **Purger** `activity_streams` au-delà de 7 jours, via la fonction de purge existante.
+5. **Traiter les pénalités de conditions**, qui lisent encore les résumés d'activité
+   (`average_temp`, D+/km, allure) sur 90 jours : mêmes dérivées, même table.
+6. **Purger** enfin les résumés d'activité eux-mêmes.
+
+Les étapes 1 à 4 ferment la partie streams. Les étapes 5 et 6 ferment les résumés.
+Chacune est indépendamment déployable et réversible.
 
 Description d'origine ci-dessous.
 

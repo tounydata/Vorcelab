@@ -194,6 +194,13 @@ export function CguPage() {
         L'abonnement donne accès au même compte PRO sur le web, iOS et Android, sous réserve de la
         bonne association de l'achat au compte Vorcelab.
       </p>
+      <p>
+        L'abonnement rémunère exclusivement les fonctionnalités propres à Vorcelab : projections de temps de
+        course, stratégies d'allure, plans d'entraînement, analyses de parcours et outils de préparation. Il ne
+        donne accès ni à la synchronisation Strava, ni aux données Strava, ni à aucune fonctionnalité fournie
+        par Strava, qui restent gratuites et accessibles sans abonnement. Vorcelab ne facture en aucun cas
+        l'accès à Strava ou à son interface de programmation.
+      </p>
 
       <H2>6. Paiement et renouvellement</H2>
       <p>
@@ -397,14 +404,19 @@ export function PrivacyPage() {
       <H2>5. Fournisseurs et destinataires</H2>
       <p>Vorcelab utilise notamment :</p>
       <ul>
-        <li>Supabase pour la base de données, l'authentification, les fonctions serveur et les e-mails techniques ;</li>
-        <li>Strava pour la synchronisation des activités ;</li>
-        <li>Stripe, Apple et Google pour les paiements et achats intégrés ;</li>
-        <li>Sentry pour le signalement des erreurs lorsqu'il est activé ;</li>
-        <li>Open-Meteo pour les données météorologiques ;</li>
-        <li>MapTiler, OpenStreetMap et Overpass API pour les cartes, terrains et surfaces ;</li>
-        <li>OVHcloud pour le nom de domaine et l'hébergeur retenu pour l'application web.</li>
+        <li>Supabase pour la base de données, l'authentification, les fonctions serveur et les e-mails techniques — traitement dans l'Union européenne (Stockholm) ;</li>
+        <li>Strava pour la synchronisation des activités — traitement aux États-Unis ;</li>
+        <li>Stripe, Apple et Google pour les paiements et achats intégrés — traitement dans l'Union européenne et aux États-Unis ;</li>
+        <li>Sentry pour le signalement des erreurs lorsqu'il est activé — traitement dans l'Union européenne ;</li>
+        <li>Open-Meteo pour les données météorologiques — traitement dans l'Union européenne ;</li>
+        <li>MapTiler, OpenStreetMap et Overpass API pour les cartes, terrains et surfaces — traitement dans l'Union européenne ;</li>
+        <li>Cloudflare pour la distribution et la protection du site — traitement réparti, avec acheminement européen prioritaire ;</li>
+        <li>OVHcloud pour le nom de domaine et l'hébergeur retenu pour l'application web — traitement dans l'Union européenne.</li>
       </ul>
+      <p>
+        Cette liste est tenue à jour. Le rôle et le lieu de traitement de chaque sous-traitant peuvent être
+        communiqués sur demande à <LegalContact />.
+      </p>
       <p>
         Aucune donnée d'activité n'est transmise à Anthropic, Claude ou à un autre fournisseur d'intelligence
         artificielle externe dans la configuration actuelle.
@@ -435,6 +447,12 @@ export function PrivacyPage() {
         fréquence cardiaque maximale, mensurations, objectifs, tests manuels, courses inscrites au calendrier
         et séances de renforcement journalisées. Les courses et séances qui référençaient une activité Strava
         sont conservées, seul le lien vers l'activité est retiré.
+      </p>
+      <p>
+        Strava collecte de son côté des données d'usage relatives à l'utilisation de son interface de
+        programmation par Vorcelab, et peut les exploiter à ses propres fins, notamment pour améliorer sa
+        plateforme, assurer le support et vérifier le respect de ses conditions. Ce traitement relève de Strava
+        et de sa politique de confidentialité.
       </p>
 
       <H2>8. Partages</H2>
