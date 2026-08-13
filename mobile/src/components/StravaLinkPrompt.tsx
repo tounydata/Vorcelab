@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ConnectWithStravaButton, PoweredByStrava } from '@/components/StravaBrand'
 import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { signInWithStravaMobile } from '@/lib/strava'
 import {
@@ -200,26 +201,28 @@ export default function StravaLinkPrompt({
               {/* En assistance, connecter depuis ici est structurellement voué à l'échec :
                   aucun bouton d'autorisation n'est rendu. */}
               {!supportMode ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={missingScope ? 'Autoriser mes activités' : 'Connecter mon Strava'}
-                  disabled={busy}
-                  onPress={() => void connect()}
-                  style={({ pressed }) => ({
-                    minHeight: 56, marginTop: 20, borderRadius: radius.md,
-                    alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: '#FC4C02',
-                    opacity: busy ? 0.65 : pressed ? 0.82 : 1,
-                  })}
-                >
-                  {busy
-                    ? <ActivityIndicator color="#fff" />
-                    : (
-                      <Text style={{ color: '#fff', fontFamily: font.displayBlack, fontSize: 17, letterSpacing: 1.1 }}>
-                        {missingScope ? 'AUTORISER MES ACTIVITÉS' : 'CONNECTER MON STRAVA'}
-                      </Text>
-                    )}
-                </Pressable>
+                <View style={{ marginTop: 20 }}>
+                  {/* Bouton OFFICIEL Strava, non modifié : les Brand Guidelines
+                      l'imposent sur tout point d'entrée OAuth et interdisent de
+                      reconstruire un bouton maison à l'orange Strava. */}
+                  <ConnectWithStravaButton
+                    onPress={() => void connect()}
+                    disabled={busy}
+                    accessibilityLabel={missingScope ? 'Autoriser mes activités avec Strava' : 'Se connecter avec Strava'}
+                  />
+                  {/* Le contexte va À CÔTÉ du bouton : l'asset ne se surcharge pas. */}
+                  {busy || missingScope ? (
+                    <View style={{ marginTop: 8, alignItems: 'center' }}>
+                      {busy ? (
+                        <ActivityIndicator color={colors.text3} />
+                      ) : (
+                        <Text style={{ color: colors.text3, fontFamily: font.mono, fontSize: 10, letterSpacing: 0.8 }}>
+                          AUTORISATION DES ACTIVITÉS REQUISE
+                        </Text>
+                      )}
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
 
               <Pressable
@@ -243,9 +246,10 @@ export default function StravaLinkPrompt({
                 {previewMode
                   ? 'APERÇU ADMIN · AUCUNE ACTION RÉELLE'
                   : supportMode
-                  ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL · POWERED BY STRAVA'
-                  : 'TU PEUX CONTINUER SANS · POWERED BY STRAVA'}
+                  ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL'
+                  : 'TU PEUX CONTINUER SANS'}
               </Text>
+              <PoweredByStrava />
             </ScrollView>
           </View>
         </Pressable>
