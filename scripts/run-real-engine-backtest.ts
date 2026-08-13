@@ -3,6 +3,11 @@
 // LECTURE SEULE : ce script ne fait que des SELECT — il ne modifie/supprime jamais
 // aucune activité, profil, stream, résultat ou course en base.
 //
+// UN SEUL ATHLÈTE À LA FOIS (`--athlete <user_id>`, obligatoire dès que les données
+// en couvrent plusieurs). Strava API Policy §5.4 interdit l'analyse agrégée de
+// plusieurs athlètes — y compris pseudonymisée — à des fins d'amélioration produit.
+// Mesurer le moteur sur ses propres données reste licite ; agréger ne l'est pas.
+//
 // Deux sources de données, au choix :
 //   1. Supabase (chemin de reproduction officiel, une commande) :
 //        SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run backtest:real
@@ -68,6 +73,69 @@ export interface LoadedData {
   weatherByRace: Record<string, { temp?: number | null; wind?: number | null; precip?: number | null }>
   /** Courses disposant d'un stream FC (indicateur de rapport). */
   hrRaces?: Set<string>
+}
+
+// ── Restriction à un seul athlète (conformité Strava API Policy §5.4) ───────────
+
+/**
+ * Le banc ne peut porter que sur UN athlète à la fois.
+ *
+ * Strava API Policy §5.4 interdit de traiter des Strava Data « in an aggregated,
+ * de-identified, or anonymized manner, for the purposes of analytics, analyses […]
+ * or product or service improvements », et interdit de combiner les données de
+ * plusieurs utilisateurs à ces fins. La pseudonymisation ne lève pas l'interdiction :
+ * elle est explicitement visée.
+ *
+ * Mesurer le moteur sur ses PROPRES données reste licite. Le banc est donc restreint
+ * à un athlète unique, choisi explicitement par `--athlete <user_id>`. Si les données
+ * chargées en contiennent plusieurs sans que le choix soit fait, on refuse de tourner
+ * plutôt que d'agréger silencieusement.
+ */
+export function restrictToSingleAthlete(data: LoadedData, athleteId?: string): LoadedData {
+  const present = [...new Set(data.activities.map((a) => a.user_id))].sort()
+
+  if (present.length === 0) return data
+
+  let selected: string
+  if (athleteId) {
+    if (!present.includes(athleteId)) {
+      throw new Error(
+        `--athlete « ${athleteId} » absent des données chargées (${present.length} athlète(s) présent(s)).`,
+      )
+    }
+    selected = athleteId
+  } else if (present.length === 1) {
+    selected = present[0]
+  } else {
+    throw new Error(
+      `Les données chargées couvrent ${present.length} athlètes. Le banc ne peut porter que sur un ` +
+        `seul athlète à la fois (Strava API Policy §5.4 : pas d'analyse agrégée, même pseudonymisée, ` +
+        `à des fins d'amélioration du produit). Relancez avec --athlete <user_id>.`,
+    )
+  }
+
+  if (present.length > 1) {
+    console.log(`[backtest] restriction à un athlète unique (§5.4) — ${present.length} présents, 1 retenu`)
+  }
+
+  const activities = data.activities.filter((a) => a.user_id === selected)
+  const keptIds = new Set(activities.map((a) => String(a.strava_activity_id)))
+
+  const pick = <T>(src: Record<string, T>): Record<string, T> =>
+    Object.fromEntries(Object.entries(src).filter(([id]) => keptIds.has(id)))
+
+  return {
+    ...data,
+    activities,
+    profileFcByUser: { [selected]: data.profileFcByUser[selected] ?? null },
+    ageByUser: { [selected]: data.ageByUser[selected] ?? null },
+    streams: pick(data.streams),
+    weatherByRace: pick(data.weatherByRace),
+    streamedIds: new Set([...data.streamedIds].filter((id) => keptIds.has(id))),
+    hrRaces: data.hrRaces
+      ? new Set([...data.hrRaces].filter((id) => keptIds.has(id)))
+      : undefined,
+  }
 }
 
 // ── Sélection & validation des candidats ────────────────────────────────────────
@@ -329,7 +397,11 @@ async function main() {
       `à la course. Résultat de DIAGNOSTIC uniquement — ne jamais le publier comme précision du moteur.`,
     )
   }
-  const data = fixtureIdx >= 0 ? loadFixture(args[fixtureIdx + 1]) : await loadFromSupabase()
+  const athleteIdx = args.indexOf('--athlete')
+  const athleteArg = athleteIdx >= 0 ? args[athleteIdx + 1] : undefined
+
+  const loaded = fixtureIdx >= 0 ? loadFixture(args[fixtureIdx + 1]) : await loadFromSupabase()
+  const data = restrictToSingleAthlete(loaded, athleteArg)
   console.log(`[backtest] ${data.activities.length} activités chargées · ${Object.keys(data.streams).length} streams`)
 
   const { cases, validation } = buildCasesAndValidation(data, elevationMode)

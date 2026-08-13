@@ -114,7 +114,9 @@ export async function fetchStravaActivitiesPage(
   accessToken: string,
   page: number,
   perPage = 200,
-  after?: number
+  after?: number,
+  /** Reçoit la réponse pour en lire les en-têtes de quota. */
+  onRateLimit?: (res: Response) => void,
 ): Promise<StravaRawActivity[]> {
   const url = new URL(STRAVA_ACTIVITIES_URL)
   url.searchParams.set('page', String(page))
@@ -124,6 +126,7 @@ export async function fetchStravaActivitiesPage(
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
+  onRateLimit?.(res)
 
   if (!res.ok) {
     const body = await res.text()
@@ -152,6 +155,39 @@ export async function fetchStravaActivityById(
 // ─── Streams (tracés) : récupération + mise en cache ───────────────────────────
 
 /** Clés de streams utiles au profil coureur + à la carte (latlng inclus). */
+import {
+  describeRateLimit,
+  readRateLimit,
+  shouldStopBackground,
+  type RateLimitState,
+} from './stravaRateLimit.ts'
+
+/**
+ * Dernier état de quota Strava observé, par utilisateur.
+ *
+ * Strava demande de lire les en-têtes de quota et de ralentir avant d'atteindre la
+ * limite ; subir un 429 est le défaut qu'ils reprochent. L'état est mémorisé au niveau
+ * du module : toutes les boucles de fond d'une même instance le partagent et
+ * s'arrêtent ensemble, au lieu de découvrir la limite chacune de leur côté.
+ */
+const rateLimitByUser = new Map<string, RateLimitState>()
+
+/** Met à jour l'état de quota depuis une réponse Strava, si elle en porte un. */
+function recordRateLimit(userId: string, res: Response): void {
+  const state = readRateLimit(res)
+  if (state) rateLimitByUser.set(userId, state)
+}
+
+/** L'utilisateur a-t-il épuisé le budget de quota réservé aux appels de fond ? */
+export function isStravaQuotaExhausted(userId: string): boolean {
+  return shouldStopBackground(rateLimitByUser.get(userId) ?? null)
+}
+
+/** Dernier état de quota connu, pour journalisation. */
+export function getStravaRateLimit(userId: string): Record<string, unknown> | null {
+  return describeRateLimit(rateLimitByUser.get(userId) ?? null)
+}
+
 export const STRAVA_STREAM_KEYS = 'time,distance,altitude,heartrate,velocity_smooth,cadence,latlng'
 
 export type CacheStreamResult = 'cached' | 'empty' | 'not_found' | 'rate_limited'
@@ -177,6 +213,7 @@ export async function fetchAndCacheActivityStreams(
   } catch {
     return 'not_found' // réseau persistant → pas de marqueur (retentable plus tard)
   }
+  recordRateLimit(userId, res)
   if (res.status === 429) return 'rate_limited'
   if (res.status >= 500) return 'not_found' // 5xx persistant → pas de marqueur (retentable)
 
@@ -245,7 +282,13 @@ export async function syncStravaActivitiesForUser(
   // Paginate until Strava returns an empty page
   // Per Strava docs: keep paginating until you get an empty array
   while (true) {
-    const activities = await fetchStravaActivitiesPage(accessToken, page, 200, after)
+    // Arrêt PRÉVENTIF avant de demander la page suivante : on ne va jamais chercher
+    // le 429, on s'arrête à la marge et on reprendra au prochain passage.
+    if (isStravaQuotaExhausted(userId)) break
+
+    const activities = await fetchStravaActivitiesPage(
+      accessToken, page, 200, after, (res) => recordRateLimit(userId, res),
+    )
     if (activities.length === 0) break
 
     for (const act of activities) {

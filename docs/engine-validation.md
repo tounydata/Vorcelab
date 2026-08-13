@@ -3,6 +3,25 @@
 Objectif : mesurer la qualité **réelle** du moteur (pas déduite du nombre de règles)
 sur des courses passées, **sans fuite temporelle**.
 
+## Contrainte de périmètre : un seul athlète à la fois
+
+Le banc porte sur **un athlète unique**, sélectionné par `--athlete <user_id>`. Dès que
+les données chargées en couvrent plusieurs, le script **refuse de tourner** tant que le
+choix n'est pas explicite.
+
+Raison : l'API Policy Strava §5.4 interdit de traiter des Strava Data « in an aggregated,
+de-identified, or anonymized manner, for the purposes of analytics, analyses […] or
+product or service improvements », et interdit de combiner les données de plusieurs
+utilisateurs à ces fins. La pseudonymisation en `A1`, `A2`… ne lève pas l'interdiction :
+les formes agrégées et anonymisées sont explicitement visées.
+
+Mesurer le moteur sur ses **propres** données reste licite. C'est le seul usage prévu.
+
+Conséquence méthodologique, à assumer dans la lecture des résultats : l'échantillon est
+plus petit, les intervalles de confiance plus larges, et le bootstrap clusterisé par
+athlète perd son objet (un seul cluster). Les ventilations « par athlète » n'ont plus de
+sens. Ce n'est pas un défaut du banc, c'est la limite du périmètre autorisé.
+
 ## Principe (anti-fuite)
 
 Pour chaque course passée dont on connaît le résultat réel :

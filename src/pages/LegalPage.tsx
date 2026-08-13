@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { MISSING_LEGAL_INFO } from '../lib/legalVersions'
 
-const UPDATED = '21 juillet 2026'
+const UPDATED = '7 août 2026'
 const CONTACT_EMAIL = 'vorcelab@gmail.com'
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
@@ -193,6 +193,13 @@ export function CguPage() {
       <p>
         L'abonnement donne accès au même compte PRO sur le web, iOS et Android, sous réserve de la
         bonne association de l'achat au compte Vorcelab.
+      </p>
+      <p>
+        L'abonnement rémunère exclusivement les fonctionnalités propres à Vorcelab : projections de temps de
+        course, stratégies d'allure, plans d'entraînement, analyses de parcours et outils de préparation. Il ne
+        donne accès ni à la synchronisation Strava, ni aux données Strava, ni à aucune fonctionnalité fournie
+        par Strava, qui restent gratuites et accessibles sans abonnement. Vorcelab ne facture en aucun cas
+        l'accès à Strava ou à son interface de programmation.
       </p>
 
       <H2>6. Paiement et renouvellement</H2>
@@ -397,14 +404,19 @@ export function PrivacyPage() {
       <H2>5. Fournisseurs et destinataires</H2>
       <p>Vorcelab utilise notamment :</p>
       <ul>
-        <li>Supabase pour la base de données, l'authentification, les fonctions serveur et les e-mails techniques ;</li>
-        <li>Strava pour la synchronisation des activités ;</li>
-        <li>Stripe, Apple et Google pour les paiements et achats intégrés ;</li>
-        <li>Sentry pour le signalement des erreurs lorsqu'il est activé ;</li>
-        <li>Open-Meteo pour les données météorologiques ;</li>
-        <li>MapTiler, OpenStreetMap et Overpass API pour les cartes, terrains et surfaces ;</li>
-        <li>OVHcloud pour le nom de domaine et l'hébergeur retenu pour l'application web.</li>
+        <li>Supabase pour la base de données, l'authentification, les fonctions serveur et les e-mails techniques — traitement dans l'Union européenne (Stockholm) ;</li>
+        <li>Strava pour la synchronisation des activités — traitement aux États-Unis ;</li>
+        <li>Stripe, Apple et Google pour les paiements et achats intégrés — traitement dans l'Union européenne et aux États-Unis ;</li>
+        <li>Sentry pour le signalement des erreurs lorsqu'il est activé — traitement dans l'Union européenne ;</li>
+        <li>Open-Meteo pour les données météorologiques — traitement dans l'Union européenne ;</li>
+        <li>MapTiler, OpenStreetMap et Overpass API pour les cartes, terrains et surfaces — traitement dans l'Union européenne ;</li>
+        <li>Cloudflare pour la distribution et la protection du site — traitement réparti, avec acheminement européen prioritaire ;</li>
+        <li>OVHcloud pour le nom de domaine et l'hébergeur retenu pour l'application web — traitement dans l'Union européenne.</li>
       </ul>
+      <p>
+        Cette liste est tenue à jour. Le rôle et le lieu de traitement de chaque sous-traitant peuvent être
+        communiqués sur demande à <LegalContact />.
+      </p>
       <p>
         Aucune donnée d'activité n'est transmise à Anthropic, Claude ou à un autre fournisseur d'intelligence
         artificielle externe dans la configuration actuelle.
@@ -420,9 +432,27 @@ export function PrivacyPage() {
       <H2>7. Connexion et déconnexion Strava</H2>
       <p>
         Les identifiants Strava ne sont jamais demandés directement par Vorcelab. L'autorisation utilise OAuth et
-        les jetons sont stockés côté serveur. Lors de la déconnexion, les jetons sont supprimés, le compte Vorcelab
-        reste ouvert et l'utilisateur peut choisir de supprimer ou de conserver les activités déjà importées.
-        Aucune suppression de ces activités n'est effectuée sans accord explicite.
+        les jetons sont stockés côté serveur.
+      </p>
+      <p>
+        La déconnexion de Strava entraîne la suppression immédiate et définitive des jetons, des activités
+        importées, des flux détaillés associés, des données météo rattachées, des projections enregistrées et
+        du profil coureur reconstruit à partir de ces activités. Cette suppression est imposée par les règles
+        de l'API Strava et ne peut pas être refusée : conserver ces données après une révocation n'est pas
+        autorisé. Elle s'applique de la même façon lorsque l'autorisation est révoquée depuis Strava plutôt
+        que depuis Vorcelab.
+      </p>
+      <p>
+        Le compte Vorcelab, lui, reste ouvert. Les informations saisies par l'utilisateur sont conservées :
+        fréquence cardiaque maximale, mensurations, objectifs, tests manuels, courses inscrites au calendrier
+        et séances de renforcement journalisées. Les courses et séances qui référençaient une activité Strava
+        sont conservées, seul le lien vers l'activité est retiré.
+      </p>
+      <p>
+        Strava collecte de son côté des données d'usage relatives à l'utilisation de son interface de
+        programmation par Vorcelab, et peut les exploiter à ses propres fins, notamment pour améliorer sa
+        plateforme, assurer le support et vérifier le respect de ses conditions. Ce traitement relève de Strava
+        et de sa politique de confidentialité.
       </p>
 
       <H2>8. Partages</H2>

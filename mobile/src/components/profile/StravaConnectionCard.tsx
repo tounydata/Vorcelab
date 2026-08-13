@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, View } from 'react-native'
 import { supabase, SUPA_URL } from '@/lib/supabase'
 import { signInWithStravaMobile } from '@/lib/strava'
 import { Card, FL, HButton, MLabel, colors, space } from '@/components/coach/ui'
+import { ConnectWithStravaButton, PoweredByStrava } from '@/components/StravaBrand'
 
 // Connexion Strava — porté de `src/components/StravaConnection.tsx` (variant "full").
 // État + connecter / déconnecter / forcer sync. Réutilise les Edge Functions
@@ -126,7 +127,7 @@ export default function StravaConnectionCard() {
             />
             <HButton label="DÉCONNECTER" onPress={disconnect} disabled={busy} />
           </View>
-          <Text style={{ fontSize: 8, color: colors.text3, letterSpacing: 1, marginTop: 8, textAlign: 'center' }}>POWERED BY STRAVA</Text>
+          <PoweredByStrava />
         </View>
       ) : status.connected ? (
         <View>
@@ -141,7 +142,7 @@ export default function StravaConnectionCard() {
             <HButton label={syncing ? 'SYNC…' : 'FORCER SYNC'} onPress={sync} disabled={syncing || busy} />
             <HButton label={busy ? '…' : 'DÉCONNECTER'} onPress={disconnect} disabled={syncing || busy} />
           </View>
-          <Text style={{ fontSize: 8, color: colors.text3, letterSpacing: 1, marginTop: 8, textAlign: 'center' }}>POWERED BY STRAVA</Text>
+          <PoweredByStrava />
         </View>
       ) : (
         <View>
@@ -152,8 +153,7 @@ export default function StravaConnectionCard() {
           {oauthError ? (
             <Text style={{ fontSize: 11, color: colors.ember, lineHeight: 17, marginBottom: 10 }}>{oauthError}</Text>
           ) : null}
-          <HButton label={busy ? '…' : 'CONNECTER STRAVA'} onPress={() => connect()} disabled={busy}
-            style={{ backgroundColor: '#FC4C02', borderColor: '#FC4C02' }} textStyle={{ color: '#fff' }} />
+          <ConnectWithStravaButton onPress={() => connect()} disabled={busy} />
         </View>
       )}
     </Card>

@@ -12,6 +12,12 @@
 // service_role en Bearer (la clé anon publique est refusée) — endpoint de maintenance.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  describeRateLimit,
+  readRateLimit,
+  shouldStopBackground,
+  type RateLimitState,
+} from '../_shared/stravaRateLimit.ts'
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 const STRAVA_ACTIVITY_URL = 'https://www.strava.com/api/v3/activities'
@@ -76,14 +82,18 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Pro
 }
 
 type CacheResult = 'cached' | 'empty' | 'not_found' | 'rate_limited'
-async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, token: string, activityId: number): Promise<CacheResult> {
+/** Résultat + état de quota lu sur la réponse (null si l'en-tête est absent). */
+type CacheOutcome = { result: CacheResult; rateLimit: RateLimitState | null }
+
+async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, token: string, activityId: number): Promise<CacheOutcome> {
   let res: Response
   try {
     res = await fetchWithRetry(`${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
       { headers: { Authorization: `Bearer ${token}` } })
-  } catch { return 'not_found' } // erreur réseau persistante → on n'écrit pas de marqueur (retentable plus tard)
-  if (res.status === 429) return 'rate_limited'
-  if (res.status >= 500) return 'not_found' // 5xx persistant : pas de marqueur, retentable
+  } catch { return { result: 'not_found', rateLimit: null } } // erreur réseau persistante → on n'écrit pas de marqueur (retentable plus tard)
+  const rateLimit = readRateLimit(res)
+  if (res.status === 429) return { result: 'rate_limited', rateLimit }
+  if (res.status >= 500) return { result: 'not_found', rateLimit } // 5xx persistant : pas de marqueur, retentable
   let data: Record<string, unknown> = {}
   let ok = res.ok
   if (ok) { try { data = (await res.json()) as Record<string, unknown> } catch { ok = false } }
@@ -91,7 +101,7 @@ async function fetchAndCacheStreams(supabase: SupabaseClient, userId: string, to
   await supabase.from('activity_streams').upsert(
     { user_id: userId, activity_id: activityId, data: hasData ? data : {}, cached_at: new Date().toISOString() },
     { onConflict: 'user_id,activity_id' })
-  return hasData ? 'cached' : ok ? 'empty' : 'not_found'
+  return { result: hasData ? 'cached' : ok ? 'empty' : 'not_found', rateLimit }
 }
 
 Deno.serve(async (req: Request) => {
@@ -204,20 +214,29 @@ Deno.serve(async (req: Request) => {
     const batch = work.slice(0, budget)
 
     let cached = 0, empty = 0, notFound = 0, processed = 0, rateLimited = false
+    // Arrêt PRÉVENTIF : Strava demande de lire les en-têtes de quota et de ralentir
+    // avant d'atteindre la limite. Un 429 subi est précisément le défaut reproché.
+    let quotaExhausted = false
+    let rateLimit: RateLimitState | null = null
     const tokenCache = new Map<string, string>()
     for (const w of batch) {
+      if (shouldStopBackground(rateLimit)) { quotaExhausted = true; break }
       let token = tokenCache.get(w.userId)
       if (!token) { try { token = await getValidStravaAccessToken(supabase, w.userId); tokenCache.set(w.userId, token) } catch { continue } }
-      const res = await fetchAndCacheStreams(supabase, w.userId, token, w.activityId)
-      if (res === 'rate_limited') { rateLimited = true; break }
+      const outcome = await fetchAndCacheStreams(supabase, w.userId, token, w.activityId)
+      if (outcome.rateLimit) rateLimit = outcome.rateLimit
+      if (outcome.result === 'rate_limited') { rateLimited = true; break }
       processed++
-      if (res === 'cached') cached++; else if (res === 'empty') empty++; else notFound++
+      if (outcome.result === 'cached') cached++; else if (outcome.result === 'empty') empty++; else notFound++
       await sleep(SLEEP_MS)
     }
 
     return new Response(JSON.stringify({
       ok: true, users: userIds.length, cached, empty, notFound, processed,
       remaining: remainingBefore - processed, rateLimited,
+      // Arrêt volontaire sur budget de quota atteint (sans 429), et dernier état lu.
+      quota_exhausted: quotaExhausted,
+      rate_limit: describeRateLimit(rateLimit),
       // Courses confirmées hors fenêtre encore sans tracé (priorité haute, cf. tri).
       confirmed_races_pending: raceWork,
       // Fenêtres : cache (rattrapage, marge) vs moteur (diagnostic de couverture).

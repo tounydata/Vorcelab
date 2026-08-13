@@ -14,10 +14,10 @@ Reproduire le vrai rapport :
 # Chemin officiel (une commande) — lecture seule, service role key via l'env :
 SUPABASE_URL=https://<ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
-npm run backtest:real
+npm run backtest:real -- --athlete <user_id>
 
 # ou depuis une fixture locale déterministe (gitignorée) :
-npm run backtest:real -- --fixture ./data.backtest-fixture.json
+npm run backtest:real -- --fixture ./data.backtest-fixture.json --athlete <user_id>
 ```
 
 ---

@@ -2,6 +2,7 @@ import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { errorResponse } from '../_shared/error.ts'
 import { getServiceClient, requireAuth } from '../_shared/auth.ts'
 import { deauthorizeStrava, getValidStravaAccessToken } from '../_shared/strava.ts'
+import { purgeStravaData } from '../_shared/stravaPurge.ts'
 import {
   resolveAssistedSupportSession,
   SupportAuditError,
@@ -36,11 +37,10 @@ Deno.serve(async (req: Request) => {
       // Token may already be invalid — continue with local cleanup
     }
 
-    const { error: deleteError } = await admin
-      .from('strava_tokens')
-      .delete()
-      .eq('user_id', user.id)
-    if (deleteError) throw new Error('Strava local cleanup failed')
+    // Strava API Policy §7.4 (b) : la révocation oblige à supprimer TOUTES les
+    // Strava Data et les données qui en dérivent, pas seulement le jeton. La purge
+    // est transactionnelle et emporte le jeton en fin de parcours.
+    const purge = await purgeStravaData(admin, user.id)
 
     if (supportSession) {
       await writeSupportAudit(
@@ -48,13 +48,13 @@ Deno.serve(async (req: Request) => {
         supportSession,
         'strava_disconnect',
         'success',
-        'Déconnexion Strava confirmée par le serveur',
+        'Déconnexion Strava confirmée par le serveur, données Strava purgées',
         { connected: true },
-        { connected: false, source: 'strava_disconnect_function' },
+        { connected: false, source: 'strava_disconnect_function', purge },
       )
     }
 
-    return new Response(JSON.stringify({ disconnected: true }), {
+    return new Response(JSON.stringify({ disconnected: true, purged: purge }), {
       status: 200,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
