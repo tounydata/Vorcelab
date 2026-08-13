@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase, SUPA_URL } from '../lib/supabase'
 import { startStravaOAuth, stravaConfigured } from '../lib/strava'
 import { isSupportSessionWindow, readSupportSessionMeta } from '../lib/supportSession'
+import { PoweredByStrava } from './PoweredByStrava'
 
 // Connexion Strava — composant partagé. `compact` = état + sync (header mobile,
 // non envahissant) ; `full` = état + connecter/déconnecter/forcer sync (sidebar
@@ -175,9 +176,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
             DÉCONNECTER
           </button>
         </div>
-        <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 6, textAlign: 'center' }}>
-          POWERED BY STRAVA
-        </div>
+        <PoweredByStrava />
       </div>
     )
   }
@@ -202,10 +201,7 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
           DÉCONNECTER
         </button>
       </div>
-      {/* Attribution requise par les guidelines de marque Strava */}
-      <div style={{ fontFamily: 'var(--vl-mono)', fontSize: 8, color: 'var(--vl-text-3)', letterSpacing: '.08em', marginTop: 6, textAlign: 'center' }}>
-        POWERED BY STRAVA
-      </div>
+      <PoweredByStrava />
     </div>
   ) : (
     <div>
@@ -216,12 +212,22 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
       {/* Cas le plus fréquent en assistance : la cible n'a AUCUN jeton. Connecter depuis
           ici rattacherait le Strava de l'admin — le serveur refuse, et on boucle. */}
       {supportWindow ? supportHint : stravaConfigured() && (
+        // Bouton OFFICIEL Strava, servi tel quel depuis /public/strava. Les Brand
+        // Guidelines imposent l'asset fourni pour tout point d'entrée OAuth, et
+        // interdisent de le modifier, le recolorer ou le reconstruire.
         <button
-          className="hbtn"
-          style={{ fontSize: 9, padding: '3px 8px', width: '100%' }}
           onClick={() => startStravaOAuth()}
+          aria-label="Se connecter avec Strava"
+          style={{
+            display: 'block', width: '100%', padding: 0, border: 'none',
+            background: 'none', cursor: 'pointer', lineHeight: 0,
+          }}
         >
-          CONNECTER STRAVA
+          <img
+            src={`${import.meta.env.BASE_URL}strava/btn_strava_connect_with_orange.svg`}
+            alt="Connect with Strava"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
         </button>
       )}
     </div>

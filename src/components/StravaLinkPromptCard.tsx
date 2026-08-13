@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useDialogA11y } from '../lib/useDialogA11y'
+import { PoweredByStrava } from './PoweredByStrava'
 import type { StravaLinkState } from '../lib/stravaLinkPrompt'
 
 interface StravaLinkPromptCardProps {
@@ -170,20 +171,39 @@ export default function StravaLinkPromptCard({
               autoFocus
               disabled={busy}
               onClick={onConnect}
+              aria-label={missingScope ? 'Autoriser mes activités avec Strava' : 'Se connecter avec Strava'}
               style={{
-                width: '100%', minHeight: 56, padding: '15px 20px',
-                border: 'none', borderRadius: 14, cursor: busy ? 'wait' : 'pointer',
-                background: '#FC4C02', color: '#fff',
-                boxShadow: '0 14px 35px rgba(252,76,2,.26)',
-                fontFamily: 'var(--vl-display)', fontSize: '1.15rem',
-                fontWeight: 900, letterSpacing: '.07em',
+                display: 'block', width: '100%', padding: 0, border: 'none',
+                background: 'none', borderRadius: 0,
+                cursor: busy ? 'wait' : 'pointer', lineHeight: 0,
                 opacity: busy ? .68 : 1,
               }}
             >
-              {busy
-                ? 'OUVERTURE STRAVA…'
-                : missingScope ? 'AUTORISER MES ACTIVITÉS' : 'CONNECTER MON STRAVA'}
+              {/* Bouton OFFICIEL Strava, non modifié. Les Brand Guidelines l'imposent
+                  sur tout point d'entrée OAuth et interdisent de reconstruire un
+                  bouton maison aux couleurs de Strava. */}
+              <img
+                src={`${import.meta.env.BASE_URL}strava/btn_strava_connect_with_orange.svg`}
+                alt="Connect with Strava"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+              />
             </button>
+          ) : null}
+
+          {/* Le contexte (ouverture en cours, périmètre manquant) est porté par du
+              texte à côté du bouton : l'asset officiel ne se surcharge pas. */}
+          {!supportMode ? (
+            <div style={{
+              marginTop: 8, textAlign: 'center',
+              color: 'var(--vl-text-3)', fontFamily: 'var(--vl-mono)',
+              fontSize: 10, letterSpacing: '.06em',
+            }}>
+              {busy
+                ? 'OUVERTURE DE STRAVA…'
+                : missingScope
+                ? 'AUTORISATION DES ACTIVITÉS REQUISE'
+                : null}
+            </div>
           ) : null}
 
           <button
@@ -207,9 +227,10 @@ export default function StravaLinkPromptCard({
             {previewMode
               ? 'APERÇU ADMIN · AUCUNE ACTION RÉELLE'
               : supportMode
-              ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL · POWERED BY STRAVA'
-              : 'TU PEUX CONTINUER SANS · POWERED BY STRAVA'}
+              ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL'
+              : 'TU PEUX CONTINUER SANS'}
           </div>
+          <PoweredByStrava variant="white" />
         </div>
       </div>
     </div>
