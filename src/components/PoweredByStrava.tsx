@@ -6,10 +6,12 @@
  * et jamais plus proéminent que lui. C'est pourquoi il est servi tel quel depuis
  * `/public/strava` et contraint en largeur.
  *
- * Deux variantes officielles sont installées ; on choisit selon le thème plutôt que
- * de teinter l'asset en CSS, ce que les guidelines interdisent.
+ * Deux variantes officielles sont installées ; on choisit selon le fond plutôt que de
+ * teinter l'asset en CSS, ce que les guidelines interdisent. L'interface Vorcelab est
+ * sombre, d'où la variante BLANCHE par défaut : sur la version orange, le mot
+ * « POWERED BY » est encre foncée et devient illisible sur fond noir.
  */
-export function PoweredByStrava({ variant = 'orange' }: { variant?: 'orange' | 'white' }) {
+export function PoweredByStrava({ variant = 'white' }: { variant?: 'orange' | 'white' }) {
   const file =
     variant === 'white'
       ? 'api_logo_pwrdBy_strava_horiz_white.svg'

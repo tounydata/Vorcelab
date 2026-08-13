@@ -1,4 +1,4 @@
-name: Engine data refresh (streams + détection de courses)
+name: Engine data refresh (streams + détection de courses + purge de rétention)
 
 # ALIMENTE le moteur. Deux jobs de maintenance, dans cet ordre — qui n'est PAS anodin :
 #   1. detect-races     — qualifie les compétitions de l'historique. Ne lit que les
@@ -8,6 +8,13 @@ name: Engine data refresh (streams + détection de courses)
 #                         compétitions confirmées à l'étape 1, y compris hors fenêtre
 #                         glissante — d'où l'ordre : détecter d'abord, pour savoir quoi
 #                         rattraper en priorité.
+#   3. purge-strava-raw — CONFORMITÉ, pas alimentation. Réduit le payload Strava brut
+#                         des activités de plus de 7 jours aux seules clés consommées
+#                         (API Policy §6.2 et §5.7 : le tracé encodé et les positions de
+#                         départ/arrivée ne peuvent pas être conservés au-delà). Passe en
+#                         DERNIER : les étapes 1 et 2 lisent l'historique, autant qu'elles
+#                         le voient intact. Idempotent — un passage sans rien à purger
+#                         renvoie `rows_stripped: 0`.
 #
 # POURQUOI CE WORKFLOW EXISTE : `backfill-streams` a été écrit pour être appelé en boucle
 # par un cron (~15 min) — mais RIEN ne l'appelait. Vérifié sur la base `runnerdata` le
@@ -115,3 +122,24 @@ jobs:
             [ "$remaining" -eq 0 ] && { echo "Cache des streams à jour."; break; }
             sleep 20
           done
+
+      # Obligation de conformité, pas optimisation : si cette étape cesse de tourner,
+      # Vorcelab accumule à nouveau des données de localisation que l'API Policy interdit
+      # de conserver. Elle échoue donc bruyamment plutôt que d'être ignorée.
+      - name: Purge du payload Strava brut (rétention 7 jours)
+        env:
+          URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          body=$(curl -sS -X POST "$URL/functions/v1/purge-strava-raw" \
+            -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}')
+          echo "purge : $body"
+          if printf '%s' "$body" | grep -q '"error"'; then
+            echo "::error::purge-strava-raw a échoué. La rétention §6.2 n'est plus appliquée tant que ce n'est pas corrigé."
+            exit 1
+          fi
+          if ! printf '%s' "$body" | grep -q '"rows_stripped":'; then
+            echo "::error::Réponse inattendue de purge-strava-raw (voir ci-dessus)."
+            exit 1
+          fi

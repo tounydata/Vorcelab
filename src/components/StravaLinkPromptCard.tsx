@@ -230,7 +230,7 @@ export default function StravaLinkPromptCard({
               ? 'L’ATHLÈTE VALIDE SUR SON APPAREIL'
               : 'TU PEUX CONTINUER SANS'}
           </div>
-          <PoweredByStrava variant="white" />
+          <PoweredByStrava />
         </div>
       </div>
     </div>

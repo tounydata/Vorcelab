@@ -5,7 +5,13 @@ import { MISSING_LEGAL_INFO } from '../lib/legalVersions'
 const UPDATED = '7 août 2026'
 const CONTACT_EMAIL = 'vorcelab@gmail.com'
 
-function Shell({ title, children }: { title: string; children: ReactNode }) {
+// `subtitle` : la page de support n'est pas un document versionné — afficher une
+// « dernière mise à jour » y serait trompeur. Les documents légaux, eux, la gardent.
+function Shell({ title, subtitle = `Dernière mise à jour : ${UPDATED}`, children }: {
+  title: string
+  subtitle?: string
+  children: ReactNode
+}) {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--vl-bg)' }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '1.5rem 1.25rem 4rem' }}>
@@ -19,7 +25,7 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
         <h1 style={{ fontFamily: 'var(--vl-display)', fontSize: 'clamp(1.8rem, 5vw, 2.4rem)', fontWeight: 800, lineHeight: 1.05, margin: '0 0 6px' }}>
           {title}
         </h1>
-        <div className="mlabel" style={{ marginBottom: '2rem' }}>Dernière mise à jour : {UPDATED}</div>
+        <div className="mlabel" style={{ marginBottom: '2rem' }}>{subtitle}</div>
 
         <div className="legal-body" style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--vl-text-2)' }}>
           {children}
@@ -29,6 +35,7 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
           <Link to="/legal/cgu" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>CGU / CGV</Link>
           <Link to="/legal/confidentialite" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Confidentialité</Link>
           <Link to="/legal/mentions" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Mentions légales</Link>
+          <Link to="/support" className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Support</Link>
           <a href={`mailto:${CONTACT_EMAIL}`} className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Contact</a>
         </div>
       </div>
@@ -52,6 +59,90 @@ function MissingLegalInfo() {
         {MISSING_LEGAL_INFO.map((item) => <li key={item}>{item}</li>)}
       </ul>
     </div>
+  )
+}
+
+export function SupportPage() {
+  return (
+    <Shell title="Support" subtitle="Aide aux athlètes connectés à Strava">
+      <p>
+        Un problème, une question, une demande sur tes données : écris à <LegalContact />.
+        Une seule personne lit cette boîte, donc la réponse n'est pas instantanée — compte
+        deux jours ouvrés en général. Précise l'adresse e-mail de ton compte Vorcelab, ça
+        évite un aller-retour.
+      </p>
+
+      <H2>Mes sorties n'arrivent pas</H2>
+      <p>
+        Une sortie enregistrée sur Strava apparaît normalement dans les minutes qui suivent :
+        Strava nous prévient, on va la chercher. Si elle manque, vérifie d'abord qu'elle est
+        bien visible sur Strava et qu'elle n'est pas en privé. Ensuite, dans Réglages, le
+        bouton <strong>Forcer sync</strong> relance une synchronisation immédiate.
+      </p>
+      <p>
+        Si ça ne suffit pas, c'est souvent que l'autorisation d'accès aux activités n'a pas
+        été accordée à la connexion. Déconnecte Strava puis reconnecte-toi, et accepte
+        l'accès aux activités quand Strava le demande.
+      </p>
+
+      <H2>Le tracé de ma sortie ne s'affiche pas</H2>
+      <p>
+        Les tracés sont récupérés progressivement, en respectant les limites d'appels que
+        Strava nous impose. Une sortie récente peut donc attendre un moment avant d'afficher
+        sa carte et son profil altimétrique. Les compétitions sont traitées en priorité.
+      </p>
+      <p>
+        Certaines activités n'ont pas de tracé du tout — tapis de course, montre sans GPS,
+        sortie enregistrée à la main. Dans ce cas il n'y a rien à récupérer.
+      </p>
+
+      <H2>Ma projection de course me semble fausse</H2>
+      <p>
+        Le moteur s'appuie sur ton historique récent. Avec peu de sorties détaillées, il
+        bascule sur une estimation prudente, nettement moins précise. Plus tu accumules de
+        sorties avec cardio et dénivelé, plus la projection se resserre.
+      </p>
+      <p>
+        Si l'écart reste important après plusieurs semaines, écris-nous avec le lien de la
+        course concernée : c'est le genre de retour qui fait progresser le moteur.
+      </p>
+
+      <H2>Me déconnecter de Strava</H2>
+      <p>
+        Dans Réglages, section Strava, le bouton <strong>Déconnecter</strong>. Tu peux aussi
+        retirer l'accès depuis Strava, dans <em>Paramètres → Mes applications</em> : les deux
+        chemins ont le même effet.
+      </p>
+      <p>
+        Dans les deux cas, la déconnexion efface <strong>immédiatement et définitivement</strong>{' '}
+        tout ce qui vient de Strava : activités importées, tracés détaillés, données météo
+        associées, projections enregistrées et ton profil coureur. C'est une obligation des
+        règles de l'API Strava, elle ne peut pas être refusée ni différée.
+      </p>
+      <p>
+        Ce que tu as saisi toi-même reste : fréquence cardiaque maximale, mensurations,
+        objectifs, tests manuels, courses inscrites au calendrier et séances de renforcement.
+        Ton compte Vorcelab reste ouvert.
+      </p>
+
+      <H2>Supprimer mon compte</H2>
+      <p>
+        Dans Réglages. La suppression est définitive et emporte l'intégralité des données en
+        une seule opération. Tu peux d'abord exporter tout ce qui t'appartient, sous forme
+        d'archive.
+      </p>
+
+      <H2>Ce que Vorcelab fait de tes données Strava</H2>
+      <p>
+        Elles servent à une seule chose : te renvoyer des analyses sur tes propres sorties.
+        Rien n'est montré à un autre utilisateur, rien n'est vendu, rien n'est transmis à un
+        fournisseur d'intelligence artificielle, et aucun modèle n'est entraîné dessus. Le
+        moteur de projection est déterministe et son code est public.
+      </p>
+      <p>
+        Le détail figure dans la <Link to="/legal/confidentialite" style={{ color: 'var(--vl-ember)' }}>politique de confidentialité</Link>.
+      </p>
+    </Shell>
   )
 }
 

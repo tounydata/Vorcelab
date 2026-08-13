@@ -703,3 +703,12 @@ main{padding:1.25rem 0.5rem;width:100%;}
 .vl-splash-name{font-family:var(--vl-display);font-size:.95rem;font-weight:700;letter-spacing:.18em;color:var(--vl-text-2);animation:vl-fade 1.6s ease-in-out infinite;}
 @keyframes vl-draw{0%{stroke-dashoffset:130}55%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
 @keyframes vl-fade{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* Pages légales et support — le reset global annule les marges de paragraphe, si bien
+   que deux <p> consécutifs se collaient et formaient un pavé illisible. On les sépare
+   ici plutôt que dans chaque page, et on aère listes et liens de la même façon. */
+.legal-body p{margin:0 0 .95rem;}
+.legal-body p:last-child{margin-bottom:0;}
+.legal-body ul,.legal-body ol{margin:0 0 .95rem;padding-left:1.25rem;}
+.legal-body li{margin-bottom:.3rem;}
+.legal-body a{color:var(--vl-ember);}
