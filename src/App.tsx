@@ -39,6 +39,7 @@ const SupportSessionPage = lazy(() => import('./pages/SupportSessionPage'))
 const CguPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.CguPage })))
 const PrivacyPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.PrivacyPage })))
 const MentionsPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.MentionsPage })))
+const SupportPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.SupportPage })))
 const SUPPORT_WINDOW = isSupportSessionWindow()
 
 function PrivateRoutes() {
@@ -195,6 +196,7 @@ export default function App() {
         <Route path="legal/cgu" element={<CguPage />} />
         <Route path="legal/confidentialite" element={<PrivacyPage />} />
         <Route path="legal/mentions" element={<MentionsPage />} />
+        <Route path="support" element={<SupportPage />} />
 
         {/* Routes privées — authentification requise */}
         <Route element={<PrivateRoutes />}>

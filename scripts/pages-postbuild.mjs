@@ -22,7 +22,18 @@ if (mode !== '--github' && mode !== '--cloudflare') {
 
 const DIST = 'dist'
 const ORIGIN = 'https://vorcelab.app'
-const PUBLIC_ROUTES = ['login', 'demo', 'legal/cgu', 'legal/confidentialite']
+// `support` et `legal/mentions` DOIVENT figurer ici : ce sont des URL communiquées à
+// l'extérieur (formulaire de revue Strava, mentions obligatoires). Sans matérialisation,
+// GitHub Pages les sert via 404.html — la page s'affiche, mais le serveur répond 404.
+// Un relecteur qui ouvre l'URL de support tomberait sur un code d'erreur.
+const PUBLIC_ROUTES = [
+  'login',
+  'demo',
+  'legal/cgu',
+  'legal/confidentialite',
+  'legal/mentions',
+  'support',
+]
 // Entrées SPA techniques qui doivent répondre 200 sur un hébergement statique,
 // sans être indexées ni ajoutées au sitemap.
 const PRIVATE_SPA_ROUTES = ['support-session']
