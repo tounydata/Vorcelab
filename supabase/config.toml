@@ -56,3 +56,8 @@ verify_jwt = false
 # gateway, la fonction valide elle-même le JWT.
 [functions.lock-projection-snapshot]
 verify_jwt = false
+
+# Garmin status is a signed-in user endpoint. OAuth and webhook endpoints will be
+# added only after Garmin Developer Program approval provides the exact contract.
+[functions.garmin-status]
+verify_jwt = true
