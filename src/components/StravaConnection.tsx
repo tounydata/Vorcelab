@@ -47,6 +47,8 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
   const qc = useQueryClient()
   const [status, setStatus] = useState<StravaStatus | null>(null)
   const [syncing, setSyncing] = useState(false)
+  // Message transitoire quand le serveur ignore la synchro (une vient d'avoir lieu).
+  const [syncNote, setSyncNote] = useState<string | null>(null)
   const supportSessionId = readSupportSessionMeta()?.id
   const supportWindow = isSupportSessionWindow()
 
@@ -76,6 +78,13 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
       })
       const d = await r.json()
       if (d.last_sync_at) setStatus((p) => p ? { ...p, last_sync_at: d.last_sync_at } : p)
+      // Le serveur ignore une synchro trop rapprochée : les nouvelles activités
+      // arrivent par webhook, re-paginer l'historique n'apprendrait rien. On le dit,
+      // plutôt que de laisser croire à un échec silencieux.
+      if (d.skipped) {
+        setSyncNote('Déjà à jour — les nouvelles sorties arrivent automatiquement.')
+        setTimeout(() => setSyncNote(null), 6000)
+      }
       qc.invalidateQueries()
     } finally {
       setSyncing(false)
@@ -201,6 +210,11 @@ export default function StravaConnection({ variant = 'full' }: { variant?: 'full
           DÉCONNECTER
         </button>
       </div>
+      {syncNote && (
+        <div style={{ marginTop: 6, fontFamily: 'var(--vl-mono)', fontSize: 8.5, lineHeight: 1.45, color: 'var(--vl-text-3)' }}>
+          {syncNote}
+        </div>
+      )}
       <PoweredByStrava />
     </div>
   ) : (

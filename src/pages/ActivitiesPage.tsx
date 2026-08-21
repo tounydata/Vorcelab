@@ -5,9 +5,13 @@ import { supabase } from '../lib/supabase'
 import { useTrackEvent } from '../lib/useTrackEvent'
 import BrandedLoader from '../components/BrandedLoader'
 import LoadError from '../components/LoadError'
+import { ViewOnStrava } from '../components/ViewOnStrava'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 interface Activity {
   id: string
+  /** Identifiant Strava — sert le lien profond « Voir sur Strava » (bigint → chaîne). */
+  strava_activity_id: number | string | null
   name: string
   distance: number
   total_elevation_gain: number
@@ -137,7 +141,7 @@ export default function ActivitiesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('strava_activities')
-        .select('id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type,average_heartrate,average_speed,suffer_score')
+        .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type,average_heartrate,average_speed,suffer_score')
         .order('start_date', { ascending: false })
       if (error) throw error
       return (data ?? []) as Activity[]
@@ -240,14 +244,20 @@ export default function ActivitiesPage() {
                     {formatDate(a.start_date)} · {formatKm(a.distance)} km · {formatTime(a.moving_time)} · ↑{Math.round(a.total_elevation_gain ?? 0)} m{a.average_heartrate ? ` · ${Math.round(a.average_heartrate)} bpm` : ''}
                   </div>
                 </div>
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                   <span className="act-badge">{runBadge(a)}</span>
+                  <ViewOnStrava stravaActivityId={a.strava_activity_id} compact />
                 </div>
               </NavLink>
             ))}
           </div>
         </>
       )}
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data. */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </>
   )
 }

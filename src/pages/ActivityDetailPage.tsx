@@ -16,6 +16,8 @@ import { computeDecoupling, computeDurabilityThirds, type DurabilityStatus } fro
 import { vamBand, VAM_BAND_LABEL, VAM_BAND_COLOR } from '../lib/coach/sessionAnalysis'
 import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '../lib/weather'
 import BrandedLoader from '../components/BrandedLoader'
+import { ViewOnStrava } from '../components/ViewOnStrava'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 import { useTrackEvent } from '../lib/useTrackEvent'
 import { resolveNutritionProducts } from '../lib/nutritionProducts'
 
@@ -1217,6 +1219,12 @@ export default function ActivityDetailPage() {
           {fmtDate(activity.start_date_local ?? activity.start_date)}
           {' · '}{activity.sport_type ?? activity.type}
         </div>
+        {/* Retour vers l'activité d'origine sur Strava — exigence des Brand Guidelines,
+            et raison d'être d'une expérience complémentaire : l'analyse est ici, la
+            sortie reste chez Strava. Toujours visible, quel que soit le sport. */}
+        <div style={{ marginTop: 8 }}>
+          <ViewOnStrava stravaActivityId={activity.strava_activity_id} compact />
+        </div>
         {activity.description && (
           <div className="mlabel" style={{ marginTop: 8, textTransform: 'none', letterSpacing: 0, color: 'var(--vl-text-3)' }}>
             {activity.description}
@@ -1342,6 +1350,11 @@ export default function ActivityDetailPage() {
         <div className="mlabel" style={{ color: 'var(--vl-text-3)', textTransform: 'none', letterSpacing: 0 }}>
           Durée × intensité × dénivelé × type
         </div>
+      </div>
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data. */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <PoweredByStrava />
       </div>
     </>
   )

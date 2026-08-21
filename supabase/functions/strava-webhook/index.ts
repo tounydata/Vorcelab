@@ -6,6 +6,11 @@ import {
   upsertStravaActivity,
 } from '../_shared/strava.ts'
 import { purgeStravaData } from '../_shared/stravaPurge.ts'
+import {
+  isTrustedSubscription,
+  planActivityUpdate,
+  webhookEventKey,
+} from '../_shared/stravaWebhook.ts'
 
 // Client « permissif » (§7) : sans types de base générés, le schéma se paramètre en `never`
 // et `.from(...).upsert({...})` ne type-check plus. `any` rétablit un typage exploitable.
@@ -63,8 +68,32 @@ Deno.serve(async (req: Request) => {
       return new Response('OK', { status: 200 })
     }
 
+    // L'URL du webhook est publique et Strava ne signe pas ses appels : seul
+    // `subscription_id` distingue un événement réel d'un POST forgé. Un événement
+    // étranger est ignoré AVANT toute écriture et tout appel à l'API Strava — sans
+    // quoi un tiers pouvait déclencher notre consommation de quota à volonté.
+    const subscription = isTrustedSubscription(
+      event.subscription_id,
+      Deno.env.get('STRAVA_SUBSCRIPTION_ID'),
+    )
+    if (!subscription.trusted) {
+      console.warn(`Webhook rejeté : subscription_id inattendu (${event.subscription_id})`)
+      return new Response('OK', { status: 200 })
+    }
+    if (subscription.unconfigured) {
+      console.warn('STRAVA_SUBSCRIPTION_ID non configuré : événement accepté sans vérification')
+    }
+
     // Store event for processing — respond immediately (fire-and-forget en tâche de fond).
     void (async () => {
+      // Idempotence : Strava rejoue un événement tant qu'il n'a pas vu de 200, et peut
+      // le rejouer même après. Retraiter un rejeu, c'est refaire l'appel Strava pour
+      // rien. La clé (owner, object, aspect, event_time) identifie l'événement.
+      if (await alreadyProcessed(supabase, event)) {
+        console.info(`Webhook déjà traité, ignoré : ${webhookEventKey(event)}`)
+        return
+      }
+
       const { error } = await supabase
         .from('strava_webhook_events')
         .insert({
@@ -108,6 +137,76 @@ async function resolveUserId(
     return null
   }
   return tokenRow.user_id as string
+}
+
+/**
+ * L'événement a-t-il DÉJÀ été traité ?
+ *
+ * Strava rejoue un événement tant qu'il n'a pas reçu de 200, et un 200 perdu en route
+ * suffit à provoquer un rejeu. Sans cette garde, chaque rejeu refaisait le
+ * GET /activities/{id} — un appel pour un travail déjà fait.
+ */
+async function alreadyProcessed(
+  supabase: AnySupabaseClient,
+  event: { owner_id: number; object_id: number; aspect_type: string; event_time: number },
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('strava_webhook_events')
+    .select('id')
+    .eq('owner_id', event.owner_id)
+    .eq('object_id', event.object_id)
+    .eq('aspect_type', event.aspect_type)
+    .eq('event_time', event.event_time)
+    .not('processed_at', 'is', null)
+    .limit(1)
+  return Boolean(data && data.length > 0)
+}
+
+/** Marque l'événement comme traité (clé d'idempotence complète, `event_time` inclus). */
+async function markProcessed(
+  supabase: AnySupabaseClient,
+  event: { owner_id: number; object_id: number; aspect_type: string; event_time: number },
+): Promise<void> {
+  await supabase
+    .from('strava_webhook_events')
+    .update({ processed_at: new Date().toISOString() })
+    .eq('owner_id', event.owner_id)
+    .eq('object_id', event.object_id)
+    .eq('aspect_type', event.aspect_type)
+    .eq('event_time', event.event_time)
+    .is('processed_at', null)
+}
+
+/**
+ * L'athlète nous a-t-il accordé la lecture des activités PRIVÉES ?
+ *
+ * Détermine ce qu'il advient d'une activité qui passe en privé : avec
+ * `activity:read_all`, l'autorisation couvre toujours la donnée et elle est conservée ;
+ * sans ce scope, l'autorisation ne la couvre plus et elle doit disparaître de chez nous.
+ */
+async function hasReadAllScope(supabase: AnySupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('strava_tokens')
+    .select('scope')
+    .eq('user_id', userId)
+    .maybeSingle()
+  return String(data?.scope ?? '').split(',').map((s) => s.trim()).includes('activity:read_all')
+}
+
+/**
+ * Une activité est passée en privé alors que notre autorisation ne couvre pas les
+ * activités privées : elle est retirée, tracé compris. Ne rien faire reviendrait à
+ * conserver une donnée que l'athlète a explicitement soustraite au public — le genre
+ * de « privacy concern » que Strava vérifie.
+ */
+async function purgeNowPrivateActivity(
+  supabase: AnySupabaseClient,
+  userId: string,
+  activityId: number,
+): Promise<void> {
+  await supabase.from('activity_streams').delete().eq('user_id', userId).eq('activity_id', activityId)
+  await supabase.from('strava_activities').delete().eq('user_id', userId).eq('strava_activity_id', activityId)
+  console.info(`Activité ${activityId} passée en privé (scope sans activity:read_all) → purgée`)
 }
 
 /**
@@ -171,19 +270,38 @@ async function processWebhookEvent(
     return
   }
 
+  // ── `update` : appliquer ce que Strava a DÉJÀ envoyé, sans rien redemander ──
+  // Le payload `updates` porte le détail du changement (titre, type, visibilité).
+  // Un renommage — l'événement `update` le plus courant — ne justifie aucun appel.
+  if (event.aspect_type === 'update') {
+    const plan = planActivityUpdate(event.updates)
+
+    if (plan.becamePrivate && !(await hasReadAllScope(supabase, userId))) {
+      await purgeNowPrivateActivity(supabase, userId, event.object_id)
+      await markProcessed(supabase, event)
+      return
+    }
+
+    if (!plan.needsFetch) {
+      if (Object.keys(plan.patch).length > 0) {
+        await supabase
+          .from('strava_activities')
+          .update({ ...plan.patch, updated_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('strava_activity_id', event.object_id)
+      }
+      await markProcessed(supabase, event)
+      return
+    }
+  }
+
   if (event.aspect_type === 'create' || event.aspect_type === 'update') {
     try {
       const accessToken = await getValidStravaAccessToken(supabase, userId)
       const activity = await fetchStravaActivityById(accessToken, event.object_id)
       await upsertStravaActivity(supabase, userId, activity)
 
-      // Mark as processed
-      await supabase
-        .from('strava_webhook_events')
-        .update({ processed_at: new Date().toISOString() })
-        .eq('object_id', event.object_id)
-        .eq('owner_id', event.owner_id)
-        .is('processed_at', null)
+      await markProcessed(supabase, event)
 
       // Sync weather (best-effort, Open-Meteo requires >7 days old)
       if (event.aspect_type === 'create') {
