@@ -19,6 +19,7 @@ import { useRaceProjection } from '@/lib/useRaceProjection'
 import { fmtRaceTimeS } from '@/lib/raceStrategyView'
 import CoachCard from '@/components/CoachCard'
 import BrandedLoader from '@/components/BrandedLoader'
+import { PoweredByStrava } from '@/components/StravaBrand'
 import PostRaceModal from '@/components/races/PostRaceModal'
 import { pickRacePrompt, type RaceCalendarRow } from '@/lib/racePrompt'
 import { linkRaceResult } from '@/lib/linkRaceResult'
@@ -471,6 +472,9 @@ export default function Dashboard() {
             {renderSection(key)}
           </View>
         ))}
+
+        {/* Attribution obligatoire : le tableau de bord affiche des Strava Data. */}
+        {loading ? null : <PoweredByStrava />}
       </ScrollView>
     </SafeAreaView>
   )

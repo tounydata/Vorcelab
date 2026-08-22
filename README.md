@@ -65,6 +65,12 @@ legacy.html     ancien monolithe (backup, déployé sur /Vorcelab/_legacy.html)
   n'accède qu'à ses propres lignes.
 - **Tokens Strava côté serveur uniquement** — jamais renvoyés au navigateur. Les
   opérations sensibles passent par des Edge Functions (`strava-*`).
+- **Attribution Strava** sur chaque vue affichant des Strava Data (logo officiel
+  « Powered by Strava ») et **lien retour** vers l'activité d'origine sur strava.com.
+- **Appels Strava optimisés** : ingestion par webhook (aucun sondage), lecture des
+  en-têtes de quota avec arrêt préventif à 90 %, cache serveur des tracés (immuables),
+  événements `update` appliqués depuis le payload sans re-lecture, rejeux idempotents.
+  Détail dans `docs/strava-api-compliance.md`.
 - **Pas d'IA externe** sur les données Strava : l'analyse et le coaching sont
   **100% locaux/déterministes** (l'API Strava interdit l'envoi des données à un
   fournisseur d'IA). Voir `docs/architecture/adr-001-foundation.md`.
@@ -80,3 +86,5 @@ redirige vers l'app.
 - `docs/architecture/adr-001-foundation.md` — décisions d'architecture & sécurité
 - `docs/architecture/migration-plan.md` — plan de migration monolithe → modulaire
 - `docs/security-checklist.md` — checklist sécurité
+- `docs/strava-api-compliance.md` — conformité API Strava (Brand Guidelines, quota,
+  rétention, révocation) et dossier de re-soumission

@@ -17,6 +17,8 @@ import { useRaceProjection } from '../lib/useRaceProjection'
 import { fmtRaceTimeS } from '../lib/raceStrategyView'
 import type { RunnerProfileComputed } from '../lib/runnerProfile'
 import BrandedLoader from '../components/BrandedLoader'
+import { ViewOnStrava } from '../components/ViewOnStrava'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 import PostRaceModal from '../components/races/PostRaceModal'
 import { pickRacePrompt, type RaceCalendarRow } from '../lib/racePrompt'
 import { linkRaceResult } from '../lib/linkRaceResult'
@@ -940,6 +942,7 @@ export default function DashboardPage() {
                           /KM · {formatDateShort(a.start_date)}
                         </div>
                         <span className="act-badge">{a.sport_type === 'TrailRun' ? 'Trail' : a.type}</span>
+                        <ViewOnStrava stravaActivityId={a.strava_activity_id} compact />
                       </div>
                     </NavLink>
                   ))}
@@ -951,6 +954,11 @@ export default function DashboardPage() {
           ))}
         </>
       )}
+
+      {/* Attribution obligatoire : le tableau de bord affiche des Strava Data. */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </>
   )
 }

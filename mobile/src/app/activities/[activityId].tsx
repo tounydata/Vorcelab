@@ -16,6 +16,7 @@ import { fetchActivityWeather, mergeStravaTemp, type WeatherData } from '@/lib/w
 import BrandedLoader from '@/components/BrandedLoader'
 import RouteMap from '@/components/RouteMap'
 import ShareStickers from '@/components/ShareStickers'
+import { PoweredByStrava, ViewOnStrava } from '@/components/StravaBrand'
 import { useTrackEvent } from '@/lib/useTrackEvent'
 import { resolveNutritionProducts, type NutritionProduct } from '@/lib/nutritionProducts'
 import { Card, CLabel, SVal, SLbl, BackLink, colors, radius, space } from '@/components/coach/ui'
@@ -807,6 +808,12 @@ export default function ActivityDetailScreen() {
           <Text style={{ fontSize: 26, lineHeight: 29, color: colors.text, marginBottom: 6, fontWeight: '700' }}>{activity.name}</Text>
           <Text style={{ fontSize: 11, color: colors.text3 }}>{fmtDate(activity.start_date_local ?? activity.start_date)} · {activity.sport_type ?? activity.type}</Text>
           {activity.description ? <Text style={{ fontSize: 12.5, color: colors.text3, marginTop: 8 }}>{activity.description}</Text> : null}
+          {/* Retour vers l'activité d'origine sur Strava — toujours visible, quel que
+              soit le sport : c'est l'exigence des Brand Guidelines et le principe même
+              d'une expérience complémentaire. */}
+          <View style={{ marginTop: 10 }}>
+            <ViewOnStrava stravaActivityId={activity.strava_activity_id} />
+          </View>
           {isRun ? (
             <View style={{ marginTop: 12 }}>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -881,6 +888,11 @@ export default function ActivityDetailScreen() {
           <SVal style={{ color: load > 200 ? colors.ember : load > 100 ? colors.amber : colors.growth }}>{load}</SVal>
           <Text style={{ fontSize: 10.5, color: colors.text3, marginTop: 4 }}>Durée × intensité × dénivelé × type</Text>
         </Card>
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data. */}
+        <View style={{ marginBottom: 24 }}>
+          <PoweredByStrava />
+        </View>
       </ScrollView>
     </SafeAreaView>
   )

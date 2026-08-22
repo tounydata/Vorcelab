@@ -3,6 +3,7 @@ import { errorResponse } from '../_shared/error.ts'
 import { getServiceClient, requireAuth } from '../_shared/auth.ts'
 import { getValidStravaAccessToken, syncStravaActivitiesForUser } from '../_shared/strava.ts'
 import { hasRequiredStravaActivityScope } from '../_shared/stravaScopes.ts'
+import { decideManualSync } from '../_shared/stravaSyncPolicy.ts'
 import {
   resolveAssistedSupportSession,
   SupportAuditError,
@@ -65,6 +66,34 @@ Deno.serve(async (req: Request) => {
         )
       }
       return errorResponse('Strava activity permission required', 403)
+    }
+
+    // Les nouvelles activités arrivent par webhook : re-paginer l'historique juste
+    // après une synchronisation ne peut rien apprendre de neuf, et consomme le quota
+    // d'un athlète qui clique deux fois. La synchro COMPLÈTE reste toujours autorisée.
+    const decision = decideManualSync(tokenRow.last_sync_at as string | null, { full })
+    if (decision.skip) {
+      if (supportSession) {
+        await writeSupportAudit(
+          admin,
+          supportSession,
+          'strava_sync_incremental',
+          'success',
+          'Synchronisation ignorée : une synchronisation vient d’avoir lieu',
+          { last_sync_at: tokenRow.last_sync_at ?? null },
+          { skipped: true, retry_after_seconds: decision.retryAfterSeconds },
+        )
+      }
+      return new Response(
+        JSON.stringify({
+          connected: true,
+          synced: 0,
+          skipped: true,
+          retry_after_seconds: decision.retryAfterSeconds,
+          last_sync_at: tokenRow.last_sync_at ?? null,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
     }
 
     const accessToken = await getValidStravaAccessToken(admin, user.id)

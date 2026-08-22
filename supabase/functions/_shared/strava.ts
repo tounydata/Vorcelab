@@ -202,7 +202,7 @@ export async function fetchAndCacheActivityStreams(
   supabase: AnySupabaseClient,
   userId: string,
   accessToken: string,
-  activityId: number | bigint,
+  activityId: number | bigint | string,
 ): Promise<CacheStreamResult> {
   // Retries sur erreurs TRANSITOIRES (réseau, 5xx) ; ni 429 ni 4xx ne sont réessayés.
   const url = `${STRAVA_ACTIVITY_URL}/${activityId}/streams?keys=${STRAVA_STREAM_KEYS}&key_by_type=true`

@@ -1,4 +1,8 @@
-import { Image, Pressable, View } from 'react-native'
+import { Image, Linking, Pressable, Text, View } from 'react-native'
+import { stravaActivityUrl } from '../lib/stravaActivityUrl'
+
+/** Orange officiel Strava — utilisé uniquement pour le lien retour, pas sur les assets. */
+const STRAVA_ORANGE = '#FC4C02'
 
 // Assets OFFICIELS Strava (packs « Connect with Strava Buttons » et « Strava API
 // Logos »), servis tels quels. Les Brand Guidelines imposent l'asset fourni sur tout
@@ -64,5 +68,45 @@ export function PoweredByStrava({ variant = 'white' }: { variant?: 'white' | 'or
         accessibilityIgnoresInvertColors
       />
     </View>
+  )
+}
+
+/**
+ * Lien profond « Voir sur Strava » vers l'activité d'origine.
+ *
+ * Les Brand Guidelines exigent que toute donnée d'activité affichée hors de Strava
+ * renvoie vers l'activité correspondante sur Strava. C'est aussi la définition d'une
+ * expérience *complémentaire* : Vorcelab analyse, Strava reste le lieu de la sortie.
+ *
+ * L'identifiant n'est jamais converti en `number` — au-delà de 2^53 la conversion
+ * perdrait des chiffres et pointerait vers l'activité d'un autre athlète.
+ */
+export function ViewOnStrava({
+  stravaActivityId,
+}: {
+  stravaActivityId: number | string | null | undefined
+}) {
+  const href = stravaActivityUrl(stravaActivityId)
+  if (!href) return null
+
+  return (
+    <Pressable
+      onPress={() => { void Linking.openURL(href) }}
+      accessibilityRole="link"
+      accessibilityLabel="Voir cette activité sur Strava"
+      style={{
+        alignSelf: 'flex-start',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(252,76,2,0.45)',
+        backgroundColor: 'rgba(252,76,2,0.12)',
+      }}
+    >
+      <Text style={{ color: STRAVA_ORANGE, fontSize: 11, letterSpacing: 0.4 }}>
+        Voir sur Strava ↗
+      </Text>
+    </Pressable>
   )
 }

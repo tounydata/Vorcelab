@@ -4,9 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { colors, font, radius, space } from '@/lib/theme'
+import { PoweredByStrava, ViewOnStrava } from '@/components/StravaBrand'
 
 interface Activity {
   id: string
+  /** Identifiant Strava — porte le lien retour « Voir sur Strava » (bigint → chaîne). */
+  strava_activity_id: number | string | null
   name: string
   distance: number
   total_elevation_gain: number
@@ -93,7 +96,7 @@ export default function Activities() {
   useEffect(() => {
     supabase
       .from('strava_activities')
-      .select('id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
+      .select('id,strava_activity_id,name,distance,total_elevation_gain,moving_time,start_date,type,sport_type')
       .is('deleted_at', null)
       .order('start_date', { ascending: false })
       .then(({ data }) => {
@@ -205,13 +208,19 @@ export default function Activities() {
                     {Math.round(a.total_elevation_gain ?? 0)} m
                   </Text>
                 </View>
-                <View style={{ backgroundColor: colors.surf3, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: colors.text2, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>{runBadge(a)}</Text>
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <View style={{ backgroundColor: colors.surf3, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: colors.text2, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>{runBadge(a)}</Text>
+                  </View>
+                  <ViewOnStrava stravaActivityId={a.strava_activity_id} />
                 </View>
               </Pressable>
             ))}
           </>
         )}
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data. */}
+        <PoweredByStrava />
       </ScrollView>
     </SafeAreaView>
   )
