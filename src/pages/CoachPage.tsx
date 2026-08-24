@@ -19,6 +19,7 @@ import CalibrationPopup from '../components/coach/CalibrationPopup'
 import WeekProgram, { type HistoryWeek } from '../components/WeekProgram'
 import SessionAdaptationSplash from '../components/SessionAdaptationSplash'
 import BrandedLoader from '../components/BrandedLoader'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: 'var(--vl-growth)',
@@ -547,6 +548,11 @@ export default function CoachPage() {
           Le renforcement est <strong>intégré à ta semaine</strong> et co-périodisé avec ta course.
         </div>
       )}
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data (ou des analyses qui en dérivent). */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </div>
   )
 }

@@ -21,6 +21,7 @@ import BrandedLoader from '@/components/BrandedLoader'
 import { Card } from '@/components/coach/ui'
 import { colors, font, radius, space } from '@/lib/theme'
 import { useLoadEffect } from '@/lib/useLoadEffect'
+import { PoweredByStrava } from '@/components/StravaBrand'
 
 const PHASE_COLORS: Record<Phase, string> = {
   base: colors.growth,
@@ -471,6 +472,9 @@ export default function CoachScreen() {
           Les séances sont une <Text style={{ fontWeight: '700' }}>proposition</Text> : tu restes libre de ton calendrier et de ton choix.
           Le renforcement est <Text style={{ fontWeight: '700' }}>intégré à ta semaine</Text> et co-périodisé avec ta course.
         </Text>
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data (ou des analyses qui en dérivent). */}
+        <PoweredByStrava />
       </ScrollView>
 
       {/* Sélecteur de course cible (≥ 2 courses à venir) */}

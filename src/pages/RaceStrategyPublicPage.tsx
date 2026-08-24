@@ -5,6 +5,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import { type GpxPoint } from '../lib/computeRaceProjection'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 interface SharedRace {
   id: string
@@ -190,6 +191,11 @@ export default function RaceStrategyPublicPage() {
           </div>
         </>
       )}
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data (ou des analyses qui en dérivent). */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </div>
   )
 }
