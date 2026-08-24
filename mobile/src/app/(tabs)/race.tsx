@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { MountainIcon, PlusRingIcon } from '@/components/coach/CoachIcons'
 import { colors, font, space } from '@/lib/theme'
 import { useLoadEffect } from '@/lib/useLoadEffect'
+import { PoweredByStrava } from '@/components/StravaBrand'
 
 interface Race {
   id: string
@@ -243,6 +244,9 @@ export default function RaceCalendar() {
         {upcoming.length === 0 && races.length === 0 && (
           <Text style={[mlabel, { color: colors.text3 }]}>Aucune course planifiée</Text>
         )}
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data (ou des analyses qui en dérivent). */}
+        <PoweredByStrava />
       </ScrollView>
     </SafeAreaView>
   )

@@ -29,6 +29,7 @@ import {
   type ConditionPenalties,
 } from '../lib/runnerProfile'
 import { recomputeRunnerProfileServer } from '../lib/recomputeRunnerProfile'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -946,6 +947,10 @@ export default function ProfilePage() {
         </>
       )}
 
+      {/* Attribution obligatoire : cette vue affiche des Strava Data (ou des analyses qui en dérivent). */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </>
   )
 }

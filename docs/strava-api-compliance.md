@@ -27,13 +27,20 @@ Concrètement, dans l'interface :
 | Exigence des Brand Guidelines | Où | Fichier |
 | --- | --- | --- |
 | Bouton officiel « Connect with Strava », non modifié | Écran de connexion | `public/strava/btn_strava_connect_with_orange.svg` |
-| Logo officiel « Powered by Strava » sur **chaque vue affichant des Strava Data** | Tableau de bord, liste d'activités, détail d'activité, carte de connexion | `src/components/PoweredByStrava.tsx` |
+| Logo officiel « Powered by Strava » sur **chaque vue affichant des Strava Data** | Tableau de bord, liste d'activités, détail d'activité, profil coureur, coach, liste de courses, stratégie de course (y compris la page de partage publique), carte de connexion — web **et** mobile | `src/components/PoweredByStrava.tsx`, `mobile/src/components/StravaBrand.tsx` |
 | Lien retour vers l'activité d'origine sur Strava | Chaque ligne de la liste, chaque sortie du tableau de bord, en-tête du détail | `src/components/ViewOnStrava.tsx`, `src/lib/stravaActivityUrl.ts` |
 | Attribution de l'athlète (nom, avatar) | Carte de connexion Strava | `src/components/StravaConnection.tsx` |
 
 Le logo est servi tel quel depuis `public/strava/`, jamais recoloré ni animé, et sa
 largeur est bornée pour qu'il ne domine jamais l'identité Vorcelab — les deux
 contraintes des guidelines.
+
+L'attribution suit la donnée, pas seulement l'écran qui la liste : le profil coureur
+(VAM, dérive cardiaque, durabilité), le plan du coach et les projections de course
+sont **calculés à partir des Strava Data** et relèvent donc de la même exigence. Toute
+vue qui en affiche porte le logo, y compris la page de partage publique d'une
+stratégie — une projection partagée reste une donnée dérivée de Strava, même lue par
+quelqu'un qui n'a pas de compte Vorcelab.
 
 Le lien retour est le point le plus structurant : **toute donnée d'activité affichée
 renvoie vers l'activité correspondante sur strava.com**. L'identifiant n'est jamais

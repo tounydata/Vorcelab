@@ -30,6 +30,7 @@ import ProGate from '@/components/ProGate'
 import { usePlanTier } from '@/lib/usePlanTier'
 import { useTrackEvent } from '@/lib/useTrackEvent'
 import { useLoadEffect } from '@/lib/useLoadEffect'
+import { PoweredByStrava } from '@/components/StravaBrand'
 
 interface Race {
   id: string; name: string; date: string; distance: number | null; elevation: number | null; type: string | null
@@ -355,6 +356,9 @@ export default function RaceStrategyScreen() {
             ) : null}
           </>
         ) : null}
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data (ou des analyses qui en dérivent). */}
+        <PoweredByStrava />
       </ScrollView>
 
       {/* Menu d'actions */}

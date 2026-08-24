@@ -17,6 +17,7 @@ import type { HrZoneConfig } from '@/lib/hrZones'
 import { recomputeRunnerProfileServer } from '@/lib/recomputeRunnerProfile'
 import { useLoadEffect } from '@/lib/useLoadEffect'
 import { usePlanTier } from '@/lib/usePlanTier'
+import { PoweredByStrava } from '@/components/StravaBrand'
 import {
   fmtVam,
   fmtPaceFromKmh,
@@ -713,6 +714,9 @@ export default function ProfileScreen() {
             ) : null}
           </>
         )}
+
+        {/* Attribution obligatoire : cet écran affiche des Strava Data (ou des analyses qui en dérivent). */}
+        <PoweredByStrava />
       </ScrollView>
     </SafeAreaView>
   )

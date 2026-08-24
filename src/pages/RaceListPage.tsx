@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useVLStore } from '../store/vlStore'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 interface Race {
   id: string
@@ -436,6 +437,11 @@ export default function RaceListPage() {
       {upcoming.length === 0 && races.length === 0 && (
         <div className="mlabel" style={{ color: 'var(--vl-text-3)' }}>Aucune course planifiée</div>
       )}
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data (ou des analyses qui en dérivent). */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </div>
   )
 }

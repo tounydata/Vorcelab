@@ -26,6 +26,7 @@ import ProGate from '../components/ProGate'
 import { usePlanTier } from '../lib/usePlanTier'
 import { useAutoUpgradeModal } from '../lib/useAutoUpgradeModal'
 import { useTrackEvent } from '../lib/useTrackEvent'
+import { PoweredByStrava } from '../components/PoweredByStrava'
 
 interface Race {
   id: string
@@ -790,6 +791,11 @@ export default function RaceStrategyPage() {
           )}
         </>
       )}
+
+      {/* Attribution obligatoire : cette vue affiche des Strava Data (ou des analyses qui en dérivent). */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <PoweredByStrava />
+      </div>
     </>
   )
 }
